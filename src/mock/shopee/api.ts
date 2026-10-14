@@ -3,9 +3,10 @@ import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { mockDb } from "../db/client";
 import { mockAfterSale, mockApp, mockAuthCode, mockBuyerThread, mockMessage, mockOrder, mockShop, type FaultCategory } from "../db/schema";
 import { FAULT_TIMEOUT_MS, sleep, takeFault } from "../faults";
-import { SHOPEE_ACCESS_TTL_SEC, SHOPEE_EVIDENCE_DUE_SEC, SHOPEE_REFRESH_TTL_SEC } from "../fixtures";
+import { MOCK_PRODUCTS, SHOPEE_ACCESS_TTL_SEC, SHOPEE_EVIDENCE_DUE_SEC, SHOPEE_REFRESH_TTL_SEC } from "../fixtures";
 import { nowSec, originOf, toSec } from "../http";
 import { token } from "../ids";
+import { mockProductImageUrl } from "../images";
 import { applyOrderStatus, SHOPEE_PRE_SHIP, shopeeLogisticsStatus } from "../orders";
 import { deliverPush, runPushesLater, type PendingPush } from "../push";
 import { fileUrl, MAX_UPLOAD_BYTES, saveUpload } from "../uploads";
@@ -202,6 +203,30 @@ async function setPushConfig(ctx: Ctx): Promise<Response> {
 }
 
 // ── 店铺 ──
+
+// ── 商品（商品卡片取标题、主图、价格用；模拟商品都是单规格） ──
+
+function catalogItem(s: ShopeeShop, itemId: string) {
+  return (MOCK_PRODUCTS[`shopee:${s.shopId}`] ?? []).find((p) => p.itemId === itemId);
+}
+
+async function getItemBaseInfo(ctx: Ctx): Promise<Response> {
+  const s = shop(ctx);
+  const ids = (ctx.query.get("item_id_list") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (!ids.length || ids.length > 50) throw E.param("item_id_list should contain 1 to 50 item ids");
+  const item_list = ids.flatMap((id) => {
+    const p = catalogItem(s, id);
+    if (!p) return [];
+    return [{ item_id: Number(p.itemId), item_name: p.name, item_status: "NORMAL", has_model: false, image: { image_url_list: [mockProductImageUrl(p.itemId)], image_id_list: [p.itemId] }, price_info: [{ currency: s.currency, original_price: Number(p.originalPrice), current_price: Number(p.price) }] }];
+  });
+  return ok({ item_list });
+}
+
+async function getModelList(ctx: Ctx): Promise<Response> {
+  const p = catalogItem(shop(ctx), ctx.query.get("item_id") ?? "");
+  if (!p) throw E.notFound("item_id not found");
+  return ok({ tier_variation: [], model: [] });
+}
 
 async function getShopInfo(ctx: Ctx): Promise<Response> {
   const s = shop(ctx);
@@ -586,6 +611,8 @@ const HANDLERS: Record<string, Handler> = {
   "push/get_app_push_config": { method: "GET", level: "public", run: getPushConfig },
   "push/set_app_push_config": { method: "POST", level: "public", run: setPushConfig },
   "shop/get_shop_info": { method: "GET", level: "shop", run: getShopInfo },
+  "product/get_item_base_info": { method: "GET", level: "shop", run: getItemBaseInfo },
+  "product/get_model_list": { method: "GET", level: "shop", run: getModelList },
   "sellerchat/get_conversation_list": { method: "GET", level: "shop", run: getConversationList },
   "sellerchat/get_one_conversation": { method: "GET", level: "shop", run: getOneConversation },
   "sellerchat/get_message": { method: "GET", level: "shop", run: getMessage },

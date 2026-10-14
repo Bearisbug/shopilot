@@ -19,7 +19,7 @@ const MAX_CONVERSATION_PAGES = 3;
 /** 平台超时、5xx、网络错误后跳过这家店的轮数（约 1 分钟） */
 const BACKOFF_ROUNDS = 2;
 
-type Buyer = { externalId: string; name: string | null; affiliate: boolean };
+type Buyer = { externalId: string; name: string | null; affiliate: boolean; avatarUrl: string | null };
 type Batch = { buyer: Buyer; messages: NormalizedMessage[] };
 
 const backoff = new Map<string, number>();
@@ -109,7 +109,7 @@ async function changedSince(c: ShopClient, since: Date): Promise<Batch[]> {
           const r = await shopeeMessages(c.app, c.auth, conv.conversationId, offset, 20);
           return { items: r.items, next: r.nextOffset };
         }, since);
-        if (messages.length) out.push({ buyer: { externalId: conv.buyerId, name: conv.buyerName || null, affiliate: false }, messages });
+        if (messages.length) out.push({ buyer: { externalId: conv.buyerId, name: conv.buyerName || null, affiliate: false, avatarUrl: conv.buyerAvatar }, messages });
       }
       if (!res.nextCursor) break;
       cursor = res.nextCursor;
@@ -126,7 +126,7 @@ async function changedSince(c: ShopClient, since: Date): Promise<Batch[]> {
         const r = await tiktokMessages(c.app, c.auth, conv.conversationId, t);
         return { items: r.items, next: r.nextPageToken };
       }, since);
-      if (messages.length) out.push({ buyer: { externalId: conv.buyerUserId ?? conv.buyerImId ?? "", name: conv.buyerName || null, affiliate: conv.affiliate }, messages });
+      if (messages.length) out.push({ buyer: { externalId: conv.buyerUserId ?? conv.buyerImId ?? "", name: conv.buyerName || null, affiliate: conv.affiliate, avatarUrl: conv.buyerAvatar }, messages });
     }
     if (!res.nextPageToken) break;
     token = res.nextPageToken;

@@ -5,6 +5,7 @@ import { mockAfterSale, mockBuyerThread, mockMessage, mockOrder } from "../db/sc
 import { TIKTOK_EVENT_TYPES } from "../fixtures";
 import { nowSec, toSec } from "../http";
 import { tiktokMessageId, tiktokNotificationId, tiktokSessionId, tiktokShopImId } from "../ids";
+import { mockAvatarUrl } from "../images";
 import { deliverPush, type PendingPush } from "../push";
 import type { TiktokShop } from "./core";
 
@@ -30,7 +31,7 @@ export function messageIndex(seq: number): string {
 
 function sender(m: Msg, t: Thread, shop: TiktokShop) {
   return m.sender === "buyer"
-    ? { im_user_id: t.buyerImId, role: "BUYER", nickname: t.buyerName, avatar: t.buyerAvatar ?? "" }
+    ? { im_user_id: t.buyerImId, role: "BUYER", nickname: t.buyerName, avatar: t.buyerAvatar || mockAvatarUrl(t.buyerId) }
     : { im_user_id: tiktokShopImId(shop.shopId), role: ROLE[m.sender], nickname: shop.name, avatar: "" };
 }
 
@@ -60,7 +61,7 @@ export function tiktokConversationFields(t: Thread, shop: TiktokShop, latest: Ms
     unread_count: t.unreadCount,
     create_time: toSec(t.createdAt),
     participants: [
-      { im_user_id: t.buyerImId, avatar: t.buyerAvatar ?? "", user_id: t.buyerId, role: "BUYER", nickname: t.buyerName, buyer_platform: "TIKTOK_SHOP" },
+      { im_user_id: t.buyerImId, avatar: t.buyerAvatar || mockAvatarUrl(t.buyerId), user_id: t.buyerId, role: "BUYER", nickname: t.buyerName, buyer_platform: "TIKTOK_SHOP" },
       { im_user_id: tiktokShopImId(shop.shopId), avatar: "", user_id: shop.shopId, role: "SHOP", nickname: shop.name },
     ],
     latest_message: latest ? tiktokMessageFields(latest, t, shop) : null,

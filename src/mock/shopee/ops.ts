@@ -4,6 +4,7 @@ import { mockDb } from "../db/client";
 import { mockAfterSale, mockApp, mockBuyerThread, mockMessage, mockOrder, mockShop } from "../db/schema";
 import { newRequestId, nowSec, toSec } from "../http";
 import { shopeeMessageId } from "../ids";
+import { mockAvatarUrl } from "../images";
 import { shopeeLogisticsStatus } from "../orders";
 import { deliverPush, type PendingPush } from "../push";
 import { shopUserId, shopUsername, type ShopeeApp, type ShopeeShop } from "./core";
@@ -75,7 +76,7 @@ export function shopeeConversationFields(t: Thread, shop: ShopeeShop, latest: Ms
     conversation_id: t.conversationId,
     to_id: Number(t.buyerId),
     to_name: t.buyerName,
-    to_avatar: t.buyerAvatar ?? "",
+    to_avatar: t.buyerAvatar || mockAvatarUrl(t.buyerId),
     shop_id: Number(shop.shopId),
     unread_count: t.unreadCount,
     pinned: false,

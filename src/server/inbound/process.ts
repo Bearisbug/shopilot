@@ -164,7 +164,7 @@ async function dispatch(ev: EventRow): Promise<Outcome> {
   }
   if (platform === "tiktok" && code === 14) {
     const m = normalizeTiktokMessage({ ...d, id: d.message_id });
-    let buyer: { externalId: string; name: string | null; affiliate: boolean } | null = null;
+    let buyer: { externalId: string; name: string | null; affiliate: boolean; avatarUrl?: string | null } | null = null;
     if (m.fromBuyer) {
       const [existing] = await db()
         .select({ buyerExternalId: schema.conversation.buyerExternalId, buyerName: schema.conversation.buyerName, buyerKind: schema.conversation.buyerKind })
@@ -177,7 +177,7 @@ async function dispatch(ev: EventRow): Promise<Outcome> {
           if (e instanceof ShopUnavailableError) return null;
           throw e;
         });
-        buyer = { externalId: conv?.buyerUserId ?? m.buyerExternalId ?? "", name: conv?.buyerName ?? null, affiliate: conv?.affiliate ?? false };
+        buyer = { externalId: conv?.buyerUserId ?? m.buyerExternalId ?? "", name: conv?.buyerName ?? null, affiliate: conv?.affiliate ?? false, avatarUrl: conv?.buyerAvatar ?? null };
       }
     }
     return db().transaction((tx) => ingestMessage(tx, shop, m, buyer));

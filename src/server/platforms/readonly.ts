@@ -29,6 +29,8 @@ const SHOPEE_READ: ReadonlyArray<string> = [
   "GET logistics/get_tracking_info",
   "GET returns/get_return_list",
   "GET returns/get_return_detail",
+  "GET product/get_item_base_info",
+  "GET product/get_model_list",
 ];
 
 /** TikTok：开放接口路径（不含主机与查询串）；路径里的 ID 段用 [^/]+ 匹配 */
@@ -46,6 +48,7 @@ const TIKTOK_READ: ReadonlyArray<[method: string, path: RegExp]> = [
   ["POST", /^\/return_refund\/202602\/cancellations\/search$/],
   ["GET", /^\/return_refund\/202309\/reject_reasons$/],
   ["POST", /^\/promotion\/202406\/coupons\/search$/],
+  ["GET", /^\/product\/202309\/products\/[^/]+$/],
 ];
 
 export const shopeeReadAllowed = (method: string, apiPath: string) => SHOPEE_READ.includes(`${method} ${apiPath}`);

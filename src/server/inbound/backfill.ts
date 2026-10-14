@@ -49,7 +49,7 @@ async function backfillConversations(c: ShopClient, since: Date): Promise<number
           const r = await shopeeMessages(c.app, c.auth, conv.conversationId, offset);
           return { items: r.items, next: r.nextOffset };
         }, since);
-        const n = await db().transaction((tx) => backfillConversation(tx, c.shop, { externalConversationId: conv.conversationId, buyerExternalId: conv.buyerId, buyerName: conv.buyerName, affiliate: false }, messages));
+        const n = await db().transaction((tx) => backfillConversation(tx, c.shop, { externalConversationId: conv.conversationId, buyerExternalId: conv.buyerId, buyerName: conv.buyerName, affiliate: false, avatarUrl: conv.buyerAvatar }, messages));
         if (n > 0) count++;
       }
       if (!res.nextCursor) break;
@@ -67,7 +67,7 @@ async function backfillConversations(c: ShopClient, since: Date): Promise<number
         return { items: r.items, next: r.nextPageToken };
       }, since);
       const n = await db().transaction((tx) =>
-        backfillConversation(tx, c.shop, { externalConversationId: conv.conversationId, buyerExternalId: conv.buyerUserId ?? conv.buyerImId ?? "", buyerName: conv.buyerName, affiliate: conv.affiliate }, messages),
+        backfillConversation(tx, c.shop, { externalConversationId: conv.conversationId, buyerExternalId: conv.buyerUserId ?? conv.buyerImId ?? "", buyerName: conv.buyerName, affiliate: conv.affiliate, avatarUrl: conv.buyerAvatar }, messages),
       );
       if (n > 0) count++;
     }

@@ -6,6 +6,7 @@ import { FAULT_TIMEOUT_MS, sleep, takeFault } from "../faults";
 import { MOCK_PRODUCTS, TIKTOK_EVENT_TYPES } from "../fixtures";
 import { nowSec, originOf, toSec } from "../http";
 import { tiktokReturnId } from "../ids";
+import { mockProductImageUrl } from "../images";
 import { applyOrderStatus, TIKTOK_PRE_SHIP } from "../orders";
 import { runPushesLater, type PendingPush } from "../push";
 import { fileUrl, MAX_UPLOAD_BYTES, saveUpload } from "../uploads";
@@ -557,6 +558,21 @@ async function searchCoupons(ctx: Ctx): Promise<Response> {
 
 const EVENT_NAMES = new Set([...Object.values(TIKTOK_EVENT_TYPES), "PRODUCT_INFORMATION_CHANGE", "PRODUCT_CREATION", "PRODUCT_CATEGORY_CHANGE", "NEW_MESSAGE_LISTENER", "INVOICE_STATUS_CHANGE", "PRODUCT_AUDIT_STATUS_CHANGE", "REVERSE_STATUS_UPDATE"]);
 
+/** 商品详情（商品卡片取标题、主图、价格用；模拟商品都是单 SKU） */
+async function getProduct(ctx: Ctx): Promise<Response> {
+  const s = shop(ctx);
+  const p = (MOCK_PRODUCTS[`tiktok:${s.shopId}`] ?? []).find((x) => x.itemId === ctx.params[0]);
+  if (!p) throw T.param("The product does not exist.");
+  const url = mockProductImageUrl(p.itemId);
+  return ok({
+    id: p.itemId,
+    title: p.name,
+    status: "ACTIVATE",
+    main_images: [{ height: 600, width: 600, uri: `mock/${p.itemId}`, urls: [url], thumb_urls: [url] }],
+    skus: [{ id: p.skuId, seller_sku: p.skuId, price: { currency: s.currency, sale_price: p.price, tax_exclusive_price: p.price } }],
+  });
+}
+
 async function getWebhooks(ctx: Ctx): Promise<Response> {
   const hooks = Object.entries(shop(ctx).webhooks).map(([event_type, h]) => ({ event_type, address: h.address, create_time: h.create_time, update_time: h.update_time }));
   return ok({ webhooks: hooks, total_count: hooks.length });
@@ -615,6 +631,7 @@ const HANDLERS: Handler[] = [
   route("GET", "/return_refund/202309/returns/{id}/records", true, returnRecords),
   route("GET", "/return_refund/202309/reject_reasons", true, rejectReasons),
   route("POST", "/promotion/202406/coupons/search", true, searchCoupons),
+  route("GET", "/product/202309/products/{id}", true, getProduct),
   route("GET", "/event/202309/webhooks", true, getWebhooks),
   route("PUT", "/event/202309/webhooks", true, putWebhook),
   route("DELETE", "/event/202309/webhooks", true, deleteWebhook),

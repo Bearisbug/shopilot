@@ -143,7 +143,7 @@ function BuyerTab({ d }: { d: ConversationDetail }) {
       </section>
 
       <section className="flex items-start gap-3">
-        <Avatar name={c.buyerName} className="size-10" />
+        <Avatar name={c.buyerName} src={c.buyerAvatarUrl} className="size-10" />
         <div className="min-w-0">
           <p className="truncate font-medium">{c.buyerName}</p>
           <p className="text-xs break-all text-muted-foreground">

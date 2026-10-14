@@ -7,6 +7,7 @@ import { Problem } from "@/server/http/problem";
 import { afterSaleOpen } from "@/server/orders/status";
 import { isReadOnlyShop } from "@/server/platforms/clients";
 import { READ_ONLY_REPLY_REASON } from "@/server/platforms/readonly";
+import { productCards } from "@/server/products/info";
 import { isInHours, receptionContext } from "./hours";
 import { viewCondition, visibleConversations, type ConvView } from "./scope";
 
@@ -147,6 +148,7 @@ export async function listConversations(ctx: MemberContext, q: ConversationsQuer
       id: conv.id,
       shop: { id: shop.id, name: shop.name, platform: shop.platform, market: shop.market },
       buyerName: conv.buyerName,
+      buyerAvatarUrl: conv.buyerAvatarUrl,
       preview: previewOf.get(conv.id) ?? "",
       lastMessageAt: conv.lastMessageAt?.toISOString() ?? null,
       waitingSinceSec,
@@ -264,6 +266,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
       id: conv.id,
       shop: { id: shop.id, name: shop.name, platform: shop.platform, market: shop.market, status: shop.status, readOnly },
       buyerName: conv.buyerName,
+      buyerAvatarUrl: conv.buyerAvatarUrl,
       buyerExternalId: conv.buyerExternalId,
       buyerKind: conv.buyerKind,
       buyerLanguage: conv.buyerLanguage,
@@ -281,6 +284,10 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     },
     segment: seg ? { id: seg.id, stage: seg.stage, stageSource: seg.stageSource, stageBasis: seg.stageBasis, startedAt: seg.startedAt.toISOString() } : null,
     messages,
+    products: await productCards(
+      shop,
+      page.filter((m) => m.type === "product_card").map((m) => String((m.payload as Record<string, unknown>).productId ?? "")),
+    ),
     hasMore: rows.length > MSG_PAGE,
     draft: draft ? toDraft(draft) : null,
     shadowDrafts: shadow ? shadow.map(toDraft) : null,
@@ -324,7 +331,7 @@ export async function getBuyerPanel(ctx: MemberContext, id: string): Promise<Buy
   const totalAmount = orders.filter((o) => o.statusGroup !== "cancelled").reduce((s, o) => s + Number(o.totalAmount), 0);
   const currencies = [...new Set(orders.map((o) => o.currency))];
   return {
-    buyer: { name: conv.buyerName, externalId: conv.buyerExternalId, language: conv.buyerLanguage },
+    buyer: { name: conv.buyerName, externalId: conv.buyerExternalId, language: conv.buyerLanguage, avatarUrl: conv.buyerAvatarUrl },
     orders: orders.map((o) => ({
       id: o.id,
       externalOrderId: o.externalOrderId,

@@ -3,7 +3,7 @@ import { env } from "@/server/env";
 import { platformFetch } from "./http";
 import { assertTiktokRead, ReadOnlyPlatformError } from "./readonly";
 import { nowSec, tiktokSign } from "./signing";
-import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type TokenGrant } from "./types";
+import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type ProductDetail, type TokenGrant } from "./types";
 
 /** readOnly：只读接入（凭证借用自其他系统），只放行读接口，见 readonly.ts */
 export type TiktokApp = { appKey: string; appSecret: string; serviceId?: string | null; readOnly?: boolean };
@@ -110,7 +110,7 @@ export async function tiktokAuthorizedShops(app: TiktokApp, accessToken: string)
 
 // ── 客服 ──
 
-export type TiktokConversation = { conversationId: string; buyerUserId: string | null; buyerImId: string | null; buyerName: string; canSend: boolean; sessionId: string | null; affiliate: boolean; lastMessageAt: Date | null };
+export type TiktokConversation = { conversationId: string; buyerUserId: string | null; buyerImId: string | null; buyerName: string; buyerAvatar: string | null; canSend: boolean; sessionId: string | null; affiliate: boolean; lastMessageAt: Date | null };
 
 function normalizeConversation(c: Record<string, unknown>): TiktokConversation {
   const parts = (c.participants as Array<Record<string, string>> | undefined) ?? [];
@@ -121,6 +121,7 @@ function normalizeConversation(c: Record<string, unknown>): TiktokConversation {
     buyerUserId: buyer?.user_id ?? null,
     buyerImId: buyer?.im_user_id ?? null,
     buyerName: buyer?.nickname ?? "",
+    buyerAvatar: buyer?.avatar || null,
     canSend: c.can_send_message !== false,
     sessionId: c.cur_session_id ? String(c.cur_session_id) : null,
     affiliate: !buyer || parts.some((p) => p.role === "CREATOR" || p.role === "AFFILIATE"),
@@ -144,6 +145,22 @@ export async function tiktokFindConversation(app: TiktokApp, shop: TiktokShopAut
     token = page.nextPageToken;
   }
   return null;
+}
+
+/** 商品卡片用：标题、主图、各 SKU 现价的最低与最高（需要商品读取权限，没有时平台返回 105005） */
+export async function tiktokProduct(app: TiktokApp, shop: TiktokShopAuth, productId: string): Promise<ProductDetail | null> {
+  const d = await call(app, "GET", `/product/202309/products/${encodeURIComponent(productId)}`, { shop });
+  if (!d.id && !d.title) return null;
+  const image = (d.main_images as Array<{ urls?: string[]; thumb_urls?: string[] }> | undefined)?.[0];
+  const skus = (d.skus as Array<{ price?: { sale_price?: string; tax_exclusive_price?: string; currency?: string } }> | undefined) ?? [];
+  const nums = skus.map((s) => Number(s.price?.sale_price ?? s.price?.tax_exclusive_price)).filter((n) => Number.isFinite(n));
+  return {
+    name: String(d.title ?? ""),
+    imageUrl: image?.thumb_urls?.[0] ?? image?.urls?.[0] ?? null,
+    priceMin: nums.length ? String(Math.min(...nums)) : null,
+    priceMax: nums.length ? String(Math.max(...nums)) : null,
+    currency: skus[0]?.price?.currency ?? null,
+  };
 }
 
 /** 一页消息（新 → 旧，每页 ≤ 10） */
@@ -221,6 +238,7 @@ export function normalizeTiktokMessage(m: Record<string, unknown>): NormalizedMe
     externalConversationId: String(m.conversation_id ?? ""),
     buyerExternalId: role === "buyer" ? sender.im_user_id ?? null : null,
     buyerName: role === "buyer" ? sender.nickname ?? null : null,
+    buyerAvatarUrl: role === "buyer" ? sender.avatar || null : null,
     fromBuyer: role === "buyer",
     senderRole: role,
     type,

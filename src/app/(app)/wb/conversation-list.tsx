@@ -193,7 +193,7 @@ function Row({ item, href, selected, tz, view, now }: { item: ConversationListIt
       )}
     >
       <span className="flex gap-3">
-        <Avatar name={item.buyerName} />
+        <Avatar name={item.buyerName} src={item.buyerAvatarUrl} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.buyerName}</span>

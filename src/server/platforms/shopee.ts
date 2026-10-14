@@ -3,7 +3,7 @@ import { shopeeHosts } from "@/server/env";
 import { platformFetch } from "./http";
 import { assertShopeeRead } from "./readonly";
 import { nowSec, shopeeSign } from "./signing";
-import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type TokenGrant } from "./types";
+import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type ProductDetail, type TokenGrant } from "./types";
 
 /** readOnly：只读接入（凭证借用自其他系统），只放行读接口，见 readonly.ts */
 export type ShopeeApp = { partnerId: string; partnerKey: string; host: string; readOnly?: boolean };
@@ -175,7 +175,7 @@ export async function shopeePerformance(app: ShopeeApp, shop: ShopeeShopAuth): P
 
 // ── 聊天 ──
 
-export async function shopeeConversations(app: ShopeeApp, shop: ShopeeShopAuth, cursor: string | null, pageSize = 100): Promise<{ items: Array<{ conversationId: string; buyerId: string; buyerName: string; lastMessageAt: Date }>; nextCursor: string | null }> {
+export async function shopeeConversations(app: ShopeeApp, shop: ShopeeShopAuth, cursor: string | null, pageSize = 100): Promise<{ items: Array<{ conversationId: string; buyerId: string; buyerName: string; buyerAvatar: string | null; lastMessageAt: Date }>; nextCursor: string | null }> {
   const r = resp(await call(app, "GET", "sellerchat/get_conversation_list", { shop, query: { direction: "older", type: "all", page_size: pageSize, next_timestamp_nano: cursor ?? undefined } }));
   const list = (r.conversations as Array<Record<string, unknown>> | undefined) ?? [];
   const page = r.page_result as { more?: boolean; next_cursor?: { next_message_time_nano?: string } } | undefined;
@@ -184,9 +184,30 @@ export async function shopeeConversations(app: ShopeeApp, shop: ShopeeShopAuth, 
       conversationId: String(c.conversation_id),
       buyerId: String(c.to_id),
       buyerName: String(c.to_name ?? ""),
+      buyerAvatar: typeof c.to_avatar === "string" && c.to_avatar ? c.to_avatar : null,
       lastMessageAt: new Date(Number(BigInt(String(c.last_message_timestamp ?? 0)) / BigInt(1_000_000))),
     })),
     nextCursor: page?.more ? String(page.next_cursor?.next_message_time_nano ?? "") || null : null,
+  };
+}
+
+/** 商品卡片用：标题、主图、现价；有多规格时 get_item_base_info 不给价格，再取各规格现价的最低与最高。商品不存在返回 null */
+export async function shopeeProduct(app: ShopeeApp, shop: ShopeeShopAuth, itemId: string): Promise<ProductDetail | null> {
+  const r = resp(await call(app, "GET", "product/get_item_base_info", { shop, query: { item_id_list: itemId } }));
+  const item = ((r.item_list as Array<Record<string, unknown>> | undefined) ?? [])[0];
+  if (!item) return null;
+  let prices = (item.price_info as Array<Record<string, unknown>> | undefined) ?? [];
+  if (!prices.length && item.has_model) {
+    const m = resp(await call(app, "GET", "product/get_model_list", { shop, query: { item_id: itemId } }));
+    prices = ((m.model as Array<Record<string, unknown>> | undefined) ?? []).flatMap((x) => (x.price_info as Array<Record<string, unknown>> | undefined) ?? []);
+  }
+  const nums = prices.map((p) => Number(p.current_price)).filter((n) => Number.isFinite(n));
+  return {
+    name: String(item.item_name ?? ""),
+    imageUrl: ((item.image as { image_url_list?: string[] } | undefined)?.image_url_list ?? [])[0] ?? null,
+    priceMin: nums.length ? String(Math.min(...nums)) : null,
+    priceMax: nums.length ? String(Math.max(...nums)) : null,
+    currency: prices[0]?.currency ? String(prices[0].currency) : null,
   };
 }
 

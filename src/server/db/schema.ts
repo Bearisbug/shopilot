@@ -371,6 +371,8 @@ export const conversation = pgTable(
     buyerName: text("buyer_name").notNull(),
     buyerKind: text("buyer_kind", { enum: ["buyer", "affiliate"] }).notNull().default("buyer"),
     buyerLanguage: text("buyer_language"),
+    /** 平台给的买家头像地址（Shopee 会话列表 to_avatar、TikTok 参与者 avatar）；TikTok 的是带过期参数的 CDN 链接，每次拉到会话或消息时刷新 */
+    buyerAvatarUrl: text("buyer_avatar_url"),
     handlingState: text("handling_state", { enum: ["bot", "awaiting_human", "human", "closed"] }).notNull(),
     claimedBy: uuid("claimed_by").references(() => membership.id, { onDelete: "set null" }),
     claimedAt: ts("claimed_at"),
@@ -389,6 +391,25 @@ export const conversation = pgTable(
     index("conversation_merchant_state_idx").on(t.merchantId, t.handlingState, t.lastMessageAt),
     index("conversation_buyer_idx").on(t.shopId, t.buyerExternalId),
   ],
+);
+
+/** 商品卡片用的商品信息缓存：按店铺 + 平台商品 ID，24 小时内复用；取不到（无商品权限、商品已删、接口失败）记 unavailable，同样 24 小时后再试 */
+export const productInfo = pgTable(
+  "product_info",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    shopId: uuid("shop_id").notNull().references(() => shop.id, { onDelete: "cascade" }),
+    externalProductId: text("external_product_id").notNull(),
+    status: text("status", { enum: ["ok", "unavailable"] }).notNull(),
+    name: text("name"),
+    imageUrl: text("image_url"),
+    priceMin: text("price_min"),
+    priceMax: text("price_max"),
+    currency: text("currency"),
+    fetchedAt: ts("fetched_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("product_info_shop_product_uq").on(t.shopId, t.externalProductId)],
 );
 
 export const segment = pgTable(

@@ -92,7 +92,7 @@ export async function ingestMessage(
   ex: Executor,
   shop: ShopRow,
   m: NormalizedMessage,
-  buyer: { externalId: string; name: string | null; affiliate: boolean } | null,
+  buyer: { externalId: string; name: string | null; affiliate: boolean; avatarUrl?: string | null } | null,
 ): Promise<IngestResult> {
   const [existing] = await ex
     .select()
@@ -142,13 +142,15 @@ export async function ingestMessage(
   const buyerId = buyer?.externalId ?? m.buyerExternalId ?? "";
   const buyerName = buyer?.name || m.buyerName || existing?.buyerName || buyerId;
   const affiliate = Boolean(buyer?.affiliate || m.affiliate);
+  // 头像只在平台给了时写：不拿空值覆盖已有的
+  const avatar = buyer?.avatarUrl || m.buyerAvatarUrl || null;
 
   // 新会话
   if (!existing) {
     if (affiliate) {
       const [conv] = await ex
         .insert(schema.conversation)
-        .values({ merchantId: shop.merchantId, shopId: shop.id, platform: shop.platform, externalConversationId: m.externalConversationId, buyerExternalId: buyerId, buyerName, buyerKind: "affiliate", handlingState: "closed", lastMessageAt: m.sentAt, lastBuyerAt: m.sentAt })
+        .values({ merchantId: shop.merchantId, shopId: shop.id, platform: shop.platform, externalConversationId: m.externalConversationId, buyerExternalId: buyerId, buyerName, buyerAvatarUrl: avatar, buyerKind: "affiliate", handlingState: "closed", lastMessageAt: m.sentAt, lastBuyerAt: m.sentAt })
         .returning();
       const [msg] = await ex
         .insert(schema.message)
@@ -166,6 +168,7 @@ export async function ingestMessage(
         externalConversationId: m.externalConversationId,
         buyerExternalId: buyerId,
         buyerName,
+        buyerAvatarUrl: avatar,
         handlingState: plan.state,
         handoffReason: plan.handoffReason,
         lastMessageAt: m.sentAt,
@@ -202,7 +205,7 @@ export async function ingestMessage(
     .returning();
   if (!msg) return { status: "ignored", reason: "重复消息", conversationId: existing.id };
 
-  const base = { lastMessageAt: m.sentAt, lastBuyerAt: m.sentAt, buyerName, updatedAt: new Date() };
+  const base = { lastMessageAt: m.sentAt, lastBuyerAt: m.sentAt, buyerName, ...(avatar ? { buyerAvatarUrl: avatar } : {}), updatedAt: new Date() };
   if (existing.buyerKind === "affiliate") {
     await ex.update(schema.conversation).set(base).where(eq(schema.conversation.id, existing.id));
     return { status: "done", reason: "达人会话只记录", conversationId: existing.id, messageId: msg.id };
@@ -250,7 +253,7 @@ export async function runFollowUp(f: FollowUp | undefined) {
 export async function backfillConversation(
   ex: Executor,
   shop: ShopRow,
-  conv: { externalConversationId: string; buyerExternalId: string; buyerName: string; affiliate: boolean },
+  conv: { externalConversationId: string; buyerExternalId: string; buyerName: string; affiliate: boolean; avatarUrl?: string | null },
   messages: NormalizedMessage[],
 ): Promise<number> {
   if (messages.length === 0) return 0;
@@ -274,6 +277,7 @@ export async function backfillConversation(
         externalConversationId: conv.externalConversationId,
         buyerExternalId: conv.buyerExternalId,
         buyerName: conv.buyerName || conv.buyerExternalId,
+        buyerAvatarUrl: conv.avatarUrl ?? null,
         buyerKind: conv.affiliate ? "affiliate" : "buyer",
         handlingState: "closed",
         lastMessageAt: last.sentAt,
@@ -290,6 +294,7 @@ export async function backfillConversation(
       await ex.update(schema.conversation).set({ currentSegmentId: seg.id }).where(eq(schema.conversation.id, row.id));
     }
   }
+  if (conv.avatarUrl && conv.avatarUrl !== row.buyerAvatarUrl) await ex.update(schema.conversation).set({ buyerAvatarUrl: conv.avatarUrl }).where(eq(schema.conversation.id, row.id));
   let inserted = 0;
   for (const m of sorted) {
     const role = m.fromBuyer ? "buyer" : m.senderRole === "agent" ? "platform_human" : m.senderRole;

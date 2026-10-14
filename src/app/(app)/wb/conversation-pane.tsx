@@ -5,7 +5,7 @@ import { ChevronLeftIcon, CircleCheckIcon, ClipboardListIcon, CopyIcon, HandIcon
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { BuyerOrder, ConversationDetail, DraftItem, MessageItem } from "@/contracts/conversations";
+import type { BuyerOrder, ConversationDetail, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
 import { ErrorState, LoadingRows } from "@/components/shell/page";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export function ConversationPane({ id }: { id: string }) {
   const qc = useQueryClient();
   const [older, setOlder] = useState<MessageItem[]>([]);
   const [olderHasMore, setOlderHasMore] = useState<boolean | null>(null);
+  const [olderProducts, setOlderProducts] = useState<Record<string, ProductCardInfo>>({});
   const [editing, setEditing] = useState<EditingDraft>(null);
   const [replacing, setReplacing] = useState<DraftItem | null>(null);
 
@@ -34,6 +35,7 @@ export function ConversationPane({ id }: { id: string }) {
     onSuccess: (d) => {
       setOlder((prev) => [...d.messages, ...prev]);
       setOlderHasMore(d.hasMore);
+      setOlderProducts((prev) => ({ ...prev, ...d.products }));
     },
     onError: (e) => toast.error(errorText(e)),
   });
@@ -78,6 +80,7 @@ export function ConversationPane({ id }: { id: string }) {
   const recentIds = new Set(d.messages.map((m) => m.id));
   const messages = [...older.filter((m) => !recentIds.has(m.id)), ...d.messages];
   const hasMore = olderHasMore ?? d.hasMore;
+  const products = { ...olderProducts, ...d.products };
   const ordersById = new Map<string, BuyerOrder>((buyer.data?.orders ?? []).map((o) => [o.externalOrderId, o]));
 
   return (
@@ -89,6 +92,8 @@ export function ConversationPane({ id }: { id: string }) {
         messages={messages}
         shadowDrafts={d.shadowDrafts}
         ordersById={ordersById}
+        products={products}
+        platform={d.conversation.shop.platform}
         tz={tz}
         hasMore={hasMore}
         loadingMore={loadOlder.isPending}
@@ -242,7 +247,7 @@ function Header({ d, tz }: { d: ConversationDetail; tz: string }) {
             <ChevronLeftIcon />
           </Link>
         </Button>
-        <Avatar name={c.buyerName} />
+        <Avatar name={c.buyerName} src={c.buyerAvatarUrl} />
         <div className="min-w-0 flex-1">
           <p className="flex min-w-0 items-center gap-2">
             <Tooltip>

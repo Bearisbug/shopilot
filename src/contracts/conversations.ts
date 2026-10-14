@@ -63,6 +63,8 @@ export type ConversationListItem = {
   id: string;
   shop: ShopRef;
   buyerName: string;
+  /** 平台给的买家头像；没有或加载失败时界面显示名字首字 */
+  buyerAvatarUrl: string | null;
   preview: string;
   lastMessageAt: string | null;
   waitingSinceSec: number | null;
@@ -95,6 +97,9 @@ export type MessageItem = {
   segmentId: string | null;
 };
 
+/** 商品卡片：价格为店铺币种现价，多规格时 priceMin 与 priceMax 不同；url 为平台商品页 */
+export type ProductCardInfo = { name: string | null; imageUrl: string | null; priceMin: string | null; priceMax: string | null; currency: string | null; url: string | null };
+
 export type DraftItem = { id: string; text: string; confidence: number; reason: string | null; mode: "assist" | "auto" | "shadow"; status: string; triggerMessageId: string | null; createdAt: string };
 
 export type ConversationDetail = {
@@ -103,6 +108,7 @@ export type ConversationDetail = {
     /** readOnly：只读接入的店（消息从平台拉取，不能从 Shopilot 发送或操作平台） */
     shop: ShopRef & { status: "connected" | "auth_expired" | "disconnected"; readOnly: boolean };
     buyerName: string;
+    buyerAvatarUrl: string | null;
     buyerExternalId: string;
     buyerKind: "buyer" | "affiliate";
     buyerLanguage: string | null;
@@ -121,6 +127,8 @@ export type ConversationDetail = {
   };
   segment: { id: string; stage: Stage; stageSource: "auto" | "manual" | "keyword"; stageBasis: string | null; startedAt: string } | null;
   messages: MessageItem[];
+  /** 本页商品卡片涉及的商品，键为平台商品 ID；信息还没取到时 name 等为 null，链接照常给 */
+  products: Record<string, ProductCardInfo>;
   hasMore: boolean;
   draft: DraftItem | null;
   shadowDrafts: DraftItem[] | null;
@@ -146,7 +154,7 @@ export type BuyerOrder = {
   afterSales: Array<{ id: string; kind: "return" | "cancel"; externalId: string; platformStatus: string; sellerDueAt: string | null; reason: string | null; open: boolean }>;
 };
 export type BuyerPanel = {
-  buyer: { name: string; externalId: string; language: string | null };
+  buyer: { name: string; externalId: string; language: string | null; avatarUrl: string | null };
   orders: BuyerOrder[];
   totals: { count180d: number; amount180d: string; currency: string | null };
   piiMasked: boolean;

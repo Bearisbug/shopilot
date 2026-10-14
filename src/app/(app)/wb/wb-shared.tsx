@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import type { BuyerPanel, ConversationDetail, ConvView, HandlingState, SendBody, SendResult, Stage } from "@/contracts/conversations";
+import { Avatar as AvatarRoot, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -84,12 +85,14 @@ export function AiTag({ className }: { className?: string }) {
   return <span className={cn("inline-flex h-5 items-center rounded-sm bg-(--semantic-color-surface-inverse) px-1.5 text-xs font-semibold text-(--semantic-color-text-on-inverse)", className)}>AI</span>;
 }
 
-export function Avatar({ name, className }: { name: string; className?: string }) {
+/** 买家头像：平台给了地址就显示图片，没有、加载中或加载失败（TikTok 的 CDN 链接会过期）时显示名字首字。名字已在旁边写出，头像本身对读屏隐藏 */
+export function Avatar({ name, src, className }: { name: string; src?: string | null; className?: string }) {
   const ch = Array.from(name.trim())[0]?.toUpperCase() ?? "?";
   return (
-    <span aria-hidden="true" className={cn("flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground", className)}>
-      {ch}
-    </span>
+    <AvatarRoot aria-hidden="true" className={cn("size-8 after:hidden", className)}>
+      {src && <AvatarImage src={src} alt="" referrerPolicy="no-referrer" />}
+      <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{ch}</AvatarFallback>
+    </AvatarRoot>
   );
 }
 

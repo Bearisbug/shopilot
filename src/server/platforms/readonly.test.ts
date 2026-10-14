@@ -105,4 +105,13 @@ describe("白名单", () => {
     expect(readonly.shopeeReadAllowed("GET", "sellerchat/get_message")).toBe(true);
     expect(readonly.shopeeReadAllowed("POST", "sellerchat/send_message")).toBe(false);
   });
+
+  it("商品卡片用的商品详情放行，改商品的路径拒绝", async () => {
+    const { readonly } = await load();
+    expect(readonly.shopeeReadAllowed("GET", "product/get_item_base_info")).toBe(true);
+    expect(readonly.shopeeReadAllowed("GET", "product/get_model_list")).toBe(true);
+    expect(readonly.shopeeReadAllowed("POST", "product/update_item")).toBe(false);
+    expect(readonly.tiktokReadAllowed("GET", "/product/202309/products/1729592969712207008")).toBe(true);
+    expect(readonly.tiktokReadAllowed("POST", "/product/202309/products/1729592969712207008/prices/update")).toBe(false);
+  });
 });

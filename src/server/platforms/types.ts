@@ -40,8 +40,13 @@ export type NormalizedMessage = {
   payload: Record<string, unknown>;
   sentAt: Date;
   affiliate: boolean;
+  /** 买家发的消息带的头像地址（TikTok sender.avatar）；平台不给时为空 */
+  buyerAvatarUrl?: string | null;
   raw: unknown;
 };
+
+/** 商品卡片用的商品信息：价格为店铺币种的现价，多规格时为最低与最高 */
+export type ProductDetail = { name: string; imageUrl: string | null; priceMin: string | null; priceMax: string | null; currency: string | null };
 
 export type NormalizedOrder = {
   externalOrderId: string;
