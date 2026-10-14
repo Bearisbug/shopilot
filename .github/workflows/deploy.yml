@@ -8,6 +8,10 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # 只改文档不发布：部署会重建 web，有几秒不可用
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   pull_request: {}
   workflow_dispatch:
     inputs:

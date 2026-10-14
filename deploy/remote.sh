@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # 服务器 /srv/shopilot/remote.sh 的事实源副本：一次发布在服务器上的四个动作，CI（.github/workflows/deploy.yml）
 # 与本机兜底（deploy/release.sh）共用。源码须已同步到 /srv/shopilot/build/。
-#   remote.sh switch <TAG>   构建镜像 → 备份 → 迁移 → 切到新版本（web 与 worker 重建，几秒不可用）
+#   remote.sh switch <TAG>   构建镜像 → 备份 → 迁移 → 切到新版本（先 web 后 worker，web 重建时几秒不可用）
 #   remote.sh health <TAG>   直连 127.0.0.1:3001 断言本项目标识与版本
 #   remote.sh confirm <TAG>  记为最后一次验证健康的版本，清理旧镜像与构建缓存
 #   remote.sh rollback       切回 .last_good
 # docker 命令一律接 </dev/null：脚本经 ssh 标准输入传来时，不接会把余下的脚本当输入吞掉。
+# web 与 worker 必须分开重建：同一条 up 里 Compose 要等两个旧容器都停完才启动新容器，
+# 而 worker 优雅停机最长等 110 秒让任务收尾，web 会跟着停这么久（2026-10-15 实测全站 503 约 110 秒）。
 set -euo pipefail
 cd /srv/shopilot
 cmd=${1:?用法见文件头}
@@ -17,7 +19,8 @@ case "$cmd" in
     ./backup.sh </dev/null
     sed -i "s/^TAG=.*/TAG=$TAG/" .env
     docker compose run --rm migrate </dev/null
-    docker compose up -d --wait --wait-timeout 180 web worker </dev/null
+    docker compose up -d --wait --wait-timeout 180 web </dev/null
+    docker compose up -d --wait --wait-timeout 300 worker </dev/null
     ;;
   health)
     TAG=${2:?缺 TAG}
@@ -39,7 +42,8 @@ case "$cmd" in
     GOOD=$(cat .last_good)
     echo "切回 $GOOD"
     sed -i "s/^TAG=.*/TAG=$GOOD/" .env
-    docker compose up -d --wait --wait-timeout 180 web worker </dev/null
+    docker compose up -d --wait --wait-timeout 180 web </dev/null
+    docker compose up -d --wait --wait-timeout 300 worker </dev/null
     ;;
   *)
     echo "未知命令 $cmd"; exit 2 ;;

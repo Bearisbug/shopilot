@@ -25,7 +25,7 @@
 
 ## 2. 日常发布
 
-push 到 `main` 即发布，进度看仓库 Actions 页，手动重跑用 Actions 页的 Run workflow。流程：质量门（PostgreSQL 服务容器上迁移加种子，`pnpm lint`、`vitest`、`pnpm build`、`pnpm typecheck`）→ 建 GitHub deployment → AWS OIDC 临时放行 runner 的 SSH → rsync 源码到 `/srv/shopilot/build/`（排除表 `deploy/rsync-exclude`），同步 `compose.yaml`、`backup.sh`、`remote.sh` → `remote.sh switch <commit>`（服务器构建镜像、`backup.sh` 备份、`docker compose run --rm migrate`、切 TAG 重启 web 与 worker）→ 健康检查（`remote.sh health` 直连 3001 断言本项目标识与版本，再经 `https://shopilot.live/api/health` 确认对外已是新版本）→ `remote.sh confirm`（写 `.last_good`、清理旧镜像与 7 天前的构建缓存）→ 收回 SSH 放行。
+push 到 `main` 即发布（只改 `docs/` 或 Markdown 文件的推送不触发），进度看仓库 Actions 页，手动重跑用 Actions 页的 Run workflow。流程：质量门（PostgreSQL 服务容器上迁移加种子，`pnpm lint`、`vitest`、`pnpm build`、`pnpm typecheck`）→ 建 GitHub deployment → AWS OIDC 临时放行 runner 的 SSH → rsync 源码到 `/srv/shopilot/build/`（排除表 `deploy/rsync-exclude`），同步 `compose.yaml`、`backup.sh`、`remote.sh` → `remote.sh switch <commit>`（服务器构建镜像、`backup.sh` 备份、`docker compose run --rm migrate`、切 TAG 后先重建 web 再重建 worker）→ 健康检查（`remote.sh health` 直连 3001 断言本项目标识与版本，再经 `https://shopilot.live/api/health` 确认对外已是新版本）→ `remote.sh confirm`（写 `.last_good`、清理旧镜像与 7 天前的构建缓存）→ 收回 SSH 放行。
 
 切换或健康检查失败时，「失败回滚」步执行 `remote.sh rollback` 切回 `.last_good`，GitHub deployment 标为 failure 并带 `rolled_back`。PR 只跑质量门，不部署。
 
@@ -48,7 +48,8 @@ push 到 `main` 即发布，进度看仓库 Actions 页，手动重跑用 Action
 ```bash
 ssh -i ~/.ssh/shopilot-hk.pem deploy@shopilot.live 'cd /srv/shopilot && GOOD=$(cat .last_good) \
   && sed -i "s/^TAG=.*/TAG=$GOOD/" .env \
-  && docker compose up -d --wait --wait-timeout 180 web worker </dev/null \
+  && docker compose up -d --wait --wait-timeout 180 web </dev/null \
+  && docker compose up -d --wait --wait-timeout 300 worker </dev/null \
   && curl -fsS 127.0.0.1:3001/api/health'
 ```
 
@@ -101,4 +102,5 @@ scp -i ~/.ssh/shopilot-hk.pem deploy/compose.yaml deploy/backup.sh deploy/remote
 | 2026-10-15 | 接入 git 与 CI | 建私有仓库 `Bearisbug/shopilot`，首个提交 `3ecfeed`；Actions 因 GitHub 账户扣款问题未启动，用 `deploy/release.sh` 兜底发布 `3ecfeedd82086833def69a5297677a164c20f92a`：本机质量门通过，直连与外网健康检查均返回该版本、`db: ok` |
 | 2026-10-15 | 仓库公开与 CI 首次跑通 | 删库重建为单一提交 `c8a9ee3` 后公开；部署密钥轮换；OIDC 信任改为不可变主体；push `b84f0fb` 触发的 run 38606640331 通过质量门、部署、健康检查，临时 SSH 规则已收回 |
 | 2026-10-15 | 只读接入 OBSBOT 影子 | `scripts/import-readonly.ts --setup` 建商户「OBSBOT 影子」（test@shopilot.live 管理员），2 个只读应用、11 家店；Shopee token 从现网只读重取后 `--tokens` 更新 6 家；`inbound.poll` 运行无报错，历史回补进行中 |
+| 2026-10-15 | 发布期间全站 503 约 110 秒 | 文档提交 `df5ba5c` 触发的部署里，Compose 用同一条 `up` 重建 web 与 worker，要等旧 worker 优雅停机（等任务收尾 110 秒）后才启动新 web。`remote.sh` 改为先 web 后 worker 分开重建；只改文档的推送不再触发部署 |
 | 2026-10-15 | 备份恢复演练 | `backup.sh` 生成 `db-20261015-0006.sql.gz`，恢复到临时库 `restore_drill` 后表数 56 与线上一致、迁移记录 1 与线上一致，临时库已删除 |
