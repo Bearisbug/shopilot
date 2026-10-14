@@ -238,7 +238,8 @@ describe("推送签名与 body", () => {
   it("没配置回调的店不发推送", async () => {
     const r = await runSimAction("buyer_message", { conversationId: "7494560109732330301", text: "Xin chào" });
     expect(r.ok && r.pushes.length).toBe(0);
-    expect(received).toHaveLength(0);
+    // 接收器各用例共用，前一个用例晚到的推送也会落进来，只看有没有这个会话的推送
+    expect(received.filter((x) => x.body.includes("7494560109732330301"))).toHaveLength(0);
   });
 });
 
