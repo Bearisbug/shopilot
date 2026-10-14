@@ -1,0 +1,67 @@
+# 服务器上的运行描述，同步到 /srv/shopilot/compose.yaml（部署步骤见 docs/DEPLOY.md）。
+# 同目录只在服务器上的两个文件：
+#   .env             → 一行版本指针 TAG=<镜像 tag>，发布与回滚只改这一行
+#   .env.production  → 运行时配置与密钥，键名登记在仓库根 .env.example，永不入仓
+# 单实例部署（最小上线，不做零停机）：发布时 web 与 worker 重建，有几秒不可用。
+name: shopilot
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    env_file: [.env.production]
+    environment:
+      POSTGRES_USER: shopilot
+      POSTGRES_DB: shopilot
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U shopilot -d shopilot]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # 一次性：docker compose run --rm migrate（每次发布切版本前执行）
+  migrate:
+    image: shopilot:${TAG:?TAG is required}
+    profiles: [migrate]
+    env_file: [.env.production]
+    command: [node, --import, tsx, scripts/db-migrate.ts]
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    image: shopilot:${TAG:?TAG is required}
+    restart: unless-stopped
+    env_file: [.env.production]
+    environment:
+      SLOT: primary
+      APP_VERSION: ${TAG}
+    ports:
+      # 只绑本机回环，对外一律经 Caddy；ufw 管不住 Docker 发布的端口
+      - "127.0.0.1:3001:3000"
+    volumes: [appdata:/data]
+    depends_on:
+      db: { condition: service_healthy }
+    stop_grace_period: 30s
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    image: shopilot:${TAG:?TAG is required}
+    restart: unless-stopped
+    env_file: [.env.production]
+    environment:
+      APP_VERSION: ${TAG}
+    command: [node, --import, tsx, src/worker/main.ts]
+    volumes: [appdata:/data]
+    depends_on:
+      db: { condition: service_healthy }
+    # Worker 收到 SIGTERM 后最多等 110 秒让在跑的任务做完
+    stop_grace_period: 120s
+
+volumes:
+  pgdata:
+  appdata:

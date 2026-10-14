@@ -1,0 +1,20 @@
+{
+ "step": 2,
+ "request": "POST /api/auth/sign-in/email，X-Forwarded-For: 203.0.113.9，run1-auth-dev@demo.test 正确密码；商户白名单 127.0.0.1/32、IP 限制开",
+ "status": 200,
+ "body": {
+  "redirect": false,
+  "token": "<redacted>",
+  "user": {
+   "name": "Run1 Dev",
+   "email": "run1-auth-dev@demo.test",
+   "emailVerified": false,
+   "image": null,
+   "createdAt": "2026-10-11T18:30:57.032Z",
+   "updatedAt": "2026-10-11T18:30:57.032Z",
+   "twoFactorEnabled": false,
+   "id": "t34NC6aJIXm7iqG9Bpm8dsRwdNUWs2v5"
+  }
+ },
+ "diagnostic": "同一会话随后请求 /api/v1/me、/api/v1/conversations（同 XFF）均 403 /errors/ip-blocked——白名单只在登录后的接口上拦截，登录本身放行并记为成功"
+}

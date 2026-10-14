@@ -1,0 +1,50 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "trigger": {
+    "ariaExpanded": "true",
+    "text": "选择管理员",
+    "box": {
+      "x": 801,
+      "y": 662.5,
+      "width": 176,
+      "height": 36
+    }
+  },
+  "listbox": {
+    "box": {
+      "x": 0,
+      "y": 900,
+      "width": 292,
+      "height": 30
+    },
+    "wrapperStyle": "display: flex; flex-direction: column; position: fixed; z-index: 50;"
+  },
+  "options": [
+    {
+      "text": "陈卓（未开两步验证，开启后才能接收）",
+      "ariaDisabled": "true",
+      "box": {
+        "x": 1,
+        "y": 901,
+        "width": 290,
+        "height": 28,
+        "top": 901,
+        "right": 291,
+        "bottom": 929,
+        "left": 1
+      }
+    }
+  ],
+  "transferButtonDisabled": true,
+  "timezoneSelectForComparison": {
+    "listboxBox": {
+      "x": 800.84375,
+      "y": 268.25,
+      "width": 268.140625,
+      "height": 198
+    }
+  }
+}

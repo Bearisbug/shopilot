@@ -1,0 +1,30 @@
+{
+  "Mei": {
+    "status": 409,
+    "body": {
+      "type": "/errors/conflict",
+      "title": "状态已被他人改变",
+      "status": 409,
+      "detail": "Nur Aisyah 已经认领了这个会话。",
+      "instance": "/api/v1/conversations/01a12e07-12ea-76b1-b0cb-27600fd20141/claim",
+      "requestId": "req_b54609d7ab4c441e90024083375712c3",
+      "extra": {
+        "claimedBy": {
+          "id": "01a12dea-ce8b-77b5-a278-b580eba0146c",
+          "name": "Nur Aisyah"
+        },
+        "version": 3,
+        "handlingState": "human"
+      }
+    }
+  },
+  "Nur": {
+    "status": 200,
+    "body": {
+      "id": "01a12e07-12ea-76b1-b0cb-27600fd20141",
+      "handlingState": "human",
+      "claimedBy": "01a12dea-ce8b-77b5-a278-b580eba0146c",
+      "version": 3
+    }
+  }
+}

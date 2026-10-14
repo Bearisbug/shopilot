@@ -1,0 +1,47 @@
+{
+    "buyer": {
+        "name": "ordtkt-B001",
+        "externalId": "5648663513",
+        "language": null
+    },
+    "orders": [
+        {
+            "id": "01a12c3f-4ff5-72ca-be56-8221947a9de0",
+            "externalOrderId": "261011KKHLJGGU",
+            "status": "SHIPPED",
+            "statusGroup": "shipped",
+            "total": "43.40",
+            "currency": "MYR",
+            "items": [
+                {
+                    "name": "Stainless Steel Vacuum Tumbler 900ml",
+                    "sku": "Matte Black",
+                    "skuId": "214500110021",
+                    "qty": 1,
+                    "unitPrice": "38.50"
+                }
+            ],
+            "shipByAt": "2026-10-13T18:35:07.000Z",
+            "createdAt": "2026-10-11T18:35:07.000Z",
+            "tracking": {
+                "events": [],
+                "carrier": "SPX Express (MY)",
+                "packageId": "OFG135898809489034"
+            },
+            "recipient": {
+                "name": "o****1",
+                "phone": "******13",
+                "masked": true,
+                "address": "18******"
+            },
+            "afterSales": []
+        }
+    ],
+    "totals": {
+        "count180d": 1,
+        "amount180d": "43.40",
+        "currency": "MYR"
+    },
+    "piiMasked": true,
+    "syncedAt": "2026-10-11T18:35:21.158Z"
+}

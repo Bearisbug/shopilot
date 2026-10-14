@@ -1,0 +1,193 @@
+{
+  "note": "t 为相对点击确认框「保存」时刻的毫秒数；domLog 由页内 MutationObserver 写入 sessionStorage，跨整页跳转保留；pollsSummary 为每 40 ms 轮询页面、只留状态变化点",
+  "demoStore": {
+    "mode": "demo",
+    "t0": "2026-10-14T01:43:25.544Z",
+    "dialog": "要求管理员开启两步验证？ 保存后从下一次请求起，没开两步验证的管理员只能先去「账号安全」开启，开启前打不开其他页面。 会受影响的 2 人：林晓（你）、陈卓 取消 保存",
+    "requests": [
+      {
+        "t": -705,
+        "m": "GET",
+        "s": 200,
+        "u": "/api/v1/security-policy"
+      },
+      {
+        "t": 252,
+        "m": "PUT",
+        "s": 200,
+        "u": "/api/v1/security-policy"
+      }
+    ],
+    "navigations": [
+      {
+        "t": -947,
+        "url": "/settings/security"
+      },
+      {
+        "t": -780,
+        "url": "/settings/security"
+      },
+      {
+        "t": 408,
+        "url": "/account/security"
+      }
+    ],
+    "domLog": [
+      {
+        "t": -944,
+        "ev": "doc-start",
+        "url": "/settings/security",
+        "navType": "navigate"
+      },
+      {
+        "t": -828,
+        "ev": "load",
+        "url": "/settings/security"
+      },
+      {
+        "t": 424,
+        "ev": "text-on",
+        "url": "/account/security",
+        "txt": [
+          "安全策略已保存。你自己也需要先开启两步验证，开启前其他页面暂时不能使用。"
+        ]
+      },
+      {
+        "t": 4628,
+        "ev": "text-off",
+        "url": "/account/security",
+        "txt": []
+      }
+    ],
+    "pollsSummary": [
+      {
+        "el": 225,
+        "url": "/settings/security",
+        "inDom": false,
+        "visible": false,
+        "txt": [],
+        "toasts": []
+      },
+      {
+        "el": 430,
+        "url": "/account/security",
+        "inDom": true,
+        "visible": true,
+        "txt": [
+          "安全策略已保存。你自己也需要先开启两步验证，开启前其他页面暂时不能使用。"
+        ],
+        "toasts": [
+          "安全策略已保存。你自己也需要先开启两步验证，开启前其他页面暂时不能使用。"
+        ]
+      },
+      {
+        "el": 4640,
+        "url": "/account/security",
+        "inDom": false,
+        "visible": false,
+        "txt": [],
+        "toasts": []
+      }
+    ],
+    "finalUrl": "/account/security"
+  },
+  "newMerchant_run8-retest-1": {
+    "mode": "new",
+    "t0": "2026-10-14T01:43:59.492Z",
+    "dialog": "要求管理员开启两步验证？ 保存后从下一次请求起，没开两步验证的管理员只能先去「账号安全」开启，开启前打不开其他页面。 会受影响的 1 人：R8 店主（你） 取消 保存",
+    "requests": [
+      {
+        "t": -664,
+        "m": "GET",
+        "s": 200,
+        "u": "/api/v1/security-policy"
+      },
+      {
+        "t": 252,
+        "m": "PUT",
+        "s": 200,
+        "u": "/api/v1/security-policy"
+      }
+    ],
+    "navigations": [
+      {
+        "t": -876,
+        "url": "/settings/security"
+      },
+      {
+        "t": -732,
+        "url": "/settings/security"
+      },
+      {
+        "t": 330,
+        "url": "/account/security"
+      }
+    ],
+    "domLog": [
+      {
+        "t": -873,
+        "ev": "doc-start",
+        "url": "/settings/security",
+        "navType": "navigate"
+      },
+      {
+        "t": -775,
+        "ev": "load",
+        "url": "/settings/security"
+      },
+      {
+        "t": 346,
+        "ev": "text-on",
+        "url": "/account/security",
+        "txt": [
+          "安全策略已保存。你自己也需要先开启两步验证，开启前其他页面暂时不能使用。"
+        ]
+      },
+      {
+        "t": 4550,
+        "ev": "text-off",
+        "url": "/account/security",
+        "txt": []
+      }
+    ],
+    "pollsSummary": [
+      {
+        "el": 229,
+        "url": "/settings/security",
+        "inDom": false,
+        "visible": false,
+        "txt": [],
+        "toasts": []
+      },
+      {
+        "el": 327,
+        "url": "/account/security",
+        "inDom": false,
+        "visible": false,
+        "txt": [],
+        "toasts": []
+      },
+      {
+        "el": 380,
+        "url": "/account/security",
+        "inDom": true,
+        "visible": true,
+        "txt": [
+          "安全策略已保存。你自己也需要先开启两步验证，开启前其他页面暂时不能使用。"
+        ],
+        "toasts": [
+          "安全策略已保存。你自己也需要先开启两步验证，开启前其他页面暂时不能使用。"
+        ]
+      },
+      {
+        "el": 4564,
+        "url": "/account/security",
+        "inDom": false,
+        "visible": false,
+        "txt": [],
+        "toasts": []
+      }
+    ],
+    "finalUrl": "/account/security"
+  }
+}

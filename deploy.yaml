@@ -1,0 +1,10 @@
+# 部署环境契约（Synco 部署方式）：工作流文件、健康检查路径、环境与触发方式。手册见 docs/DEPLOY.md。
+workflow: deploy.yml
+health: /api/health
+ref: main
+environments:
+  preview:
+    trigger: pr
+  production:
+    trigger: push
+    url: https://shopilot.live

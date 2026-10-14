@@ -1,0 +1,24 @@
+{
+ "step": 3,
+ "conversationId": "01a12c59-69f9-73d1-b166-204941193aae",
+ "claimedBy": null,
+ "handoffReason": "manual",
+ "events": [
+  {
+   "at": "2026-10-11T19:06:56.396Z",
+   "text": "Run1 Mei 被停用，会话退回待认领",
+   "actorName": "林晓"
+  },
+  {
+   "at": "2026-10-11T19:05:55.913Z",
+   "text": "Run1 Mei 回复了买家",
+   "actorName": "Run1 Mei"
+  },
+  {
+   "at": "2026-10-11T19:05:33.807Z",
+   "text": "Run1 Mei 认领了会话",
+   "actorName": "Run1 Mei"
+  }
+ ],
+ "note": "接口 events 有「Run1 Mei 被停用，会话退回待认领」，工作台时间线（截图 run-001-TC-TEAM-012-3.png）只显示两条消息"
+}

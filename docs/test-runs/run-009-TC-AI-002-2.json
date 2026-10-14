@@ -1,0 +1,13 @@
+{
+  "aiMode": "deepseek",
+  "order": "2610141M7VDR64",
+  "orderPath": ["READY_TO_SHIP", "PROCESSED", "SHIPPED"],
+  "trackingNo": "MY919621478667G",
+  "buyerMessagePushHttp": 200,
+  "inAiList": true,
+  "confidenceShown": "0.90",
+  "draft": "您好！关于您的订单 2610141M7VDR64（Bamboo Fibre Bath Towel Set (3 pcs) - Sage Green），目前状态是已发货。\n\n根据物流信息，包裹已于 2026年10月14日 抵达 Shah Alam Hub，承运商为 SPX Express (MY)，追踪单号是 MY919621478667G。您可以用这个单号在 SPX Express 官网查询最新进度。\n\n感谢您的耐心等待，如有其他问题欢迎随时联系我们 😊",
+  "mentionsOrder": true,
+  "mentionsLogistics": true,
+  "buyerReceivedSame": true
+}

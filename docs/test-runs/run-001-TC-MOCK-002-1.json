@@ -1,0 +1,6 @@
+{
+  "step": 1,
+  "required": ".env 改 MOCK_PLATFORM=0 并重启 pnpm dev",
+  "blockedBy": "本轮执行约定（/tmp/shopilot-proto/RUN-GUIDE.md 与主会话指令）禁止重启 dev server；同一 dev server 承载全部执行组的环境",
+  "envAtCheck": "GET /api/health → {\"service\":\"shopilot\",\"version\":\"0.1.0\",\"db\":\"ok\"}；MOCK_PLATFORM=1 未改动"
+}

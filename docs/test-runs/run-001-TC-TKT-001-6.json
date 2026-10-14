@@ -1,0 +1,149 @@
+{
+    "ticket": {
+        "id": "01a12c37-d76c-76a2-9716-65348b5697ce",
+        "number": "T-1007",
+        "type": "return_refund",
+        "origin": "platform",
+        "status": "resolved",
+        "waitingOn": null,
+        "phase": "退款完成",
+        "platformStatus": "RETURN_OR_REFUND_REQUEST_SUCCESS",
+        "shop": {
+            "id": "01a12c31-5b41-757a-876a-48916a2b540a",
+            "name": "Demo TikTok MY",
+            "platform": "tiktok",
+            "market": "MY"
+        },
+        "buyerName": "o*********1",
+        "orderId": "01a12c37-b051-7721-b61a-ec896c39c7e5",
+        "externalOrderId": "576436136327222909",
+        "conversationId": null,
+        "description": "Wrong product was sent",
+        "assignee": {
+            "id": "01a12c31-5af6-70af-a4cf-7eac892a95c4",
+            "name": "Arif Rahman"
+        },
+        "dueAt": "2026-10-13T18:31:46.000Z",
+        "dueSource": "platform",
+        "overdue": false,
+        "remainingSec": null,
+        "platformDriven": true,
+        "version": 4,
+        "createdAt": "2026-10-11T18:26:59.553Z",
+        "updatedAt": "2026-10-11T18:33:02.249Z",
+        "resolvedAt": "2026-10-11T18:33:02.249Z",
+        "manualStatusAllowed": false,
+        "phases": [
+            {
+                "label": "待审核",
+                "state": "done"
+            },
+            {
+                "label": "等买家寄回",
+                "state": "done"
+            },
+            {
+                "label": "待验货",
+                "state": "done"
+            },
+            {
+                "label": "退款完成",
+                "state": "done"
+            }
+        ],
+        "nextActions": [],
+        "voidReason": null,
+        "closedAt": null,
+        "remind": {
+            "hoursBefore": 6
+        }
+    },
+    "events": [
+        {
+            "id": "01a12c37-d76e-76dd-9809-240124752356",
+            "type": "created",
+            "source": "webhook",
+            "actorName": null,
+            "at": "2026-10-11T18:26:59.553Z",
+            "title": "平台事件建单 T-1007 · RETURN_OR_REFUND_REQUEST_PENDING",
+            "detail": "指派 Arif Rahman · 待处理 · 待审核 · 截止 10-14 02:26"
+        },
+        {
+            "id": "01a12c3a-eeb7-7508-adb4-c02468cac159",
+            "type": "action",
+            "source": "page",
+            "actorName": "Arif Rahman",
+            "at": "2026-10-11T18:30:22.576Z",
+            "title": "Arif Rahman 处理售后",
+            "detail": null
+        },
+        {
+            "id": "01a12c3a-eeeb-7265-a44d-ece5f1f0ca63",
+            "type": "platform_event",
+            "source": "page",
+            "actorName": "Arif Rahman",
+            "at": "2026-10-11T18:30:22.576Z",
+            "title": "平台事件 · AWAITING_BUYER_SHIP",
+            "detail": "等待中 · 等买家 · 无平台截止"
+        },
+        {
+            "id": "01a12c3c-3ad3-77b3-9e96-da6e804b43f2",
+            "type": "platform_event",
+            "source": "webhook",
+            "actorName": null,
+            "at": "2026-10-11T18:31:47.152Z",
+            "title": "平台事件 · BUYER_SHIPPED_ITEM",
+            "detail": "处理中 · 待验货 · 截止 10-14 02:31"
+        },
+        {
+            "id": "01a12c3d-6009-7738-ba2c-abb499d2d41f",
+            "type": "action",
+            "source": "page",
+            "actorName": "Arif Rahman",
+            "at": "2026-10-11T18:33:02.203Z",
+            "title": "Arif Rahman 处理售后",
+            "detail": null
+        },
+        {
+            "id": "01a12c3d-602a-7717-917b-2540b12e6702",
+            "type": "platform_event",
+            "source": "page",
+            "actorName": "Arif Rahman",
+            "at": "2026-10-11T18:33:02.203Z",
+            "title": "平台事件 · RETURN_OR_REFUND_REQUEST_SUCCESS",
+            "detail": "已解决 · 截止 10-14 02:31"
+        }
+    ],
+    "links": {
+        "orderId": "01a12c37-b051-7721-b61a-ec896c39c7e5",
+        "afterSaleId": "01a12c37-d75d-765c-981e-33f003581519"
+    },
+    "related": {
+        "conversation": null,
+        "order": {
+            "id": "01a12c37-b051-7721-b61a-ec896c39c7e5",
+            "externalOrderId": "576436136327222909",
+            "platformStatus": "DELIVERED",
+            "total": "47.80",
+            "currency": "MYR",
+            "itemsText": "Bamboo Fibre Bath Towel Set (3 pcs) ×1"
+        },
+        "afterSale": {
+            "id": "01a12c37-d75d-765c-981e-33f003581519",
+            "kind": "return",
+            "externalId": "4035905070621310027",
+            "platformStatus": "RETURN_OR_REFUND_REQUEST_SUCCESS",
+            "nextAction": null,
+            "sellerDueAt": null,
+            "dueField": null,
+            "reason": "Wrong product was sent"
+        }
+    },
+    "permissions": {
+        "canChangeStatus": false,
+        "canAssign": false,
+        "canVoid": false,
+        "canChangeDue": false,
+        "canNote": true
+    }
+}

@@ -1,0 +1,41 @@
+{
+  "note": "未登录打开邀请链接 → 点「用 … 登录」→ 登录成功后回到邀请页，等待 6 秒后的页面文字；by-token 只在登录前请求过一次",
+  "pageUrl": "http://127.0.0.1:3360/invite/Qucn9g0pn_f_wEuMh1ELCPuDyXvKN51hPdaBGDL9fA0",
+  "pageText": "加入「Auth Store 2」 | Auth Two 邀请你以 员工 身份加入。邀请邮箱 run2-auth-reset2@demo.test。 | 这个邮箱已有 Shopilot 账号，请先用 run2-auth-reset2@demo.test 登录，登录后会回到这里。 | 用 run2-auth-reset2@demo.test 登录",
+  "requests": [
+    {
+      "at": "2026-10-12T00:14:32.238Z",
+      "navigated": "/invite/Qucn9g0pn_f_wEuMh1ELCPuDyXvKN51hPdaBGDL9fA0"
+    },
+    {
+      "at": "2026-10-12T00:14:32.372Z",
+      "navigated": "/invite/Qucn9g0pn_f_wEuMh1ELCPuDyXvKN51hPdaBGDL9fA0"
+    },
+    {
+      "at": "2026-10-12T00:14:32.420Z",
+      "method": "GET",
+      "url": "/api/v1/invitations/by-token/Qucn9g0pn_f_wEuMh1ELCPuDyXvKN51hPdaBGDL9fA0",
+      "status": 200
+    },
+    {
+      "at": "2026-10-12T00:14:32.996Z",
+      "navigated": "/login?next=%2Finvite%2FQucn9g0pn_f_wEuMh1ELCPuDyXvKN51hPdaBGDL9fA0"
+    },
+    {
+      "at": "2026-10-12T00:14:33.912Z",
+      "method": "POST",
+      "url": "/api/auth/sign-in/email",
+      "status": 200
+    },
+    {
+      "at": "2026-10-12T00:14:33.950Z",
+      "method": "GET",
+      "url": "/api/v1/me",
+      "status": 200
+    },
+    {
+      "at": "2026-10-12T00:14:33.978Z",
+      "navigated": "/invite/Qucn9g0pn_f_wEuMh1ELCPuDyXvKN51hPdaBGDL9fA0"
+    }
+  ]
+}

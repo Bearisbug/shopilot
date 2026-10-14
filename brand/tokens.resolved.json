@@ -1,0 +1,977 @@
+{
+  "$schema": "./tokens-schema.md",
+  "$comment": "Shopilot 产品界面 tokens（profile-2，最小深度 + 图表配色，仅浅色模式）。品牌值来自 Quilt 设计系统 v5 快照 brand/upstream/quilt-ds-v5。",
+  "meta": {
+    "app": "Shopilot",
+    "source": "visual-system",
+    "spec": "DTCG-1.0 + design-extract/profile-2",
+    "tiers": [
+      "primitive",
+      "semantic",
+      "component"
+    ],
+    "extensions": "com.design-extract",
+    "modes": [
+      "light"
+    ],
+    "defaultMode": "light",
+    "modeModel": "light-only",
+    "themes": [],
+    "medium": "desktop",
+    "platform": "web",
+    "units": {
+      "base": 4,
+      "spaceUnit": 4,
+      "sizeBasis": 1,
+      "remBase": 16,
+      "timeUnit": "ms",
+      "reference": "1 unit = 1 CSS px at 1x"
+    },
+    "defaults": {
+      "scope": "derived",
+      "scaling": "absolute",
+      "confidence": "measured"
+    },
+    "languages": [
+      "zh-CN",
+      "en",
+      "ms",
+      "th",
+      "vi"
+    ],
+    "roles": {
+      "text.primary": "semantic.color.text.primary",
+      "text.secondary": "semantic.color.text.secondary",
+      "text.tertiary": "semantic.color.text.tertiary",
+      "surface.sunken": "semantic.color.surface.sunken",
+      "surface.default": "semantic.color.surface.background",
+      "surface.raised": "semantic.color.surface.raised",
+      "surface.overlay": "semantic.color.surface.overlay",
+      "accent": "semantic.color.action.primary",
+      "onAccent": "semantic.color.text.onAction",
+      "selection": "semantic.color.surface.selected",
+      "divider": "semantic.color.border.subtle",
+      "feedback.success": "semantic.color.feedback.success",
+      "feedback.warning": "semantic.color.feedback.warning",
+      "feedback.error": "semantic.color.feedback.error",
+      "elevation.sunken": {
+        "status": "notApplicable",
+        "reason": "设计系统 v5 禁止投影：内嵌区只靠 surface-variant 填充区分"
+      },
+      "elevation.default": {
+        "status": "notApplicable",
+        "reason": "页面底不投影"
+      },
+      "elevation.raised": {
+        "status": "notApplicable",
+        "reason": "设计系统 v5 禁止投影：面板靠白底与奶油底的明度差和发丝线区分"
+      },
+      "elevation.overlay": {
+        "status": "notApplicable",
+        "reason": "设计系统 v5 禁止投影：对话框与抽屉靠遮罩与白底区分"
+      },
+      "state.hover": "semantic.state.hover.opacity",
+      "state.focus": "semantic.state.focus.opacity",
+      "state.pressed": "semantic.state.pressed.opacity",
+      "state.dragged": "semantic.state.dragged.opacity",
+      "state.disabled": "semantic.state.disabled.opacity",
+      "focusRing.width": "semantic.state.focus.ringWidth",
+      "focusRing.offset": "semantic.state.focus.ringOffset",
+      "focusRing.color": "semantic.state.focus.ring",
+      "space.withinGroup": "semantic.space.withinGroup",
+      "space.betweenGroups": "semantic.space.betweenGroups",
+      "space.section": "semantic.space.section",
+      "radius.pill": "semantic.radius.pill",
+      "radius.innerMin": "semantic.radius.innerMin",
+      "hairline": "semantic.layout.hairline"
+    },
+    "notUsed": [
+      {
+        "id": "gradient",
+        "note": "设计系统 v5：无渐变",
+        "css": {
+          "valuePattern": "gradient\\("
+        }
+      },
+      {
+        "id": "shadow",
+        "note": "设计系统 v5：无投影；面板靠底色与发丝线分层",
+        "css": {
+          "property": "box-shadow"
+        }
+      },
+      {
+        "id": "text-shadow",
+        "note": "无文字阴影与发光",
+        "css": {
+          "property": "text-shadow"
+        }
+      },
+      {
+        "id": "backdrop-filter",
+        "note": "无玻璃效果",
+        "css": {
+          "property": "backdrop-filter"
+        }
+      },
+      {
+        "id": "mango-as-text",
+        "note": "芒果色在白底只有 1.93:1，只做填充，不做文字、链接、图标或细线；链接用焦糖 text.link"
+      },
+      {
+        "id": "nested-cards",
+        "note": "卡片不套卡片"
+      }
+    ],
+    "resolvedMode": "light"
+  },
+  "primitive": {
+    "color": {
+      "$type": "color",
+      "cocoa": {
+        "900": {
+          "$value": "#2F1F16",
+          "$description": "可可：正文、mango 上的文字、深色强调块"
+        },
+        "600": {
+          "$value": "#6B5B51",
+          "$description": "次级文字"
+        },
+        "400": {
+          "$value": "#9A887B",
+          "$description": "控件边框"
+        }
+      },
+      "cream": {
+        "0": {
+          "$value": "#FFFFFF"
+        },
+        "50": {
+          "$value": "#FFF8F1",
+          "$description": "奶油页面底"
+        },
+        "100": {
+          "$value": "#F7EEE6",
+          "$description": "内嵌区、表头、买家气泡"
+        },
+        "150": {
+          "$value": "#F5EBE2",
+          "$description": "中性 Chip、标签底"
+        },
+        "200": {
+          "$value": "#F0E2D4",
+          "$description": "发丝线"
+        }
+      },
+      "brand": {
+        "mango": {
+          "$value": "#FFA748",
+          "$description": "芒果：只做填充"
+        },
+        "mangoLight": {
+          "$value": "#FFC98F",
+          "$description": "浅芒果：标志叠层与插画"
+        },
+        "mangoTint": {
+          "$value": "#FFECD8",
+          "$description": "当前导航底、选中行底、我方气泡"
+        },
+        "warmTint": {
+          "$value": "#FFF3E6",
+          "$description": "AI 草稿区、提示块"
+        },
+        "caramel": {
+          "$value": "#8A4F00",
+          "$description": "焦糖：链接、当前导航文字、选中指示、焦点环"
+        }
+      },
+      "feedback": {
+        "success": {
+          "$value": "#17704A"
+        },
+        "warning": {
+          "$value": "#7A5E00"
+        },
+        "error": {
+          "$value": "#B42318"
+        }
+      },
+      "dataViz": {
+        "series": {
+          "1": {
+            "$value": "#BC6A78"
+          },
+          "2": {
+            "$value": "#3A86F3"
+          },
+          "3": {
+            "$value": "#754A82"
+          },
+          "4": {
+            "$value": "#323FE1"
+          },
+          "5": {
+            "$value": "#F71E61"
+          },
+          "6": {
+            "$value": "#8836E1"
+          }
+        }
+      }
+    },
+    "dimension": {
+      "$type": "dimension",
+      "space": {
+        "$extensions": {
+          "com.design-extract": {
+            "scaling": "scalable"
+          }
+        },
+        "1": {
+          "$value": 4
+        },
+        "2": {
+          "$value": 8
+        },
+        "3": {
+          "$value": 12
+        },
+        "4": {
+          "$value": 16
+        },
+        "5": {
+          "$value": 20
+        },
+        "6": {
+          "$value": 24
+        },
+        "8": {
+          "$value": 32
+        },
+        "10": {
+          "$value": 40
+        },
+        "12": {
+          "$value": 48
+        },
+        "16": {
+          "$value": 64
+        }
+      },
+      "radius": {
+        "xs": {
+          "$value": 4
+        },
+        "sm": {
+          "$value": 6
+        },
+        "md": {
+          "$value": 12
+        },
+        "lg": {
+          "$value": 20
+        },
+        "pill": {
+          "$value": 9999
+        }
+      },
+      "fontSize": {
+        "$extensions": {
+          "com.design-extract": {
+            "scaling": "scalable"
+          }
+        },
+        "12": {
+          "$value": 12
+        },
+        "14": {
+          "$value": 14
+        },
+        "18": {
+          "$value": 18
+        },
+        "24": {
+          "$value": 24
+        },
+        "30": {
+          "$value": 30
+        }
+      },
+      "tracking": {
+        "tight": {
+          "$value": -0.3
+        },
+        "none": {
+          "$value": 0
+        }
+      },
+      "hairline": {
+        "$value": 1
+      },
+      "ring": {
+        "width": {
+          "$value": 2
+        },
+        "offset": {
+          "$value": 2
+        }
+      }
+    },
+    "fontFamily": {
+      "$type": "fontFamily",
+      "sans": {
+        "$value": [
+          "Nunito",
+          "IBM Plex Sans Thai Looped",
+          "PingFang SC",
+          "Microsoft YaHei",
+          "system-ui",
+          "sans-serif"
+        ]
+      },
+      "cjk": {
+        "$value": [
+          "PingFang SC",
+          "Microsoft YaHei",
+          "Nunito",
+          "system-ui",
+          "sans-serif"
+        ]
+      },
+      "mono": {
+        "$value": [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "monospace"
+        ]
+      }
+    },
+    "fontWeight": {
+      "$type": "fontWeight",
+      "regular": {
+        "$value": 400
+      },
+      "medium": {
+        "$value": 500
+      },
+      "semibold": {
+        "$value": 600
+      }
+    },
+    "ratio": {
+      "$type": "number",
+      "$extensions": {
+        "com.design-extract": {
+          "scaling": "ratio"
+        }
+      },
+      "lineHeight": {
+        "tight": {
+          "$value": 1.25
+        },
+        "snug": {
+          "$value": 1.4
+        },
+        "normal": {
+          "$value": 1.6
+        }
+      }
+    },
+    "duration": {
+      "$type": "duration",
+      "fast": {
+        "$value": 120
+      },
+      "base": {
+        "$value": 200
+      },
+      "slow": {
+        "$value": 320
+      }
+    },
+    "easing": {
+      "$type": "cubicBezier",
+      "standard": {
+        "$value": [
+          0.2,
+          0,
+          0,
+          1
+        ]
+      },
+      "exit": {
+        "$value": [
+          0.4,
+          0,
+          1,
+          1
+        ]
+      }
+    },
+    "opacity": {
+      "$type": "number",
+      "$extensions": {
+        "com.design-extract": {
+          "scaling": "ratio",
+          "scope": "invariant",
+          "confidence": "inferred",
+          "provenance": "convention: specimen spec §2 reference state-layer values; pressed raised to 0.18: hover 0.08 vs pressed separation on the mango primary button reaches deltaE00 >= 3"
+        }
+      },
+      "hover": {
+        "$value": 0.08
+      },
+      "focus": {
+        "$value": 0.1
+      },
+      "pressed": {
+        "$value": 0.18
+      },
+      "dragged": {
+        "$value": 0.16
+      },
+      "disabled": {
+        "$value": 0.38
+      }
+    }
+  },
+  "semantic": {
+    "color": {
+      "$type": "color",
+      "text": {
+        "primary": {
+          "$value": "#2F1F16"
+        },
+        "secondary": {
+          "$value": "#6B5B51"
+        },
+        "tertiary": {
+          "$value": "#6B5B51",
+          "$description": "设计系统 v5 只有一档次级文字；弱文字与次级文字同值以保住 4.5:1"
+        },
+        "onAction": {
+          "$value": "#2F1F16"
+        },
+        "link": {
+          "$value": "#8A4F00"
+        },
+        "onInverse": {
+          "$value": "#FFF8F1"
+        }
+      },
+      "surface": {
+        "sunken": {
+          "$value": "#F7EEE6"
+        },
+        "background": {
+          "$value": "#FFF8F1"
+        },
+        "raised": {
+          "$value": "#FFFFFF"
+        },
+        "overlay": {
+          "$value": "#FFFFFF"
+        },
+        "selected": {
+          "$value": "#FFECD8"
+        },
+        "neutral": {
+          "$value": "#F5EBE2"
+        },
+        "warm": {
+          "$value": "#FFF3E6"
+        },
+        "inverse": {
+          "$value": "#2F1F16"
+        },
+        "decorative": {
+          "$value": "#FFC98F"
+        }
+      },
+      "border": {
+        "subtle": {
+          "$value": "#F0E2D4"
+        },
+        "control": {
+          "$value": "#9A887B"
+        }
+      },
+      "action": {
+        "primary": {
+          "$value": "#FFA748"
+        },
+        "secondary": {
+          "$value": "#F5EBE2"
+        }
+      },
+      "feedback": {
+        "success": {
+          "$value": "#17704A"
+        },
+        "warning": {
+          "$value": "#7A5E00"
+        },
+        "error": {
+          "$value": "#B42318"
+        }
+      },
+      "dataViz": {
+        "$description": "Derived (light mode only). Exclusion: with the four surfaces (#F7EEE6, #FFF8F1, #FFFFFF x2) requiring >= 3:1, every OKLCH hue from about 15 to 150 deg comes within dE 15 of a feedback color (error H 29.5, warning H 88.3, success H 159.6, all at L about 0.49), so the accent hue (mango H 64.4, L 0.799 above the 0.43-0.77 band) has no in-band variant. series.1 is the nearest feasible hue to the accent: H 9.7 L 0.620 C 0.105 (#BC6A78). Others chosen by random search over a pool of H step 6, L 0.45-0.66, C 0.10-0.24 that pass band, chroma, 3:1 and feedback >= 15, maximizing the worst adjacent CVD dE: 2 #3A86F3 (H 258.0 L 0.629 C 0.180), 3 #754A82 (H 318.1 L 0.480 C 0.100), 4 #323FE1 (H 270.0 L 0.480 C 0.239), 5 #F71E61 (H 12.2 L 0.631 C 0.240), 6 #8836E1 (H 300.0 L 0.540 C 0.239). Result: worst adjacent CVD dE 15.5, worst adjacent normal-vision dE 18.8, lowest contrast against surfaces 3.11 (series 2), nearest feedback dE 15.0 (series 1). Single-series charts that follow design system v5 ('main series = caramel') use text.link instead of the series palette.",
+        "$extensions": {
+          "com.design-extract": {
+            "confidence": "derived"
+          }
+        },
+        "series": {
+          "1": {
+            "$value": "#BC6A78"
+          },
+          "2": {
+            "$value": "#3A86F3"
+          },
+          "3": {
+            "$value": "#754A82"
+          },
+          "4": {
+            "$value": "#323FE1"
+          },
+          "5": {
+            "$value": "#F71E61"
+          },
+          "6": {
+            "$value": "#8836E1"
+          }
+        }
+      }
+    },
+    "space": {
+      "$type": "dimension",
+      "$extensions": {
+        "com.design-extract": {
+          "scaling": "scalable"
+        }
+      },
+      "withinGroup": {
+        "$value": 8
+      },
+      "betweenGroups": {
+        "$value": 16
+      },
+      "section": {
+        "$value": 32
+      }
+    },
+    "radius": {
+      "$type": "dimension",
+      "$extensions": {
+        "com.design-extract": {
+          "cornerStyle": "soft"
+        }
+      },
+      "sm": {
+        "$value": 6
+      },
+      "md": {
+        "$value": 12
+      },
+      "lg": {
+        "$value": 20
+      },
+      "pill": {
+        "$value": 9999
+      },
+      "innerMin": {
+        "$value": 4
+      }
+    },
+    "typography": {
+      "$type": "typography",
+      "$extensions": {
+        "com.design-extract": {
+          "scaling": "scalable",
+          "langOverrides": {
+            "zh": {
+              "fontFamily": "{primitive.fontFamily.cjk}",
+              "letterSpacing": "{primitive.dimension.tracking.none}"
+            }
+          }
+        }
+      },
+      "caption": {
+        "$value": {
+          "fontFamily": [
+            "Nunito",
+            "IBM Plex Sans Thai Looped",
+            "PingFang SC",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 1.6,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "PingFang SC",
+                  "Microsoft YaHei",
+                  "Nunito",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "body": {
+        "$value": {
+          "fontFamily": [
+            "Nunito",
+            "IBM Plex Sans Thai Looped",
+            "PingFang SC",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 1.6,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "PingFang SC",
+                  "Microsoft YaHei",
+                  "Nunito",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "label": {
+        "$value": {
+          "fontFamily": [
+            "Nunito",
+            "IBM Plex Sans Thai Looped",
+            "PingFang SC",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 14,
+          "fontWeight": 500,
+          "lineHeight": 1.4,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "PingFang SC",
+                  "Microsoft YaHei",
+                  "Nunito",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "bodyStrong": {
+        "$value": {
+          "fontFamily": [
+            "Nunito",
+            "IBM Plex Sans Thai Looped",
+            "PingFang SC",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 14,
+          "fontWeight": 600,
+          "lineHeight": 1.6,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "PingFang SC",
+                  "Microsoft YaHei",
+                  "Nunito",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "heading3": {
+        "$value": {
+          "fontFamily": [
+            "Nunito",
+            "IBM Plex Sans Thai Looped",
+            "PingFang SC",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 18,
+          "fontWeight": 600,
+          "lineHeight": 1.4,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "PingFang SC",
+                  "Microsoft YaHei",
+                  "Nunito",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "heading2": {
+        "$value": {
+          "fontFamily": [
+            "Nunito",
+            "IBM Plex Sans Thai Looped",
+            "PingFang SC",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 24,
+          "fontWeight": 600,
+          "lineHeight": 1.25,
+          "letterSpacing": -0.3
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "PingFang SC",
+                  "Microsoft YaHei",
+                  "Nunito",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "figure": {
+        "$value": {
+          "fontFamily": [
+            "Nunito",
+            "IBM Plex Sans Thai Looped",
+            "PingFang SC",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 30,
+          "fontWeight": 600,
+          "lineHeight": 1.25,
+          "letterSpacing": -0.3
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "PingFang SC",
+                  "Microsoft YaHei",
+                  "Nunito",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "code": {
+        "$value": {
+          "fontFamily": [
+            "ui-monospace",
+            "SFMono-Regular",
+            "Menlo",
+            "monospace"
+          ],
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 1.6,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "ui-monospace",
+                  "SFMono-Regular",
+                  "Menlo",
+                  "monospace"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "state": {
+      "$extensions": {
+        "com.design-extract": {
+          "scope": "inferred",
+          "scaling": "ratio",
+          "confidence": "inferred"
+        }
+      },
+      "hover": {
+        "opacity": {
+          "$type": "number",
+          "$value": 0.08
+        }
+      },
+      "focus": {
+        "opacity": {
+          "$type": "number",
+          "$value": 0.1
+        },
+        "ring": {
+          "$type": "color",
+          "$value": "#8A4F00"
+        },
+        "ringWidth": {
+          "$type": "dimension",
+          "$value": 2,
+          "$extensions": {
+            "com.design-extract": {
+              "scaling": "absolute"
+            }
+          }
+        },
+        "ringOffset": {
+          "$type": "dimension",
+          "$value": 2,
+          "$extensions": {
+            "com.design-extract": {
+              "scaling": "absolute"
+            }
+          }
+        }
+      },
+      "pressed": {
+        "opacity": {
+          "$type": "number",
+          "$value": 0.18
+        }
+      },
+      "dragged": {
+        "opacity": {
+          "$type": "number",
+          "$value": 0.16
+        }
+      },
+      "disabled": {
+        "opacity": {
+          "$type": "number",
+          "$value": 0.38
+        }
+      }
+    },
+    "motion": {
+      "$extensions": {
+        "com.design-extract": {
+          "scope": "inferred",
+          "confidence": "inferred"
+        }
+      },
+      "duration": {
+        "$type": "duration",
+        "fast": {
+          "$value": 120
+        },
+        "base": {
+          "$value": 200
+        },
+        "slow": {
+          "$value": 320
+        }
+      },
+      "easing": {
+        "$type": "cubicBezier",
+        "standard": {
+          "$value": [
+            0.2,
+            0,
+            0,
+            1
+          ]
+        },
+        "exit": {
+          "$value": [
+            0.4,
+            0,
+            1,
+            1
+          ]
+        }
+      },
+      "reducedMotion": {
+        "$type": "number",
+        "$value": 0,
+        "$extensions": {
+          "com.design-extract": {
+            "scaling": "ratio"
+          }
+        }
+      }
+    },
+    "layout": {
+      "$extensions": {
+        "com.design-extract": {
+          "scope": "inferred",
+          "confidence": "measured"
+        }
+      },
+      "hairline": {
+        "$type": "dimension",
+        "$value": 1
+      }
+    }
+  },
+  "component": {}
+}

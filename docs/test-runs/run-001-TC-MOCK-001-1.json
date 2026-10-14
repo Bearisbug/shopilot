@@ -1,0 +1,1 @@
+{"step1_as_written":{"url":"/mock/shopee/api/v2/order/get_order_list?...&sign=bad","http":404,"body":"Next.js 404 HTML"},"step1_with_sg_host":{"request_id":"e0f7c8d5e8df23814754c218fcbe0616","error":"error_sign","message":"Wrong sign."}}

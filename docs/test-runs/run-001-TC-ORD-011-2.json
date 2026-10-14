@@ -1,0 +1,16 @@
+{
+    "items": [
+        {
+            "code": "seller_reject_apply_you_have_reached_an_agreement_with_the_buyer",
+            "text": "You have reached an agreement with the buyer"
+        },
+        {
+            "code": "seller_reject_apply_product_used_or_damaged_by_buyer",
+            "text": "Product was used or damaged by the buyer"
+        },
+        {
+            "code": "seller_reject_apply_return_window_expired",
+            "text": "Return window has expired"
+        }
+    ]
+}

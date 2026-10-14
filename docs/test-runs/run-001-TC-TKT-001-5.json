@@ -1,0 +1,98 @@
+{
+ "orders": [
+  {
+   "orderId": "576436136327222909",
+   "status": "DELIVERED",
+   "currency": "MYR",
+   "total": "47.80",
+   "items": [
+    {
+     "name": "Bamboo Fibre Bath Towel Set (3 pcs)",
+     "skuName": "Sage Green",
+     "qty": 1,
+     "price": "42.90"
+    }
+   ],
+   "trackingNumber": "TT822450770037W2",
+   "carrier": "J&T Express",
+   "shipByAt": "2026-10-13T18:26:47.000Z",
+   "createdAt": "2026-10-11T18:26:47.267Z",
+   "next": "COMPLETED",
+   "actions": [
+    "advance",
+    "request_return",
+    "request_refund"
+   ],
+   "afterSales": [
+    {
+     "id": "4035905070621310027",
+     "orderId": "576436136327222909",
+     "kind": "return",
+     "status": "RETURN_OR_REFUND_REQUEST_SUCCESS",
+     "subtype": "RETURN_AND_REFUND",
+     "reasonText": "Wrong product was sent",
+     "arbitrationStatus": null,
+     "dueAt": null,
+     "dueField": null,
+     "returnTrackingNumber": "TT912243789532RZ",
+     "createdAt": "2026-10-11T18:26:54.378Z",
+     "actions": []
+    }
+   ]
+  }
+ ],
+ "pushLogs": [
+  {
+   "id": "b47fdc14-dd9f-4ea6-addb-c0aeffcd2003",
+   "platform": "tiktok",
+   "shopId": "7000001",
+   "event": 12,
+   "targetUrl": "http://127.0.0.1:3360/api/webhooks/tiktok/01a12c31-5af9-7689-846c-c4b4596c8746",
+   "httpStatus": 200,
+   "error": null,
+   "summary": "退货 4035905070621310027 → RETURN_OR_REFUND_REQUEST_SUCCESS",
+   "durationMs": 60,
+   "resendOf": null,
+   "createdAt": "2026-10-11T18:33:02.331Z"
+  },
+  {
+   "id": "2083f3ea-fd40-476c-bcd8-a7be0af86d09",
+   "platform": "tiktok",
+   "shopId": "7000001",
+   "event": 12,
+   "targetUrl": "http://127.0.0.1:3360/api/webhooks/tiktok/01a12c31-5af9-7689-846c-c4b4596c8746",
+   "httpStatus": 200,
+   "error": null,
+   "summary": "退货 4035905070621310027 → BUYER_SHIPPED_ITEM",
+   "durationMs": 34,
+   "resendOf": null,
+   "createdAt": "2026-10-11T18:31:46.492Z"
+  },
+  {
+   "id": "1778eafb-1640-4adf-9bb6-3dd424746654",
+   "platform": "tiktok",
+   "shopId": "7000001",
+   "event": 12,
+   "targetUrl": "http://127.0.0.1:3360/api/webhooks/tiktok/01a12c31-5af9-7689-846c-c4b4596c8746",
+   "httpStatus": 200,
+   "error": null,
+   "summary": "退货 4035905070621310027 → AWAITING_BUYER_SHIP",
+   "durationMs": 37,
+   "resendOf": null,
+   "createdAt": "2026-10-11T18:30:22.688Z"
+  },
+  {
+   "id": "992e87b0-557e-4545-abf5-70e754e65eb5",
+   "platform": "tiktok",
+   "shopId": "7000001",
+   "event": 12,
+   "targetUrl": "http://127.0.0.1:3360/api/webhooks/tiktok/01a12c31-5af9-7689-846c-c4b4596c8746",
+   "httpStatus": 200,
+   "error": null,
+   "summary": "退货 4035905070621310027 → RETURN_OR_REFUND_REQUEST_PENDING",
+   "durationMs": 18,
+   "resendOf": null,
+   "createdAt": "2026-10-11T18:26:54.398Z"
+  }
+ ]
+}

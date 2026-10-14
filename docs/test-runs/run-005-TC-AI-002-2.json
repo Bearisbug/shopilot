@@ -1,0 +1,11 @@
+{
+  "aiMode": "deepseek",
+  "order": "261013W7VTP4GC",
+  "trackingNo": "MY426348056731D",
+  "inAiList": true,
+  "confidenceShown": "0.90",
+  "draft": "您好，您的包裹已经发货，目前最新物流显示：已到达 Shah Alam Hub（SPX Express MY）。\n\n物流单号：MY426348056731D，您可以凭此单号在 SPX Express 官网追踪后续派送进度。\n\n如需进一步协助，请随时告诉我～",
+  "mentionsOrder": false,
+  "mentionsLogistics": true,
+  "buyerReceivedSame": true
+}

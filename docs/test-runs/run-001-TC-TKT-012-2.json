@@ -1,0 +1,110 @@
+{
+    "ticket": {
+        "id": "01a12c63-412b-76a8-9d57-753830efa30a",
+        "number": "T-1030",
+        "type": "internal",
+        "origin": "manual",
+        "status": "open",
+        "waitingOn": null,
+        "phase": null,
+        "platformStatus": null,
+        "shop": {
+            "id": "01a12c31-5b3c-748b-9a3b-6e6280bdc0b4",
+            "name": "Demo Shopee MY",
+            "platform": "shopee",
+            "market": "MY"
+        },
+        "buyerName": null,
+        "orderId": null,
+        "externalOrderId": null,
+        "conversationId": null,
+        "description": "ordtkt TKT-012 T1",
+        "assignee": {
+            "id": "01a12c31-5af7-708c-9714-1d33730ceb60",
+            "name": "Nur Aisyah"
+        },
+        "dueAt": "2026-10-13T10:00:00.000Z",
+        "dueSource": "merchant",
+        "overdue": false,
+        "remainingSec": 139407,
+        "platformDriven": false,
+        "version": 1,
+        "createdAt": "2026-10-11T19:14:24.678Z",
+        "updatedAt": "2026-10-11T19:14:24.683Z",
+        "resolvedAt": null,
+        "manualStatusAllowed": true,
+        "phases": [
+            {
+                "label": "待处理",
+                "state": "current"
+            },
+            {
+                "label": "处理中",
+                "state": "todo"
+            },
+            {
+                "label": "已解决",
+                "state": "todo"
+            }
+        ],
+        "nextActions": [
+            {
+                "kind": "status",
+                "status": "in_progress",
+                "label": "开始处理"
+            },
+            {
+                "kind": "status",
+                "status": "waiting",
+                "waitingOn": "buyer",
+                "label": "等待中 · 等买家"
+            },
+            {
+                "kind": "status",
+                "status": "waiting",
+                "waitingOn": "platform",
+                "label": "等待中 · 等平台"
+            },
+            {
+                "kind": "status",
+                "status": "waiting",
+                "waitingOn": "internal",
+                "label": "等待中 · 等内部"
+            },
+            {
+                "kind": "status",
+                "status": "resolved",
+                "label": "标为已解决"
+            }
+        ],
+        "voidReason": null,
+        "closedAt": null,
+        "remind": {
+            "remainingPercent": 20
+        }
+    },
+    "events": [
+        {
+            "id": "01a12c63-412c-71e3-a9cc-b714e6bfb4c4",
+            "type": "created",
+            "source": "page",
+            "actorName": "林晓",
+            "at": "2026-10-11T19:14:24.678Z",
+            "title": "林晓 建单 T-1030",
+            "detail": "指派 Nur Aisyah · 待处理 · 截止 10-13 18:00"
+        }
+    ],
+    "links": {},
+    "related": {
+        "conversation": null,
+        "order": null,
+        "afterSale": null
+    },
+    "permissions": {
+        "canChangeStatus": true,
+        "canAssign": true,
+        "canVoid": true,
+        "canChangeDue": true,
+        "canNote": true
+    }
+}

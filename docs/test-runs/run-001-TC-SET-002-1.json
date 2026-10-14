@@ -1,0 +1,8 @@
+{
+  "step": 1,
+  "action": "/settings 时区选 Asia/Bangkok（UTC+7），点「保存修改」",
+  "toast": "已保存。时区改动从次日 00:00 起影响看板与接待时间。",
+  "fieldHint": "看板与接待时间按这个时区切日；改动从次日 00:00 起生效",
+  "api": "PUT /api/v1/merchant 200，timezone = Asia/Bangkok",
+  "expected": "提示已保存，并说明立即生效、影响此后的接待时间与看板分日"
+}

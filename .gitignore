@@ -1,0 +1,41 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# env files
+.env*
+!.env.example
+
+# runtime data (uploads, invoices, exports)
+/data/
+
+# tests
+/coverage
+/test-results/
+/playwright-report/
+
+# prototype tooling
+design/quilt/.venv/
+__pycache__/
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+.pnpm-debug.log*
+
+# 内部依据材料：含 OBSBOT 现网信息、平台文档抓取与原型数据，只留本机（仓库公开）
+/Shopilot 产品梳理 2026-10-08.md
+/Shopilot 平台能力清单 2026-10-09.md
+/design/
+/docs/platform-api/
+/docs/ui-interactions.md
+/docs/prototype-flows.html
+/docs/requirements-ui-impact.md
+/docs/implementation-handoff.md

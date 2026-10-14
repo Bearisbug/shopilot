@@ -1,0 +1,40 @@
+{
+  "merchant": "R6 Toast Store (signup run6-retest-1@demo.test)",
+  "clickConfirmAt": 0,
+  "note": "ms 为相对点击确认框「保存」的毫秒数；toast+ 出现、toast- 消失、pagehide 为整页卸载",
+  "events": [
+    {
+      "ev": "load",
+      "at": 1791924027426,
+      "u": "/settings/security",
+      "ms": -3239
+    },
+    {
+      "ev": "toast+",
+      "t": "安全策略已保存，成员下一次请求起按新策略检查",
+      "at": 1791924030752,
+      "u": "/settings/security",
+      "ms": 87
+    },
+    {
+      "ev": "beforeunload",
+      "at": 1791924030763,
+      "u": "/settings/security",
+      "ms": 98
+    },
+    {
+      "ev": "pagehide",
+      "at": 1791924030809,
+      "u": "/account/security",
+      "ms": 144
+    },
+    {
+      "ev": "load",
+      "at": 1791924030813,
+      "u": "/account/security",
+      "ms": 148
+    }
+  ],
+  "finalUrl": "http://127.0.0.1:3360/account/security",
+  "screenshot": "run-006-TC-AUTH-014-1.png 为跳转完成后（点击确认后约 3 秒）的页面，没有「已保存」提示"
+}

@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-14T01:10:15.728Z",
+  "usage": {
+    "used": 3,
+    "quota": 2000,
+    "topup": 0,
+    "remaining": 1997,
+    "byMode": {
+      "auto": 0,
+      "assist": 2,
+      "shadow": 0
+    }
+  },
+  "byShop": [
+    {
+      "shopId": "01a137df-7452-75e1-b346-1c24be31c531",
+      "name": "Demo Shopee MY",
+      "platform": "shopee",
+      "market": "MY",
+      "drafts": 2
+    }
+  ],
+  "dailySum": 2,
+  "cards": {
+    "出稿来源": "出稿来源\n\n本期，按接待模式\n\n提醒\n自动发送\n0 / 3\n\nAI 直接回复买家\n\n辅助草稿\n2 / 3\n\n员工采纳或改写后发送\n\n影子生成\n0 / 3\n\n只生成不发送，也计出稿\n\n另有 1 次出稿的草稿已随买家数据删除：计入已用，不再分模式统计。",
+    "按店铺用量": "按店铺用量\n\n10-14 至 11-14\n\n2 次\n\n本期另有 1 次出稿的草稿已随买家数据删除，不按店铺统计。\n\nDemo Shopee MY\n2\n100%"
+  }
+}

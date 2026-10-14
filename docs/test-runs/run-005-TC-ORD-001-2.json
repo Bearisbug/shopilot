@@ -1,0 +1,10 @@
+{
+  "case": "TC-ORD-001 step 2",
+  "conversation": "01a13615-2c05-74c1-9b9e-48109d79e30f",
+  "buyer": "ordtkt5-o001b-dt4f",
+  "order": "26101329SXNWU9",
+  "t0": "订单推进到 SHIPPED、推送全部 HTTP 200 的时刻（Shopilot order.synced_at 在 t0+3s 内已落库）",
+  "rightColumnFirstShowsOrderAtSec": 28.07,
+  "pageApiRequestsAfterT0": [[1.708,"GET","/api/v1/conversations/<id>"],[5.736,"GET","/api/v1/conversations/<id>"],[7.763,"GET","/api/v1/conversations?view=queue"],[9.767,"GET","/api/v1/conversations/<id>"],[13.798,"GET","/api/v1/conversations/<id>"],[17.79,"GET","/api/v1/conversations?view=queue"],[17.823,"GET","/api/v1/conversations/<id>"],[21.849,"GET","/api/v1/conversations/<id>"],[25.871,"GET","/api/v1/conversations/<id>"],[27.696,"GET","/api/v1/conversations/<id>/buyer"]],
+  "note": "右栏 /buyer 接口按 30 秒轮询，t0 后 27.7 秒才重拉；首次尝试（订单 26101351A5NC9U）在 t0+8 秒看右栏仍为「近 180 天没有订单」"
+}

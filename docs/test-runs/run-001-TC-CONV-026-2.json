@@ -1,0 +1,5 @@
+{
+  "request": "POST /api/v1/conversations/01a12c90-d117-700a-86f6-14da6d28b852/messages（故障注入 Demo Shopee MY send_message once error 后，Nur 在工作台发送「失败重试测试」）",
+  "status": 502,
+  "body": {"type":"/errors/platform","title":"平台返回错误","status":502,"detail":"Shopee 返回错误（error_server）：Something wrong. Please try later.","instance":"/api/v1/conversations/01a12c90-d117-700a-86f6-14da6d28b852/messages","requestId":"req_079954259c494f2781920a407103ac0e","extra":{"messageId":"01a12c90-e7de-7655-8b89-fbc00a83aabb"}}
+}

@@ -1,0 +1,11 @@
+# 服务器 /etc/caddy/sites/shopilot.caddy 的事实源副本；改端口或域名先改这里再同步上去。
+# 单实例：一个上游。health_body 校验响应体含本项目标识，端口填错打到别的服务时 Caddy 返回 503 而不是串门。
+shopilot.live {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3001 {
+		health_uri /api/health
+		health_interval 5s
+		health_timeout 3s
+		health_body `"service":"shopilot"`
+	}
+}

@@ -1,0 +1,8 @@
+{
+  "step": 4,
+  "signIn": "POST /api/auth/sign-in/email (agent2@demo.test, 正确密码) → 200，返回 token 与 user，会话已建立",
+  "afterSignIn": "GET /api/v1/me → 403 /errors/forbidden code no_merchant「这个账号还没有加入任何商户。」；登录页停留并显示同一句",
+  "ownerLoginEventsDuringPendingDeletion": "GET /api/v1/login-events?result=failure → 403 code merchant_pending_deletion（待删除期间所有者只能用商户设置）",
+  "ownerLoginEventsAfterCancel": "GET /api/v1/login-events?result=failure → {\"items\":[]}，没有 agent2 的 disabled 失败记录",
+  "expected": "以 agent2@demo.test 登录被拒；owner 的登录记录有该次失败，原因 disabled"
+}

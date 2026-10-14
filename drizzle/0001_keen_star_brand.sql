@@ -1,0 +1,1 @@
+ALTER TABLE "platform_app" ADD COLUMN "service_id" text;

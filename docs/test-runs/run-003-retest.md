@@ -1,0 +1,45 @@
+# RUN-003 · 组 retest · 复测轮（RUN-002 失败项 + 冒烟 + 修复波及）
+
+- 执行：AI（retest 组，本轮唯一执行者），2026-10-12 10:24–11:16（UTC+8）
+- 环境：§3 本地行，http://127.0.0.1:3360，`AI_MODE=stub`；起跑时库为主会话刚重建的基线
+- 手段：UI 步骤用 Playwright + 本机 Edge（headless，接口登录后注入 cookie + HMR 过滤；登录类步骤走真实 `/login` 表单）；接口用 §3「curl 会话」与等价的带 cookie HTTP 请求；模拟器动作走 `POST /api/mock/sim/{action}`，读数走 `GET /api/mock/sim/state` 与 mock_* 表；发件箱读 `GET /api/dev/outbox?to=`
+- 范围：任务单列 20 条（任务单写「共 19 条」，按列出的 ID 实数为 20：上轮失败 4、冒烟 9、波及 7）
+- 计数：通过 17 · 失败 3 · 待人工 0 · 阻塞 0 · 跳过 0（共 20）
+
+基线重建记录：
+
+| # | 时间 | 原因 |
+| --- | --- | --- |
+| 1 | 11:13:39–11:13:43 | `TC-AUTH-005` 前置基线：`TC-AUTH-006` 已给 agent@demo.test 留下 1 条 `bad_password`，不重建会让第 10 次就锁定、第 3 步计数不符 |
+| 2 | 11:17:38–11:17:42 | 本轮结束恢复基线（同时作为 `TC-AUTH-005`、`TC-SHOP-021` 的后置） |
+
+改过又改回的全局设置：
+
+- 接待时间：`TC-AI-017` 关「周一工作」（原值周一 09:00–18:00 开）→ `TC-SHOP-020` 改为周一 00:00–23:59 → 用例结束改回周一 09:00–18:00，回读 `GET /reception` 确认。
+- AI 替身：`TC-CONV-012`、`TC-AI-017` 各设一次 `low_confidence`（`sticky=false`），用后回读为 `normal`、`sticky=false`。
+- 故障注入未使用。
+
+| 用例 | 结果 | 现象 / 证据 | 备注 |
+| --- | --- | --- | --- |
+| TC-TEAM-002 | 通过 | 1 邀请 other@demo.test（员工、Demo Shopee MY）201，弹层给链接与「2026-10-19 11:06 到期」；2 未登录打开显示「这个邮箱已有 Shopilot 账号，请先用 other@demo.test 登录，登录后会回到这里。」与「用 other@demo.test 登录」，页面 0 个输入框；3 点后到 `/login?next=/invite/…`，登录 200 后回到邀请页，直接显示「接受邀请」；4 接受 200 → `/wb`，顶栏「Rizal Hakim · Demo Store 员工」，弹层列 Other Store、Demo Store；5 owner `/team` 该行员工、Demo Shopee MY、状态「在线」 | RUN-002 第 3 步失败点已修复。按原文用 other@demo.test 执行（本轮无并行组） |
+| TC-TEAM-012 | 失败 | 第 1 步：预期接口返回 `releasedConversations` 2、`returnedTickets` 1；实际 200 `{"releasedConversations":4,"returnedTickets":3}`，toast「已停用：4 个会话退回待认领，3 张工单退回组长」，行「已停用」。执行前查库：Mei 名下处理中会话 4（种子 2 + 前置 2）、未结工单 3（种子 T-1001、T-1005 + 前置 T-1008）。证据 `docs/test-runs/run-003-TC-TEAM-012-1.json` | 判断：用例问题——基线种子已给 Mei 2 个处理中会话、2 张未结工单，前置没有排除，预期计数只算了前置新建的对象；实现按全部名下对象释放，数目正确。补充观察（不改判定）：2 B 刷新到 `/login?next=%2Fwb`；3 两个前置会话回待认领、处理人为空，时间线「处理人 Mei Lin 被停用，会话退回待认领 · 11:05」；4 T-1008 负责人 Arif Rahman，时间线「林晓 改派给 Arif Rahman · 原负责人 Mei Lin」；5 重新启用 toast「已重新启用，负责店铺保持不变」，状态列「54 秒前」，接口 `online: false`、未过期登录会话 0（RUN-002 第 5 步失败点已修复）；6 Mei 登录进 `/wb`，负责店铺仍是 Demo Shopee MY、Demo TikTok TH |
+| TC-TKT-007 | 通过 | 1 类型点「内部确认」后负责人只读「Nur Aisyah（本人）」与「员工建的工单只能由自己负责」，没有下拉；2 T-1006 负责人 Nur Aisyah、来源「商户时限」、截止 10-13 18:00（周一 10:44 建单，排班周一至周五 09:00–18:00）；3 指定 Mei Lin 返回 403 `/errors/forbidden`，`code` assignee_not_allowed | 前置的「认领并回复」：AI 草稿会话上只有「认领」，用它认领。入口偏差（同 RUN-002）：会话无订单时右栏工单小节没有「建工单」，用会话头部「建工单」图标按钮。「1 个工作日后」实现取次一工作日下班时刻 18:00，用例未写精确时刻，按此判通过 |
+| TC-CONV-012 | 通过 | 替身 `low_confidence` 后新买家进待认领；Nur、Mei 两个浏览器并发点「认领」：Nur 200 胜，Mei 409 `/errors/conflict`，`extra.claimedBy` 为 Nur Aisyah；Mei toast「没有认领成功 Nur Aisyah 已经认领了这个会话。（请求编号 …）」，对话栏「Nur Aisyah 已认领这个会话 / 同事处理中的会话只有组长和管理员能查看，回到列表接待其他买家。」与「回到会话列表」，没有右栏；「我处理中」只有 Nur 有 C。两方认领响应 `docs/test-runs/run-003-TC-CONV-012-1.json` | RUN-002 第 2 步失败点已修复。界面按钮名是「认领」，用例写「认领并回复」 |
+| TC-AUTH-001 | 通过 | 表单有工作邮箱、密码、你的姓名、商户名、商户时区（默认 Asia/Kuala_Lumpur（UTC+8））与「创建商户」；`POST /api/v1/signup` 201 → `/shops/connect`，有 Shopee 与 TikTok Shop 两个平台卡片；侧栏 9 项齐全；`/api/v1/me` 的 `active` 为 Signup Store / `admin` / `isOwner: true`；发件箱有发往 signup1@demo.test 的 `verify_email`；`/team` 只有「测试店主」一行：管理员、账号所有者、状态「在线」 | 按原文邮箱 signup1@demo.test |
+| TC-SHOP-001 | 通过 | 1 guide 5 项清单；2 凭证页有 Live Partner ID、Live Partner Key 与「验证并保存」；3 「已识别为全球控制台（open.shopee.com）」「推送回调已改为 Shopilot，订阅 9 类推送」，2/2 通过，出现「下一步：授权店铺」；4 「打开授权页」同页打开模拟授权页（区域主机 sg），主账号 900100 列 Wizard Shopee MY、SG、PH；5 勾三家授权回 `/shops/connect/shopee/probe`；6 MY、SG「能收发 · 能查」，PH「不能收发」并写明原因、带「准备清单第 4 项」链接，三家「买家姓名地址 被平台隐藏」；7 选「AI 只起草、不发送」点「完成接入」，toast「接入完成：3 家店开始接收买家消息，历史记录在后台拉取」；8 `/shops` 三家 shadow / shadow，抽屉「历史回补 已完成」，接口 status 均 connected；9 Wizard Shopee MY 新买家发「接入后第一条」，推送 200，0.7 秒内进 signup1 的待认领 | 第 3 步区域以「全球控制台」呈现（sg 主机），同 RUN-002 判通过。第 8 步「连接」列文案 MY、SG 为「正常」、PH 为「需处理 · 聊天不可用」 |
+| TC-AUTH-004 | 通过 | 1 `/login` 表单登录（10:37:20）sign-in 200 → `/wb`，顶栏「Nur Aisyah · Demo Store 员工」；2 账号弹层「退出登录」→ `/login`；3 `/wb` → `/login?next=%2Fwb`；4 `login` 200，`/me` HTTP 200、`user.email` agent@demo.test；5 带 `-d '{}'` 退出 200 后 `/me` 401 `/errors/unauthenticated`，不带请求体与 Content-Type 退出也 200；6 owner 登录记录有 10:37 agent@demo.test 成功（Edge） | |
+| TC-AI-001 | 通过 | 1 推送 Shopee code 10 HTTP 200；2 8.6 秒内「AI 草稿」3 → 4，列表出现该会话，行上店铺 Demo Shopee MY；3 时间线有买家消息，草稿正文 X「您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。」与 0.85，有「认领并发送」「改后发送」「忽略」；4 草稿区消失，时间线本方 X「Nur Aisyah 10:51 · 已发送」，会话在「我处理中」；5 买家视图卖家消息 1 条，正文 X；6 10 秒后刷新 X 仍只 1 条（界面与接口）；7 `/billing` 本期已用 3 → 4、辅助草稿 3 → 4 | 第三次执行有效：前两次是脚本问题作废（第 1 次等待逻辑卡住被中止；第 2 次 A 停在「待认领」分组没看 AI 草稿列表），各留下一个 AI 草稿会话（retest-AI001、retest-AI001b），U 与 A0 在有效轮起跑时重新记录 |
+| TC-TKT-001 | 通过 | 1 webhook type 12 HTTP 200；2 T-1007 退货退款「待处理 · 待审核」、剩 47 时、平台截止、Arif Rahman，D1 = 10-14 10:57；3 「同意退货」提交 200，弹层关闭，「等待中 · 等买家」，模拟退货单 AWAITING_BUYER_SHIP；4 买家寄回后「处理中 · 待验货」，截止 10-14 10:58 ≠ D1；5 「收货后同意退款」后模拟退货单 RETURN_OR_REFUND_REQUEST_COMPLETE，T 已解决；6 时间线依次为平台事件建单、Arif Rahman 同意退货、平台事件 · 等买家寄回、平台事件 · 待验货、Arif Rahman 收货后同意退款、平台事件 · 退款完成，两条人工动作来源「页面」 | 同 RUN-002 旁见：「平台事件 · 等买家寄回」「平台事件 · 退款完成」两条来源也标「页面」（接口 `source=page`），用例未约束平台事件来源 |
+| TC-ORD-015 | 通过 | 1 弹层类型 Invoice，订单 261012CD04S3NU 与商品行（Bamboo Fibre Bath Towel Set (3 pcs) ×1，MYR 45.90）预填；2 「生成并发送」201，弹层关闭，toast「已生成 INV-2026-000002 图片已发进会话，邮件已发到 invoice1@demo.test」；3 买家视图收到一张图片；4 发件箱 `invoice`，主题「Invoice INV-2026-000002 from Demo Store」，附件 INV-2026-000002.pdf；5 `/orders/invoices` 该行「会话已发送 / 邮件已发送」；6 「PDF」下载 `application/pdf`，文本含 INV-2026-000002 与 Demo Buyer Sdn Bhd | 前置「认领并回复」用会话头「认领」 |
+| TC-PERM-001 | 通过 | owner 侧栏：工作台（待认领、AI 草稿、我处理中、同事处理中、已结束）、工单、订单与开票、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置，底部「出稿已用 0%」用量卡；无知识库，顶栏无助手。lead：工作台（含同事处理中）、工单、订单与开票、看板，无其余 5 项与用量卡。agent：工作台（待认领、AI 草稿、我处理中、已结束）、工单、订单与开票，无看板。`nav-summary`：owner 有 `usage`，lead 与 agent 的响应没有 `usage` 键 | RUN-002 旁见（`usage: null` 键）已修复 |
+| TC-PERM-002 | 通过 | 1–3 三个请求均 403 `/errors/forbidden`；4 `/reception` 原位显示「这个页面只对管理员开放」与「返回工作台」，点后回 `/wb`；5 `/settings/audit` 近 7 天、操作人 Nur Aisyah 正好 3 条「被拒绝：…」（`action` = `permission_denied`） | |
+| TC-PERM-005 | 失败 | 第 3 步：预期显示「找不到或已删除」；实际对话栏显示「看不到这个会话 / 它可能已被删除，或不在你负责的店铺与可见范围内。」与「回到会话列表」。证据 `docs/test-runs/run-003-TC-PERM-005-3.png` | 第 1、2 步 10 个请求均 404 `/errors/not-found`；第 4 步 other 重读：会话 closed、无处理人、version 1，工单时间线 1 条且无 cross，订单 AWAITING_SHIPMENT，发票邮件 sent，店铺 connected，与前置一致。判断：实现问题——404 文案本轮改成了新句子，DESIGN §14 错误表仍写「找不到或已删除」，`PAGE-WB` 只写「说明原因并给回列表」；若保留新文案，需同步 DESIGN §14 与 TEST.md 中引用该文案的用例（`TC-PERM-005`、`TC-AUTH-011`、`TC-SET-007`） |
+| TC-AUTH-005 | 通过 | 1 10 次错密码均 401 `/errors/invalid-login`；2 第 11 次正确密码 423 `/errors/locked`，`extra.retryAfter` 899；3 owner 登录记录筛「失败」：agent 10 条「失败 · 密码错误」+ 1 条「失败 · 已锁定」（库内 `bad_password` 10、`locked` 1）；4 另一未登录上下文表单登录 423（retryAfter 871），留在 `/login`，提示「连续输错密码次数过多，请 15 分钟后再试。」 | 执行前重建基线（见重建记录 #1）；按原文对 agent@demo.test 执行，后置由收尾重建满足 |
+| TC-AUTH-006 | 通过 | 1、2 两次表单提示原文都是「邮箱或密码不正确。」，接口都 401 `/errors/invalid-login`；3 owner 登录记录筛「失败」只有 agent@demo.test 10:38「失败 · 密码错误」，没有 nobody@demo.test | |
+| TC-CONV-004 | 失败 | 第 1 步：预期分组「各带数字」；实际待认领 6、AI 草稿 2、同事处理中 5、已结束 3 带数字，「我处理中」不显示数字（owner 计数为 0），侧栏子项同样；证据 `docs/test-runs/run-003-TC-CONV-004-1.png` | 第 2 步 `counts` {queue 6, ai 2, mine 0, team 5, done 3} 与页面一致；第 3 步平台选 TikTok（选项文案「TikTok」，用例写「TikTok Shop」）后五组每行 TikTok；第 4 步店铺选 Demo TikTok MY 后五组（1/1/0/1/1）每行 Demo TikTok MY。判断：用例问题倾向——计数为 0 时界面不显示数字，用例与 DESIGN 都没写 0 的呈现；基线下 owner 的「我处理中」恰为 0，RUN-002 时为 1 未暴露。需裁决 0 显示「0」还是允许留空 |
+| TC-SHOP-020 | 通过 | 1 抽屉「断开」，弹层不勾「同时删除…」点「断开」，200 `closedConversations` 5，toast「已断开「Demo TikTok MY」，5 个进行中的会话已结束」，行「已断开 · 授权已删除」；2 模拟器坐席接单 false；3 已结束有 C（retest-S020C），H（Mei Ling）能打开查看；已结束的店铺筛选仍列 Demo TikTok MY；4 新买家「断开后的消息」推送 200，五个分组界面与接口都没有；5 `/shops/connect/tiktok/auth` 对 MY「重新连接」并授权，回到 connected，店铺 ID 不变，H 仍在 | 前置「固定为工作时间内」：周一 09:00–18:00 → 00:00–23:59，用例后改回。同 RUN-002 旁见①：重新连接后未点「完成接入」时接待模式为 off / off（断开前 assist / auto），用例未约束 |
+| TC-SHOP-021 | 通过 | 1 弹层「打开撤销授权页」新标签打开模拟平台「取消「Demo Store CS」的店铺授权」页；2 勾「同时删除这家店的历史会话与订单镜像」点「断开」，toast「已断开「Demo Shopee SG」，3 个进行中的会话已结束，删除 4 个会话、4 张订单」，行「已断开」；3 `/wb` 与 `/orders` 店铺下拉有「已断开」组并列 Demo Shopee SG，选它后已结束「已结束是空的」、订单「没有符合筛选条件的订单」（接口按 shopId 会话 4 → 0、订单 4 → 0）；4 TH 的 cancel-auth-url 409 `/errors/not-allowed`（`code` tiktok_no_cancel） | RUN-002 旁见（已断开店不在筛选里）已修复。旁见：`/orders` 右侧「售后待处理」不随店铺筛选，仍列 T-1002（Demo Shopee SG 取消申请，待处理）；工单不在删除范围，用例未约束。后置由收尾重建满足 |
+| TC-AI-017 | 通过 | 1 「固定为工作时间外」+ 替身 `low_confidence` 后，Demo TikTok MY 新买家发「这个能用在 Mac 上吗」，买家视图只有 1 条卖家消息「感谢您的留言，客服同事会尽快为您处理。」；2 Arif 的待认领有该会话，`handoffReason` low_confidence，会话内「转人工：置信度低于阈值」，行「待认领 · 等 不到 1 分钟」（11:09）→「待认领 · 等 1 分钟」（11:10），接口 `waitingSinceSec` 未清零 | RUN-002 旁见（安抚句清零等待）已修复。前置把周一「工作」关掉，之后由 `TC-SHOP-020` 前置改写、结束时改回 |
+| TC-TEAM-001 | 通过 | 1 「邀请成员」弹层有邮箱（多行输入）、角色（默认员工）、负责店铺勾选、「发送邀请」；2 弹层显示邮箱、链接、「复制链接」与「2026-10-19 11:01 到期」，弹层内没有溢出元素；列表新增「待接受 · 10-19 到期」；3 发件箱 `invitation` 链接与第 2 步相同；4 邀请页「加入「Demo Store」· 林晓 邀请你以 员工 身份加入，负责 Demo Shopee MY」，要求姓名与密码；5 「创建账号并加入」→ `/wb`；6 侧栏无看板、店铺与连接，各视图行都是 Demo Shopee MY；7 owner 刷新后该行 Nur New、员工、Demo Shopee MY、状态「在线」 | 第 5 步按钮名是「创建账号并加入」，用例写「接受」 |
+
+收尾：已执行 `pnpm db:reset && pnpm db:seed`（重建记录 #2），库内不留本组对象；临时脚本 `scripts/.tmp-run3-retest-*.mjs`、cookie 目录与临时截图目录已删除。

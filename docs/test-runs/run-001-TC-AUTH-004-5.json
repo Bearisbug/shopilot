@@ -1,0 +1,10 @@
+{
+  "step": 5,
+  "command": "api agent@demo.test -X POST $B/api/auth/sign-out   (curl 会话函数，带 Content-Type: application/json、无请求体)",
+  "response": {"status": 422, "body": {"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"Invalid JSON in request body","instance":"/api/auth/sign-out","code":"bad_request"}},
+  "then_GET_/api/v1/me": {"status": 200, "note": "会话未退出"},
+  "diagnostics": {
+    "same_with_body_{}": {"status": 200, "body": {"success": true}, "then_me": 401},
+    "no_content_type_no_body": {"status": 500, "body": {"type":"/errors/internal","title":"服务器出错了","status":500,"detail":"Content-Type is required. Allowed types: application/json","instance":"/api/auth/sign-out","code":"unsupported_media_type"}}
+  }
+}

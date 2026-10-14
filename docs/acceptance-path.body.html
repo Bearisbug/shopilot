@@ -1,0 +1,150 @@
+<header class="cover" data-head="left" data-character="compact">
+  <h1>Shopilot 本地验收路径</h1>
+  <p class="subtitle">从注册一个全新商户开始，按 9 条链路走完：填凭证接入两个平台、配置接待和团队，再在自己接入的店上测接待、售后、开票和管理。</p>
+  <p class="meta"><span>2026 年 10 月 14 日</span><span>本机 + 模拟平台</span><span>对应 DESIGN v1.10、TEST.md</span></p>
+</header>
+
+<section class="summary" aria-label="执行摘要">
+  <h2>要点</h2>
+  <ul>
+    <li>按商户真实使用的先后走：注册（1）→ 接入 Shopee、TikTok（2–3）→ 店铺管理（4）→ 接待与团队配置（5）→ 接待买家（6–7）→ 售后与开票（8）→ 管理与安全（9）。后一条用前一条留下的店铺、成员和数据，中途不重建数据。</li>
+    <li>全部在你自己注册的新商户里进行，不用种子商户 Demo Store；最后的删除商户也只删这个新商户。</li>
+    <li>凭证是模拟平台的，每种填法都有确定的结果，可以把填错、沙箱、回调被占用这些情况都试一遍，见「凭证一览」。</li>
+    <li>功能逻辑 AI 已按测试文档跑过：RUN-005 全量 229 条通过 213 条，失败项修复后 RUN-008 复测全部通过。这一轮重点看 AI 判断不了的地方：文案能不能看懂、操作顺不顺手、页面和原型是否一致。</li>
+    <li>真实 Shopee、TikTok 凭证在本机接不了，原因和需要的条件写在最后一节。</li>
+  </ul>
+</section>
+
+<section class="prereq" aria-label="开始前准备">
+  <h2>开始前你需要</h2>
+  <ul>
+    <li>等我报告回归测试结束再开始：测试会重建数据库，期间注册的商户会被清掉。</li>
+    <li>服务在运行：打开 <a href="http://127.0.0.1:3360/api/health">http://127.0.0.1:3360/api/health</a>，页面显示 <code>"db":"ok"</code>。</li>
+    <li>开好三个窗口：A 是 Edge 普通窗口，给新商户的管理员用；B 是 Edge InPrivate 窗口，给之后邀请进来的组长和员工用；C 打开模拟器 <a href="http://127.0.0.1:3360/mock/simulator">/mock/simulator</a>，另开一个标签打开发件箱 <a href="http://127.0.0.1:3360/dev/outbox">/dev/outbox</a>。所有邮件都进发件箱，不会真的发出去。</li>
+    <li>手机上有一个验证器 App（Google Authenticator 或 Microsoft Authenticator），链路 9 要扫码。</li>
+    <li>准备一张记录表：链路、步骤号、看到了什么、期望是什么、截图。</li>
+  </ul>
+</section>
+
+<h2 id="overview" class="nonum">路线与要用的数据</h2>
+<figure class="diagram wide">
+  <ol class="stages" aria-label="四个阶段：开通、配置、接待、售后与管理">
+    <li class="is-focus"><b>开通</b><span class="meta">链路 1–4 · 管理员</span><ul><li>注册商户</li><li>填凭证接入 Shopee、TikTok</li><li>店铺检查与换密钥</li></ul></li>
+    <li><b>配置</b><span class="meta">链路 5 · 管理员</span><ul><li>工作时间与接待模式</li><li>邀请组长、员工</li></ul></li>
+    <li><b>接待</b><span class="meta">链路 6–7 · 员工、组长</span><ul><li>AI 草稿、自动回复、影子回复</li><li>认领、转交、改派、结束</li></ul></li>
+    <li><b>售后与管理</b><span class="meta">链路 8–9 · 全员</span><ul><li>取消、退货、开票</li><li>看板、用量、两步验证、删除商户</li></ul></li>
+  </ol>
+  <figcaption><strong>四个阶段</strong>：顺序和一个新商户从签约到日常使用的顺序相同，每个阶段都用到前一阶段的结果。</figcaption>
+</figure>
+
+<table>
+  <caption>凭证一览（模拟平台，全是假值）</caption>
+  <thead><tr><th scope="col">平台</th><th scope="col">填什么</th><th scope="col">会看到什么</th></tr></thead>
+  <tbody>
+    <tr><td>Shopee</td><td>Partner ID <code>2001001</code>，Key 填错（如 <code>wrong-key</code>）</td><td>校验失败，逐个区域列出原因，不能进入授权</td></tr>
+    <tr><td>Shopee</td><td><code>2001002</code>，<code>mock-key-2001002</code></td><td>提示这是沙箱凭证、请换成 Live，「打开授权页」不可用</td></tr>
+    <tr><td>Shopee</td><td><code>2001003</code>，<code>mock-key-2001003</code></td><td>提示回调已指向别的系统 <code>https://erp.example.com/shopee/push</code>，要勾选「改发到 Shopilot」才能保存；这个应用下没有店</td></tr>
+    <tr><td>Shopee</td><td><code>2001001</code>，<code>mock-key-2001001</code></td><td>通过，区域 sg；主账号 900100 下有 Wizard Shopee MY、SG、PH 三家，PH 没有聊天权限</td></tr>
+    <tr><td>TikTok</td><td>App Key <code>mockttwiz01</code>，Secret 填错</td><td>授权后回到授权页，提示 Secret 错误或 Redirect URL 不一致</td></tr>
+    <tr><td>TikTok</td><td><code>mockttwiz01</code>，<code>mock-secret-wiz01</code></td><td>按站点授权，MY、TH 各一家：Wizard TikTok MY、Wizard TikTok TH</td></tr>
+  </tbody>
+</table>
+<p>本轮要建的账号，建议这样填（邮箱都进发件箱，密码至少 10 位）：管理员 <code>trial-owner@demo.test</code>，组长 <code>trial-lead@demo.test</code>，员工 <code>trial-agent@demo.test</code>，密码都用 <code>Trial-Pass-2026</code>。B 窗口要换人时，点右上角账号卡里的「退出登录」再登录。</p>
+
+<h2 id="signup">注册商户</h2>
+<p>用 A。对应用例 <code>TC-AUTH-001</code>、<code>TC-AUTH-002</code>、<code>TC-AUTH-003</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">打开注册页</span>A 打开 <a href="http://127.0.0.1:3360/signup">/signup</a>。<span class="expect">预期：表单有邮箱、密码、姓名、商户名、时区（默认 Asia/Kuala_Lumpur）和「创建商户」。</span></li>
+  <li><span class="step-title">先试错误输入</span>密码只填 9 位提交一次；再用已被占用的邮箱 <code>owner@demo.test</code> 提交一次。<span class="expect">预期：密码字段提示至少 10 位；邮箱字段提示已注册、请直接登录。</span></li>
+  <li><span class="step-title">正式注册</span>填 <code>trial-owner@demo.test</code>、<code>Trial-Pass-2026</code>、姓名、商户名「Trial Store」，点「创建商户」。<span class="expect">预期：直接进入接入向导，页面有 Shopee 和 TikTok Shop 两个选项；侧栏有全部管理菜单。</span></li>
+  <li><span class="step-title">看验证邮件</span>在发件箱找发给 trial-owner@demo.test 的邮件。<span class="expect">预期：有一封邮箱验证邮件。</span></li>
+</ol>
+<p>重点看：注册完第一眼能否看懂下一步该做什么。</p>
+
+<h2 id="shopee">接入 Shopee：填凭证、授权、检查</h2>
+<p>用 A。按「凭证一览」的前四行顺序填。对应用例 <code>TC-SHOP-001</code> 至 <code>TC-SHOP-006</code>、<code>TC-SHOP-009</code>，以及人工用例 <code>TC-SHOP-024</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">走准备清单</span>在 Shopee 下点「还没有应用，跟着建」，勾前两项后点「保存草稿」，刷新页面；再勾完 5 项，点「下一步：填凭证」。<span class="expect">预期：刷新后前两项仍是勾选；最后进入凭证页，有 Partner ID、Partner Key 和「验证并保存」。</span></li>
+  <li><span class="step-title">三种错误填法各试一次</span>依次填 <code>2001001</code> + <code>wrong-key</code>、<code>2001002</code> + <code>mock-key-2001002</code>、<code>2001003</code> + <code>mock-key-2001003</code>，每次点「验证并保存」；2001003 出现确认区时不要勾选。<span class="expect">预期：分别看到逐区域失败原因、沙箱提示、回调被占用的确认区，三种提示都写明了下一步怎么办。</span></li>
+  <li><span class="step-title">填正确凭证</span>填 <code>2001001</code> + <code>mock-key-2001001</code>，点「验证并保存」。<span class="expect">预期：显示校验通过、区域 sg、回调已设置，可以进入授权店铺。</span></li>
+  <li><span class="step-title">授权店铺</span>点「打开授权页」，先点一次「模拟子账号授权」看提示；再打开授权页，勾选三家店，点授权。<span class="expect">预期：子账号授权回到授权页并说明用了子账号；正常授权回到检查页，三家逐行列出，MY、SG 的聊天与订单可用，PH 聊天不可用并写明原因，能点到「准备清单第 4 项」。</span></li>
+  <li><span class="step-title">完成接入</span>选「AI 只起草、不发送（推荐）」，点「完成接入」。<span class="expect">预期：提示接入完成；「店铺与连接」里有三家 Wizard Shopee 店，接待模式都是 shadow。</span></li>
+</ol>
+<p>重点看：第一次接触 Shopee 开放平台的商户，能否只靠准备清单和报错说明完成接入，这是试点时最容易卡住的一步。走完对照原型判定人工用例 <code>TC-SHOP-024</code>。</p>
+
+<h2 id="tiktok">接入 TikTok：按站点授权</h2>
+<p>用 A。对应用例 <code>TC-SHOP-007</code>、<code>TC-SHOP-008</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">先填错 Secret</span>回到接入向导，在 TikTok Shop 下点「已有应用，直接填」，填 <code>mockttwiz01</code> 和一个错误的 Secret，站点选 MY，点「保存并去授权」，在模拟授权页授权。<span class="expect">预期：回到授权页，提示 Secret 错误或 Redirect URL 不一致；店铺列表没有新增 TikTok 店。</span></li>
+  <li><span class="step-title">改成正确 Secret 再授权 MY</span>把 Secret 改为 <code>mock-secret-wiz01</code>，站点 MY，保存并授权。<span class="expect">预期：检查页列出 Wizard TikTok MY。</span></li>
+  <li><span class="step-title">连接第二个站点</span>回到授权步骤点「连接新站点」，选 TH，再授权一次。<span class="expect">预期：检查页同时列出 Wizard TikTok MY 和 Wizard TikTok TH。</span></li>
+  <li><span class="step-title">完成接入</span>选「AI 只起草、不发送（推荐）」，点「完成接入」。<span class="expect">预期：店铺列表共 5 家，正好是基础版的店铺上限；模拟器里两家 TikTok 店的坐席接单为 true。</span></li>
+</ol>
+
+<h2 id="shops">店铺管理：检查连接、换密钥、历史回补</h2>
+<p>用 A。对应用例 <code>TC-SHOP-013</code>、<code>TC-SHOP-015</code>、<code>TC-SHOP-016</code>、<code>TC-SHOP-023</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">看店铺列表和详情</span>打开「店铺与连接」，点 Wizard TikTok MY。<span class="expect">预期：每行有平台、站点、授权到期日期、接待模式、最近入站时间、平台口径回复率；详情抽屉有能力表和最近连接事件。</span></li>
+  <li><span class="step-title">检查连接</span>点「检查连接」。<span class="expect">预期：每家店逐项列出店铺信息、会话列表、订单列表、推送配置的结果；Wizard Shopee PH 的会话列表不通过并写原因。</span></li>
+  <li><span class="step-title">换密钥：先填错</span>点「更新应用密钥」，选 Shopee 应用，填 <code>wrong-key</code>，点「验证并替换」。<span class="expect">预期：提示校验失败，旧密钥照常可用。</span></li>
+  <li><span class="step-title">换密钥：填对</span>再点一次，填 <code>mock-key-2001001</code>。<span class="expect">预期：提示已替换；「商户设置 → 审计日志」有一条更新应用密钥的记录，记录里看不到密钥原文。</span></li>
+  <li><span class="step-title">看历史回补</span>打开 Wizard Shopee MY 的详情，等回补完成；再去工作台「已结束」和「订单与开票」。<span class="expect">预期：详情显示回补已完成及会话数、订单数；工作台「已结束」和订单页能看到这家店接入前的历史会话与订单。</span></li>
+</ol>
+
+<h2 id="setup">接待与团队配置</h2>
+<p>用 A、B。对应用例 <code>TC-RCP-001</code>、<code>TC-RCP-002</code>、<code>TC-RCP-005</code>、<code>TC-TEAM-001</code>、<code>TC-TEAM-009</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">把今天设为全天工作</span>A 打开「接待设置 → 工作时间」，把今天设为工作、时段 00:00–23:59，点「保存」。<span class="expect">预期：提示已保存。新商户默认周一到周五 09:00–18:00；不改的话，晚上测试时所有店都按工作时间外处理。</span></li>
+  <li><span class="step-title">设接待模式</span>在「接待设置」把 Wizard Shopee MY、Wizard TikTok MY 的工作时间内、外都改为 assist，Wizard TikTok TH 都改为 auto，Wizard Shopee SG 保持 shadow，点「保存」。<span class="expect">预期：两家 Shopee 店的 auto 置灰，悬停能看到原因；保存后提示从下一条入站消息起生效。</span></li>
+  <li><span class="step-title">邀请组长和员工</span>在「团队与权限」点「邀请成员」：<code>trial-lead@demo.test</code> 为组长，负责 Wizard Shopee MY、Wizard TikTok MY；<code>trial-agent@demo.test</code> 为员工，负责 Wizard Shopee MY。<span class="expect">预期：弹层给出邀请链接和 7 天后的到期时间；成员列表多两行「待接受」；发件箱各有一封邀请邮件。</span></li>
+  <li><span class="step-title">接受邀请</span>B 打开组长的邀请链接，填姓名和密码加入；退出后用员工的链接再加入一次。<span class="expect">预期：邀请页显示商户名、邀请人、角色、负责店铺；组长的侧栏有「看板」，员工的侧栏没有；员工的会话列表只有 Wizard Shopee MY。</span></li>
+</ol>
+<p>重点看：模式切换按钮直接显示 off、shadow、assist、auto 四个英文值，商户能否看懂；把店设成 auto 时的提示，是否足以让人意识到 AI 会直接回复买家。</p>
+
+<h2 id="reception">接待买家：AI 草稿、自动回复、影子回复</h2>
+<p>用 A（管理员）、B（员工）、C。对应用例 <code>TC-AI-001</code>、<code>TC-AI-005</code>、<code>TC-AI-007</code>、<code>TC-AI-010</code>，以及人工用例 <code>TC-CONV-009</code>、<code>TC-CONV-010</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">买家发第一条消息</span>C 选 Shopee、店铺 Wizard Shopee MY，点「新建买家」，发「我的包裹到哪了」。<span class="expect">预期：推送日志新增一条，状态 200。</span></li>
+  <li><span class="step-title">员工处理草稿</span>B（员工）在工作台「AI 草稿」打开这个会话，点「改后发送」，改几个字后发送。<span class="expect">预期：20 秒内草稿出现；发送后会话移到「我处理中」，C 里买家收到改过的正文。</span></li>
+  <li><span class="step-title">看自动回复</span>C 在 Wizard TikTok TH 新建买家发一条。<span class="expect">预期：20 秒内买家收到回复；A 打开该会话，这条回复标为 AI 发送，会话没有处理人。</span></li>
+  <li><span class="step-title">看影子回复</span>C 在 Wizard Shopee SG 新建买家发一条；A 在「待认领」打开它。<span class="expect">预期：消息下方有折叠的「AI 影子回复（未发送）」，没有发送按钮；买家没收到任何回复。</span></li>
+  <li><span class="step-title">核对用量</span>A 打开「用量与套餐」。<span class="expect">预期：本期已用为 3，按接待模式拆开后三种各 1 次。</span></li>
+</ol>
+<p>默认是 AI 替身模式，草稿是固定文本，只能看流程；要看真实 DeepSeek 写的草稿，告诉我切换。顺带判定人工用例 <code>TC-CONV-010</code>（对照原型看工作台，并试键盘操作）和 <code>TC-CONV-009</code>（窗口拉窄到 1200 px 以下，右栏收成抽屉）。</p>
+
+<h2 id="collab">会话协作：认领、转交、改派、结束</h2>
+<p>用 A（管理员）、B（员工，后换组长）、C。对应用例 <code>TC-CONV-014</code>、<code>TC-CONV-017</code>、<code>TC-CONV-018</code>、<code>TC-PERM-007</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">认领并建工单</span>C 在 Wizard Shopee MY 再新建一个买家发一条；B（员工）打开它，点「认领」，回复一句，再点会话顶部「建工单」，类型选「内部确认」。<span class="expect">预期：会话在「我处理中」；右栏出现这张工单，负责人是员工本人。</span></li>
+  <li><span class="step-title">转交给组长</span>点顶部「转交给同事」，选组长，勾选关联工单一并转交，点「转交」。<span class="expect">预期：提示已交给组长，页面回到会话列表，员工的「我处理中」里没有这个会话。</span></li>
+  <li><span class="step-title">管理员改派</span>A 在「同事处理中」打开它，点「改派给其他同事」，选员工。<span class="expect">预期：处理人变回员工；B 换成组长登录后，「我处理中」没有它，通知里有工单指派给他的记录。</span></li>
+  <li><span class="step-title">结束 TikTok 会话</span>A 打开链路 6 里 Wizard TikTok TH 的会话，点「结束会话」并确认。<span class="expect">预期：会话进入「已结束」并变为只读；C 里该会话显示平台 session 已结束。Shopee 会话没有平台接口，只在 Shopilot 内结束。</span></li>
+</ol>
+<p>重点看：会话被转走、被改派时提示是否清楚；顶部按钮是图标，悬停才显示名称，员工能否找到。</p>
+
+<h2 id="aftersale">售后与开票：取消、退货、发票</h2>
+<p>用 A、B（组长）、C。对应用例 <code>TC-ORD-007</code>、<code>TC-TKT-001</code>、<code>TC-ORD-015</code>，以及人工用例 <code>TC-ORD-020</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">取消申请</span>C 在 Wizard Shopee MY 新建买家，用「替买家下单」下一单并付款，再点「买家申请取消」；B（组长）在「订单与开票」找到这单，点「处理」，选「同意取消」，提交。<span class="expect">预期：申请后「工单」里自动出现一张「取消申请」工单；同意后 C 里订单变为 CANCELLED，工单变为已解决。</span></li>
+  <li><span class="step-title">TikTok 退货建单</span>C 在 Wizard TikTok MY 新建买家下单，「推进」到 DELIVERED，点「买家申请退货退款」。<span class="expect">预期：出现一张退货退款工单，时限来源为平台，显示剩余时间，负责人是组长。</span></li>
+  <li><span class="step-title">退货走到退款</span>组长打开工单，「处理申请」选「同意退货」；C 点「买家寄回」；组长再选「收货后同意退款」。<span class="expect">预期：工单依次变为「等待中 · 等买家」「处理中 · 待验货」「已解决」；时间线里人工动作标「页面」，平台事件标「平台」。</span></li>
+  <li><span class="step-title">开票两路发送</span>C 在 Wizard Shopee MY 新建买家，下一单再发一条消息；员工认领后在右栏点「开 Invoice / Receipt」，填抬头、地址、邮箱，两路都勾选，点「生成并发送」。<span class="expect">预期：订单下拉里只有这个买家的订单；生成 <code>INV-2026-</code> 开头的发票号；买家收到发票图片，发件箱有带 PDF 的邮件。</span></li>
+  <li><span class="step-title">比对 PDF 与图片</span>在「订单与开票 → 发票记录」点这一行的「PDF」，和聊天里的图片逐项比对。<span class="expect">预期：发票号、抬头、商品、金额完全一致（人工用例 <code>TC-ORD-020</code>）。</span></li>
+</ol>
+<p>重点看：退款相关选项没有默认选中；发票合计不含运费和优惠，这一条是待你决定的设计提案 DP-01。</p>
+
+<h2 id="admin">管理与安全：看板、用量、两步验证、删除商户</h2>
+<p>用 A、B（组长）、手机验证器。对应用例 <code>TC-DASH-003</code>、<code>TC-BILL-006</code>、<code>TC-BILL-007</code>、<code>TC-AUTH-014</code>、<code>TC-AUTH-021</code>、<code>TC-SET-009</code>、<code>TC-SET-015</code>，以及人工用例 <code>TC-TKT-020</code>、<code>TC-DASH-004</code>。</p>
+<ol class="steps">
+  <li><span class="step-title">工单看板和数据看板</span>B（组长）打开「工单」的看板视图，在一张手动类工单上点「改状态」；再打开「看板」。<span class="expect">预期：卡片移到对应列，平台驱动的工单带锁图标、没有改状态菜单；看板数字与前面的操作对得上，样本不足的比率改为写出样本数。对照原型判定人工用例 <code>TC-TKT-020</code>、<code>TC-DASH-004</code>。</span></li>
+  <li><span class="step-title">绑卡并加购</span>A 在「用量与套餐」打开「付款方式与续费」，先绑失败卡 <code>4000 0000 0000 0002</code> 加购一次，再换成功卡 <code>4242 4242 4242 4242</code>，加购 1,000 次包。<span class="expect">预期：失败卡提示扣款没有成功、额度不变；成功卡加购后加购额度与剩余立即各加 1,000，账单列表新增一条已支付账单。</span></li>
+  <li><span class="step-title">开启两步验证并要求管理员都开</span>A 在账号安全页输入密码，用手机扫码开启，抄下一个备用码；再到「商户设置 → 安全」打开「管理员必须开启两步验证」并保存。<span class="expect">预期：开启后显示 10 个备用码；策略保存成功。</span></li>
+  <li><span class="step-title">用备用码登录</span>A 退出后重新登录，在验证码这一步点「手机不在身边？改用备用码」，填抄下的备用码。<span class="expect">预期：进入工作台；同一个备用码再用一次被拒。</span></li>
+  <li><span class="step-title">导出后删除商户</span>A 在「商户设置 → 数据」点「导出」，完成后下载 ZIP；再到「商户设置」展开「删除商户」，输入「Trial Store」确认，最后点横幅上的「撤销」。<span class="expect">预期：ZIP 里有会话、消息、订单、工单、发票的 CSV；删除后顶部出现待删除横幅和 30 天后的清除日期；撤销后横幅消失，5 家店变为已断开，其他成员变为已停用。</span></li>
+</ol>
+<aside class="callout warn" role="note"><p><span class="callout-label">注意</span>删除再撤销后，这个新商户的店铺和成员不会自动恢复，需要重新授权、重新启用。它只影响 Trial Store，种子商户 Demo Store 不受影响。</p></aside>
+
+<h2 id="report" class="nonum">记录问题、恢复环境、真实凭证</h2>
+<p>发现问题时记下链路、步骤号、看到了什么、期望是什么，附截图发给我。我会按设计文档、代码、测试文档的顺序修改，修完重跑受影响的用例并登记轮次；要求和设计文档不一致的，先列出来请你决定。</p>
+<p>想从头再走一遍，换一个新邮箱重新注册即可。要清掉所有手动测试数据，在项目目录运行 <code>pnpm db:reset &amp;&amp; pnpm db:seed</code>，等 10 秒后重新登录；模拟平台的授权状态也会一起重置。</p>
+<p>真实 Shopee、TikTok 凭证在本机接不了，原因有三个：平台推送要发到公网地址，本机的 127.0.0.1 收不到；接入时 Shopilot 会改写应用的推送回调与订阅，而 OBSBOT 的应用正被现网 Obsbot v2 使用，改了现网就收不到消息；Shopee 店重新授权会换发 token，现网手里的 token 可能因此失效（未实测）。要验收真实接入需要三样东西：一个部署好的公网地址，一套不影响现网的平台应用（新建测试应用，或你确认可以动的 OBSBOT 应用），以及一个测试买家账号。三样都定下来后，我按同样的链路再写一份真实平台的验收路径。</p>

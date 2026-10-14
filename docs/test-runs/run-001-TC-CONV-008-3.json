@@ -1,0 +1,100 @@
+{
+  "request": "GET /api/v1/conversations/01a12c7e-fd97-7632-8ae1-4965ed877ab3",
+  "status": 200,
+  "body": {
+    "conversation": {
+      "id": "01a12c7e-fd97-7632-8ae1-4965ed877ab3",
+      "shop": {
+        "id": "01a12c31-5b3c-748b-9a3b-6e6280bdc0b4",
+        "name": "Demo Shopee MY",
+        "platform": "shopee",
+        "market": "MY",
+        "status": "connected"
+      },
+      "buyerName": "convai-C008b",
+      "buyerExternalId": "1837188732",
+      "buyerKind": "buyer",
+      "buyerLanguage": null,
+      "handlingState": "bot",
+      "handoffReason": null,
+      "claimedBy": null,
+      "version": 1,
+      "pinned": false,
+      "waitingSinceSec": null,
+      "lastBuyerAt": "2026-10-11T19:44:42.000Z",
+      "responseSlaMinutes": 15,
+      "overdue": false,
+      "canReply": true,
+      "replyBlockedReason": null
+    },
+    "segment": {
+      "id": "01a12c7e-fd99-711c-b004-b0feff89328f",
+      "stage": "presale",
+      "stageSource": "auto",
+      "stageBasis": "本店无订单",
+      "startedAt": "2026-10-11T19:44:42.000Z"
+    },
+    "messages": [
+      {
+        "id": "01a12c7e-fd9b-7607-848d-7a5627b1d808",
+        "direction": "in",
+        "senderRole": "buyer",
+        "senderName": "convai-C008b",
+        "type": "text",
+        "text": "Bila sampai?",
+        "originalText": null,
+        "translation": null,
+        "translationSource": null,
+        "payload": {},
+        "sendStatus": null,
+        "sendError": null,
+        "sentAt": "2026-10-11T19:44:42.000Z",
+        "segmentId": "01a12c7e-fd99-711c-b004-b0feff89328f"
+      }
+    ],
+    "hasMore": false,
+    "draft": {
+      "id": "01a12c7f-0561-724f-a4f0-1dfb67853d7a",
+      "text": "您好！关于「Bila sampai?」，我们已经收到，会尽快为您处理。",
+      "confidence": 0.85,
+      "reason": "none",
+      "mode": "assist",
+      "status": "generated",
+      "triggerMessageId": "01a12c7e-fd9b-7607-848d-7a5627b1d808",
+      "createdAt": "2026-10-11T19:44:44.384Z"
+    },
+    "shadowDrafts": [],
+    "capabilities": {
+      "cards": [],
+      "productCard": {
+        "enabled": false,
+        "reason": "本期不从工作台发送商品卡。"
+      },
+      "coupons": false,
+      "endSession": false,
+      "maxTextLength": 2000,
+      "image": true
+    },
+    "events": [],
+    "openTickets": [],
+    "history": [
+      {
+        "id": "01a12c7e-fd99-711c-b004-b0feff89328f",
+        "stage": "presale",
+        "startedAt": "2026-10-11T19:44:42.000Z",
+        "endedAt": null,
+        "endReason": null,
+        "claimedBy": null,
+        "messages": 0
+      }
+    ],
+    "permissions": {
+      "canClaim": true,
+      "canSend": true,
+      "canTransfer": false,
+      "canClose": true,
+      "canChangeStage": true,
+      "canIgnoreDraft": true
+    }
+  }
+}

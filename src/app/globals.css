@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* 视觉唯一来源 brand/（THEME-006）：只引 shadcn 适配文件，状态层紧随其后 */
+@import "../../brand/tokens.shadcn.css";
+@import "../../brand/state-layer.css" layer(base);
+
+@theme inline {
+  --font-sans: var(--font-nunito), var(--font-thai), "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    color-scheme: light;
+    background: var(--background);
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-size: var(--semantic-typography-body-font-size);
+    line-height: var(--semantic-typography-body-line-height);
+    -webkit-tap-highlight-color: transparent;
+  }
+  [lang|="zh"] {
+    letter-spacing: 0;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* 滚动条（RESP-015）：只用标准属性，颜色走 tokens；声明落在真正滚动的元素上 */
+.scroll-y {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--semantic-color-border-control) transparent;
+}
+/* 导航类容器（RESP-016）：隐藏滚动条视觉、保留滚动 */
+.scroll-nav {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.scroll-nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* 减少动态效果（MOTION-004）：对话框、抽屉、浮层、下拉只保留淡入淡出，进出场的位移与缩放置零。
+   tw-animate-css 的 slide-in、zoom-in 等类只给这些变量赋值，这里统一覆盖。 */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot$="-content"] {
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-exit-scale: 1 !important;
+  }
+}

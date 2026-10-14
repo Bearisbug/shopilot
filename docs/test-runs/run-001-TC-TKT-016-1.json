@@ -1,0 +1,8 @@
+{
+ "scenario": "ticket-due-soon → T-1036（due = now + 5h，负责人 Arif Rahman）",
+ "beforeScan_navSummary_lead": {"ticketsBadge": 1, "unreadNotifications": 18},
+ "ticketScan_log": {"job": "ticket.scan", "scanned": 25, "reminded": 1, "overdue": 0},
+ "afterScan_navSummary_lead": {"ticketsBadge": 1, "unreadNotifications": 19},
+ "newNotification": "2026-10-11T19:20:47Z ticket「工单 T-1036 退货退款 即将到期」",
+ "sidebarBadgeText": {"before": "工单 1", "after": "工单 1"}
+}

@@ -1,0 +1,683 @@
+{
+  "schema_version": 1,
+  "scope": "design-system tokens: generator freshness, per-mode role and chart-series contrast, chart-series distinctness, state-layer distinctness, dataViz coverage, notUsed lint",
+  "result": "FAIL",
+  "mechanical_only": true,
+  "counts": {
+    "generated_files": 5,
+    "contrast_pairs": 79
+  },
+  "warnings": [
+    "No meta.categories: minimal handoff depth, category coverage not declared.",
+    "advisory (minimal depth): light: accent on surface.default+hover = 1.74:1 < 4.5:1",
+    "advisory (minimal depth): light: accent on surface.default+focus = 1.72:1 < 4.5:1",
+    "advisory (minimal depth): light: accent on surface.default+pressed = 1.64:1 < 4.5:1",
+    "advisory (minimal depth): light: accent on surface.raised+hover = 1.83:1 < 4.5:1",
+    "advisory (minimal depth): light: accent on surface.raised+focus = 1.8:1 < 4.5:1",
+    "advisory (minimal depth): light: accent on surface.raised+pressed = 1.71:1 < 4.5:1"
+  ],
+  "errors": [
+    {
+      "context": "contrast",
+      "code": "CONTRAST_FAIL",
+      "message": "light: accent on surface.sunken = 1.68:1 < 4.5:1"
+    },
+    {
+      "context": "contrast",
+      "code": "CONTRAST_FAIL",
+      "message": "light: accent on surface.default = 1.83:1 < 4.5:1"
+    },
+    {
+      "context": "contrast",
+      "code": "CONTRAST_FAIL",
+      "message": "light: accent on surface.raised = 1.93:1 < 4.5:1"
+    },
+    {
+      "context": "contrast",
+      "code": "CONTRAST_FAIL",
+      "message": "light: accent on surface.overlay = 1.93:1 < 4.5:1"
+    }
+  ],
+  "tokens_sha256": "e1e453ad0dbffb4ecaabc84f5c092aff680478a0d7101d5ae6c86f7cfa46e005",
+  "depth": "minimal",
+  "contrast": {
+    "modes": {
+      "light": {
+        "file": "tokens.resolved.json",
+        "pairs": [
+          {
+            "fg": "text.primary",
+            "bg": "surface.sunken",
+            "ratio": 13.79,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.default",
+            "ratio": 15.01,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.raised",
+            "ratio": 15.8,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.overlay",
+            "ratio": 15.8,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.secondary",
+            "bg": "surface.sunken",
+            "ratio": 5.65,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.secondary",
+            "bg": "surface.default",
+            "ratio": 6.15,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.secondary",
+            "bg": "surface.raised",
+            "ratio": 6.48,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.secondary",
+            "bg": "surface.overlay",
+            "ratio": 6.48,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.tertiary",
+            "bg": "surface.sunken",
+            "ratio": 5.65,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.tertiary",
+            "bg": "surface.default",
+            "ratio": 6.15,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.tertiary",
+            "bg": "surface.raised",
+            "ratio": 6.48,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.tertiary",
+            "bg": "surface.overlay",
+            "ratio": 6.48,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.sunken",
+            "ratio": 1.68,
+            "threshold": 4.5,
+            "pass": false
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.default",
+            "ratio": 1.83,
+            "threshold": 4.5,
+            "pass": false
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.raised",
+            "ratio": 1.93,
+            "threshold": 4.5,
+            "pass": false
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.overlay",
+            "ratio": 1.93,
+            "threshold": 4.5,
+            "pass": false
+          },
+          {
+            "fg": "feedback.success",
+            "bg": "surface.sunken",
+            "ratio": 5.3,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.success",
+            "bg": "surface.default",
+            "ratio": 5.77,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.success",
+            "bg": "surface.raised",
+            "ratio": 6.08,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.success",
+            "bg": "surface.overlay",
+            "ratio": 6.08,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.warning",
+            "bg": "surface.sunken",
+            "ratio": 5.34,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.warning",
+            "bg": "surface.default",
+            "ratio": 5.81,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.warning",
+            "bg": "surface.raised",
+            "ratio": 6.12,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.warning",
+            "bg": "surface.overlay",
+            "ratio": 6.12,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.error",
+            "bg": "surface.sunken",
+            "ratio": 5.73,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.error",
+            "bg": "surface.default",
+            "ratio": 6.24,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.error",
+            "bg": "surface.raised",
+            "ratio": 6.57,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "feedback.error",
+            "bg": "surface.overlay",
+            "ratio": 6.57,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "selection",
+            "ratio": 13.73,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "onAccent",
+            "bg": "accent",
+            "ratio": 8.18,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "focusRing.color",
+            "bg": "surface.sunken",
+            "ratio": 5.72,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "focusRing.color",
+            "bg": "surface.default",
+            "ratio": 6.23,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "focusRing.color",
+            "bg": "surface.raised",
+            "ratio": 6.56,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "focusRing.color",
+            "bg": "surface.overlay",
+            "ratio": 6.56,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "divider",
+            "bg": "surface.sunken",
+            "ratio": 1.1,
+            "threshold": null,
+            "pass": null
+          },
+          {
+            "fg": "divider",
+            "bg": "surface.default",
+            "ratio": 1.2,
+            "threshold": null,
+            "pass": null
+          },
+          {
+            "fg": "divider",
+            "bg": "surface.raised",
+            "ratio": 1.27,
+            "threshold": null,
+            "pass": null
+          },
+          {
+            "fg": "divider",
+            "bg": "surface.overlay",
+            "ratio": 1.27,
+            "threshold": null,
+            "pass": null
+          },
+          {
+            "fg": "onAccent",
+            "bg": "accent+hover",
+            "ratio": 7.14,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "onAccent",
+            "bg": "accent+focus",
+            "ratio": 6.9,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "onAccent",
+            "bg": "accent+pressed",
+            "ratio": 5.97,
+            "threshold": 4.5,
+            "pass": true
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.default+hover",
+            "ratio": 1.74,
+            "threshold": 4.5,
+            "pass": false,
+            "advisory": true
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.default+focus",
+            "ratio": 1.72,
+            "threshold": 4.5,
+            "pass": false,
+            "advisory": true
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.default+pressed",
+            "ratio": 1.64,
+            "threshold": 4.5,
+            "pass": false,
+            "advisory": true
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.raised+hover",
+            "ratio": 1.83,
+            "threshold": 4.5,
+            "pass": false,
+            "advisory": true
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.raised+focus",
+            "ratio": 1.8,
+            "threshold": 4.5,
+            "pass": false,
+            "advisory": true
+          },
+          {
+            "fg": "accent",
+            "bg": "surface.raised+pressed",
+            "ratio": 1.71,
+            "threshold": 4.5,
+            "pass": false,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.default+hover",
+            "ratio": 12.87,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.default+focus",
+            "ratio": 12.37,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.default+pressed",
+            "ratio": 10.48,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.default+dragged",
+            "ratio": 10.94,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.raised+hover",
+            "ratio": 13.53,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.raised+focus",
+            "ratio": 13,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.raised+pressed",
+            "ratio": 11,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "text.primary",
+            "bg": "surface.raised+dragged",
+            "ratio": 11.48,
+            "threshold": 4.5,
+            "pass": true,
+            "advisory": true
+          },
+          {
+            "fg": "dataViz.series.1",
+            "bg": "surface.sunken",
+            "ratio": 3.34,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.1",
+            "bg": "surface.default",
+            "ratio": 3.64,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.1",
+            "bg": "surface.raised",
+            "ratio": 3.83,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.1",
+            "bg": "surface.overlay",
+            "ratio": 3.83,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.2",
+            "bg": "surface.sunken",
+            "ratio": 3.11,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.2",
+            "bg": "surface.default",
+            "ratio": 3.39,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.2",
+            "bg": "surface.raised",
+            "ratio": 3.56,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.2",
+            "bg": "surface.overlay",
+            "ratio": 3.56,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.3",
+            "bg": "surface.sunken",
+            "ratio": 5.99,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.3",
+            "bg": "surface.default",
+            "ratio": 6.52,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.3",
+            "bg": "surface.raised",
+            "ratio": 6.86,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.3",
+            "bg": "surface.overlay",
+            "ratio": 6.86,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.4",
+            "bg": "surface.sunken",
+            "ratio": 6.24,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.4",
+            "bg": "surface.default",
+            "ratio": 6.79,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.4",
+            "bg": "surface.raised",
+            "ratio": 7.15,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.4",
+            "bg": "surface.overlay",
+            "ratio": 7.15,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.5",
+            "bg": "surface.sunken",
+            "ratio": 3.44,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.5",
+            "bg": "surface.default",
+            "ratio": 3.75,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.5",
+            "bg": "surface.raised",
+            "ratio": 3.95,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.5",
+            "bg": "surface.overlay",
+            "ratio": 3.95,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.6",
+            "bg": "surface.sunken",
+            "ratio": 5,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.6",
+            "bg": "surface.default",
+            "ratio": 5.44,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.6",
+            "bg": "surface.raised",
+            "ratio": 5.73,
+            "threshold": 3,
+            "pass": true
+          },
+          {
+            "fg": "dataViz.series.6",
+            "bg": "surface.overlay",
+            "ratio": 5.73,
+            "threshold": 3,
+            "pass": true
+          }
+        ]
+      }
+    },
+    "skipped": [],
+    "failures": 4
+  },
+  "dataviz_distinct": {
+    "light": {
+      "band": "light",
+      "series": 6,
+      "worst_adjacent_cvd": 15.5,
+      "worst_adjacent_normal": 18.7,
+      "nearest_feedback": 15
+    }
+  },
+  "state_distinct": {
+    "light": [
+      {
+        "fg": "onAccent",
+        "bg": "accent",
+        "hover": 0.08,
+        "pressed": 0.18,
+        "deltaE00": 4.46,
+        "threshold": 3,
+        "pass": true
+      },
+      {
+        "fg": "accent",
+        "bg": "surface.default",
+        "hover": 0.08,
+        "pressed": 0.18,
+        "deltaE00": 4.01,
+        "threshold": 3,
+        "pass": true,
+        "advisory": true
+      },
+      {
+        "fg": "accent",
+        "bg": "surface.raised",
+        "hover": 0.08,
+        "pressed": 0.18,
+        "deltaE00": 4.72,
+        "threshold": 3,
+        "pass": true,
+        "advisory": true
+      },
+      {
+        "fg": "text.primary",
+        "bg": "surface.default",
+        "hover": 0.08,
+        "pressed": 0.18,
+        "deltaE00": 5.01,
+        "threshold": 3,
+        "pass": true,
+        "advisory": true
+      },
+      {
+        "fg": "text.primary",
+        "bg": "surface.raised",
+        "hover": 0.08,
+        "pressed": 0.18,
+        "deltaE00": 4.89,
+        "threshold": 3,
+        "pass": true,
+        "advisory": true
+      }
+    ]
+  }
+}

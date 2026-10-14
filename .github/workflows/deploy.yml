@@ -1,0 +1,167 @@
+# push main 即部署到 https://shopilot.live（部署目标 server-docker，Synco 部署方式；手册 docs/DEPLOY.md）。
+# 质量门（lint / 测试 / 构建 / 类型检查）→ 经 AWS OIDC 临时放行本 runner 的 SSH → 同步源码 → 服务器原生构建 ARM 镜像、
+# 备份、迁移、切版本 → 健康检查（直连 + 经域名，断言本项目标识与版本）→ 确认版本；健康检查不过自动回滚到 .last_good。
+# 不推镜像仓库：镜像在服务器上按 commit 哈希打 tag，只留最新 5 个。单实例 recreate，发布时有几秒不可用（docs/LAUNCH.md 遗留登记）。
+# 「健康检查」「失败回滚」「确认版本」三个步骤名与健康检查里的身份断言是 deploy-pipeline check.sh 的对账锚点，改名须同步。
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 部署目标环境
+        required: true
+        default: production
+        type: choice
+        options: [production]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: shopilot
+          POSTGRES_PASSWORD: shopilot
+          POSTGRES_DB: shopilot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U shopilot -d shopilot"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      PGPASSWORD: shopilot
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 测试环境变量（仅 CI，非密钥，每次随机生成）
+        run: |
+          cp .env.example .env
+          sed -i \
+            -e 's|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=shopilot|' \
+            -e 's|^DATABASE_URL=.*|DATABASE_URL=postgresql://shopilot:shopilot@127.0.0.1:5432/shopilot|' \
+            -e "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -hex 32)|" \
+            -e "s|^APP_ENCRYPTION_KEY=.*|APP_ENCRYPTION_KEY=$(openssl rand -base64 32)|" \
+            .env
+      - name: 测试数据库（迁移、种子、模拟平台测试库）
+        run: |
+          pnpm db:migrate
+          pnpm db:seed > /dev/null
+          psql -h 127.0.0.1 -U shopilot -d shopilot -c 'create database shopilot_mock_test'
+          cat > mock.drizzle.config.ts <<'CFG'
+          import { defineConfig } from "drizzle-kit";
+          export default defineConfig({ dialect: "postgresql", schema: ["./src/mock/db/schema.ts"], dbCredentials: { url: "postgresql://shopilot:shopilot@127.0.0.1:5432/shopilot_mock_test" } });
+          CFG
+          pnpm exec drizzle-kit push --force --config mock.drizzle.config.ts
+          rm mock.drizzle.config.ts
+      - run: pnpm lint
+      - name: 单元与集成测试
+        run: set -a && . ./.env && set +a && pnpm exec vitest run
+      - run: pnpm build
+      - run: pnpm typecheck
+    # PR 到此为止（preview 自证 = 质量门）；push main 与手动触发继续部署
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      deployments: write         # GitHub deployment 生命周期（Synco 收敛依据）
+      id-token: write            # AWS OIDC，免长期密钥
+    env:
+      TARGET: production
+      HEALTH_URL: https://shopilot.live/api/health
+      TAG: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+      SG: ${{ vars.DEPLOY_SG_ID }}
+      REMOTE: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: 建 deployment + in_progress
+        id: dep
+        env:
+          LOG_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          DEP_ID=$(jq -nc --arg ref "$TAG" --arg env "$TARGET" \
+            '{ref:$ref, environment:$env, auto_merge:false, required_contexts:[], description:("部署 "+$env)}' \
+            | gh api "repos/${{ github.repository }}/deployments" --input - --jq '.id')
+          echo "id=$DEP_ID" >> "$GITHUB_OUTPUT"
+          jq -nc --arg env "$TARGET" --arg log "$LOG_URL" \
+            '{state:"in_progress", environment:$env, log_url:$log, description:"部署中"}' \
+            | gh api "repos/${{ github.repository }}/deployments/$DEP_ID/statuses" --input -
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-east-1
+      - name: 临时放行本 runner 的 SSH
+        id: sg
+        run: |
+          IP=$(curl -fsS https://checkip.amazonaws.com)
+          aws ec2 authorize-security-group-ingress --group-id "$SG" \
+            --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$IP/32,Description=gha-run-${{ github.run_id }}}]" > /dev/null
+          echo "ip=$IP" >> "$GITHUB_OUTPUT"
+      - name: 准备 SSH 密钥        # 私钥只存在 Secrets，落临时文件后 600
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for i in $(seq 1 10); do ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null && break; sleep 3; done
+      - name: 切换新版本
+        run: |
+          rsync -az --delete -e "ssh -i $HOME/.ssh/deploy_key" --exclude-from=deploy/rsync-exclude ./ "$REMOTE:/srv/shopilot/build/"
+          scp -i ~/.ssh/deploy_key deploy/compose.yaml deploy/backup.sh deploy/remote.sh "$REMOTE:/srv/shopilot/"
+          ssh -i ~/.ssh/deploy_key "$REMOTE" "/srv/shopilot/remote.sh switch $TAG"
+      - name: 健康检查              # 先直连服务器 3001（绕过反代），再经域名确认对外已是新版本
+        id: health
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$REMOTE" "/srv/shopilot/remote.sh health $TAG"
+          for i in $(seq 1 24); do
+            body=$(curl -fsS "$HEALTH_URL" || true)
+            # 身份断言：响应须含本项目标识与本次 commit，只判 200 认不出打到了别的服务
+            if echo "$body" | grep -q '"service":"shopilot"' && echo "$body" | grep -q "$TAG"; then
+              echo "对外已是新版本：$body"; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::对外未在 2 分钟内切到 $TAG（最后一次响应：$body）"; exit 1
+      - name: 确认版本              # 健康检查通过 → 记为 .last_good，清理旧镜像
+        env:
+          LOG_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$REMOTE" "/srv/shopilot/remote.sh confirm $TAG"
+          jq -nc --arg env "$TARGET" --arg url "https://shopilot.live" --arg log "$LOG_URL" \
+            '{state:"success", environment:$env, environment_url:$url, log_url:$log, description:"部署成功且健康检查通过"}' \
+            | gh api "repos/${{ github.repository }}/deployments/${{ steps.dep.outputs.id }}/statuses" --input -
+      - name: 失败回滚              # 健康检查未成功（含切换失败）→ 切回 .last_good，并报 rolled_back
+        if: failure() && steps.health.outcome != 'success'
+        env:
+          LOG_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$REMOTE" "/srv/shopilot/remote.sh rollback" || echo "::error::回滚失败，按 docs/DEPLOY.md 第 4 节手动处理"
+          # 约定信号：description 含「rolled_back」→ Synco 读作 rolled_back 终态（词不能改）
+          if [ -n "${{ steps.dep.outputs.id }}" ]; then
+            jq -nc --arg env "$TARGET" --arg log "$LOG_URL" \
+              '{state:"failure", environment:$env, log_url:$log, description:"健康检查未通过,已自动回滚上一版本(rolled_back)"}' \
+              | gh api "repos/${{ github.repository }}/deployments/${{ steps.dep.outputs.id }}/statuses" --input -
+          fi
+      - name: 收回 SSH 放行
+        if: always() && steps.sg.outputs.ip != ''
+        run: |
+          aws ec2 revoke-security-group-ingress --group-id "$SG" \
+            --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=${{ steps.sg.outputs.ip }}/32}]" > /dev/null

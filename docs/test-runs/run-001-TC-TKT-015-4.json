@@ -1,0 +1,20 @@
+{
+ "request": {
+  "status": "in_progress",
+  "version": 0
+ },
+ "httpStatus": 422,
+ "body": {
+  "type": "/errors/validation",
+  "title": "提交的内容有误",
+  "status": 422,
+  "detail": "提交的内容有误，请检查标红的字段。",
+  "instance": "/api/v1/tickets/01a12c68-546e-76eb-ba7a-3e20114f15b1/status",
+  "requestId": "req_01a12c687ec577f18d43d7dbc71cab21",
+  "extra": {
+   "fields": {
+    "version": "数值过小：期望 number >=1"
+   }
+  }
+ }
+}

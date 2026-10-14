@@ -1,0 +1,1 @@
+{"request":"POST /api/v1/password/reset（第 2 次提交同一 token）","status":410,"body":{"type":"/errors/expired","title":"链接已失效","status":410,"detail":"重置链接已失效或已用过，请重新申请。","instance":"/api/v1/password/reset","code":"used_or_expired"}}

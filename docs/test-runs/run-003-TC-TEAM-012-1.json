@@ -1,0 +1,8 @@
+{
+  "url": "http://127.0.0.1:3360/api/v1/members/01a12dea-ce8b-77b5-a278-b9bc5a4b23d0/disable",
+  "status": 200,
+  "body": {
+    "releasedConversations": 4,
+    "returnedTickets": 3
+  }
+}

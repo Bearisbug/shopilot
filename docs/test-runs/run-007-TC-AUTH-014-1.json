@@ -1,0 +1,149 @@
+{
+  "demoStore_step1": {
+    "landedOnAccountSecurityMs": 320,
+    "toastWithSavedOnAccountSecurityMs": null,
+    "log": [
+      {
+        "ms": 1451,
+        "ev": "nav",
+        "url": "http://127.0.0.1:3360/settings/security"
+      },
+      {
+        "ms": 1597,
+        "ev": "nav",
+        "url": "http://127.0.0.1:3360/settings/security"
+      },
+      {
+        "ev": "confirm dialog",
+        "text": "要求管理员开启两步验证？ | 保存后从下一次请求起，没开两步验证的管理员只能先去「账号安全」开启，开启前打不开其他页面。 | 会受影响的 2 人：林晓（你）、陈卓 | 取消 | 保存"
+      },
+      {
+        "ms": 0,
+        "ev": "click confirm"
+      },
+      {
+        "ms": 12,
+        "ev": "poll",
+        "key": "/settings/security|",
+        "url": "/settings/security",
+        "toasts": []
+      },
+      {
+        "ms": 34,
+        "ev": "PUT security-policy",
+        "status": 200
+      },
+      {
+        "ms": 236,
+        "ev": "nav",
+        "url": "http://127.0.0.1:3360/account/security"
+      },
+      {
+        "ms": 262,
+        "ev": "nav",
+        "url": "http://127.0.0.1:3360/account/security"
+      },
+      {
+        "ms": 320,
+        "ev": "poll",
+        "key": "/account/security|",
+        "url": "/account/security",
+        "toasts": []
+      },
+      {
+        "ms": 325,
+        "ev": "nav",
+        "url": "http://127.0.0.1:3360/account/security"
+      },
+      {
+        "ms": 378,
+        "ev": "poll",
+        "key": "/account/security|「Demo Store」要求开启两步验证\n\n开启前其他页面暂时不能使用。按下面的步骤用验证器 App 绑定后即可继续。",
+        "url": "/account/security",
+        "toasts": [
+          "「Demo Store」要求开启两步验证\n\n开启前其他页面暂时不能使用。按下面的步骤用验证器 App 绑定后即可继续。"
+        ]
+      }
+    ],
+    "finalUrl": "http://127.0.0.1:3360/account/security",
+    "finalMain": "账号安全 | 林晓 · owner@demo.test · 两步验证未开启 | 「Demo Store」要求开启两步验证 | 开启前其他页面暂时不能使用。按下面的步骤用验证器 App 绑定后即可继续。 | 两步验证 | 登录时除了密码，还要输入验证器 App（如 Google Authenticator、Microsoft Authenticator）生成的 6 位验证码 | 未开启 | 登录密码 | 先确认是你本人，再生成绑定用的密钥 | 开启两步验证 | 我的登录设备 | 退出某台设备后，它的下一次请求需要重新登录 | 退出其他设备 | Edge · macOS | 当前设备 | 127."
+  },
+  "repro_newMerchant_R7ToastStore": {
+    "clickAt": 1791940336533,
+    "landedAfterClickMs": 138,
+    "polls": [
+      {
+        "afterLandMs": 106,
+        "path": "/account/security",
+        "hasSaved": false,
+        "toasts": []
+      },
+      {
+        "afterLandMs": 311,
+        "path": "/account/security",
+        "hasSaved": false,
+        "toasts": []
+      },
+      {
+        "afterLandMs": 610,
+        "path": "/account/security",
+        "hasSaved": false,
+        "toasts": []
+      },
+      {
+        "afterLandMs": 1011,
+        "path": "/account/security",
+        "hasSaved": false,
+        "toasts": []
+      },
+      {
+        "afterLandMs": 1516,
+        "path": "/account/security",
+        "hasSaved": false,
+        "toasts": []
+      },
+      {
+        "afterLandMs": 2020,
+        "path": "/account/security",
+        "hasSaved": false,
+        "toasts": []
+      },
+      {
+        "afterLandMs": 3021,
+        "path": "/account/security",
+        "hasSaved": false,
+        "toasts": []
+      }
+    ],
+    "domRecord": [
+      {
+        "t": 1791940333587,
+        "path": "/settings/security",
+        "kind": "load",
+        "text": "",
+        "msFromClick": -2946
+      },
+      {
+        "t": 1791940336657,
+        "path": "/settings/security",
+        "kind": "beforeunload",
+        "text": "",
+        "msFromClick": 124
+      },
+      {
+        "t": 1791940336678,
+        "path": "/account/security",
+        "kind": "added",
+        "text": "安全策略已保存。你自己也需要先开启两步验证，开启前其他页面暂时不能使用。",
+        "msFromClick": 145
+      },
+      {
+        "t": 1791940336704,
+        "path": "/account/security",
+        "kind": "load",
+        "text": "",
+        "msFromClick": 171
+      }
+    ]
+  }
+}

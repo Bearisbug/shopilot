@@ -1,0 +1,30 @@
+{
+  "rN": {
+    "status": 409,
+    "body": {
+      "type": "/errors/conflict",
+      "title": "状态已被他人改变",
+      "status": 409,
+      "detail": "Mei Lin 已经认领了这个会话。",
+      "instance": "/api/v1/conversations/01a12d53-203b-7352-84e9-798455e0047b/claim",
+      "requestId": "req_f8bfb984296746c4ade41f18d84c1ae4",
+      "extra": {
+        "claimedBy": {
+          "id": "01a12d3f-632e-77af-b2d9-ba66d4dc2fb4",
+          "name": "Mei Lin"
+        },
+        "version": 3,
+        "handlingState": "human"
+      }
+    }
+  },
+  "rM": {
+    "status": 200,
+    "body": {
+      "id": "01a12d53-203b-7352-84e9-798455e0047b",
+      "handlingState": "human",
+      "claimedBy": "01a12d3f-632e-77af-b2d9-ba66d4dc2fb4",
+      "version": 3
+    }
+  }
+}
