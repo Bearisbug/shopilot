@@ -39,6 +39,9 @@ import { notAllowed, notFound, validation } from "../http/problem";
 import { DEFAULT_HANDOFF_KEYWORDS, DEFAULT_SCHEDULE, DEFAULT_TICKET_TYPES } from "../merchants/defaults";
 import { setTikTokAcceptChat } from "../shops/agent-settings";
 
+/** 只读接入的店不能从 Shopilot 发送，只能 off 或 shadow */
+const READ_ONLY_MODE_REASON = "是只读接入，消息从平台拉取、不能从 Shopilot 发送，只能设为 off 或 shadow";
+
 const sr = schema.shopReception;
 const rs = schema.receptionSettings;
 const pt = schema.promptTemplate;
@@ -79,9 +82,10 @@ async function deniedByRule(ctx: MemberContext, apiId: string, reason: string, d
 
 async function receptionShops(merchantId: string) {
   return db()
-    .select({ id: schema.shop.id, name: schema.shop.name, platform: schema.shop.platform, market: schema.shop.market, modeInHours: sr.modeInHours, modeOffHours: sr.modeOffHours })
+    .select({ id: schema.shop.id, name: schema.shop.name, platform: schema.shop.platform, market: schema.shop.market, modeInHours: sr.modeInHours, modeOffHours: sr.modeOffHours, readOnly: schema.platformApp.readOnly })
     .from(schema.shop)
     .leftJoin(sr, eq(sr.shopId, schema.shop.id))
+    .innerJoin(schema.platformApp, eq(schema.platformApp.id, schema.shop.platformAppId))
     .where(and(eq(schema.shop.merchantId, merchantId), ne(schema.shop.status, "disconnected")))
     .orderBy(schema.shop.platform, schema.shop.name);
 }
@@ -107,8 +111,9 @@ export async function getReception(ctx: MemberContext): Promise<ReceptionSetting
       market: s.market,
       modeInHours: s.modeInHours ?? "off",
       modeOffHours: s.modeOffHours ?? "off",
-      autoAllowed: s.platform === "tiktok",
+      autoAllowed: s.platform === "tiktok" && !s.readOnly,
       ...(s.platform === "shopee" ? { autoBlockedReason: SHOPEE_AUTO_BLOCKED } : {}),
+      ...(s.readOnly ? { readOnly: true, autoBlockedReason: READ_ONLY_MODE_REASON } : {}),
     })),
     hours: { timezone: ctx.merchant.timezone, schedule: settings?.schedule ?? DEFAULT_SCHEDULE, holidays: settings?.holidays ?? [] },
     handoff: {
@@ -134,14 +139,18 @@ export async function saveModes(ctx: MemberContext, body: ModesBody): Promise<Mo
   if (body.shops.length === 0) return { changed: 0, warnings: [] };
   const ids = body.shops.map((s) => s.shopId);
   const current = await db()
-    .select({ id: schema.shop.id, name: schema.shop.name, platform: schema.shop.platform, modeInHours: sr.modeInHours, modeOffHours: sr.modeOffHours })
+    .select({ id: schema.shop.id, name: schema.shop.name, platform: schema.shop.platform, modeInHours: sr.modeInHours, modeOffHours: sr.modeOffHours, readOnly: schema.platformApp.readOnly })
     .from(schema.shop)
     .leftJoin(sr, eq(sr.shopId, schema.shop.id))
+    .innerJoin(schema.platformApp, eq(schema.platformApp.id, schema.shop.platformAppId))
     .where(and(eq(schema.shop.merchantId, ctx.merchant.id), inArray(schema.shop.id, ids), ne(schema.shop.status, "disconnected")));
   const byId = new Map(current.map((s) => [s.id, s]));
   if (byId.size !== ids.length) throw notFound("有店铺不存在或已断开，刷新页面后重试。");
   for (const s of body.shops) {
     const shop = byId.get(s.shopId)!;
+    if (shop.readOnly && [s.modeInHours, s.modeOffHours].some((m) => m === "assist" || m === "auto")) {
+      await deniedByRule(ctx, "API-RCP-002", "read_only", `「${shop.name}」${READ_ONLY_MODE_REASON}。`);
+    }
     if (shop.platform === "shopee" && (s.modeInHours === "auto" || s.modeOffHours === "auto")) {
       await deniedByRule(ctx, "API-RCP-002", "shopee_auto", `「${shop.name}」不能设为 auto：${SHOPEE_AUTO_BLOCKED}。`);
     }

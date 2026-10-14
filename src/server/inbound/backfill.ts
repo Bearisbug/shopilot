@@ -78,7 +78,7 @@ async function backfillConversations(c: ShopClient, since: Date): Promise<number
 }
 
 /** 翻页取消息（新 → 旧）直到早于 since */
-async function collect(fetchPage: (cursor: string | null) => Promise<{ items: NormalizedMessage[]; next: string | null }>, since: Date): Promise<NormalizedMessage[]> {
+export async function collect(fetchPage: (cursor: string | null) => Promise<{ items: NormalizedMessage[]; next: string | null }>, since: Date): Promise<NormalizedMessage[]> {
   const out: NormalizedMessage[] = [];
   let cursor: string | null = null;
   for (let i = 0; i < 30; i++) {

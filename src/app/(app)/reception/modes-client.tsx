@@ -88,8 +88,8 @@ function ModesEditor({ shops }: { shops: ReceptionShop[] }) {
 
   const setMode = (s: ReceptionShop, slot: "in" | "off", value: string) => {
     if (!value) return; // 单选分段控件不允许取消选中
-    if (value === "auto" && !s.autoAllowed) {
-      toast.info(s.autoBlockedReason ?? "这家店不能设为 auto");
+    if (modeBlocked(s, value as ReceptionMode)) {
+      toast.info(s.autoBlockedReason ?? `这家店不能设为 ${value}`);
       return;
     }
     setDraft((d) => ({ ...d, [s.shopId]: { ...mode(s), [slot]: value as ReceptionMode } }));
@@ -204,15 +204,18 @@ function ModesEditor({ shops }: { shops: ReceptionShop[] }) {
   );
 }
 
+/** auto 受平台规则限制；只读接入的店还不能 assist（都会从 Shopilot 发送） */
+const modeBlocked = (shop: ReceptionShop, m: ReceptionMode) => (m === "auto" && !shop.autoAllowed) || (m === "assist" && !!shop.readOnly);
+
 function ModeSegments({ shop, value, label, onChange }: { shop: ReceptionShop; value: ReceptionMode; label: string; onChange: (v: string) => void }) {
   const itemClass = "px-3 font-normal data-[state=on]:bg-accent data-[state=on]:font-semibold data-[state=on]:text-(--semantic-color-text-link)";
   return (
     <ToggleGroup type="single" variant="outline" size="sm" spacing={0} className="overflow-hidden rounded-md" value={value} onValueChange={onChange} aria-label={`${shop.name} ${label}的接待模式`}>
       {RECEPTION_MODES.map((m) =>
-        m === "auto" && !shop.autoAllowed ? (
+        modeBlocked(shop, m) ? (
           <Tooltip key={m}>
             <TooltipTrigger asChild>
-              <ToggleGroupItem value={m} aria-disabled="true" aria-label={`auto（不可用：${shop.autoBlockedReason}）`} className={itemClass}>
+              <ToggleGroupItem value={m} aria-disabled="true" aria-label={`${m}（不可用：${shop.autoBlockedReason}）`} className={itemClass}>
                 {m}
               </ToggleGroupItem>
             </TooltipTrigger>

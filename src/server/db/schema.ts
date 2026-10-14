@@ -203,6 +203,8 @@ export const platformApp = pgTable(
     pushKeyEnc: text("push_key_enc"),
     /** TikTok：Partner Center 应用详情里的 Service ID，拼卖家授权链接用 */
     serviceId: text("service_id"),
+    /** 只读接入：凭证借用自其他系统（如现网 Obsbot v2），Shopilot 对这个应用只调读接口，不刷新 token、不改平台设置 */
+    readOnly: boolean("read_only").notNull().default(false),
     keyExpiresAt: date("key_expires_at"),
     apiHost: text("api_host"),
     region: text("region"),
@@ -279,6 +281,8 @@ export const shop = pgTable(
     authRemindedAt: jsonb("auth_reminded_at").$type<string[]>().notNull().default([]),
     capabilities: jsonb("capabilities").$type<ShopCapabilities>().notNull(),
     lastInboundAt: ts("last_inbound_at"),
+    /** 只读接入店的拉取游标：inbound.poll 已处理到的最新消息时间 */
+    pullCursorAt: ts("pull_cursor_at"),
     backfill: jsonb("backfill").$type<{ state: "pending" | "running" | "done" | "failed"; conversations: number; orders: number; error?: string }>().notNull().default({ state: "pending", conversations: 0, orders: 0 }),
     metrics: jsonb("metrics").$type<Record<string, unknown> | null>(),
     metricsAt: ts("metrics_at"),

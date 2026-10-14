@@ -161,6 +161,7 @@ async function updateApp(id: string, values: Partial<typeof schema.platformApp.$
 
 export async function saveApp(ctx: MemberContext, platform: Platform, raw: unknown): Promise<SaveAppResult> {
   const existing = await appRow(ctx.merchant.id, platform);
+  if (existing?.readOnly) await deny(ctx, "API-SHOP-003", "read_only", "只读接入的应用凭证由导入脚本维护，不能在这里修改或重新授权。");
   if (platform === "tiktok") return saveTiktokApp(ctx, existing, tiktokAppBody.parse(raw));
   return saveShopeeApp(ctx, existing, shopeeAppBody.parse(raw));
 }
@@ -278,6 +279,7 @@ function platformProblem(e: unknown, prefix: string): Problem {
 
 export async function createAuthUrl(ctx: MemberContext, platform: Platform, body: { shopRegion?: string; shopId?: string }): Promise<AuthUrlResult> {
   const app = await appRow(ctx.merchant.id, platform);
+  if (app?.readOnly) await deny(ctx, "API-SHOP-004", "read_only", "只读接入的应用凭证由导入脚本维护，不能在这里修改或重新授权。");
   if (!app) await deny(ctx, "API-SHOP-004", "app_unverified", `还没有保存 ${PLATFORM_NAME[platform]} 应用凭证，先在「应用凭证」一步填好。`);
   if (platform === "shopee" && (app!.status !== "verified" || app!.region === "sandbox")) {
     await deny(

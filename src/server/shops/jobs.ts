@@ -25,6 +25,7 @@ function log(line: Record<string, unknown>) {
  * 2. 每个 TikTok 卖家授权用一家店的 access token 调一次 Get Authorized Shops，鉴权失败的强制刷新
  * 3. access token 30 分钟内到期的店刷新；刷新鉴权失败由 refreshShopToken 转 auth_expired 并通知管理员（11.6 refresh_failed）
  * 4. 授权 30 天内、7 天内到期各提醒一次（规则 auth_expiring），记在 shop.auth_reminded_at
+ * 只读接入的应用整个跳过：凭证借用自其他系统，刷新会让对方手里的 refresh_token 失效。
  */
 export async function tokenRefreshJob(): Promise<void> {
   const shops = await db()
@@ -36,7 +37,9 @@ export async function tokenRefreshJob(): Promise<void> {
 
   const byApp = new Map<string, ShopRow[]>();
   for (const s of shops) byApp.set(s.platformAppId, [...(byApp.get(s.platformAppId) ?? []), s]);
-  const apps = byApp.size ? await db().select().from(schema.platformApp).where(inArray(schema.platformApp.id, [...byApp.keys()])) : [];
+  const allApps = byApp.size ? await db().select().from(schema.platformApp).where(inArray(schema.platformApp.id, [...byApp.keys()])) : [];
+  const readOnlyApps = new Set(allApps.filter((a) => a.readOnly).map((a) => a.id));
+  const apps = allApps.filter((a) => !a.readOnly);
 
   for (const app of apps) {
     const list = byApp.get(app.id) ?? [];
@@ -78,6 +81,7 @@ export async function tokenRefreshJob(): Promise<void> {
   }
 
   for (const s of shops) {
+    if (readOnlyApps.has(s.platformAppId)) continue;
     const [cur] = await db().select().from(schema.shop).where(eq(schema.shop.id, s.id)).limit(1);
     if (!cur || cur.status !== "connected") continue;
     const due = !cur.accessExpiresAt || cur.accessExpiresAt.getTime() - Date.now() < REFRESH_WINDOW_MS;

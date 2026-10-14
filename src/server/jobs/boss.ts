@@ -12,6 +12,8 @@ export const QUEUES = {
   "email.send": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 5, retryDelay: 30, retryBackoff: true },
   // 定时任务（cron 驱动，每个都是单例）
   "inbound.sweep": { policy: "stately" as const, expireInSeconds: 60, retryLimit: 0 },
+  // 只读接入的店：一次任务拉两轮（中间等 30 秒），单例不重叠
+  "inbound.poll": { policy: "stately" as const, expireInSeconds: 180, retryLimit: 0 },
   "token.refresh": { policy: "stately" as const, expireInSeconds: 120, retryLimit: 0 },
   "shop.metrics": { policy: "stately" as const, expireInSeconds: 120, retryLimit: 0 },
   "logistics.scan": { policy: "stately" as const, expireInSeconds: 300, retryLimit: 0 },
@@ -31,6 +33,7 @@ export type QueueName = keyof typeof QUEUES;
 
 export const SCHEDULES: Partial<Record<QueueName, string>> = {
   "inbound.sweep": "* * * * *",
+  "inbound.poll": "* * * * *",
   "token.refresh": "*/10 * * * *",
   "shop.metrics": "7 * * * *",
   "order.sync": "15 * * * *",

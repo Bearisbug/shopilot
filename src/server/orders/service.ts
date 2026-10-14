@@ -12,7 +12,8 @@ import { db, schema, type Executor } from "@/server/db/client";
 import { csv, json } from "@/server/http/route";
 import { Problem } from "@/server/http/problem";
 import { enqueue } from "@/server/jobs/boss";
-import { withShop, type ShopRow } from "@/server/platforms/clients";
+import { isReadOnlyShop, withShop, type ShopRow } from "@/server/platforms/clients";
+import { READ_ONLY_ACTION_REASON } from "@/server/platforms/readonly";
 import { shopeeCancelOrder } from "@/server/platforms/shopee";
 import { tiktokSellerCancel } from "@/server/platforms/tiktok";
 import { syncAfterSaleTicket } from "@/server/tickets/platform";
@@ -286,7 +287,8 @@ export async function buyerConversationFor(ctx: MemberContext, shopId: string, b
   return c ?? null;
 }
 
-function cancelGuard(order: OrderRow, shop: ShopRow, openCancel: boolean): { allowed: boolean; reason: string | null } {
+function cancelGuard(order: OrderRow, shop: ShopRow, openCancel: boolean, readOnly: boolean): { allowed: boolean; reason: string | null } {
+  if (readOnly) return { allowed: false, reason: READ_ONLY_ACTION_REASON };
   if (shop.status !== "connected") return { allowed: false, reason: "店铺授权已失效或已断开，续期授权后才能取消" };
   if (order.statusGroup === "cancelled") return { allowed: false, reason: "订单已取消" };
   if (openCancel) return { allowed: false, reason: "买家已申请取消，请在「处理取消申请」里同意或拒绝" };
@@ -316,7 +318,7 @@ export async function orderDetail(ctx: MemberContext, id: string): Promise<Order
     tickets: tickets.map(ticketRef),
     invoices: invoices.map(invoiceSummary),
     conversation: conv ? { id: conv.id, handlingState: conv.handlingState, claimedByMe: conv.claimedBy === ctx.membership.id && conv.handlingState === "human" } : null,
-    cancel: cancelGuard(order, shop, openCancel),
+    cancel: cancelGuard(order, shop, openCancel, await isReadOnlyShop(shop)),
   };
 }
 
@@ -376,7 +378,7 @@ export async function cancelOrder(ctx: MemberContext, id: string, body: { reason
     .select()
     .from(schema.afterSale)
     .where(and(eq(schema.afterSale.shopId, order.shopId), eq(schema.afterSale.externalOrderId, order.externalOrderId), eq(schema.afterSale.kind, "cancel")));
-  const guard = cancelGuard(order, shop, openCancelRows.some((a) => afterSaleOpen(a.platform, "cancel", a.platformStatus)));
+  const guard = cancelGuard(order, shop, openCancelRows.some((a) => afterSaleOpen(a.platform, "cancel", a.platformStatus)), await isReadOnlyShop(shop));
   if (!guard.allowed) throw new Problem("not-allowed", { detail: `${guard.reason}。`, code: "order_not_cancellable" });
 
   await db().transaction(async (tx) => {

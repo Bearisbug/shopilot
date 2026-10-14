@@ -2,6 +2,7 @@ import type { QueueName } from "@/server/jobs/boss";
 import { usageRollover } from "@/server/billing/rollover";
 import { purgeMerchants, retentionPurge, runExport } from "@/server/settings/data";
 import { backfillShop, scanLogistics, syncRecentOrders } from "@/server/inbound/backfill";
+import { pollReadOnlyShops } from "@/server/inbound/poll";
 import { processInbound, sweepInbound } from "@/server/inbound/process";
 import { generateDraft } from "@/server/ai/draft";
 import { translateMessage } from "@/server/ai/translate";
@@ -21,6 +22,7 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "merchant.purge": purgeMerchants,
   "inbound.process": processInbound,
   "inbound.sweep": () => sweepInbound(),
+  "inbound.poll": () => pollReadOnlyShops(),
   "shop.backfill": backfillShop,
   "order.sync": syncRecentOrders,
   "logistics.scan": () => scanLogistics(),

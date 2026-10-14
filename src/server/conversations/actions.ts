@@ -8,7 +8,7 @@ import { audit } from "@/server/core/audit";
 import { notify } from "@/server/core/notify";
 import { db, schema } from "@/server/db/client";
 import { conflict, notAllowed, Problem } from "@/server/http/problem";
-import { withShop } from "@/server/platforms/clients";
+import { isReadOnlyShopId, withShop } from "@/server/platforms/clients";
 import { tiktokEndSession, tiktokFindConversation } from "@/server/platforms/tiktok";
 import { supersedeDrafts, systemEvent, type ConversationRow, type MessageRow } from "./ingest";
 import { loadVisible } from "./queries";
@@ -149,7 +149,9 @@ export async function closeConversation(ctx: MemberContext, id: string, body: { 
   if (!updated) throw conflict("会话状态已变化，请刷新后再试。", { version: conv.version });
   await supersedeDrafts(db(), conv.id);
   await endSegment(conv, "resolved");
-  if (conv.platform === "tiktok") {
+  if (conv.platform === "tiktok" && (await isReadOnlyShopId(conv.shopId))) {
+    await systemEvent(db(), updated, "只读接入：只在 Shopilot 内结束，平台上的会话不受影响");
+  } else if (conv.platform === "tiktok") {
     // TikTok 同步结束会话；失败只写系统事件，不阻断
     try {
       await withShop(conv.shopId, async (sc) => {

@@ -57,7 +57,17 @@ export function ConversationScreen({ id }: { id: string }) {
         open={dialog === "invoice" && !!q.data && !buyer.isPending && !!me.data}
         onOpenChange={closer}
         orderId={orderId}
-        conversation={q.data ? { id, buyerOrders: buyer.data?.orders ?? [], canSendToChat: myConversation !== null, claimerName: claimer } : null}
+        conversation={
+          q.data
+            ? {
+                id,
+                buyerOrders: buyer.data?.orders ?? [],
+                canSendToChat: myConversation !== null,
+                claimerName: claimer,
+                chatBlockedReason: q.data.conversation.shop.readOnly ? q.data.conversation.replyBlockedReason : null,
+              }
+            : null
+        }
         onIssued={refresh}
       />
     </>

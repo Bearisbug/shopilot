@@ -1,10 +1,12 @@
 // Shopee Open Platform v2 适配器：签名请求、区域识别、授权、聊天、订单、退货。字段按官方文档（DESIGN §8.11 列的子集）。
 import { shopeeHosts } from "@/server/env";
 import { platformFetch } from "./http";
+import { assertShopeeRead } from "./readonly";
 import { nowSec, shopeeSign } from "./signing";
 import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type TokenGrant } from "./types";
 
-export type ShopeeApp = { partnerId: string; partnerKey: string; host: string };
+/** readOnly：只读接入（凭证借用自其他系统），只放行读接口，见 readonly.ts */
+export type ShopeeApp = { partnerId: string; partnerKey: string; host: string; readOnly?: boolean };
 export type ShopeeShopAuth = { shopId: string; accessToken: string };
 
 /** REQ-SHOP-002：接入时订阅的推送 code */
@@ -39,6 +41,7 @@ function classify(error: string, httpStatus: number): PlatformError["kind"] {
 type CallOpts = { shop?: ShopeeShopAuth; query?: Record<string, string | number | undefined>; body?: unknown; form?: FormData };
 
 async function call(app: ShopeeApp, method: "GET" | "POST", apiPath: string, opts: CallOpts = {}): Promise<Record<string, unknown>> {
+  if (app.readOnly) assertShopeeRead(method, apiPath);
   const path = `/api/v2/${apiPath}`;
   const ts = nowSec();
   const q = new URLSearchParams();

@@ -70,6 +70,8 @@ export type ReceptionShop = {
   modeOffHours: ReceptionMode;
   autoAllowed: boolean;
   autoBlockedReason?: string;
+  /** 只读接入：只能 off 或 shadow，assist 与 auto 置灰，原因见 autoBlockedReason */
+  readOnly?: boolean;
 };
 export type PromptVersion = { savedAt: string; text: string };
 export type PromptStageState = { text: string; isDefault: boolean; versions: PromptVersion[] };

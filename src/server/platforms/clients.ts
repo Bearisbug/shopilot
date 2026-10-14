@@ -15,13 +15,25 @@ export type ShopRow = typeof schema.shop.$inferSelect;
 export const webhookUrl = (platform: "shopee" | "tiktok", appId: string) => `${env().APP_BASE_URL}/api/webhooks/${platform}/${appId}`;
 export const oauthRedirectUrl = (platform: "shopee" | "tiktok") => `${env().APP_BASE_URL}/api/v1/oauth/${platform}/callback`;
 
+/** 按店铺 ID 判断是否只读接入 */
+export async function isReadOnlyShopId(shopId: string, ex: Executor = db()): Promise<boolean> {
+  const [s] = await ex.select({ platformAppId: schema.shop.platformAppId }).from(schema.shop).where(eq(schema.shop.id, shopId)).limit(1);
+  return s ? isReadOnlyShop(s, ex) : false;
+}
+
+/** 店铺所属应用是否只读接入（凭证借用自其他系统） */
+export async function isReadOnlyShop(shop: Pick<ShopRow, "platformAppId">, ex: Executor = db()): Promise<boolean> {
+  const [a] = await ex.select({ readOnly: schema.platformApp.readOnly }).from(schema.platformApp).where(eq(schema.platformApp.id, shop.platformAppId)).limit(1);
+  return Boolean(a?.readOnly);
+}
+
 export function shopeeApp(app: AppRow): ShopeeApp {
   if (!app.apiHost) throw new Error("Shopee 应用还没识别出区域主机");
-  return { partnerId: app.appKey, partnerKey: decrypt(app.secretEnc), host: app.apiHost };
+  return { partnerId: app.appKey, partnerKey: decrypt(app.secretEnc), host: app.apiHost, readOnly: app.readOnly };
 }
 
 export function tiktokApp(app: AppRow): TiktokApp {
-  return { appKey: app.appKey, appSecret: decrypt(app.secretEnc), serviceId: app.serviceId };
+  return { appKey: app.appKey, appSecret: decrypt(app.secretEnc), serviceId: app.serviceId, readOnly: app.readOnly };
 }
 
 export type ShopClient =
@@ -31,22 +43,35 @@ export type ShopClient =
 /** 店铺不可调平台（已断开、授权失效、没有 token）时抛出，调用方转成 409 shop_auth_expired */
 export class ShopUnavailableError extends Error {
   constructor(public shopId: string, public status: string) {
-    super(status === "auth_expired" ? "店铺授权已失效，请到「店铺与连接」续期授权。" : status === "disconnected" ? "店铺已断开连接。" : "店铺还没有可用的授权，请到「店铺与连接」完成授权。");
+    super(
+      status === "auth_expired"
+        ? "店铺授权已失效，请到「店铺与连接」续期授权。"
+        : status === "disconnected"
+          ? "店铺已断开连接。"
+          : status === "borrowed_expired"
+            ? "只读接入借用的 token 已过期，等待重新同步。"
+            : "店铺还没有可用的授权，请到「店铺与连接」完成授权。",
+    );
   }
 }
 
 const REFRESH_AHEAD_MS = 5 * 60_000;
 
-/** 取店铺客户端；access token 5 分钟内到期就先刷新 */
+/**
+ * 取店铺客户端；access token 5 分钟内到期就先刷新。
+ * 只读接入（凭证借用自其他系统）从不刷新：token 过期就抛 borrowed_expired，店铺状态不变，等重新同步。
+ */
 export async function shopClient(shopId: string): Promise<ShopClient> {
   let [row] = await db().select().from(schema.shop).where(eq(schema.shop.id, shopId)).limit(1);
   if (!row) throw new ShopUnavailableError(shopId, "missing");
   if (row.status !== "connected" || !row.accessTokenEnc) throw new ShopUnavailableError(shopId, row.status);
-  if (!row.accessExpiresAt || row.accessExpiresAt.getTime() - Date.now() < REFRESH_AHEAD_MS) {
+  const [appRow] = await db().select().from(schema.platformApp).where(eq(schema.platformApp.id, row.platformAppId)).limit(1);
+  if (appRow.readOnly) {
+    if (!row.accessExpiresAt || row.accessExpiresAt.getTime() <= Date.now()) throw new ShopUnavailableError(shopId, "borrowed_expired");
+  } else if (!row.accessExpiresAt || row.accessExpiresAt.getTime() - Date.now() < REFRESH_AHEAD_MS) {
     row = await refreshShopToken(shopId);
     if (row.status !== "connected") throw new ShopUnavailableError(shopId, row.status);
   }
-  const [appRow] = await db().select().from(schema.platformApp).where(eq(schema.platformApp.id, row.platformAppId)).limit(1);
   const accessToken = decrypt(row.accessTokenEnc!);
   if (row.platform === "shopee") return { platform: "shopee", shop: row, appRow, app: shopeeApp(appRow), auth: { shopId: row.externalShopId, accessToken } };
   return { platform: "tiktok", shop: row, appRow, app: tiktokApp(appRow), auth: { accessToken, cipher: row.shopCipher ?? "" } };
@@ -62,6 +87,8 @@ export async function withShop<T>(shopId: string, fn: (c: ShopClient) => Promise
     return await fn(c);
   } catch (e) {
     if (!(e instanceof PlatformError) || e.kind !== "auth") throw e;
+    // 只读接入不刷新、不改店铺状态：借用的 token 失效时原样抛出，等重新同步
+    if (c.appRow.readOnly) throw e;
     const row = await refreshShopToken(shopId, { force: true });
     if (row.status !== "connected") throw new ShopUnavailableError(shopId, row.status);
     return fn(await shopClient(shopId));
@@ -78,6 +105,8 @@ export async function refreshShopToken(shopId: string, opts: { force?: boolean }
     if (!row || row.status !== "connected" || !row.refreshTokenEnc) return row;
     if (!opts.force && row.accessExpiresAt && row.accessExpiresAt.getTime() - Date.now() >= REFRESH_AHEAD_MS) return row;
     const [appRow] = await tx.select().from(schema.platformApp).where(eq(schema.platformApp.id, row.platformAppId)).limit(1);
+    // 只读接入：刷新会让借出凭证的系统手里的 refresh_token 失效，这里一律不刷新
+    if (appRow.readOnly) return row;
     const oldRefresh = decrypt(row.refreshTokenEnc);
     try {
       if (row.platform === "shopee") {

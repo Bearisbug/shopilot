@@ -22,6 +22,8 @@ import { json } from "@/server/http/route";
 import { Problem } from "@/server/http/problem";
 import { loadOrder, invoiceSummary, shopRef } from "@/server/orders/service";
 import { visibleInvoices } from "@/server/orders/scope";
+import { isReadOnlyShop } from "@/server/platforms/clients";
+import { READ_ONLY_REPLY_REASON } from "@/server/platforms/readonly";
 import { createTicket } from "@/server/tickets/engine";
 import { renderInvoice } from "./render";
 
@@ -99,6 +101,7 @@ export async function createInvoice(ctx: MemberContext, body: CreateInvoiceBody)
   // 与 API-CONV-003 右栏取买家订单同一匹配条件：同店且同一买家
   if (conv && order.buyerExternalId !== conv.buyerExternalId) throw new Problem("conflict", { detail: "这张订单不属于当前会话的买家。" });
   if (body.sendToChat) {
+    if (await isReadOnlyShop(shop)) throw new Problem("not-allowed", { detail: `${READ_ONLY_REPLY_REASON}。取消「转成图片发进会话」，只发邮件。`, code: "read_only" });
     if (!conv) throw new Problem("not-allowed", { detail: "没有关联会话，不能发到聊天。取消「转成图片发进会话」，或从会话里开票。", code: "no_conversation" });
     if (conv.handlingState !== "human" || conv.claimedBy !== ctx.membership.id) {
       throw new Problem("not-allowed", { detail: "只有这个会话的处理人能把发票发进会话，请先认领会话。", code: "not_handler" });

@@ -142,7 +142,7 @@ export type ShopMetric = {
   currentOnly?: boolean;
 };
 
-export type ShopIssue = { key: "auth_expired" | "zero_inbound" | "chat_unavailable" | "metric_low" | "auth_expiring" | "backfill_failed"; text: string };
+export type ShopIssue = { key: "auth_expired" | "zero_inbound" | "chat_unavailable" | "metric_low" | "auth_expiring" | "backfill_failed" | "borrowed_token_expired"; text: string };
 
 export type ShopRow = {
   id: string;
@@ -150,6 +150,8 @@ export type ShopRow = {
   name: string;
   market: string;
   status: ShopStatus;
+  /** 只读接入：凭证借用自其他系统，消息靠拉取进来，不能从 Shopilot 发送或操作平台 */
+  readOnly: boolean;
   authExpiresAt: string | null;
   modes: { inHours: string; offHours: string };
   lastInboundAt: string | null;

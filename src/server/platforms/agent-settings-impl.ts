@@ -6,7 +6,8 @@ import { PlatformError, platformErrorText } from "./types";
 export async function syncAcceptChat(shopId: string, accept: boolean): Promise<{ ok: boolean; error?: string }> {
   try {
     await withShop(shopId, async (c) => {
-      if (c.platform !== "tiktok") return;
+      // 只读接入不改平台设置
+      if (c.platform !== "tiktok" || c.appRow.readOnly) return;
       await tiktokSetAcceptChat(c.app, c.auth, accept);
     });
     return { ok: true };

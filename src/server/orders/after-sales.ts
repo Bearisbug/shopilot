@@ -8,7 +8,8 @@ import { systemEvent } from "@/server/conversations/ingest";
 import { db, schema, type Executor, type Tx } from "@/server/db/client";
 import { Problem } from "@/server/http/problem";
 import { syncShopeeCancelRequest } from "@/server/inbound/process";
-import { withShop, type ShopClient, type ShopRow } from "@/server/platforms/clients";
+import { isReadOnlyShop, withShop, type ShopClient, type ShopRow } from "@/server/platforms/clients";
+import { READ_ONLY_ACTION_REASON } from "@/server/platforms/readonly";
 import { shopeeConfirmReturn, shopeeDisputeReturn, shopeeHandleBuyerCancellation } from "@/server/platforms/shopee";
 import { tiktokApproveCancellation, tiktokApproveReturn, tiktokRejectCancellation, tiktokRejectReasons, tiktokRejectReturn } from "@/server/platforms/tiktok";
 import { syncAfterSaleTicket } from "@/server/tickets/platform";
@@ -79,8 +80,13 @@ const returnTypeOf = (a: AfterSaleRow) => {
   return typeof raw.return_type === "string" ? raw.return_type : null;
 };
 
-/** 当前状态下可做的处理；不可做的附原因（前端置灰显示） */
-export function actionsFor(a: Pick<AfterSaleRow, "platform" | "kind" | "platformStatus" | "raw">): AfterSaleAction[] {
+/** 当前状态下可做的处理；不可做的附原因（前端置灰显示）。只读接入的店全部置灰 */
+export function actionsFor(a: Pick<AfterSaleRow, "platform" | "kind" | "platformStatus" | "raw">, readOnly = false): AfterSaleAction[] {
+  const list = actionsByState(a);
+  return readOnly ? list.map((x) => ({ ...x, allowed: false, reason: READ_ONLY_ACTION_REASON })) : list;
+}
+
+function actionsByState(a: Pick<AfterSaleRow, "platform" | "kind" | "platformStatus" | "raw">): AfterSaleAction[] {
   const s = a.platformStatus;
   const act = (decision: AfterSaleAction["decision"], allowed: boolean, reason: string | null, needsReason = false): AfterSaleAction => ({ decision, allowed, reason: allowed ? null : reason, needsReason });
   if (a.kind === "cancel") {
@@ -135,7 +141,7 @@ export async function afterSaleDetail(ctx: MemberContext, id: string): Promise<A
       ? { ...ticketRef(ticket), dueAt: iso(ticket.dueAt), dueSource: ticket.dueSource, overdue: !!ticket.dueAt && ticket.dueAt.getTime() < now && ["open", "in_progress", "waiting"].includes(ticket.status) }
       : null,
     conversationId: conv?.id ?? null,
-    actions: actionsFor(a),
+    actions: actionsFor(a, await isReadOnlyShop(shop)),
   };
 }
 
@@ -213,6 +219,7 @@ async function reasonTextOf(c: ShopClient, a: AfterSaleRow, code: string | undef
 export async function decideCancellation(ctx: MemberContext, id: string, body: { decision: "accept" | "reject"; reason?: string }): Promise<AfterSaleDetail> {
   const { a, shop } = await loadAfterSale(ctx, id);
   if (a.kind !== "cancel") throw new Problem("not-allowed", { detail: "这张售后单是退货退款，请用「处理退货」。", code: "decision_unsupported" });
+  if (await isReadOnlyShop(shop)) throw new Problem("not-allowed", { detail: READ_ONLY_ACTION_REASON, code: "read_only" });
   const fresh = await freshen(ctx, shop, a);
   guard(fresh, body.decision, body.reason);
   await db().transaction(async (tx) => {
@@ -235,6 +242,7 @@ export async function decideCancellation(ctx: MemberContext, id: string, body: {
 export async function decideReturn(ctx: MemberContext, id: string, body: { decision: ReturnDecision; reasonCode?: string; comment?: string }): Promise<AfterSaleDetail> {
   const { a, shop } = await loadAfterSale(ctx, id);
   if (a.kind !== "return") throw new Problem("not-allowed", { detail: "这张售后单是取消申请，请用「处理取消申请」。", code: "decision_unsupported" });
+  if (await isReadOnlyShop(shop)) throw new Problem("not-allowed", { detail: READ_ONLY_ACTION_REASON, code: "read_only" });
   const fresh = await freshen(ctx, shop, a);
   guard(fresh, body.decision, body.reasonCode);
   if (body.decision === "dispute" && !/^\d+$/.test(body.reasonCode ?? "")) throw new Problem("validation", { detail: "争议原因不对，请重新选择。", extra: { fields: { reasonCode: "请选择争议原因" } } });

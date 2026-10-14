@@ -134,6 +134,7 @@ function DrawerBody({ me, shopId, period }: { me: Me; shopId: string; period: st
             <Row label="最近入站">{s.lastInboundAt ? `${relative(s.lastInboundAt)} · ${inTz(s.lastInboundAt, tz)}` : "从未"}</Row>
             <Row label="历史回补">{backfillText(s.backfill)}</Row>
             <Row label="应用">{`${s.platform === "shopee" ? "Partner ID" : "App Key"} ${s.appKey}`}</Row>
+            {s.readOnly && <Row label="接入方式">只读接入：凭证借用自其他系统，消息每 30 秒拉取一次，不能从 Shopilot 发送或操作平台</Row>}
             {s.connectedAt && <Row label="接入于">{inTz(s.connectedAt, tz, "yyyy-MM-dd HH:mm")}</Row>}
             {s.disconnectedAt && s.status === "disconnected" && <Row label="断开于">{inTz(s.disconnectedAt, tz, "yyyy-MM-dd HH:mm")}</Row>}
           </dl>

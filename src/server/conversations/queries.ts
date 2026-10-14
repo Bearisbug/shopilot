@@ -5,6 +5,8 @@ import type { MemberContext } from "@/server/auth/context";
 import { db, schema, type Executor } from "@/server/db/client";
 import { Problem } from "@/server/http/problem";
 import { afterSaleOpen } from "@/server/orders/status";
+import { isReadOnlyShop } from "@/server/platforms/clients";
+import { READ_ONLY_REPLY_REASON } from "@/server/platforms/readonly";
 import { isInHours, receptionContext } from "./hours";
 import { viewCondition, visibleConversations, type ConvView } from "./scope";
 
@@ -255,11 +257,12 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
   const withinWindow = !!conv.lastBuyerAt && Date.now() - conv.lastBuyerAt.getTime() < REPLY_WINDOW_MS;
   const caps = shop.capabilities;
   const affiliate = conv.buyerKind === "affiliate";
+  const readOnly = await isReadOnlyShop(shop);
 
   return {
     conversation: {
       id: conv.id,
-      shop: { id: shop.id, name: shop.name, platform: shop.platform, market: shop.market, status: shop.status },
+      shop: { id: shop.id, name: shop.name, platform: shop.platform, market: shop.market, status: shop.status, readOnly },
       buyerName: conv.buyerName,
       buyerExternalId: conv.buyerExternalId,
       buyerKind: conv.buyerKind,
@@ -273,8 +276,8 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
       lastBuyerAt: conv.lastBuyerAt?.toISOString() ?? null,
       responseSlaMinutes: rc.responseSlaMinutes,
       overdue: waitingSec !== null && isInHours(rc, new Date()) && waitingSec > rc.responseSlaMinutes * 60,
-      canReply: shopOk && withinWindow && !affiliate,
-      replyBlockedReason: affiliate ? "达人会话只记录，不在这里回复。" : !shopOk ? "店铺授权已失效，管理员续期授权后才能发送。" : !withinWindow ? "买家最后发言已超过 7 天，平台不允许再发消息。" : null,
+      canReply: !readOnly && shopOk && withinWindow && !affiliate,
+      replyBlockedReason: readOnly ? READ_ONLY_REPLY_REASON : affiliate ? "达人会话只记录，不在这里回复。" : !shopOk ? "店铺授权已失效，管理员续期授权后才能发送。" : !withinWindow ? "买家最后发言已超过 7 天，平台不允许再发消息。" : null,
     },
     segment: seg ? { id: seg.id, stage: seg.stage, stageSource: seg.stageSource, stageBasis: seg.stageBasis, startedAt: seg.startedAt.toISOString() } : null,
     messages,
@@ -282,12 +285,12 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     draft: draft ? toDraft(draft) : null,
     shadowDrafts: shadow ? shadow.map(toDraft) : null,
     capabilities: {
-      cards: caps.cards,
+      cards: readOnly ? [] : caps.cards,
       productCard: caps.productScope ? { enabled: false, reason: "本期不从工作台发送商品卡。" } : { enabled: false, reason: "店铺没有授予商品读取权限。" },
-      coupons: caps.coupons,
-      endSession: caps.endSession,
+      coupons: readOnly ? false : caps.coupons,
+      endSession: readOnly ? false : caps.endSession,
       maxTextLength: caps.maxTextLength,
-      image: true,
+      image: !readOnly,
     },
     events: audits.map((a) => ({ at: a.createdAt.toISOString(), text: a.summary, actorName: a.actorName ?? "系统" })),
     openTickets: tickets,

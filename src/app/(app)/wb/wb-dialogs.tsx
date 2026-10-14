@@ -168,7 +168,11 @@ function EndForm({ detail, onDone }: { detail: ConversationDetail; onDone: () =>
       <DialogHeader>
         <DialogTitle>结束会话</DialogTitle>
         <DialogDescription>
-          {c.shop.platform === "tiktok" ? "同时结束 TikTok 上的这段会话；平台没结束成功也会在 Shopilot 里结束，并在时间线记一笔。" : "Shopee 没有结束会话的接口，只在 Shopilot 里结束。"}
+          {c.shop.readOnly
+            ? "只读接入：只在 Shopilot 里结束，平台上的会话不受影响。"
+            : c.shop.platform === "tiktok"
+              ? "同时结束 TikTok 上的这段会话；平台没结束成功也会在 Shopilot 里结束，并在时间线记一笔。"
+              : "Shopee 没有结束会话的接口，只在 Shopilot 里结束。"}
           买家再发消息会开新的会话段。
         </DialogDescription>
       </DialogHeader>

@@ -100,7 +100,8 @@ export type DraftItem = { id: string; text: string; confidence: number; reason: 
 export type ConversationDetail = {
   conversation: {
     id: string;
-    shop: ShopRef & { status: "connected" | "auth_expired" | "disconnected" };
+    /** readOnly：只读接入的店（消息从平台拉取，不能从 Shopilot 发送或操作平台） */
+    shop: ShopRef & { status: "connected" | "auth_expired" | "disconnected"; readOnly: boolean };
     buyerName: string;
     buyerExternalId: string;
     buyerKind: "buyer" | "affiliate";

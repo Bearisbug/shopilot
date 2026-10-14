@@ -1,10 +1,12 @@
 // TikTok Shop Open API 适配器：签名请求、授权、客服、订单、取消与退货、webhook 登记。字段按官方文档（DESIGN §8.11 列的子集）。
 import { env } from "@/server/env";
 import { platformFetch } from "./http";
+import { assertTiktokRead, ReadOnlyPlatformError } from "./readonly";
 import { nowSec, tiktokSign } from "./signing";
 import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type TokenGrant } from "./types";
 
-export type TiktokApp = { appKey: string; appSecret: string; serviceId?: string | null };
+/** readOnly：只读接入（凭证借用自其他系统），只放行读接口，见 readonly.ts */
+export type TiktokApp = { appKey: string; appSecret: string; serviceId?: string | null; readOnly?: boolean };
 export type TiktokShopAuth = { accessToken: string; cipher: string };
 
 /** 店铺接入时登记的 webhook 事件（DESIGN §8.4） */
@@ -35,6 +37,7 @@ function classify(code: number, httpStatus: number): PlatformError["kind"] {
 type CallOpts = { shop?: TiktokShopAuth; accessToken?: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; form?: FormData };
 
 async function call(app: TiktokApp, method: "GET" | "POST" | "PUT" | "DELETE", path: string, opts: CallOpts = {}): Promise<Record<string, unknown>> {
+  if (app.readOnly) assertTiktokRead(method, path);
   const query: Record<string, string> = { app_key: app.appKey, timestamp: String(nowSec()) };
   if (opts.shop) query.shop_cipher = opts.shop.cipher;
   for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== "") query[k] = String(v);
@@ -88,6 +91,7 @@ function grantFrom(d: Record<string, unknown>): Omit<TokenGrant, "shops"> {
 
 /** 换 token 后取已授权店铺与 cipher（REQ-SHOP-004）；app_secret 错在这一步暴露（REQ-SHOP-003） */
 export async function tiktokExchangeCode(app: TiktokApp, code: string): Promise<TokenGrant> {
+  if (app.readOnly) throw new ReadOnlyPlatformError("tiktok", "GET /api/v2/token/get");
   const d = await authCall("/api/v2/token/get", { app_key: app.appKey, app_secret: app.appSecret, auth_code: code, grant_type: "authorized_code" });
   const grant = grantFrom(d);
   const shops = await tiktokAuthorizedShops(app, grant.accessToken);
@@ -95,6 +99,7 @@ export async function tiktokExchangeCode(app: TiktokApp, code: string): Promise<
 }
 
 export async function tiktokRefresh(app: TiktokApp, refreshToken: string): Promise<Omit<TokenGrant, "shops">> {
+  if (app.readOnly) throw new ReadOnlyPlatformError("tiktok", "GET /api/v2/token/refresh");
   return grantFrom(await authCall("/api/v2/token/refresh", { app_key: app.appKey, app_secret: app.appSecret, refresh_token: refreshToken, grant_type: "refresh_token" }));
 }
 

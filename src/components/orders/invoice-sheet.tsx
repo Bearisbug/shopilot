@@ -35,6 +35,8 @@ export type InvoiceConversation = {
   canSendToChat: boolean;
   /** 他人处理中时的处理人；未认领为 null */
   claimerName: string | null;
+  /** 不论谁处理都不能发到聊天的原因（如只读接入的店）；没有为 null */
+  chatBlockedReason?: string | null;
 };
 
 type Props = {
@@ -138,7 +140,8 @@ function Footer({ close, pending = false, ready = false }: { close: () => void; 
 function useChatTarget(detail: OrderDetail, conv: InvoiceConversation | null) {
   const own = detail.conversation;
   const id = conv?.id ?? own?.id ?? null;
-  const canSend = conv ? conv.canSendToChat : !!own?.claimedByMe;
+  const blocked = conv?.chatBlockedReason ?? null;
+  const canSend = !blocked && (conv ? conv.canSendToChat : !!own?.claimedByMe);
   const otherHandler = conv ? !conv.canSendToChat && conv.claimerName !== null : own?.handlingState === "human" && !own.claimedByMe;
   const claimer = useQuery({
     queryKey: ["conversation", own?.id],
@@ -148,11 +151,13 @@ function useChatTarget(detail: OrderDetail, conv: InvoiceConversation | null) {
   const name = conv ? conv.claimerName : (claimer.data?.conversation.claimedBy?.name ?? null);
   const hint = canSend
     ? undefined
-    : !id
-      ? "这张订单没有关联会话"
-      : otherHandler
-        ? `只有会话处理人能发到聊天${name ? `，当前处理人：${name}` : ""}`
-        : "认领这个会话后才能发到聊天";
+    : blocked
+      ? blocked
+      : !id
+        ? "这张订单没有关联会话"
+        : otherHandler
+          ? `只有会话处理人能发到聊天${name ? `，当前处理人：${name}` : ""}`
+          : "认领这个会话后才能发到聊天";
   return { id, canSend, hint, link: !conv && own ? `/wb/${own.id}` : null };
 }
 

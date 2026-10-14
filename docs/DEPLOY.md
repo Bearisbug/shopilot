@@ -60,7 +60,7 @@ ssh -i ~/.ssh/shopilot-hk.pem deploy@shopilot.live 'cd /srv/shopilot && GOOD=$(c
 | --- | --- | --- |
 | GitHub Secrets | `DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_SSH_KEY` | CI 登录服务器（专用部署密钥对 `gha-deploy@shopilot`，公钥在 deploy 用户的 authorized_keys） |
 | GitHub 仓库变量（非密钥） | `AWS_DEPLOY_ROLE_ARN` / `DEPLOY_SG_ID` | CI 要扮演的 IAM 角色与要临时放行的安全组 |
-| AWS IAM | 角色 `shopilot-gha-deploy`（OIDC，只信任 `repo:Bearisbug/shopilot:ref:refs/heads/main`） | CI 临时放行 SSH，只能改 `shopilot-web` 安全组的入站规则；无长期 AWS 密钥 |
+| AWS IAM | 角色 `shopilot-gha-deploy`（OIDC，只信任 `repo:Bearisbug@109200659/shopilot@1419523711:ref:refs/heads/main`，GitHub 不可变主体格式，仓库删除重建后要改） | CI 临时放行 SSH，只能改 `shopilot-web` 安全组的入站规则；无长期 AWS 密钥 |
 | 服务器 `/srv/shopilot/.env.production`（权限 600，属主 deploy） | 见项目根 `.env.example`（运行时键名唯一登记处） | 运行时配置与密钥，仅此一份 |
 | 本机 `~/.ssh/shopilot-hk.pem` | EC2 密钥对 `shopilot-hk`（ed25519） | SSH 登录 ubuntu 与 deploy |
 | Bitwarden | `DEEPSEEK_API_KEY`、`SHOPILOT_SMTP_PASS`、`CLOUDFLARE_ACCOUNT_TOKEN_RW` | 前两个写进服务器 `.env.production`；第三个只在改 DNS 时用 |

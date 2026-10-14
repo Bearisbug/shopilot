@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import { dataPath } from "@/server/files/storage";
-import { ShopUnavailableError, withShop } from "@/server/platforms/clients";
+import { Problem } from "@/server/http/problem";
+import { isReadOnlyShopId, ShopUnavailableError, withShop } from "@/server/platforms/clients";
+import { READ_ONLY_REPLY_REASON } from "@/server/platforms/readonly";
 import { shopeeSendImage, shopeeSendOrderCard, shopeeSendText } from "@/server/platforms/shopee";
 import { tiktokSendCouponCard, tiktokSendImage, tiktokSendLogisticsCard, tiktokSendOrderCard, tiktokSendReturnCard, tiktokSendText } from "@/server/platforms/tiktok";
 import { PlatformError, platformErrorText } from "@/server/platforms/types";
@@ -25,9 +27,10 @@ export type OutboundInput = {
 
 export type SendOutcome = { message: MessageRow; error?: { kind: "platform" | "timeout" | "auth"; detail: string; platformCode?: string } };
 
-/** clientRequestId 已存在时返回首次结果，不重复调平台 */
+/** clientRequestId 已存在时返回首次结果，不重复调平台；只读接入的店直接拒绝，不落消息 */
 export async function sendOutbound(input: OutboundInput): Promise<SendOutcome> {
   const conv = input.conversation;
+  if (await isReadOnlyShopId(conv.shopId)) throw new Problem("not-allowed", { detail: READ_ONLY_REPLY_REASON, code: "read_only" });
   const [msg] = await db()
     .insert(schema.message)
     .values({

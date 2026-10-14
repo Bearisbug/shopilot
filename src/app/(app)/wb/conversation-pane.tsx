@@ -271,7 +271,7 @@ function Header({ d, tz }: { d: ConversationDetail; tz: string }) {
             </IconAction>
           )}
           {d.permissions.canClose && (
-            <IconAction label={c.shop.platform === "tiktok" ? "结束会话（同步结束 TikTok 会话）" : "结束会话（Shopee 没有结束会话接口，只在 Shopilot 内结束）"} onClick={() => set({ dialog: "end" }, "push")}>
+            <IconAction label={c.shop.readOnly ? "结束会话（只读接入，只在 Shopilot 内结束）" : c.shop.platform === "tiktok" ? "结束会话（同步结束 TikTok 会话）" : "结束会话（Shopee 没有结束会话接口，只在 Shopilot 内结束）"} onClick={() => set({ dialog: "end" }, "push")}>
               <CircleCheckIcon />
             </IconAction>
           )}
