@@ -2,12 +2,15 @@
 
 import {
   ArcElement,
+  BarController,
   BarElement,
   CategoryScale,
   Chart as ChartJS,
+  DoughnutController,
   Filler,
   Legend,
   LinearScale,
+  LineController,
   LineElement,
   PointElement,
   Tooltip,
@@ -18,7 +21,8 @@ import {
 import { useMemo, useSyncExternalStore } from "react";
 import { Chart } from "react-chartjs-2";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend, Filler);
+// 通用 <Chart type> 不会自带控制器，用到的图表类型都要在这里注册；漏注册时直接打开该页会报「is not a registered controller」
+ChartJS.register(BarController, DoughnutController, LineController, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend, Filler);
 
 /** 图表配色只取 brand/ 的 tokens（VIS-014）：单系列主数据用焦糖 text.link + 斜纹；多系列用 dataViz.series */
 export type BrandColors = { link: string; muted: string; text: string; border: string; surface: string; raised: string; series: string[]; success: string; warning: string; error: string; decorative: string };
