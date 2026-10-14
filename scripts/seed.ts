@@ -132,7 +132,7 @@ async function main() {
   // ── 模拟平台：回调指向本机 ──
   const mock = await seedMock({
     baseUrl: env().APP_BASE_URL,
-    callbacks: Object.fromEntries(Object.entries(appByKey).map(([key, app]) => [key, webhookUrl(app.platform, app.id)])),
+    callbacks: Object.fromEntries(Object.entries(appByKey).map(([key, app]) => [key, webhookUrl(app.platform, app.merchantId === merchantId.demo ? demo.merchant.webhookKey : other.merchant.webhookKey)])),
   });
 
   // ── 已接入店铺 ──

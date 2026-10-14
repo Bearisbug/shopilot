@@ -155,26 +155,29 @@ export function Disclosure({ title, children, defaultOpen = false, id }: { title
   );
 }
 
+/** 按容器宽度排版：放进窄卡片（如店铺页侧栏）时标签单独一行，容器 ≥ 28rem 才与地址并排 */
 export function CopyValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border py-3 last:border-0">
-      <span className="w-full shrink-0 text-sm text-muted-foreground sm:w-40">{label}</span>
-      <code className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">{value}</code>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="text-(--semantic-color-text-link)"
-        onClick={() =>
-          navigator.clipboard
-            .writeText(value)
-            .then(() => toast.success(`已复制：${value}`))
-            .catch(() => toast.error("复制没有成功，请手动选中复制"))
-        }
-      >
-        <CopyIcon />
-        复制
-      </Button>
+    <div className="@container border-b border-border py-3 last:border-0">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="w-full shrink-0 text-sm text-muted-foreground @md:w-40">{label}</span>
+        <code className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">{value}</code>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-(--semantic-color-text-link)"
+          onClick={() =>
+            navigator.clipboard
+              .writeText(value)
+              .then(() => toast.success(`已复制：${value}`))
+              .catch(() => toast.error("复制没有成功，请手动选中复制"))
+          }
+        >
+          <CopyIcon />
+          复制
+        </Button>
+      </div>
     </div>
   );
 }

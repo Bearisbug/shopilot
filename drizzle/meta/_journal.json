@@ -22,6 +22,13 @@
       "when": 1791996984328,
       "tag": "0002_organic_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792000698187,
+      "tag": "0003_safe_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

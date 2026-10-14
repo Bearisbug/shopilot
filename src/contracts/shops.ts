@@ -46,7 +46,7 @@ export type ConnectDraft = {
     verifiedAt: string | null;
   };
   /** 回调与授权地址（填进平台控制台用） */
-  urls: { redirect: string; redirectDomain: string; webhook: string | null };
+  urls: { redirect: string; redirectDomain: string; webhook: string };
   /** 该平台已接入（未断开）的店铺，授权页列站点用 */
   shops: Array<{ id: string; name: string; market: string; status: ShopStatus }>;
 };
@@ -175,7 +175,7 @@ export type PlatformAppCard = {
   shopCount: number;
   authExpiresAt: string | null;
   keyExpiresAt: string | null;
-  /** 这个应用专属的推送地址（Shopee 推送回调、TikTok Webhook），由 Shopilot 自动设置到平台 */
+  /** 本商户专属的推送地址（Shopee 推送回调、TikTok Webhook）；Shopee 校验凭证、TikTok 授权时也会自动设置到平台 */
   webhookUrl: string;
 };
 

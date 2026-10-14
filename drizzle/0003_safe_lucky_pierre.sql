@@ -1,0 +1,2 @@
+ALTER TABLE "merchant" ADD COLUMN "webhook_key" text DEFAULT replace(gen_random_uuid()::text, '-', '') NOT NULL;--> statement-breakpoint
+ALTER TABLE "merchant" ADD CONSTRAINT "merchant_webhook_key_unique" UNIQUE("webhook_key");

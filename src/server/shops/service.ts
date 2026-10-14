@@ -25,7 +25,7 @@ import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 import { json } from "@/server/http/route";
 import { notAllowed, notFound, Problem } from "@/server/http/problem";
-import { isReadOnlyShop, ShopUnavailableError, shopeeApp, webhookUrl, withShop, type AppRow, type ShopClient } from "@/server/platforms/clients";
+import { isOwnWebhook, isReadOnlyShop, ShopUnavailableError, shopeeApp, webhookUrl, withShop, type AppRow, type ShopClient } from "@/server/platforms/clients";
 import { SHOPEE_PUSH_CODES, shopeeAuthedShops, shopeeAuthUrl, shopeeConversations, shopeeGetPushConfig, shopeeOrderSns, shopeeShopInfo } from "@/server/platforms/shopee";
 import { TIKTOK_WEBHOOK_EVENTS, tiktokAuthorizedShops, tiktokConversations, tiktokEndSession, tiktokRefresh, tiktokSearchOrders, tiktokWebhooks } from "@/server/platforms/tiktok";
 import { PlatformError, platformErrorText } from "@/server/platforms/types";
@@ -147,7 +147,7 @@ export async function listShops(ctx: MemberContext, q: { platform: "all" | Platf
       shopCount: own.length,
       authExpiresAt: expiries.length ? new Date(Math.min(...expiries)).toISOString() : null,
       keyExpiresAt: a.keyExpiresAt,
-      webhookUrl: webhookUrl(a.platform, a.id),
+      webhookUrl: webhookUrl(a.platform, ctx.merchant.webhookKey),
     };
   });
 
@@ -238,7 +238,7 @@ export async function diagnose(ctx: MemberContext, shopIds?: string[]): Promise<
 
   const apps = shops.length ? await db().select().from(schema.platformApp).where(inArray(schema.platformApp.id, [...new Set(shops.map((s) => s.platformAppId))])) : [];
   const pushByApp = new Map<string, DiagnoseCheck>();
-  for (const a of apps.filter((x) => x.platform === "shopee")) pushByApp.set(a.id, await shopeePushCheck(a));
+  for (const a of apps.filter((x) => x.platform === "shopee")) pushByApp.set(a.id, await shopeePushCheck(a, ctx.merchant.webhookKey));
 
   const results: DiagnoseResult["results"] = [];
   for (const s of shops) {
@@ -248,7 +248,7 @@ export async function diagnose(ctx: MemberContext, shopIds?: string[]): Promise<
       checks = (["shop_info", "conversations", "orders", "push_config"] as const).map((key) => ({ key, ok: false, reason, fixLink: reauthLink(s.id) }));
     } else {
       try {
-        checks = await withShop(s.id, (c) => runChecks(c, pushByApp.get(s.platformAppId)));
+        checks = await withShop(s.id, (c) => runChecks(c, ctx.merchant.webhookKey, pushByApp.get(s.platformAppId)));
       } catch (e) {
         checks = (["shop_info", "conversations", "orders", "push_config"] as const).map((key) => ({ key, ok: false, reason: failText(e), fixLink: reauthLink(s.id) }));
       }
@@ -258,11 +258,10 @@ export async function diagnose(ctx: MemberContext, shopIds?: string[]): Promise<
   return { checkedAt: new Date().toISOString(), results };
 }
 
-async function shopeePushCheck(app: AppRow): Promise<DiagnoseCheck> {
+async function shopeePushCheck(app: AppRow, webhookKey: string): Promise<DiagnoseCheck> {
   try {
     const cfg = await shopeeGetPushConfig(shopeeApp(app));
-    const ours = webhookUrl("shopee", app.id);
-    if (cfg.callbackUrl !== ours) {
+    if (!isOwnWebhook("shopee", cfg.callbackUrl, webhookKey, app.id)) {
       return {
         key: "push_config",
         ok: false,
@@ -278,7 +277,7 @@ async function shopeePushCheck(app: AppRow): Promise<DiagnoseCheck> {
   }
 }
 
-async function runChecks(c: ShopClient, shopeePush?: DiagnoseCheck): Promise<DiagnoseCheck[]> {
+async function runChecks(c: ShopClient, webhookKey: string, shopeePush?: DiagnoseCheck): Promise<DiagnoseCheck[]> {
   const id = c.shop.id;
   const guide = `/shops/connect/${c.platform}/guide#item-4`;
   const check = async (key: DiagnoseCheck["key"], fn: () => Promise<void>, fixLink: string): Promise<DiagnoseCheck> => {
@@ -297,7 +296,6 @@ async function runChecks(c: ShopClient, shopeePush?: DiagnoseCheck): Promise<Dia
       shopeePush ?? { key: "push_config", ok: false, reason: "没有读到应用推送配置。", fixLink: "/shops/connect/shopee" },
     ];
   }
-  const ours = webhookUrl("tiktok", c.appRow.id);
   return [
     await check(
       "shop_info",
@@ -312,7 +310,7 @@ async function runChecks(c: ShopClient, shopeePush?: DiagnoseCheck): Promise<Dia
     await (async (): Promise<DiagnoseCheck> => {
       try {
         const hooks = await tiktokWebhooks(c.app, c.auth);
-        const missing = TIKTOK_WEBHOOK_EVENTS.filter((ev) => !hooks.some((h) => h.eventType === ev && h.address === ours));
+        const missing = TIKTOK_WEBHOOK_EVENTS.filter((ev) => !hooks.some((h) => h.eventType === ev && isOwnWebhook("tiktok", h.address, webhookKey, c.appRow.id)));
         if (missing.length === 0) return { key: "push_config", ok: true };
         return { key: "push_config", ok: false, reason: `消息通知没有发往 Shopilot：${missing.join("、")}。续期授权时会重新登记。`, fixLink: reauthLink(id) };
       } catch (e) {

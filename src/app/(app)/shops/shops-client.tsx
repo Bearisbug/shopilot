@@ -346,7 +346,7 @@ export function ShopsClient({ me }: { me: Me }) {
                         {a.keyExpiresAt ? ` · 应用密钥至 ${a.keyExpiresAt}` : ""}
                         {a.status !== "verified" ? " · 凭证未校验" : ""}
                       </p>
-                      <CopyValue label="推送地址（本应用专属）" value={a.webhookUrl} />
+                      <CopyValue label="推送地址（本商户专属）" value={a.webhookUrl} />
                     </li>
                   ))}
                 </ul>

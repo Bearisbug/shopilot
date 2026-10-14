@@ -202,14 +202,10 @@ function ShopeeCredentials({ draft }: { draft: ConnectDraft }) {
           </form>
         </Panel>
         <Panel>
-          <PanelHeader title="填回 Shopee 控制台" description="App 设置里只有授权回跳域名要你手填；推送地址由 Shopilot 自动设置" />
+          <PanelHeader title="填回 Shopee 控制台" description="这两个地址是本商户专属的，现在就可以填进 App 设置" />
           <CopyValue label="Live Redirect URL Domain" value={draft.urls.redirectDomain} />
-          {draft.urls.webhook && <CopyValue label="Live Call Back URL" value={draft.urls.webhook} />}
-          <p className="mt-2 text-xs text-muted-foreground">
-            {draft.urls.webhook
-              ? "推送地址是这个应用专属的，「验证并保存」时已自动写入 Shopee，控制台里显示的应与它一致。"
-              : "推送地址是这个应用专属的，「验证并保存」后生成，并自动写入 Shopee。"}
-          </p>
+          <CopyValue label="Live Call Back URL" value={draft.urls.webhook} />
+          <p className="mt-2 text-xs text-muted-foreground">Live Call Back URL 不填也行：点「验证并保存」时 Shopilot 会自动写入 Shopee。</p>
         </Panel>
       </div>
 
@@ -450,14 +446,10 @@ function TiktokCredentials({ draft }: { draft: ConnectDraft }) {
           </form>
         </Panel>
         <Panel>
-          <PanelHeader title="填回 Partner Center" description="在应用的 Enable API 里粘贴，只有这一项要你手填" />
+          <PanelHeader title="填回 Partner Center" description="这两个地址是本商户专属的，现在就可以填进应用的 Enable API" />
           <CopyValue label="Redirect URL" value={draft.urls.redirect} />
-          {draft.urls.webhook && <CopyValue label="Webhook URL" value={draft.urls.webhook} />}
-          <p className="mt-2 text-xs text-muted-foreground">
-            {draft.urls.webhook
-              ? "Webhook URL 是这个应用专属的，授权后 Shopilot 按店自动设置，Partner Center 里可以留空。"
-              : "Webhook URL 是这个应用专属的，保存凭证后生成，授权后 Shopilot 按店自动设置，Partner Center 里可以留空。"}
-          </p>
+          <CopyValue label="Webhook URL" value={draft.urls.webhook} />
+          <p className="mt-2 text-xs text-muted-foreground">Webhook URL 不填也行：授权后 Shopilot 会按店自动设置。</p>
         </Panel>
       </div>
       <Panel className="xl:sticky xl:top-0">

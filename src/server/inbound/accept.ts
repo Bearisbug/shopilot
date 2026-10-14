@@ -5,7 +5,7 @@ import { decrypt, sha256 } from "@/server/core/crypto";
 import { db, schema } from "@/server/db/client";
 import { Problem } from "@/server/http/problem";
 import { enqueue } from "@/server/jobs/boss";
-import { webhookUrl } from "@/server/platforms/clients";
+import { webhookUrl, type AppRow } from "@/server/platforms/clients";
 import { verifyShopeePush, verifyTiktokWebhook } from "@/server/platforms/signing";
 
 /** 处理清单（DESIGN §8.4）；其余事件落库为 ignored */
@@ -21,23 +21,36 @@ function stable(v: unknown): string {
   return JSON.stringify(v);
 }
 
-export async function acceptWebhook(platform: "shopee" | "tiktok", appId: string, req: Request): Promise<Response> {
+/** 路径末段对应的候选应用：先按应用 ID（旧地址），再按商户专属码（该商户这个平台下的全部应用） */
+async function candidateApps(platform: "shopee" | "tiktok", key: string): Promise<AppRow[]> {
+  if (/^[0-9a-f-]{36}$/i.test(key)) {
+    const byId = await db().select().from(schema.platformApp).where(and(eq(schema.platformApp.id, key), eq(schema.platformApp.platform, platform))).limit(1);
+    if (byId.length) return byId;
+  }
+  if (!/^[0-9a-f]{32}$/i.test(key)) return [];
+  const [m] = await db().select({ id: schema.merchant.id }).from(schema.merchant).where(eq(schema.merchant.webhookKey, key)).limit(1);
+  if (!m) return [];
+  return db().select().from(schema.platformApp).where(and(eq(schema.platformApp.merchantId, m.id), eq(schema.platformApp.platform, platform)));
+}
+
+/** 用应用自己的密钥验签；Shopee 签名基串里的回调地址是这次请求命中的地址（平台按后台填的地址签名） */
+function signedBy(app: AppRow, platform: "shopee" | "tiktok", key: string, raw: string, auth: string | null): boolean {
+  const secret = decrypt(app.secretEnc);
+  if (platform === "tiktok") return verifyTiktokWebhook(secret, app.appKey, raw, auth);
+  const url = webhookUrl("shopee", key);
+  return [app.pushKeyEnc ? decrypt(app.pushKeyEnc) : null, secret].some((k) => k && verifyShopeePush(k, url, raw, auth));
+}
+
+/** key = 推送地址末段：商户专属码，或旧地址里的应用 ID */
+export async function acceptWebhook(platform: "shopee" | "tiktok", key: string, req: Request): Promise<Response> {
   const requestId = req.headers.get("x-request-id") ?? randomUUID();
   const instance = new URL(req.url).pathname;
   const fail = (p: Problem) => p.toResponse(instance, requestId);
   const raw = await req.text();
-  if (!/^[0-9a-f-]{36}$/i.test(appId)) return fail(new Problem("signature"));
-  const [app] = await db().select().from(schema.platformApp).where(and(eq(schema.platformApp.id, appId), eq(schema.platformApp.platform, platform))).limit(1);
-  if (!app) return fail(new Problem("signature"));
-
   const auth = req.headers.get("authorization");
-  const secret = decrypt(app.secretEnc);
-  const ok =
-    platform === "shopee"
-      ? [app.pushKeyEnc ? decrypt(app.pushKeyEnc) : null, secret].some((k) => k && verifyShopeePush(k, webhookUrl("shopee", appId), raw, auth))
-      : verifyTiktokWebhook(secret, app.appKey, raw, auth);
-  if (!ok) {
-    console.warn(JSON.stringify({ t: new Date().toISOString(), level: "warn", msg: "webhook signature rejected", platform, appId, requestId }));
+  const app = (await candidateApps(platform, key)).find((a) => signedBy(a, platform, key, raw, auth));
+  if (!app) {
+    console.warn(JSON.stringify({ t: new Date().toISOString(), level: "warn", msg: "webhook signature rejected", platform, key, requestId }));
     return fail(new Problem("signature"));
   }
 

@@ -66,7 +66,9 @@ const SHOPEE_ITEMS: Item[] = [
       <>
         <div>
           <CopyValue label="Live Redirect URL Domain" value={d.urls.redirectDomain} />
+          <CopyValue label="Live Call Back URL" value={d.urls.webhook} />
         </div>
+        <p className="text-sm text-muted-foreground">这两个地址是本商户专属的，现在就可以填；Live Call Back URL 不填也行，第 2 步「验证并保存」时 Shopilot 会自动写入。</p>
         <p className="text-sm text-muted-foreground">控制台还要填 IT 资产里的服务器出口 IP：向 Shopilot 支持索取。审核通过后，应用详情里能看到 Live Partner ID 和 Live Partner Key，下一步要用。</p>
       </>
     ),
@@ -125,8 +127,9 @@ const TIKTOK_ITEMS: Item[] = [
       <>
         <div>
           <CopyValue label="Redirect URL" value={d.urls.redirect} />
+          <CopyValue label="Webhook URL" value={d.urls.webhook} />
         </div>
-        <p className="text-sm text-muted-foreground">Webhook URL 可以留空，授权后 Shopilot 按店自动设置。</p>
+        <p className="text-sm text-muted-foreground">这两个地址是本商户专属的，现在就可以填；Webhook URL 不填也行，授权后 Shopilot 会按店自动设置。</p>
       </>
     ),
   },

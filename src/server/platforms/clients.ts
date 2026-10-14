@@ -12,7 +12,19 @@ import { PlatformError } from "./types";
 export type AppRow = typeof schema.platformApp.$inferSelect;
 export type ShopRow = typeof schema.shop.$inferSelect;
 
-export const webhookUrl = (platform: "shopee" | "tiktok", appId: string) => `${env().APP_BASE_URL}/api/webhooks/${platform}/${appId}`;
+/** 推送地址按商户生成：末段是商户专属码 merchant.webhook_key，接入一开始就能填进平台后台 */
+export const webhookUrl = (platform: "shopee" | "tiktok", webhookKey: string) => `${env().APP_BASE_URL}/api/webhooks/${platform}/${webhookKey}`;
+/** 按应用 ID 生成的旧推送地址：已按它设置过推送的平台应用仍能收 */
+export const appWebhookUrl = (platform: "shopee" | "tiktok", appId: string) => `${env().APP_BASE_URL}/api/webhooks/${platform}/${appId}`;
+/** 地址是否指向这个商户在 Shopilot 的推送入口（商户地址，或这个应用的旧地址） */
+export const isOwnWebhook = (platform: "shopee" | "tiktok", url: string, webhookKey: string, appId: string) =>
+  url === webhookUrl(platform, webhookKey) || url === appWebhookUrl(platform, appId);
+
+export async function merchantWebhookKey(merchantId: string, ex: Executor = db()): Promise<string> {
+  const [m] = await ex.select({ key: schema.merchant.webhookKey }).from(schema.merchant).where(eq(schema.merchant.id, merchantId)).limit(1);
+  if (!m) throw new Error(`商户 ${merchantId} 不存在`);
+  return m.key;
+}
 export const oauthRedirectUrl = (platform: "shopee" | "tiktok") => `${env().APP_BASE_URL}/api/v1/oauth/${platform}/callback`;
 
 /** 按店铺 ID 判断是否只读接入 */

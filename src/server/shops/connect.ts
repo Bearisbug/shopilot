@@ -21,7 +21,7 @@ import { env } from "@/server/env";
 import { notAllowed, notFound, Problem, validation } from "@/server/http/problem";
 import { enqueue } from "@/server/jobs/boss";
 import { plan } from "@/server/billing/plans";
-import { oauthRedirectUrl, shopeeApp, tiktokApp, webhookUrl, type AppRow, type ShopRow } from "@/server/platforms/clients";
+import { merchantWebhookKey, oauthRedirectUrl, shopeeApp, tiktokApp, webhookUrl, type AppRow, type ShopRow } from "@/server/platforms/clients";
 import { shopeeAuthedShops, shopeeAuthUrl, shopeeDetectRegion, shopeeExchangeCode, shopeeGetPushConfig, shopeeSetPushConfig, shopeeShopInfo } from "@/server/platforms/shopee";
 import { tiktokAuthorizeNeedsServiceId, tiktokAuthUrl, tiktokExchangeCode, tiktokRegisterWebhooks, tiktokSetAcceptChat } from "@/server/platforms/tiktok";
 import { PlatformError, platformErrorText, type TokenGrant } from "@/server/platforms/types";
@@ -100,7 +100,7 @@ export async function getDraft(ctx: MemberContext, platform: Platform): Promise<
           verifiedAt: app.verifiedAt?.toISOString() ?? null,
         }
       : null,
-    urls: { redirect: oauthRedirectUrl(platform), redirectDomain: new URL(env().APP_BASE_URL).origin, webhook: app ? webhookUrl(platform, app.id) : null },
+    urls: { redirect: oauthRedirectUrl(platform), redirectDomain: new URL(env().APP_BASE_URL).origin, webhook: webhookUrl(platform, ctx.merchant.webhookKey) },
     shops,
   };
 }
@@ -206,7 +206,7 @@ async function saveShopeeApp(ctx: MemberContext, existing: AppRow | undefined, b
     authorizedShops = undefined;
   }
 
-  const ours = webhookUrl("shopee", row.id);
+  const ours = webhookUrl("shopee", ctx.merchant.webhookKey);
   const oursPrefix = `${env().APP_BASE_URL}/api/webhooks/shopee/`;
   let current: string;
   try {
@@ -576,10 +576,11 @@ async function authorize(platform: Platform, state: StateRow, q: URLSearchParams
   // 平台侧设置（失败不回滚授权，写连接事件，检查页与店铺页会显示）
   if (platform === "tiktok") {
     const appCreds = tiktokApp(app);
+    const webhookKey = await merchantWebhookKey(state.merchantId);
     for (const t of touched) {
       const auth = { accessToken: grant.accessToken, cipher: t.cipher };
       try {
-        await tiktokRegisterWebhooks(appCreds, auth, webhookUrl("tiktok", app.id));
+        await tiktokRegisterWebhooks(appCreds, auth, webhookUrl("tiktok", webhookKey));
         if (t.kind !== "renew") await tiktokSetAcceptChat(appCreds, auth, true);
       } catch (e) {
         const text = e instanceof PlatformError ? platformErrorText(e) : String(e);

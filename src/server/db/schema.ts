@@ -111,6 +111,11 @@ export const merchant = pgTable("merchant", {
   ticketAutoCloseDays: integer("ticket_auto_close_days").default(7),
   invoiceInfo: jsonb("invoice_info").$type<{ companyName: string; taxId?: string; address: string; email: string } | null>(),
   lastPurgeAt: ts("last_purge_at"),
+  /** 推送地址里的商户专属码：`/api/webhooks/{platform}/<webhook_key>`，接入一开始就能把地址填进平台后台 */
+  webhookKey: text("webhook_key")
+    .notNull()
+    .unique()
+    .default(sql`replace(gen_random_uuid()::text, '-', '')`),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
