@@ -8,7 +8,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `DEPLOY_HOST` | GitHub Secrets | 配置值（服务器固定 IP，即 `dig +short shopilot.live`） | A：`gh secret set DEPLOY_HOST -b "$(dig +short shopilot.live)" -R Bearisbug/shopilot` | `gh secret list -R Bearisbug/shopilot` 见键名 | ☑ 2026-10-15 |
 | `DEPLOY_USER` | GitHub Secrets | 固定 `deploy` | A：`gh secret set DEPLOY_USER -b deploy -R Bearisbug/shopilot` | 同上 | ☑ 2026-10-15 |
-| `DEPLOY_SSH_KEY` | GitHub Secrets | 生成：`ssh-keygen -t ed25519 -N "" -C gha-deploy@shopilot` | A：公钥追加进服务器 deploy 用户的 authorized_keys → `gh secret set DEPLOY_SSH_KEY -R Bearisbug/shopilot < 私钥文件` → 删除本机私钥 | `gh secret list` 见键名（☑ 2026-10-15）；Actions 部署 job 能 SSH 登录（待首次 Actions 运行） | ☐ |
+| `DEPLOY_SSH_KEY` | GitHub Secrets | 生成：`ssh-keygen -t ed25519 -N "" -C gha-deploy@shopilot` | A：公钥追加进服务器 deploy 用户的 authorized_keys → `gh secret set DEPLOY_SSH_KEY -R Bearisbug/shopilot < 私钥文件` → 删除本机私钥 | `gh secret list` 见键名；Actions 部署 job 能 SSH 登录（run 38606640331） | ☑ 2026-10-15 |
 | `POSTGRES_PASSWORD` | 服务器 `/srv/shopilot/.env.production` | 生成 | A：服务器上 `openssl rand -hex 16` 写入，同值拼进 `DATABASE_URL` | `cut -d= -f1 .env.production` 见键名；db 容器 healthy | ☑ 2026-10-15 |
 | `DATABASE_URL` | 同上 | 生成（由上一行拼成，主机 `db:5432`） | 同上 | 迁移成功、健康端点 `db: ok` | ☑ 2026-10-15 |
 | `BETTER_AUTH_SECRET` | 同上 | 生成 | A：服务器上 `openssl rand -hex 32` | 注册冒烟 201 并拿到会话 | ☑ 2026-10-15 |
@@ -53,7 +53,7 @@
 
 | 日期 | 事项 | 说明 |
 | --- | --- | --- |
-| 2026-10-14 | 管线待搭 | 先按最小上线手动发布。2026-10-15 已建私有仓库 `Bearisbug/shopilot`、写好 `.github/workflows/deploy.yml` 与 `deploy.yaml`、配好 GitHub Secrets 与 AWS OIDC 角色；首次 Actions 运行（run 38599269230）没有启动，GitHub 报「最近一次账户扣款失败或花费上限需要调高」。用户处理 GitHub Billing 后重新运行，跑通即把本行改为「管线已搭」。在此之前用 `deploy/release.sh` 兜底发布 |
+| 2026-10-14 | 管线已搭（2026-10-15） | 先按最小上线手动发布。2026-10-15 已建私有仓库 `Bearisbug/shopilot`、写好 `.github/workflows/deploy.yml` 与 `deploy.yaml`、配好 GitHub Secrets 与 AWS OIDC 角色；首次 Actions 运行（run 38599269230）没有启动，GitHub 报「最近一次账户扣款失败或花费上限需要调高」。用户决定把仓库改为公开：移出内部依据材料、部署标识改放仓库变量、删库重建为单一提交后公开，Actions 随即可用。OIDC 信任改为 GitHub 不可变主体格式后，push 触发的 run 38606640331 质量门与部署全部通过，线上版本 `b84f0fb` |
 | 2026-10-15 | 镜像不进镜像仓库 | 服务器是 ARM，GitHub 托管的 x64 runner 要靠模拟构建 ARM 镜像，耗时长；改为服务器原生构建、按 commit 哈希打 tag、只留最新 5 个，更早的版本要回滚时需重新构建 |
 | 2026-10-15 | 零停机未做 | 单实例 recreate，发布时 web 与 worker 重建，有几秒不可用；双槽方案列在优化菜单 |
 | 2026-10-14 | 计费资源经用户确认 | EC2 m7g.large 约 US$82/月、100 GB gp3 约 US$10.6/月、固定公网 IPv4 约 US$3.7/月（ap-east-1 按需价，AWS Pricing API 2026-10-14 查询）；用户先确认 t4g.medium，后要求按 50+ 商户提升规格并选定 m7g.large |

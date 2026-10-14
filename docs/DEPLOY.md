@@ -99,4 +99,6 @@ scp -i ~/.ssh/shopilot-hk.pem deploy/compose.yaml deploy/backup.sh deploy/remote
 | 2026-10-15 | 首次发布 `20261015-0003-7919068f` | 迁移完成；本机直连与 `https://shopilot.live/api/health` 均返回该版本、`db: ok`；`/mock/simulator`、`/dev/outbox`、`/api/mock/sim/state` 返回 404；外网直连 3001 不通；注册接口冒烟 201，验证邮件经飞书 SMTP 发出（`email_outbox.status = delivered`），冒烟商户已删除 |
 | 2026-10-15 | 第二次发布与回滚演练 | `release.sh` 发布 `20261015-0019-27afec35`（TikTok Service ID，迁移 `0001` 只加列）；按第 4 节切回 `20261015-0003-7919068f`，对外版本随即变为旧版、`db: ok`（旧代码在新表结构上正常），再切回新版正常 |
 | 2026-10-15 | 接入 git 与 CI | 建私有仓库 `Bearisbug/shopilot`，首个提交 `3ecfeed`；Actions 因 GitHub 账户扣款问题未启动，用 `deploy/release.sh` 兜底发布 `3ecfeedd82086833def69a5297677a164c20f92a`：本机质量门通过，直连与外网健康检查均返回该版本、`db: ok` |
+| 2026-10-15 | 仓库公开与 CI 首次跑通 | 删库重建为单一提交 `c8a9ee3` 后公开；部署密钥轮换；OIDC 信任改为不可变主体；push `b84f0fb` 触发的 run 38606640331 通过质量门、部署、健康检查，临时 SSH 规则已收回 |
+| 2026-10-15 | 只读接入 OBSBOT 影子 | `scripts/import-readonly.ts --setup` 建商户「OBSBOT 影子」（test@shopilot.live 管理员），2 个只读应用、11 家店；Shopee token 从现网只读重取后 `--tokens` 更新 6 家；`inbound.poll` 运行无报错，历史回补进行中 |
 | 2026-10-15 | 备份恢复演练 | `backup.sh` 生成 `db-20261015-0006.sql.gz`，恢复到临时库 `restore_drill` 后表数 56 与线上一致、迁移记录 1 与线上一致，临时库已删除 |
