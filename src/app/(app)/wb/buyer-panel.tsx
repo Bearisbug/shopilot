@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { BuyerOrder, ConversationDetail, Stage } from "@/contracts/conversations";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
+import { OrderItems } from "@/components/orders/order-items";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -242,11 +243,9 @@ function OrderItem({ o, d, tz }: { o: BuyerOrder; d: ConversationDetail; tz: str
         <span className="truncate font-medium tabular-nums">{o.externalOrderId}</span>
         <span className="shrink-0 text-xs text-muted-foreground">{STATUS_GROUP_LABEL[o.statusGroup as StatusGroup] ?? o.status}</span>
       </p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        {o.items.map((i) => `${i.name} ×${i.qty}`).join("、")} · <span className="tabular-nums">{money(o.total, o.currency)}</span>
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {o.status} · {inTz(o.createdAt, tz, "MM-dd HH:mm")} 下单{o.shipByAt ? ` · 最晚 ${inTz(o.shipByAt, tz, "MM-dd")} 发货` : ""}
+      <OrderItems items={o.items} currency={o.currency} className="mt-2" />
+      <p className="mt-2 text-xs text-muted-foreground">
+        合计 <span className="tabular-nums">{money(o.total, o.currency)}</span> · {o.status} · {inTz(o.createdAt, tz, "MM-dd HH:mm")} 下单{o.shipByAt ? ` · 最晚 ${inTz(o.shipByAt, tz, "MM-dd")} 发货` : ""}
       </p>
       {(tracking?.carrier || tracking?.trackingNo) && (
         <p className="mt-1 text-xs text-muted-foreground">

@@ -84,7 +84,7 @@ function toListItem(r: OrderRow, s: ShopLite, as: AfterSaleRow | null, tk: typeo
     platformStatus: r.platformStatus,
     total: r.totalAmount,
     currency: r.currency,
-    items: r.items.map((i) => ({ name: i.name, sku: i.sku, qty: i.qty, unitPrice: i.unitPrice })),
+    items: r.items.map((i) => ({ name: i.name, sku: i.sku, qty: i.qty, unitPrice: i.unitPrice, image: i.image || undefined })),
     shipByAt: iso(r.shipByAt),
     createdAt: r.platformCreatedAt.toISOString(),
     updatedAt: (r.platformUpdatedAt ?? r.platformCreatedAt).toISOString(),

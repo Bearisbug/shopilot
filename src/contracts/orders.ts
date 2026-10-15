@@ -30,7 +30,7 @@ export const ordersQuery = z.object({
 export type OrdersQuery = z.infer<typeof ordersQuery>;
 
 export type ShopRef = { id: string; name: string; platform: "shopee" | "tiktok"; market: string };
-export type OrderItemLine = { name: string; sku?: string; qty: number; unitPrice: string };
+export type OrderItemLine = { name: string; sku?: string; qty: number; unitPrice: string; image?: string };
 export type TicketRef = { id: string; number: string; type: string; status: string; phase: string | null };
 
 export type OrderListItem = {

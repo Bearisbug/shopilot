@@ -130,7 +130,7 @@ export async function afterSaleDetail(ctx: MemberContext, id: string): Promise<A
       id: order?.id ?? null,
       externalOrderId: a.externalOrderId,
       buyerName: order?.buyerName ?? ticket?.buyerName ?? null,
-      items: (order?.items ?? []).map((i) => ({ name: i.name, sku: i.sku, qty: i.qty, unitPrice: i.unitPrice })),
+      items: (order?.items ?? []).map((i) => ({ name: i.name, sku: i.sku, qty: i.qty, unitPrice: i.unitPrice, image: i.image || undefined })),
       total: order?.totalAmount ?? null,
       currency: order?.currency ?? null,
       platformStatus: order?.platformStatus ?? null,
