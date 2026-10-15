@@ -395,7 +395,7 @@ function CouponsForm({ detail, onDone }: { detail: ConversationDetail; onDone: (
 // ── 快捷回复（API-CONV-014）：点选插入输入框 ──
 
 const REPLY_TABS = ["all", "presale", "insale", "aftersale", "any"] as const;
-const REPLY_TAB_LABEL: Record<(typeof REPLY_TABS)[number], string> = { all: "全部", presale: "售前", insale: "售中", aftersale: "售后", any: "通用" };
+export const REPLY_TAB_LABEL: Record<(typeof REPLY_TABS)[number], string> = { all: "全部", presale: "售前", insale: "售中", aftersale: "售后", any: "通用" };
 
 export function RepliesDialog({ stage, onPick, canManage }: { stage: string; onPick: (text: string) => void; canManage: boolean }) {
   const { open, close } = useDialogParam("replies");

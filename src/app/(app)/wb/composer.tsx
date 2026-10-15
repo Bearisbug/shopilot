@@ -6,11 +6,13 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ConversationDetail, DraftItem, SendBody, UploadedFile } from "@/contracts/conversations";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverAnchor } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
+import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
 import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
 import { AiTag, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
@@ -76,6 +78,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const { set } = useWbParams();
   const buyer = useBuyer(c.id);
   const me = useMe();
+  const canManageReplies = Boolean(me.data?.active.permissions.includes("reception.manage"));
+  const slash = useSlashReplies({ text, stage: detail.segment?.stage });
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const form = new FormData();
@@ -153,22 +157,33 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
       <label htmlFor="wb-reply" className="sr-only">
         回复 {c.buyerName}
       </label>
-      <Textarea
-        id="wb-reply"
-        rows={1}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            submit();
-          }
-        }}
-        placeholder={translateTo === "none" ? `回复 ${c.buyerName}` : `回复 ${c.buyerName}，可写中文，发送前译成${LANG_LABEL[translateTo]}`}
-        aria-invalid={over > 0 || undefined}
-        aria-describedby={over > 0 ? "wb-reply-over" : undefined}
-        className="max-h-40 min-h-10 resize-none border-0 bg-transparent px-0 shadow-none"
-      />
+      <Popover open={slash.open} onOpenChange={(o) => !o && slash.dismiss()}>
+        <PopoverAnchor asChild>
+          <Textarea
+            id="wb-reply"
+            rows={1}
+            value={text}
+            {...slash.inputProps}
+            onChange={(e) => {
+              setText(e.target.value);
+              slash.sync(e.currentTarget, true);
+            }}
+            onKeyDown={(e) => {
+              if (slash.onKeyDown(e)) return;
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder={translateTo === "none" ? `回复 ${c.buyerName}，输入 / 选快捷回复` : `回复 ${c.buyerName}，可写中文，发送前译成${LANG_LABEL[translateTo]}`}
+            aria-invalid={over > 0 || undefined}
+            aria-describedby={over > 0 ? "wb-reply-over" : undefined}
+            // 写满 max-h-40 后在框内滚动，不显示滚动条（复用 globals.css 的 scroll-nav）
+            className="scroll-nav max-h-40 min-h-10 resize-none border-0 bg-transparent px-0 shadow-none"
+          />
+        </PopoverAnchor>
+        <SlashRepliesContent slash={slash} canManage={canManageReplies} />
+      </Popover>
       <input
         ref={fileRef}
         type="file"
@@ -206,8 +221,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
             </Button>
           </Tip>
         )}
-        <Tip label="快捷回复">
-          <Button variant="ghost" size="icon-sm" aria-label="快捷回复" onClick={() => set({ dialog: "replies" }, "push")}>
+        <Tip label="快捷回复（也可在输入框输入 / 唤起）">
+          <Button variant="ghost" size="icon-sm" aria-label="快捷回复（也可在输入框输入 / 唤起）" onClick={() => set({ dialog: "replies" }, "push")}>
             <ZapIcon />
           </Button>
         </Tip>
@@ -229,7 +244,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
         </span>
         <RepliesDialog
           stage={detail.segment?.stage ?? "unknown"}
-          canManage={Boolean(me.data?.active.permissions.includes("reception.manage"))}
+          canManage={canManageReplies}
           onPick={(t) => setText(text.trim() ? `${text}\n${t}` : t)}
         />
         {tiktok && <CardsDialog detail={detail} orders={buyer.data?.orders ?? []} />}
