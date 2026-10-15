@@ -4,7 +4,7 @@ import { mockDb } from "../db/client";
 import { mockAfterSale, mockApp, mockBuyerThread, mockMessage, mockOrder, mockShop } from "../db/schema";
 import { newRequestId, nowSec, toSec } from "../http";
 import { shopeeMessageId } from "../ids";
-import { mockAvatarUrl } from "../images";
+import { mockAvatarUrl, mockProductImageUrl } from "../images";
 import { shopeeLogisticsStatus } from "../orders";
 import { deliverPush, type PendingPush } from "../push";
 import { shopUserId, shopUsername, type ShopeeApp, type ShopeeShop } from "./core";
@@ -202,7 +202,7 @@ export function shopeeOrderDetail(o: Order, shop: ShopeeShop, optional: Set<stri
       promotion_id: 0,
       order_item_id: Number(i.itemId),
       promotion_group_id: 0,
-      image_info: { image_url: "" },
+      image_info: { image_url: mockProductImageUrl(i.itemId) },
       product_location_id: [],
       is_b2c_owned_item: false,
     }));

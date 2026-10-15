@@ -162,7 +162,8 @@ function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; o
     );
   }
   const ours = m.direction === "out";
-  const bubble = CARD_TYPES.has(m.type) ? (
+  // 卡片与图片自带边框，不再套聊天气泡
+  const bubble = CARD_TYPES.has(m.type) || m.type === "image" ? (
     <Content m={m} ctx={ctx} />
   ) : (
     <div className={cn("max-w-full min-w-0 rounded-lg px-3 py-2 text-sm leading-relaxed [overflow-wrap:anywhere]", ours ? "rounded-tr-sm bg-accent" : "rounded-tl-sm bg-muted")}>
@@ -224,6 +225,20 @@ function CardBox({ icon: Icon, title, sub = [] }: { icon: React.ComponentType<{ 
   );
 }
 
+/** 卡片左侧 56px 方图；没有图或加载失败时显示图标 */
+function Thumb({ src, icon: Icon }: { src: string | null | undefined; icon: React.ComponentType<{ className?: string }> }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+      {src && !broken ? (
+        <Image src={src} alt="" fill sizes="56px" unoptimized referrerPolicy="no-referrer" className="object-cover" onError={() => setBroken(true)} />
+      ) : (
+        <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
+      )}
+    </span>
+  );
+}
+
 function priceText(p: ProductCardInfo | undefined): string | null {
   if (!p?.priceMin) return null;
   const fmt = (v: string) => (p.currency ? money(v, p.currency) : v);
@@ -232,19 +247,11 @@ function priceText(p: ProductCardInfo | undefined): string | null {
 
 /** 商品卡片：缩略图、标题（最多两行）、现价；整张卡片在新标签页打开平台商品页。商品信息还没取到或取不到时用图标占位、标题写商品 ID */
 function ProductCard({ productId, info, fallbackName, platform }: { productId: string; info: ProductCardInfo | undefined; fallbackName?: string; platform: "shopee" | "tiktok" }) {
-  const [broken, setBroken] = useState(false);
   const title = info?.name || fallbackName || `商品 ${productId}`;
   const price = priceText(info);
-  const image = info?.imageUrl && !broken ? info.imageUrl : null;
   const body = (
     <>
-      <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-        {image ? (
-          <Image src={image} alt="" fill sizes="56px" unoptimized referrerPolicy="no-referrer" className="object-cover" onError={() => setBroken(true)} />
-        ) : (
-          <ShoppingBagIcon className="size-5 text-muted-foreground" aria-hidden="true" />
-        )}
-      </span>
+      <Thumb key={info?.imageUrl ?? ""} src={info?.imageUrl} icon={ShoppingBagIcon} />
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 text-sm leading-snug font-medium [overflow-wrap:anywhere]">{title}</span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground tabular-nums">{price ?? "商品卡片"}</span>
@@ -269,6 +276,24 @@ function orderLines(o: BuyerOrder | undefined): string[] {
   return [goods, label ? `当前：${label}（${o.status}）` : `当前：${o.status}`];
 }
 
+/** 订单卡：第一件商品的缩略图；商品与金额、当前状态各一行 */
+function OrderCard({ orderId, order }: { orderId: string; order: BuyerOrder | undefined }) {
+  const image = order?.items[0]?.image;
+  return (
+    <div className={cn(CARD_CLASS, "items-start")}>
+      <Thumb key={image ?? ""} src={image} icon={PackageIcon} />
+      <span className="min-w-0 text-xs [overflow-wrap:anywhere]">
+        <span className="block font-medium tabular-nums">订单 {orderId}</span>
+        {orderLines(order).map((line, i) => (
+          <span key={i} className="block text-muted-foreground">
+            {line}
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 /** 物流卡：承运商与运单号一行，按时间取最新的一条轨迹一行 */
 function trackingLines(o: BuyerOrder | undefined, tz: string): string[] {
   const t = o?.tracking;
@@ -287,14 +312,14 @@ function ChatImage({ url, width, height }: { url: string; width: number; height:
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button type="button" aria-label="查看大图" className="focus-ring block max-w-full cursor-zoom-in rounded-md">
+        <button type="button" aria-label="查看大图" className="focus-ring block max-w-full cursor-zoom-in rounded-lg">
           <Image
             src={url}
             alt="聊天图片"
             width={width}
             height={height}
             unoptimized
-            className="h-auto max-w-full rounded-md object-cover"
+            className="h-auto max-w-full rounded-lg border border-border object-cover"
             style={{ width: Math.round(width * scale), aspectRatio: `${width} / ${height}` }}
           />
         </button>
@@ -332,7 +357,7 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
       );
     }
     case "order_card":
-      return <CardBox icon={PackageIcon} title={`订单 ${orderId}`} sub={orderLines(ordersById.get(orderId))} />;
+      return <OrderCard orderId={orderId} order={ordersById.get(orderId)} />;
     case "logistics_card":
       return <CardBox icon={TruckIcon} title={`物流 · 订单 ${orderId}`} sub={trackingLines(ordersById.get(orderId), tz)} />;
     case "return_card":

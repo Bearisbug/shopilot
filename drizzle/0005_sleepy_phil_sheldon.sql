@@ -1,0 +1,1 @@
+ALTER TABLE "product_info" ADD COLUMN "source" text DEFAULT 'platform' NOT NULL;

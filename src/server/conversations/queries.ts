@@ -339,7 +339,7 @@ export async function getBuyerPanel(ctx: MemberContext, id: string): Promise<Buy
       statusGroup: o.statusGroup,
       total: o.totalAmount,
       currency: o.currency,
-      items: o.items.map((i) => ({ name: i.name, sku: i.sku, skuId: i.skuId, qty: i.qty, unitPrice: i.unitPrice })),
+      items: o.items.map((i) => ({ name: i.name, sku: i.sku, skuId: i.skuId, qty: i.qty, unitPrice: i.unitPrice, image: i.image || undefined })),
       shipByAt: o.shipByAt?.toISOString() ?? null,
       createdAt: o.platformCreatedAt.toISOString(),
       tracking: o.tracking,

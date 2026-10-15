@@ -402,6 +402,8 @@ export const productInfo = pgTable(
     shopId: uuid("shop_id").notNull().references(() => shop.id, { onDelete: "cascade" }),
     externalProductId: text("external_product_id").notNull(),
     status: text("status", { enum: ["ok", "unavailable"] }).notNull(),
+    /** platform：平台商品接口；order：没有商品权限时借用本店订单里同一商品的名称、图片、单价 */
+    source: text("source", { enum: ["platform", "order"] }).notNull().default("platform"),
     name: text("name"),
     imageUrl: text("image_url"),
     priceMin: text("price_min"),
@@ -526,7 +528,8 @@ export const file = pgTable("file", {
 
 // ---------- 订单、售后、发票 ----------
 
-export type OrderItem = { name: string; sku?: string; productId?: string; skuId?: string; qty: number; unitPrice: string };
+/** image：商品图地址；补图任务取过但平台没给图时记为空串，不再重取 */
+export type OrderItem = { name: string; sku?: string; productId?: string; skuId?: string; qty: number; unitPrice: string; image?: string };
 
 export const order = pgTable(
   "order",

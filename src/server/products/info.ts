@@ -1,6 +1,7 @@
 // 商品卡片的商品信息（标题、主图、价格、平台商品页链接）：会话详情只读缓存，缺失或超过 24 小时的排后台任务 product.fetch 去平台取。
-// 取不到（TikTok 店没有商品读取权限、商品已删、店铺不可用）也记一行 unavailable，24 小时内不再重试；卡片照常显示「商品 <ID>」与链接。
-import { and, eq, inArray, sql } from "drizzle-orm";
+// 平台商品接口用不了（店铺没有商品读取权限、无权限、商品不存在、店铺不可用）时，借用本店订单里同一商品最近一次的名称、图片、单价；
+// 订单里也没有才记 unavailable，24 小时内不再重试，卡片照常显示「商品 <ID>」与链接。订单补图后由 order.images 清掉这些缓存，下次请求重新取。
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { ProductCardInfo } from "@/contracts/conversations";
 import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
@@ -59,14 +60,32 @@ export async function productCards(shop: ShopRow, ids: string[]): Promise<Record
   return out;
 }
 
-async function save(shop: ShopRow, productId: string, d: ProductDetail | null) {
+async function save(shop: ShopRow, productId: string, d: ProductDetail | null, source: "platform" | "order" = "platform") {
   const values = d
-    ? { status: "ok" as const, name: d.name || null, imageUrl: d.imageUrl, priceMin: d.priceMin, priceMax: d.priceMax, currency: d.currency }
-    : { status: "unavailable" as const, name: null, imageUrl: null, priceMin: null, priceMax: null, currency: null };
+    ? { status: "ok" as const, source, name: d.name || null, imageUrl: d.imageUrl, priceMin: d.priceMin, priceMax: d.priceMax, currency: d.currency }
+    : { status: "unavailable" as const, source, name: null, imageUrl: null, priceMin: null, priceMax: null, currency: null };
   await db()
     .insert(schema.productInfo)
     .values({ merchantId: shop.merchantId, shopId: shop.id, externalProductId: productId, ...values, fetchedAt: new Date() })
     .onConflictDoUpdate({ target: [schema.productInfo.shopId, schema.productInfo.externalProductId], set: { ...values, fetchedAt: sql`now()` } });
+}
+
+/** 本店订单里同一商品最近一次的名称、图片（补图前可能没有）、单价 */
+async function fromOrders(shop: ShopRow, productId: string): Promise<ProductDetail | null> {
+  const [row] = await db()
+    .select({ items: schema.order.items, currency: schema.order.currency })
+    .from(schema.order)
+    .where(and(eq(schema.order.shopId, shop.id), sql`${schema.order.items} @> ${JSON.stringify([{ productId }])}::jsonb`))
+    .orderBy(desc(schema.order.platformCreatedAt))
+    .limit(1);
+  const item = row?.items.find((i) => i.productId === productId);
+  if (!item) return null;
+  return { name: item.name, imageUrl: item.image || null, priceMin: item.unitPrice, priceMax: null, currency: row.currency };
+}
+
+async function saveFromOrders(shop: ShopRow, productId: string) {
+  const d = await fromOrders(shop, productId);
+  await save(shop, productId, d, d ? "order" : "platform");
 }
 
 /** product.fetch：取一个商品的标题、主图、价格写进缓存 */
@@ -75,13 +94,13 @@ export async function fetchProduct(data: Record<string, unknown>): Promise<void>
   const productId = String(data.productId ?? "");
   const [shop] = await db().select().from(schema.shop).where(eq(schema.shop.id, shopId)).limit(1);
   if (!shop || !productId) return;
-  if (!shop.capabilities.productScope) return save(shop, productId, null);
+  if (!shop.capabilities.productScope) return saveFromOrders(shop, productId);
   try {
     const d = await withShop(shopId, (c) => (c.platform === "shopee" ? shopeeProduct(c.app, c.auth, productId) : tiktokProduct(c.app, c.auth, productId)));
     await save(shop, productId, d);
   } catch (e) {
-    // 没有权限、商品不存在、参数不对、店铺不可用：记为取不到；超时、5xx 之类交给队列重试
-    if (e instanceof ShopUnavailableError || (e instanceof PlatformError && ["auth", "forbidden", "not_found", "param", "state"].includes(e.kind))) return save(shop, productId, null);
+    // 没有权限、商品不存在、参数不对、店铺不可用：改从订单借用；超时、5xx 之类交给队列重试
+    if (e instanceof ShopUnavailableError || (e instanceof PlatformError && ["auth", "forbidden", "not_found", "param", "state"].includes(e.kind))) return saveFromOrders(shop, productId);
     throw e;
   }
 }

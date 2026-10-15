@@ -378,6 +378,7 @@ export function normalizeShopeeOrder(o: Record<string, unknown>): NormalizedOrde
     skuId: String(i.model_id ?? ""),
     qty: Number(i.model_quantity_purchased ?? 1),
     unitPrice: money(i.model_discounted_price),
+    image: (i.image_info as { image_url?: string } | undefined)?.image_url || undefined,
   }));
   const ra = o.recipient_address as Record<string, string> | undefined;
   const pkg = ((o.package_list as Array<Record<string, unknown>> | undefined) ?? [])[0];

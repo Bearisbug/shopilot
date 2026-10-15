@@ -146,7 +146,7 @@ export type BuyerOrder = {
   statusGroup: string;
   total: string;
   currency: string;
-  items: Array<{ name: string; sku?: string; skuId?: string; qty: number; unitPrice: string }>;
+  items: Array<{ name: string; sku?: string; skuId?: string; qty: number; unitPrice: string; image?: string }>;
   shipByAt: string | null;
   createdAt: string;
   tracking: { trackingNo?: string; carrier?: string; packageId?: string; events: Array<{ at: string; text: string }> } | null;

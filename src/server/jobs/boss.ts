@@ -9,6 +9,7 @@ export const QUEUES = {
   "order.sync": { policy: "stately" as const, expireInSeconds: 300, retryLimit: 2, retryDelay: 30 },
   "shop.backfill": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 3, retryDelay: 60 },
   "data.export": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
+  "order.images": { policy: "stately" as const, expireInSeconds: 3600, retryLimit: 0 },
   "email.send": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "product.fetch": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 2, retryDelay: 60, retryBackoff: true },
   // 定时任务（cron 驱动，每个都是单例）

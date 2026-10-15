@@ -331,7 +331,7 @@ export function normalizeTiktokOrder(o: Record<string, unknown>): NormalizedOrde
   for (const l of lines) {
     const prev = bySku.get(l.sku_id);
     if (prev) prev.qty += 1;
-    else bySku.set(l.sku_id, { name: l.product_name, sku: l.sku_name || undefined, productId: l.product_id, skuId: l.sku_id, qty: 1, unitPrice: Number(l.sale_price ?? 0).toFixed(2) });
+    else bySku.set(l.sku_id, { name: l.product_name, sku: l.sku_name || undefined, productId: l.product_id, skuId: l.sku_id, qty: 1, unitPrice: Number(l.sale_price ?? 0).toFixed(2), image: l.sku_image || undefined });
   }
   const ra = o.recipient_address as Record<string, string> | undefined;
   const deadlines: Record<string, string> = {};

@@ -55,7 +55,7 @@ export type NormalizedOrder = {
   platformStatus: string;
   totalAmount: string;
   currency: string;
-  items: Array<{ name: string; sku?: string; productId?: string; skuId?: string; qty: number; unitPrice: string }>;
+  items: Array<{ name: string; sku?: string; productId?: string; skuId?: string; qty: number; unitPrice: string; image?: string }>;
   shipByAt: Date | null;
   recipient: { name?: string; phone?: string; address?: string; masked: boolean } | null;
   tracking: { trackingNo?: string; carrier?: string; packageId?: string; events: Array<{ at: string; text: string }> } | null;

@@ -1,6 +1,7 @@
 // 订单与售后镜像：平台为准，Shopilot 只写镜像（DESIGN §11 免建 ②）。推送、回补、手动同步、操作后回读共用。
 import { and, eq, inArray } from "drizzle-orm";
 import { db, schema, type Executor } from "@/server/db/client";
+import type { OrderItem } from "@/server/db/schema";
 import type { ShopClient, ShopRow } from "@/server/platforms/clients";
 import { shopeeOrderDetails, shopeeReturnDetail, shopeeTracking } from "@/server/platforms/shopee";
 import { tiktokAfterSale, tiktokGetOrders, tiktokTracking } from "@/server/platforms/tiktok";
@@ -18,11 +19,21 @@ async function hasOpenReturn(ex: Executor, shopId: string, externalOrderId: stri
   return rows.some((r) => afterSaleOpen(platform, "return", r.status));
 }
 
+/** 按 SKU（没有时按商品 ID）把已存的商品图补到新的订单行上 */
+export function keepImages(next: OrderItem[], prev: OrderItem[]): OrderItem[] {
+  if (!prev.length) return next;
+  return next.map((i) => {
+    if (i.image) return i;
+    const old = prev.find((p) => (i.skuId && p.skuId === i.skuId) || (!i.skuId && i.productId && p.productId === i.productId));
+    return old?.image !== undefined ? { ...i, image: old.image } : i;
+  });
+}
+
 export async function upsertOrder(ex: Executor, shop: ShopRow, o: NormalizedOrder): Promise<OrderRow> {
   const openReturn = await hasOpenReturn(ex, shop.id, o.externalOrderId, shop.platform);
   const group = statusGroup(shop.platform, o.platformStatus, { buyerRequestedCancel: o.buyerRequestedCancel, openReturn });
   const [prev] = await ex
-    .select({ tracking: schema.order.tracking })
+    .select({ tracking: schema.order.tracking, items: schema.order.items })
     .from(schema.order)
     .where(and(eq(schema.order.shopId, shop.id), eq(schema.order.externalOrderId, o.externalOrderId)))
     .limit(1);
@@ -32,6 +43,7 @@ export async function upsertOrder(ex: Executor, shop: ShopRow, o: NormalizedOrde
     : (prev?.tracking ?? null);
   const values = {
     merchantId: shop.merchantId,
+    // 新数据没带商品图时沿用已存的（补图任务写过的不被后续同步冲掉）
     shopId: shop.id,
     platform: shop.platform,
     externalOrderId: o.externalOrderId,
@@ -41,7 +53,7 @@ export async function upsertOrder(ex: Executor, shop: ShopRow, o: NormalizedOrde
     statusGroup: group,
     totalAmount: o.totalAmount,
     currency: o.currency,
-    items: o.items,
+    items: keepImages(o.items, prev?.items ?? []),
     shipByAt: o.shipByAt,
     recipient: o.recipient,
     tracking,

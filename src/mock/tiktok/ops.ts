@@ -5,7 +5,7 @@ import { mockAfterSale, mockBuyerThread, mockMessage, mockOrder } from "../db/sc
 import { TIKTOK_EVENT_TYPES } from "../fixtures";
 import { nowSec, toSec } from "../http";
 import { tiktokMessageId, tiktokNotificationId, tiktokSessionId, tiktokShopImId } from "../ids";
-import { mockAvatarUrl } from "../images";
+import { mockAvatarUrl, mockProductImageUrl } from "../images";
 import { deliverPush, type PendingPush } from "../push";
 import type { TiktokShop } from "./core";
 
@@ -171,7 +171,7 @@ export function tiktokOrderFields(o: Order, shop: TiktokShop, hasPendingCancel: 
       product_id: i.itemId,
       product_name: i.name,
       sku_name: i.skuName,
-      sku_image: "",
+      sku_image: mockProductImageUrl(i.itemId),
       seller_sku: "",
       sale_price: money(Number(i.price), cur),
       original_price: money(Number(i.originalPrice), cur),
