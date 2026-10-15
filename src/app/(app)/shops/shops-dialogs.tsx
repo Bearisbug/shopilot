@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, api, errorText, newKey } from "@/lib/api";
 import { inTz } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -149,21 +150,28 @@ export function ReauthDialog({ me, shops }: { me: Me; shops: ShopRow[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const shopeeTarget = shopee.find((s) => s.id === focus) ?? shopee[0];
   const earliest = shopee.map((s) => s.authExpiresAt).filter(Boolean).sort()[0];
-  const go = (platform: "shopee" | "tiktok", shopId: string, copy = false) => {
-    setBusy(`${shopId}:${copy}`);
+  // 授权页一律在新标签打开，当前页不跳走：先同步开空白标签再填地址，避免异步后被浏览器拦截弹窗
+  const go = (platform: "shopee" | "tiktok", shopId: string, mode: "open" | "copy") => {
+    const tab = mode === "open" ? window.open("", "_blank") : null;
+    setBusy(`${shopId}:${mode}`);
     auth.mutate(
       { platform, shopId },
       {
         onSuccess: (r) => {
           setBusy(null);
-          if (!copy) window.location.assign(r.url);
-          else
-            navigator.clipboard
-              .writeText(r.url)
-              .then(() => toast.success("授权链接已复制，5 分钟内有效"))
-              .catch(() => toast.error("复制没有成功，请改用「打开授权页」"));
+          if (mode === "open") {
+            if (!tab) return void window.open(r.url, "_blank", "noopener");
+            tab.opener = null;
+            tab.location.href = r.url;
+            return;
+          }
+          navigator.clipboard
+            .writeText(r.url)
+            .then(() => toast.success("授权链接已复制，5 分钟内有效"))
+            .catch(() => toast.error("复制没有成功，请改用「在新标签打开」"));
         },
         onError: (e) => {
+          tab?.close();
           setBusy(null);
           toast.error(errorText(e));
         },
@@ -188,33 +196,44 @@ export function ReauthDialog({ me, shops }: { me: Me; shops: ShopRow[] }) {
               {shopee.some((s) => s.status === "auth_expired") && " 授权失效的店续期后恢复收发。"}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button disabled={busy !== null} onClick={() => go("shopee", shopeeTarget.id)}>
-                {busy === `${shopeeTarget.id}:false` ? <Spinner /> : <ExternalLinkIcon />}
-                打开授权页
+              <Button disabled={busy !== null} onClick={() => go("shopee", shopeeTarget.id, "open")}>
+                {busy === `${shopeeTarget.id}:open` ? <Spinner /> : <ExternalLinkIcon />}
+                在新标签打开授权页
               </Button>
-              <Button variant="outline" disabled={busy !== null} onClick={() => go("shopee", shopeeTarget.id, true)}>
-                {busy === `${shopeeTarget.id}:true` ? <Spinner /> : <CopyIcon />}
+              <Button variant="outline" disabled={busy !== null} onClick={() => go("shopee", shopeeTarget.id, "copy")}>
+                {busy === `${shopeeTarget.id}:copy` ? <Spinner /> : <CopyIcon />}
                 复制授权链接
               </Button>
             </div>
           </section>
         )}
         {tiktok.length > 0 && (
-          <section aria-labelledby="reauth-tiktok" className={cn(shopeeTarget && "border-t border-border pt-4")}>
+          <section aria-labelledby="reauth-tiktok" className={cn("min-w-0", shopeeTarget && "border-t border-border pt-4")}>
             <h3 id="reauth-tiktok" className="text-sm font-semibold">
               TikTok Shop · 按站点
             </h3>
-            <p className="mt-1 text-sm text-muted-foreground">跨境店每个站点单独确认一次。</p>
+            <p className="mt-1 text-sm text-muted-foreground">跨境店每个站点单独确认一次。复制的链接 5 分钟内有效，在已登录该店卖家账号的浏览器里打开。</p>
             <ul className="mt-2">
               {tiktok.map((s) => (
                 <li key={s.id} className={cn("flex items-center gap-3 border-b border-border py-2.5 last:border-0", s.id === focus && "bg-accent")}>
                   <span className="w-8 text-sm font-medium">{s.market}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm">{s.name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{s.status === "auth_expired" ? "授权失效" : `至 ${inTz(s.authExpiresAt, me.active.timezone, "yyyy-MM-dd")}`}</span>
-                  <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => go("tiktok", s.id)}>
-                    {busy === `${s.id}:false` ? <Spinner /> : <ExternalLinkIcon />}
-                    续期
+                  {/* 到期日放在店名下面：窄屏时一行放得下「复制链接」和新标签按钮 */}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{s.name}</span>
+                    <span className="block text-xs text-muted-foreground tabular-nums">{s.status === "auth_expired" ? "授权失效" : `至 ${inTz(s.authExpiresAt, me.active.timezone, "yyyy-MM-dd")}`}</span>
+                  </span>
+                  <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => go("tiktok", s.id, "copy")}>
+                    {busy === `${s.id}:copy` ? <Spinner /> : <CopyIcon />}
+                    复制链接
                   </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon-sm" aria-label={`在新标签打开 ${s.market} 授权页`} disabled={busy !== null} onClick={() => go("tiktok", s.id, "open")}>
+                        {busy === `${s.id}:open` ? <Spinner /> : <ExternalLinkIcon />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>在新标签打开授权页</TooltipContent>
+                  </Tooltip>
                 </li>
               ))}
             </ul>
