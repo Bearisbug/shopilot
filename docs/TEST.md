@@ -3583,6 +3583,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-008 | 2026-10-14 | 本地 | 工作区 src 指纹 `5bf7106de632`（未提交） | AI（Claude Code 执行子会话 + 主会话；Playwright + Edge、curl） | 复测轮，共 11 条：RUN-007 失败 `TC-AUTH-014` + 冒烟级（含主会话执行的 `TC-AI-002`）（`docs/test-runs/run-008-retest.md`） | 通过 11/11 |
 | RUN-009 | 2026-10-14 | 本地 | 工作区 src 指纹 `2e62fc541350`（未提交） | AI（Claude Code 执行子会话 + 主会话；Playwright + Edge、curl） | 局部轮（DESIGN v1.10 去掉侧栏出稿用量卡），共 25 条：受影响 `TC-PERM-001`、`TC-PERM-002`、`TC-PERM-003`、`TC-PERM-004`、`TC-PERM-006`、`TC-PERM-007`、`TC-BILL-001`、`TC-CONV-004`、`TC-CONV-005`、`TC-CONV-006`、`TC-CONV-007`、`TC-TKT-016`、`TC-TKT-017`、`TC-TKT-018`、`TC-NOTIF-001`、`TC-NOTIF-002`、`TC-NOTIF-003` + 其余冒烟 `TC-AUTH-001`、`TC-SHOP-001`、`TC-AUTH-004`、`TC-AI-001`、`TC-AI-002`（主会话执行）、`TC-TKT-001`、`TC-ORD-015`、`TC-PERM-005`（`docs/test-runs/run-009-local.md`） | 通过 25/25 |
 | RUN-010 | 2026-10-15 | 本地 | `e4a7034` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-KB-001、TC-KB-002、TC-KB-003、TC-KB-004、TC-KB-005、TC-KB-006、TC-KB-007、TC-KB-008、TC-KB-009、TC-KB-010、TC-KB-011、TC-KB-012、TC-KB-013、TC-KB-014、TC-KB-015、TC-KB-016、TC-KB-017、TC-KB-018、TC-KB-019、TC-KB-020、TC-KB-021、TC-KB-022、TC-KB-023、TC-KB-024、TC-KB-025、TC-KB-026、TC-KB-027、TC-KB-028、TC-KB-029、TC-KB-030、TC-KB-031、TC-KB-032、TC-KB-033、TC-KB-034、TC-KB-035、TC-KB-036、TC-AI-003、TC-AI-005、TC-PERM-003、TC-TEAM-013、TC-CONV-010、TC-AUTH-001、TC-SHOP-001、TC-AUTH-004、TC-AI-001、TC-AI-002、TC-TKT-001、TC-ORD-015、TC-PERM-001、TC-PERM-002、TC-PERM-005） | 通过 48/51 · 失败 1 · 待人工 2 |
+| RUN-011 | 2026-10-16 | 本地 | `adfc875` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-010：TC-KB-035、TC-AUTH-001、TC-SHOP-001、TC-AUTH-004、TC-AI-001、TC-AI-002、TC-TKT-001、TC-ORD-015、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-KB-001、TC-KB-024） | 通过 13/13 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -3693,6 +3694,8 @@ RUN-008 备注：`TC-AUTH-014` 第 1 步在 Demo Store 与新注册商户上各�
 RUN-009 备注：`TC-PERM-001` 展开态导航下方没有用量卡、收起后底部只有「展开侧栏」按钮，三个角色的 `nav-summary` 都没有 `usage` 键（`run-009-TC-PERM-001-1.png`、`run-009-TC-PERM-001-1b.png`）。`TC-TKT-016` 按第二次执行登记：第一次在前置与第 1 步之间隔了约 1 分钟，Worker 按计划先跑了 `ticket.scan`，改用新场景 T-1007 后立即执行通过；`TC-TKT-016`、`TC-TKT-017` 的场景与第 1 步之间不能隔近 1 分钟。`TC-CONV-005` 第 2 步 9.1 秒，接近 10 秒上限。`TC-BILL-001` 排在出稿用例之后执行，已用 5 次，各口径合计一致。中途脚本触发登录限频（每分钟 30 次，429），等 60 秒后复用已登录会话继续，没有步骤因此改判。`TC-AI-002` 由主会话以 `AI_MODE=deepseek` 执行并通过：草稿写明订单号、商品、承运商与运单号，置信度 0.90，买家收到同样正文（`run-009-TC-AI-002-2.json`）；切换时重启的开发服务出现热更新循环（登录页 5 秒内重载 53 次），删除 `.next/dev` 后重启恢复，之后改回 `AI_MODE=stub` 并重建基线。
 
 RUN-010 证据：知识库一期的局部轮，范围是全部知识库用例、受影响的旧用例（`TC-AI-003`、`TC-AI-005`、`TC-PERM-003`、`TC-TEAM-013`、`TC-CONV-010`）与冒烟级 12 条。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_kbrun` 并按 §3 重建基线，Web 跑在 3362、Worker 单独起，`KNOWLEDGE_MODE=stub`、`AI_MODE=stub`；`TC-AI-002` 前重建基线并以 `AI_MODE=deepseek` 重启。逐条结果、执行顺序与手段见 `docs/test-runs/run-010-local.md`。没有跑走查用例，未刷新截图。
+
+RUN-011 证据：复测轮，承接 RUN-010 失败的 `TC-KB-035`（按修正后的用例：前置不再改资料）加冒烟级 12 条。环境与手段同 RUN-010（独立库 `shopilot_kbrun` 起跑重建基线、Web 3362、`KNOWLEDGE_MODE=stub`；`TC-AI-002` 前重建基线并以 `AI_MODE=deepseek` 重启），2026-10-16 00:11–00:14。应用代码与 RUN-010 相同，只改了设计文档与用例。`TC-KB-035`：补扫后 D1 30 秒内变为 `ready`、列表「可用」，D2 为 `failed`、原因「入库任务中断，请重新解析」。
 
 ## 7. 遗留问题
 
