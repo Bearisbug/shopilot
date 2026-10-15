@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | RUN-010 之后修正 `TC-KB-035`（原位修改）：前置去掉「入库前关掉 AI 可用」，那一步刷新了资料的更新时间，补扫按最近一次更新计时（DESIGN v1.12 §17 写明）；第 2 步改为状态「可用」 | 实现会话 |
 | 2026-10-15 | 按 DESIGN v1.11–v1.12 补知识库：新增功能域「知识库」`TC-KB-001` 至 `TC-KB-036`（冒烟 2、回归 26、边缘 7，人工 1），用例共 265 条；`TC-AI-003` 改为「没有可用资料时不检索」；`TC-PERM-001` 组长看到接待设置且只有知识库标签；`TC-TEAM-013` 权限表含知识库「资料与测试问答」一行；`TC-CONV-010` 对照项加草稿「依据」；§2 范围与不测项、§3 检索替身、AI 替身「资料不足」、知识库测试文件、补扫场景与 curl 函数 | 实现会话 |
 | 2026-10-11 | 初稿：15 个功能域共 223 条用例（冒烟 10、回归 172、边缘 41），覆盖 DESIGN v1.0 §5 全部 76 条 REQ 与 §19 全部 88 个 Gherkin 场景；§3 按约定起草，标「未验证」 | 实现会话 |
 | 2026-10-11 | 按 DESIGN v1.2 同步（尚无执行轮次，受影响用例原位修改），用例共 225 条：新增 `TC-SHOP-025`（接入后超套餐店铺上限）、`TC-CONV-039`（员工不能结束待认领会话）；授权失败回授权页及 `denied` 原因（`TC-SHOP-008` 至 `TC-SHOP-011`）；沙箱凭证不能继续授权（`TC-SHOP-005`）；两步验证、本人设备、个人偏好改在 `/account/security`（`TC-AUTH-014` 至 `TC-AUTH-017`、`TC-SET-005`、`TC-SET-006`）；阶段判定规则 5、6（`TC-CONV-032`、`TC-CONV-033`）；物流异常工单手动推进（`TC-TKT-004`）；授权失效发送的 `code`（`TC-SHOP-017`）、模型给出的转人工原因（`TC-AI-019`）、AI 草稿分组含 auto 会话（`TC-AI-007`）、员工指定负责人被拒（`TC-TKT-007`）、重复邀请与邀请失效的 `code`（`TC-TEAM-004`、`TC-TEAM-005`、`TC-TEAM-006`、`TC-TEAM-008`）、删除不存在买家返回 0（`TC-SET-008`）、账单开票资料快照（`TC-BILL-012`）、权限表不含知识库与助手（`TC-TEAM-013`）；§3 写入模拟器故障注入、最近一次请求、来源 IP 与场景 `shop-limit-full` | 实现会话 |
@@ -2978,12 +2979,12 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 #### `TC-KB-035` 补扫：排队过久的重新入库，解析中断的标失败 — 对应 `REQ-KB-001` · 级别: 边缘 · 执行者: 皆可
 
-前置：基线；`login owner@demo.test`；`pnpm scenario knowledge-queued-11m` 记资料 ID D1；`pnpm scenario knowledge-processing-26m` 记资料 ID D2；`api owner@demo.test -X PATCH "$B/api/v1/knowledge/documents/<D1>" -d '{"aiEnabled":false}'` 返回 200（入库前就关掉 AI 可用）。
+前置：基线；`login owner@demo.test`；`pnpm scenario knowledge-queued-11m` 记资料 ID D1；`pnpm scenario knowledge-processing-26m` 记资料 ID D2；之后到第 1 步之前不要改这两份资料（改分类、站点、AI 可用都会刷新更新时间，补扫重新计时）。
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | `pnpm job knowledge.purge` | 输出 `"ok":true` |
-| 2 | 最多等 30 秒，`api owner@demo.test "$B/api/v1/knowledge/documents/<D1>"` | `document.status` 为 `ready`、`aiEnabled` 仍为 false；浏览器以 owner 打开 `/reception/knowledge`，D1 一行状态为「已停用」 |
+| 2 | 最多等 30 秒，`api owner@demo.test "$B/api/v1/knowledge/documents/<D1>"` | `document.status` 为 `ready`；浏览器以 owner 打开 `/reception/knowledge`，D1 一行状态为「可用」 |
 | 3 | `api owner@demo.test "$B/api/v1/knowledge/documents/<D2>"` | `document.status` 为 `failed`，`failureReason` 为「入库任务中断，请重新解析」 |
 
 后置：`kbclear`。

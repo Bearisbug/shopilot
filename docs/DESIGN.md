@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.12 | FLOW-KB-INGEST | 入库补扫按资料最近一次更新计时，排队中改分类、站点或开关会重新计 10 分钟 | 文档 |
 | 2026-10-15 | v1.12 | FLOW-KB-INGEST、FLOW-KB-MANAGE、FLOW-KB-TEST、FLOW-AI-DRAFT、API-KB-001、API-KB-005、API-KB-006、API-KB-007、API-KB-009、API-KB-010、API-KB-011、API-KB-012、API-MOCK-010、EVT:knowledge_updated、EVT:knowledge_reparsed、EVT:knowledge_category_created、EVT:knowledge_category_renamed、EVT:knowledge_category_deleted | 知识库按实现对齐：索引完成判定、补扫、检索报错也重试、测试问答的店铺与限流、依据怎么点开；三条链路已实现 | 文档 |
 | 2026-10-15 | v1.11 | FLOW-KB-INGEST、FLOW-KB-MANAGE | 上传、维护资料的执行者与资料状态迁移的触发者补上组长，与 knowledge.manage 一致 | 文档 |
 | 2026-10-15 | v1.11 | FLOW-KB-INGEST、FLOW-KB-MANAGE、FLOW-AI-DRAFT、REQ-KB-001、REQ-KB-002、REQ-KB-003、REQ-KB-004、REQ-KB-005、REQ-KB-006、REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、RULE-KB-001、RULE-KB-002、RULE-KB-003、INV-KB-001、INV-KB-002、INV-KB-003、INV-AI-001、ADR-014 | 新增知识库：上传资料、分类、测试问答，AI 出稿先查资料并给客服看依据，补了链路总览 | 功能、文档 |
@@ -143,7 +144,7 @@
 | 并发 | 选的分类刚被别人删除 | 422 `/errors/validation` | `/errors/validation`；竞态「删除分类时有资料正上传到它」 | 不测：本地造不出两个请求精确交错，见 TEST.md §2 |
 | 并发 | 两次上传同时越过资料上限 | 后到的 409 `/errors/not-allowed` | 竞态「并发上传越过资料上限」；INV-KB-001 | 不测：代码仓测试 knowledge.test.ts 覆盖 |
 | 并发 | 同一文件同时上传两次 | 后到的 409 `/errors/duplicate` | 竞态「同一内容同时上传两次」 | 不测：本地造不出两个请求精确交错，见 TEST.md §2 |
-| 边界 | 排队超过 10 分钟还没开始解析 | 每小时补扫时重新排入库 | §17 排队超过 10 分钟的重新排入库 | TC-KB-035 |
+| 边界 | 排队中 10 分钟没有任何更新 | 每小时补扫时重新排入库 | §17 排队中且 10 分钟没有任何更新的重新排入库 | TC-KB-035 |
 
 ##### S4 确认检索实例
 
@@ -174,7 +175,7 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 入库中管理员已关掉 AI 可用 | 解析完成后显示「已停用」，不被引用 | 字段 knowledge_document.ai_enabled；RULE-KB-001 | TC-KB-035 |
+| 边界 | 入库中管理员已关掉 AI 可用 | 解析完成后显示「已停用」，不被引用 | 字段 knowledge_document.ai_enabled；RULE-KB-001 | 无用例 |
 | 边界 | 分块从哪里来 | 按条目分页读回检索服务的分块，与检索用的一致 | API-KB-004 | TC-KB-015 |
 
 #### 待决策
@@ -2559,7 +2560,7 @@ sequenceDiagram
 
 删除资料（`API-KB-007`）：资料转 `deleting` 后立即从列表消失，`knowledge.purge` 先删检索服务里的条目，全部成功后再删原文件与记录（11.14 `purge`）。检索服务的删除是异步的，以删除接口返回成功为准（§17 已知问题）。
 
-补扫：`knowledge.purge` 每小时运行一次，重新排删除停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队超过 10 分钟的重新排入库，`processing` 超过 25 分钟没有更新的视为任务中断，标失败（11.14 `fail`）。
+补扫：`knowledge.purge` 每小时运行一次，重新排删除停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库，`processing` 超过 25 分钟没有更新的视为任务中断，标失败（11.14 `fail`）。改分类、站点、AI 可用都会刷新资料的更新时间，补扫从最近一次更新重新计时。
 
 ### 12.8 出稿检索知识库（REQ-AI-002、REQ-KB-006、REQ-KB-005）
 
@@ -2912,7 +2913,7 @@ flowchart LR
 | `inbound.sweep` | 每分钟 | 单实例 | 1 分钟 | 下轮补扫 | 同上 |
 | `draft.generate` | 入站处理后入队 | `singletonKey = conversation_id`；全局并发 20、单商户 5 | 60 秒（改写 6 + 检索 13 + 出稿 25 + 余量） | 不重试；转人工 | 同上 |
 | `knowledge.ingest` | `API-KB-002`、`API-KB-006` | `singletonKey = document_id`；全局并发 4、单商户 2 | 20 分钟 | 条目级删除后同名重传最多 2 次；任务异常或超时把资料标 `failed`，管理员可重新解析 | 同上 |
-| `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队超过 10 分钟的重新排入库，`processing` 超过 25 分钟没有更新的标失败，原因「入库任务中断，请重新解析」；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
+| `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库（改分类、站点、AI 可用都会重新计时），`processing` 超过 25 分钟没有更新的标失败，原因「入库任务中断，请重新解析」；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
 | `message.translate` | TikTok 买家消息落库后入队 | 并发 10 | 15 秒 | 重试 1 次，仍失败保留原文 | 同上 |
 | `order.sync` | 每小时每店；`API-ORD-003` 手动 | `singletonKey = shop_id`；每批 50 单；时间窗 ≤ 15 天（平台上限） | 5 分钟 | 重试 2 次，下轮补 | 同上 |
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
