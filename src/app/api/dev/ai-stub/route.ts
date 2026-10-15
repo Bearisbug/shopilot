@@ -5,7 +5,7 @@ import { db, schema } from "@/server/db/client";
 import { mockPlatformEnabled } from "@/server/env";
 
 // 开发接口：AI 替身的下一次出稿回复与最近一次出稿请求（TEST.md §3 H2）；只在 MOCK_PLATFORM=1 时可用
-const body = z.object({ next: z.enum(["normal", "low_confidence", "handoff", "invalid_json", "timeout"]), sticky: z.boolean().default(false) });
+const body = z.object({ next: z.enum(["normal", "low_confidence", "handoff", "invalid_json", "timeout", "insufficient"]), sticky: z.boolean().default(false) });
 
 const notFound = () => new Response("Not Found", { status: 404 });
 const out = (data: unknown) => new Response(JSON.stringify(data), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
