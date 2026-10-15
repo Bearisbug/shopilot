@@ -15,7 +15,8 @@ export const conversationsQuery = z.object({
 export type ConversationsQuery = z.infer<typeof conversationsQuery>;
 
 export const conversationQuery = z.object({ before: zUuid.optional() });
-export const versionBody = z.object({ version: z.number().int().min(1) });
+/** 认领：带 version 时只在会话版本未变时认领；不带时不比对版本（飞书卡片「认领」落地时会话可能看不到，靠认领接口的 409 得知处理人） */
+export const claimBody = z.object({ version: z.number().int().min(1).optional() });
 export const assignBody = z.object({ toMembershipId: zUuid, withTickets: z.boolean().default(false), version: z.number().int().min(1) });
 export const closeBody = z.object({ reason: z.string().trim().max(200).optional(), version: z.number().int().min(1) });
 export const stageBody = z.object({ stage: z.enum(["presale", "insale", "aftersale", "unknown"]) });

@@ -26,6 +26,7 @@
 | `KNOWLEDGE_MODE` | 同上 | 配置值 `cloudflare` | U：写入 | 服务器 .env.production 含键名 | ☑ 2026-10-15 |
 | `CLOUDFLARE_ACCOUNT_ID` | 同上 | 配置值（Cloudflare 账号 ID，见 `.env.example`） | U：写入 | 服务器 .env.production 含键名 | ☑ 2026-10-15 |
 | `CLOUDFLARE_API_TOKEN` | 同上 | Bitwarden `SHOPILOT_AI_SEARCH_TOKEN`（只含 AI Search 编辑与运行权限；同名条目 `CLOUDFLARE_API_TOKEN` 是另一个 token） | U：`bw get password SHOPILOT_AI_SEARCH_TOKEN` 写入，值不经聊天 | 服务器 .env.production 含键名 | ☑ 2026-10-15 |
+| `FEISHU_MODE` | 同上 | 配置值 `live`（商户自己的飞书应用凭证与群机器人地址存在库里，服务器不配飞书密钥） | U：写入 | 服务器 .env.production 含键名；商户在通知设置里点「发测试卡片」，飞书群收到卡片 | ☐ 待配置（飞书推送合并上线前） |
 | `SMTP_HOST` | 同上 | 配置值 `smtp.feishu.cn` | A：写入 | 注册冒烟的验证邮件 `status = delivered` | ☑ 2026-10-15 |
 | `SMTP_PORT` | 同上 | 配置值 `465` | A：写入 | 同上 | ☑ 2026-10-15 |
 | `SMTP_USER` | 同上 | 配置值 `no-reply@shopilot.live` | A：写入 | 同上 | ☑ 2026-10-15 |

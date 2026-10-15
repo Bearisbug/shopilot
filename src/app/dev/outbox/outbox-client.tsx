@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingRows } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { FeishuOutbox, OutboxTabs } from "./feishu-cards";
 
 type Mail = {
   id: string;
@@ -30,6 +31,11 @@ async function load(to: string): Promise<Mail[]> {
 }
 
 export function OutboxClient() {
+  const params = useSearchParams();
+  return params.get("tab") === "feishu" ? <FeishuOutbox /> : <MailOutbox />;
+}
+
+function MailOutbox() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -68,6 +74,7 @@ export function OutboxClient() {
         <div>
           <h1 className="text-2xl font-semibold">发件箱</h1>
           <p className="text-sm text-muted-foreground">本期邮件不外发，邀请、重置密码、提醒、发票邮件都写在这里。链接可直接点开。</p>
+          <OutboxTabs current="mail" />
         </div>
         <form
           role="search"

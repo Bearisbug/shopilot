@@ -1060,6 +1060,80 @@ export const knowledgeChunk = pgTable(
   (t) => [uniqueIndex("knowledge_chunk_document_no_uq").on(t.documentId, t.no), index("knowledge_chunk_remote_idx").on(t.merchantId, t.remoteId)],
 );
 
+// ---------- 飞书推送 ----------
+
+/** 每商户一条：接法（飞书应用 / 群自定义机器人）、应用凭证、最近一次校验结果与两个推送开关 */
+export const feishuIntegration = pgTable("feishu_integration", {
+  merchantId: uuid("merchant_id")
+    .primaryKey()
+    .references(() => merchant.id, { onDelete: "cascade" }),
+  method: text("method", { enum: ["app", "webhook"] }).notNull(),
+  appId: text("app_id"),
+  appSecretEnc: text("app_secret_enc"),
+  /** 应用接法：换 tenant_access_token 通过为 verified；之后发卡鉴权失败改为 invalid */
+  status: text("status", { enum: ["verified", "invalid"] }).notNull().default("verified"),
+  verifiedAt: ts("verified_at"),
+  notifyUnclaimed: boolean("notify_unclaimed").notNull().default(true),
+  notifyOverdue: boolean("notify_overdue").notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** 推送目标群：shop_id 为空是默认群，否则是该店另指定的群；应用接法存 chat_id，自定义机器人存 webhook 与签名密钥密文 */
+export const feishuTarget = pgTable(
+  "feishu_target",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    shopId: uuid("shop_id").references(() => shop.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["app_chat", "webhook"] }).notNull(),
+    /** 群名：应用接法取飞书返回的群名，自定义机器人由管理员填写 */
+    name: text("name").notNull(),
+    chatId: text("chat_id"),
+    webhookEnc: text("webhook_enc"),
+    secretEnc: text("secret_enc"),
+    /** webhook 地址末 4 位，界面上区分不同机器人用 */
+    webhookHint: text("webhook_hint"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("feishu_target_default_uq").on(t.merchantId).where(sql`${t.shopId} is null`),
+    uniqueIndex("feishu_target_shop_uq").on(t.shopId).where(sql`${t.shopId} is not null`),
+  ],
+);
+
+/** 飞书卡片投递记录（发件箱）：先落库再入队 feishu.send；同一会话段同一卡种只有一行 */
+export const feishuDelivery = pgTable(
+  "feishu_delivery",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    conversationId: uuid("conversation_id").references(() => conversation.id, { onDelete: "cascade" }),
+    segmentId: uuid("segment_id").references(() => segment.id, { onDelete: "cascade" }),
+    /** unclaimed 待认领卡，overdue 待认领超时卡，test 设置页的测试卡片 */
+    kind: text("kind", { enum: ["unclaimed", "overdue", "test"] }).notNull(),
+    targetId: uuid("target_id").references(() => feishuTarget.id, { onDelete: "set null" }),
+    targetName: text("target_name"),
+    status: text("status", { enum: ["queued", "sent", "failed", "skipped"] }).notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    /** 应用接法发出的消息 ID；自定义机器人不返回 */
+    messageId: text("message_id"),
+    /** 发出（或准备发出）的卡片 JSON；重试时沿用，不重新生成总结与译文 */
+    card: jsonb("card").$type<Record<string, unknown> | null>(),
+    /** 由发送替身记下（FEISHU_MODE=stub），没有真的发到飞书 */
+    stub: boolean("stub").notNull().default(false),
+    error: text("error"),
+    createdAt: createdAt(),
+    sentAt: ts("sent_at"),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("feishu_delivery_segment_kind_uq").on(t.segmentId, t.kind).where(sql`${t.segmentId} is not null`),
+    index("feishu_delivery_merchant_created_idx").on(t.merchantId, t.createdAt),
+  ],
+);
+
 export const idempotencyKey = pgTable(
   "idempotency_key",
   {

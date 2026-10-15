@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, errorText } from "@/lib/api";
 import { SettingsFrame } from "../settings-frame";
+import { FeishuSection } from "./feishu-section";
 
 const EVENT_TEXT: Record<NotificationRuleRow["event"], { label: string; desc: string }> = {
   unclaimed_timeout: { label: "待认领超过提醒时长", desc: "提醒负责该店的组长；时长在接待设置的工作时间页改" },
@@ -46,6 +47,7 @@ export function NotifyClient({ me }: { me: Me }) {
       ) : (
         <RulesEditor key={JSON.stringify(rules.data.rules)} saved={rules.data.rules} />
       )}
+      <FeishuSection tz={me.active.timezone} />
       <Panel>
         <PanelHeader title="我的通知" description="浏览器桌面通知与提示音只对你自己生效，在账号安全页设置" />
         <Button asChild variant="outline" size="sm">

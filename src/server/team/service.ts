@@ -14,6 +14,7 @@ import { env } from "../env";
 import { conflict, notAllowed, notFound, Problem } from "../http/problem";
 import { plan } from "../billing/plans";
 import { systemEvent } from "../conversations/ingest";
+import { queueFeishuCard } from "../feishu/deliver";
 import { ROLE_LABEL } from "@/lib/permissions";
 
 const m = schema.membership;
@@ -340,7 +341,8 @@ export async function disableMember(ctx: MemberContext, membershipId: string) {
   if (ctx.merchant.ownerUserId === user.id) throw notAllowed("账号所有者不能停用；需要时先在商户设置里转让所有权。", "owner_locked");
   if (membershipId === ctx.membership.id) throw notAllowed("不能停用自己。", "self");
   if (membership.status === "disabled") return { releasedConversations: 0, returnedTickets: 0 };
-  return db().transaction(async (tx) => {
+  let releasedIds: string[] = [];
+  const result = await db().transaction(async (tx) => {
     await tx.update(m).set({ status: "disabled", disabledAt: new Date() }).where(eq(m.id, membershipId));
     await tx.delete(schema.session).where(and(eq(schema.session.userId, user.id), eq(schema.session.activeMerchantId, ctx.merchant.id)));
     const released = await tx
@@ -372,8 +374,12 @@ export async function disableMember(ctx: MemberContext, membershipId: string) {
       if (to) await notify({ merchantId: ctx.merchant.id, membershipIds: [to], event: "ticket_assigned", title: `工单 ${t.number} 已改派给你`, body: `${user.name} 被停用，${where}。`, link: `/tickets/${t.id}`, dedupeKey: `ticket_assigned:${t.id}:${to}` }, tx);
     }
     await audit(ctx.actor, { module: "team", action: "member_disabled", summary: `停用 ${user.name}`, targetType: "membership", targetId: membershipId, data: { released: released.length, tickets: tickets.length } }, tx);
+    releasedIds = released.map((r) => r.id);
     return { releasedConversations: released.length, returnedTickets: tickets.length };
   });
+  // 退回待认领的会话推飞书待认领卡（提交后再排，任务读得到会话的新状态）
+  for (const id of releasedIds) await queueFeishuCard(id, "unclaimed");
+  return result;
 }
 
 export async function enableMember(ctx: MemberContext, membershipId: string) {

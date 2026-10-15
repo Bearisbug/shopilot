@@ -48,7 +48,7 @@ async function once<T>(method: string, url: string, body: unknown, opts: { idemp
         window.location.assign(`/login?next=${next}&reason=expired`);
       }
       if (problem.type === "/errors/two-factor-required" && typeof window !== "undefined" && window.location.pathname !== "/account/security") {
-        window.location.assign("/account/security");
+        window.location.assign(`/account/security?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       }
       throw new ApiError(problem);
     }
