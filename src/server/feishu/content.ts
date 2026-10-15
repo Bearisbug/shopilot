@@ -133,8 +133,10 @@ export async function cardContent(
     const text = m.text?.trim() || null;
     const role = ROLE[m.senderRole]!;
     const time = format(new TZDate(m.sentAt, opts.timezone), "HH:mm");
-    let translation: string | null = m.originalText?.trim() || m.translation?.trim() || null;
-    const translate = !translation && text && !isChinese(text) ? withTimeout(translateText(text, "zh-CN"), TRANSLATE_BUDGET_MS) : null;
+    // 原文是中文时不放译文（平台推送带的机翻也不放）
+    const chinese = !text || isChinese(text);
+    let translation: string | null = chinese ? null : m.originalText?.trim() || m.translation?.trim() || null;
+    const translate = !translation && text && !chinese ? withTimeout(translateText(text, "zh-CN"), TRANSLATE_BUDGET_MS) : null;
     let media: CardLine["media"] = ph ? { kind: "label", text: ph.text, link: ph.link } : null;
     if (m.type === "image") {
       const url = typeof m.payload?.url === "string" && /^https?:\/\//i.test(m.payload.url) ? m.payload.url : null;

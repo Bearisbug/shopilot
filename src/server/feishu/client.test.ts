@@ -147,5 +147,7 @@ describe("发送替身", () => {
     expect(await stubFeishu.sendToChat({ appId: "cli_x", appSecret: "ok" }, "oc_stub_service", {})).toMatch(/^om_stub_/);
     const key = stubImageKey({ url: "https://cf.shopee.sg/file/abc" });
     expect(stubImageSource(key)).toBe("https://cf.shopee.sg/file/abc");
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    expect(stubImageSource(stubImageKey({ bytes, mime: "image/png", name: "t.png" }))).toBe(`data:image/png;base64,${bytes.toString("base64")}`);
   });
 });

@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.13 | FLOW-FEISHU-CARD、REQ-FEISHU-005、API-MOCK-011 | 测试轮发现的两处修复：卡片里的中文消息不再挂平台机翻的译文；开发发件箱能显示测试卡片里上传的图片 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-SETUP、FLOW-FEISHU-CARD、FLOW-AI-DRAFT、FLOW-MOCK、REQ-FEISHU-001、REQ-FEISHU-002、REQ-FEISHU-003、REQ-FEISHU-004、REQ-FEISHU-005、REQ-FEISHU-006、REQ-MOCK-004、API-SET-017、API-SET-018、API-SET-019、API-SET-020、API-SET-021、API-SET-022、API-SET-023、API-SET-024、API-MOCK-011、ENT-FeishuIntegration、ENT-FeishuTarget、ENT-FeishuDelivery、INV-FEISHU-001、INV-FEISHU-002、ADR-015 | 新增飞书群推送：会话待认领或超时时往商户的飞书群发卡片，点卡片上的认领直达工作台 | 功能 |
 | 2026-10-16 | v1.13 | REQ-MOCK-001、REQ-MOCK-002、REQ-MOCK-003 | 模拟平台的三条需求改成一句话，细则移到需求补充说明 | 文档 |
 | 2026-10-16 | v1.13 | API-CONV-004 | 认领接口可以不带版本号，员工从飞书卡片进来看不到同事的会话时，靠它得知谁已认领 | 功能 |
@@ -1780,7 +1781,7 @@ erDiagram
 | `API-MOCK-008` | `GET/PUT /api/dev/ai-stub` | REQ-MOCK-002 | AI 替身（`AI_MODE=stub`）：`next: normal\|low_confidence\|handoff\|invalid_json\|timeout\|insufficient`、`sticky`（否则用一次回到 normal）；请求带资料片段时 normal 回复在 `used_sources` 里引用第 1 段，`insufficient` 返回 `insufficient = true`、`confidence 0.9`；改写请求一律返回买家原话、不受 `next` 影响、不记入 `lastRequest`；GET 另返回各选项的回复 JSON 与 `lastRequest`（最近一次出稿请求的 system 与 messages） |
 | `API-MOCK-009` | `POST /mock/erp/{path}` | REQ-MOCK-001 | 模拟商户自有系统的推送接收端，任何请求都回 200；把模拟应用的回调改到「别处」时用它，平台发的测试推送才能通过 |
 | `API-MOCK-010` | `GET/PUT /api/dev/knowledge-stub` | REQ-MOCK-002 | 检索替身（`KNOWLEDGE_MODE=stub`）：`next: normal\|no_vector\|timeout\|error\|ingest_error`、`sticky`（否则用一次回到 normal）；替身入库把文本类资料按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，检索按关键词重合打分并给出向量分；GET 另返回最近 6 次检索请求（`lastQuery`，含实例名、查询文字与检索方式） |
-| `API-MOCK-011` | `GET /api/dev/feishu`；页面 `/dev/outbox?tab=feishu` | REQ-MOCK-004 | 飞书投递记录（最近 100 条，最多 500）：卡种、状态、目标群、尝试次数、`message_id`、是否替身、失败原因与卡片 JSON；替身上传的图片 key 带着原图地址，接口另返回 `images{ key: url }` 供页面显示；只在 `MOCK_PLATFORM=1` 时可用 |
+| `API-MOCK-011` | `GET /api/dev/feishu`；页面 `/dev/outbox?tab=feishu` | REQ-MOCK-004 | 飞书投递记录（最近 100 条，最多 500）：卡种、状态、目标群、尝试次数、`message_id`、是否替身、失败原因与卡片 JSON；替身上传的图片 key 带着原图地址（上传的是图片字节时带 data URL），接口另返回 `images{ key: url }` 供页面显示；只在 `MOCK_PLATFORM=1` 时可用 |
 
 ## 9. 数据字典
 
@@ -2960,7 +2961,7 @@ sequenceDiagram
 - 超时卡另写「待认领超过 N 分钟」，N 取接待设置的提醒时长
 - 最近对话：本段最近 5 条有意义的消息，每条标买家、客服或 AI 与时间（商户时区）
 - 有意义 = 买家、客服、AI 发的、没发送失败、不是空文字；系统事件与平台自动消息不进卡片
-- 译文：客服消息用发送前的中文原文，买家消息用库里的译文；都没有且不是中文时构卡时现译，6 秒没译完只放原文
+- 译文：原文是中文时不放译文，平台推送带的机翻也不放；其余客服消息用发送前的中文原文，买家消息用库里的译文；都没有时构卡时现译，6 秒没译完只放原文
 - 图片：应用接法把前 3 张买家图片上传到飞书，卡里显示缩略图；上传失败或自定义机器人接法显示占位与「在 Shopilot 查看」
 - 其他占位：视频「视频 0:12」带链接；表情；商品卡带商品名；订单、物流、退货卡带订单号与中文状态
 - 买家与客服写的内容按卡片 markdown 规则转义特殊字符；每条正文与译文各截到 200 字，总结 120 字
