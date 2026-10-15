@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BuyerOrder, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderItems, Thumb, useClamped } from "@/components/orders/order-items";
@@ -211,12 +212,18 @@ function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; o
       <Content m={m} ctx={ctx} />
       {m.translation && (
         <p className="mt-1.5 border-t border-border pt-1.5 text-xs leading-relaxed text-muted-foreground">
-          <span className="font-medium">译 · {m.translationSource === "platform" ? "Shopee" : "Shopilot"}</span> {m.translation}
+          <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
+            译 · {m.translationSource === "platform" ? "Shopee" : "Shopilot"}
+          </Badge>
+          {m.translation}
         </p>
       )}
       {m.originalText && (
         <p className="mt-1.5 border-t border-border pt-1.5 text-xs leading-relaxed text-muted-foreground">
-          <span className="font-medium">原文</span> {m.originalText}
+          <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
+            原文
+          </Badge>
+          {m.originalText}
         </p>
       )}
     </div>
