@@ -74,7 +74,6 @@ export function ConversationListPanel({ selectedId, className }: { selectedId: s
   const byId = new Map<string, ConversationListItem>();
   for (const page of list.data?.pages ?? []) for (const x of page.items) if (!byId.has(x.id)) byId.set(x.id, x);
   const items = [...byId.values()];
-  const views = VIEWS.filter((v) => v !== "team" || canTeam);
   const filtered = platform !== "all" || shopId !== "all";
 
   return (
@@ -104,28 +103,6 @@ export function ConversationListPanel({ selectedId, className }: { selectedId: s
             </SelectContent>
           </Select>
           <ShopFilter shops={shops} disconnected={disconnectedShops} value={shopId} onChange={(v) => set({ shop: v === "all" ? null : v })} className="flex-1" />
-        </div>
-        {/* 列宽只有 16–20rem：分组换行显示，五个分组都可见；切换分组是筛选，不是页签，当前项用 aria-current 标出 */}
-        <div role="group" aria-label="会话分组" className="mt-3 flex flex-wrap gap-1.5">
-          {views.map((v) => {
-            const active = v === view;
-            const n = counts?.[v];
-            return (
-              <button
-                key={v}
-                type="button"
-                aria-current={active ? "true" : undefined}
-                onClick={() => set({ view: v === "queue" ? null : v }, "push")}
-                className={cn(
-                  "state-layer focus-ring inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs whitespace-nowrap",
-                  active ? "border-transparent bg-accent font-semibold text-(--semantic-color-text-link)" : "border-border text-muted-foreground",
-                )}
-              >
-                {VIEW_LABEL[v]}
-                {n ? <span className="tabular-nums">{n}</span> : null}
-              </button>
-            );
-          })}
         </div>
       </div>
       <div className="scroll-y min-h-0 flex-1">
