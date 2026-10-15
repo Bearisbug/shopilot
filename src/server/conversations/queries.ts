@@ -1,6 +1,6 @@
-// 会话读取：列表（API-CONV-001）、详情（API-CONV-002）、买家与订单（API-CONV-003）。全部经 visibleConversations 收窄（ADR-003）。
+// 会话读取：列表（API-CONV-001）、详情（API-CONV-002）、买家与订单（API-CONV-003）、商品卡信息（API-CONV-016）。全部经 visibleConversations 收窄（ADR-003）。
 import { and, asc, count, desc, eq, gte, inArray, ne, notInArray, sql, type SQL } from "drizzle-orm";
-import type { BuyerOrder, BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConversationsQuery, DraftItem, MessageItem, TicketChip } from "@/contracts/conversations";
+import type { BuyerOrder, BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConversationsQuery, DraftItem, MessageItem, ProductCardInfo, TicketChip } from "@/contracts/conversations";
 import type { MemberContext } from "@/server/auth/context";
 import { db, schema, type Executor } from "@/server/db/client";
 import { Problem } from "@/server/http/problem";
@@ -345,6 +345,18 @@ async function cardOrders(shopId: string, page: Array<{ type: string; payload: u
   if (!ids.length) return [];
   const rows = await db().select().from(schema.order).where(and(eq(schema.order.shopId, shopId), inArray(schema.order.externalOrderId, ids)));
   return rows.map((o) => toBuyerOrder(o, []));
+}
+
+/** 商品卡片的商品信息（API-CONV-016）：前端对「获取中」的卡片轮询；只认这个会话里出现过的商品卡 */
+export async function getProductCards(ctx: MemberContext, id: string, ids: string[]): Promise<{ products: Record<string, ProductCardInfo> }> {
+  const conv = await loadVisible(ctx, id);
+  const productId = sql<string>`${schema.message.payload}->>'productId'`;
+  const own = await db()
+    .selectDistinct({ productId })
+    .from(schema.message)
+    .where(and(eq(schema.message.conversationId, conv.id), eq(schema.message.type, "product_card"), inArray(productId, ids)));
+  const [shop] = await db().select().from(schema.shop).where(eq(schema.shop.id, conv.shopId)).limit(1);
+  return { products: await productCards(shop, own.map((r) => r.productId)) };
 }
 
 export async function getBuyerPanel(ctx: MemberContext, id: string): Promise<BuyerPanel> {

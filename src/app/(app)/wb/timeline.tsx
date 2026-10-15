@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BuyerOrder, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { OrderItems, Thumb, useClamped } from "@/components/orders/order-items";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { inTz, money, PLATFORM_LABEL } from "@/lib/format";
@@ -263,8 +264,26 @@ function priceText(p: ProductCardInfo | undefined): string | null {
   return p.priceMax && p.priceMax !== p.priceMin ? `${fmt(p.priceMin)} – ${fmt(p.priceMax)}` : fmt(p.priceMin);
 }
 
-/** 商品卡片：缩略图、标题（最多两行）、现价；整张卡片在新标签页打开平台商品页。商品信息还没取到或取不到时用图标占位、标题写商品 ID */
+/** 商品卡片：缩略图、标题（最多两行）、现价；整张卡片在新标签页打开平台商品页。获取中显示同尺寸骨架；取不到时用图标占位、标题写商品 ID */
 function ProductCard({ productId, info, fallbackName, platform }: { productId: string; info: ProductCardInfo | undefined; fallbackName?: string; platform: "shopee" | "tiktok" }) {
+  if (info?.state === "loading") return <ProductCardSkeleton productId={productId} />;
+  return <ProductCardBody productId={productId} info={info} fallbackName={fallbackName} platform={platform} />;
+}
+
+function ProductCardSkeleton({ productId }: { productId: string }) {
+  const block = "bg-muted motion-reduce:animate-none";
+  return (
+    <div className={CARD_CLASS} role="status" aria-label={`商品 ${productId} 信息获取中`}>
+      <Skeleton className={cn("size-14 shrink-0", block)} />
+      <span className="flex min-w-0 flex-1 flex-col gap-2">
+        <Skeleton className={cn("h-4 w-4/5", block)} />
+        <Skeleton className={cn("h-3 w-1/3", block)} />
+      </span>
+    </div>
+  );
+}
+
+function ProductCardBody({ productId, info, fallbackName, platform }: { productId: string; info: ProductCardInfo | undefined; fallbackName?: string; platform: "shopee" | "tiktok" }) {
   const title = info?.name || fallbackName || `商品 ${productId}`;
   const price = priceText(info);
   const { ref: titleRef, clamped } = useClamped<HTMLSpanElement>(title);

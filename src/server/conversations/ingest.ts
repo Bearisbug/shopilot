@@ -4,6 +4,7 @@ import { schema, type Executor } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
 import type { ShopRow } from "@/server/platforms/clients";
 import type { NormalizedMessage } from "@/server/platforms/types";
+import { prefetchProducts } from "@/server/products/info";
 import { currentMode, receptionContext, type ReceptionMode } from "./hours";
 import { judgeStage } from "./stage";
 
@@ -94,6 +95,7 @@ export async function ingestMessage(
   m: NormalizedMessage,
   buyer: { externalId: string; name: string | null; affiliate: boolean; avatarUrl?: string | null } | null,
 ): Promise<IngestResult> {
+  if (m.type === "product_card") await prefetchProducts(shop.id, [String(m.payload.productId ?? "")]);
   const [existing] = await ex
     .select()
     .from(schema.conversation)
@@ -318,5 +320,6 @@ export async function backfillConversation(
       .returning({ id: schema.message.id });
     inserted += res.length;
   }
+  await prefetchProducts(shop.id, sorted.filter((m) => m.type === "product_card").map((m) => String(m.payload.productId ?? "")));
   return inserted;
 }

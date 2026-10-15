@@ -97,8 +97,19 @@ export type MessageItem = {
   segmentId: string | null;
 };
 
-/** 商品卡片：价格为店铺币种现价，多规格时 priceMin 与 priceMax 不同；url 为平台商品页 */
-export type ProductCardInfo = { name: string | null; imageUrl: string | null; priceMin: string | null; priceMax: string | null; currency: string | null; url: string | null };
+/**
+ * 商品卡片：价格为店铺币种现价，多规格时 priceMin 与 priceMax 不同；url 为平台商品页。
+ * state：ok 已取到；loading 还在取（前端显示骨架、轮询 GET /api/v1/conversations/{id}/products）；unavailable 取不到，只显示商品 ID
+ */
+export type ProductCardInfo = {
+  state: "ok" | "loading" | "unavailable";
+  name: string | null;
+  imageUrl: string | null;
+  priceMin: string | null;
+  priceMax: string | null;
+  currency: string | null;
+  url: string | null;
+};
 
 export type DraftItem = { id: string; text: string; confidence: number; reason: string | null; mode: "assist" | "auto" | "shadow"; status: string; triggerMessageId: string | null; createdAt: string };
 

@@ -5,7 +5,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tansta
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import type { BuyerPanel, ConversationDetail, ConvView, HandlingState, SendBody, SendResult, Stage } from "@/contracts/conversations";
+import type { BuyerPanel, ConversationDetail, ConvView, HandlingState, ProductCardInfo, SendBody, SendResult, Stage } from "@/contracts/conversations";
 import { Avatar as AvatarRoot, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
@@ -41,6 +41,17 @@ export function useConversation(id: string) {
 
 export function useBuyer(id: string) {
   return useQuery({ queryKey: ["conversation", id, "buyer"], queryFn: () => api.get<BuyerPanel>(`/api/v1/conversations/${id}/buyer`), refetchInterval: POLL(10_000) });
+}
+
+/** 「获取中」的商品卡每 2 秒查一次进度；没有获取中的就停（会话详情的 4 秒轮询照常） */
+export function useProductProgress(id: string, ids: string[]) {
+  const key = ids.join(",");
+  return useQuery({
+    queryKey: ["conversation", id, "products", key],
+    queryFn: () => api.get<{ products: Record<string, ProductCardInfo> }>(`/api/v1/conversations/${id}/products?ids=${encodeURIComponent(key)}`),
+    enabled: ids.length > 0,
+    refetchInterval: (query) => (query.state.data && !Object.values(query.state.data.products).some((p) => p.state === "loading") ? false : POLL(2_000)(query)),
+  });
 }
 
 export const listPoll = POLL(10_000);

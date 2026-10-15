@@ -11,7 +11,7 @@ import { handoverScan, ticketAutoClose, ticketScan } from "@/server/tickets/jobs
 import { expireDrafts, expireInvitations, idleClose, remindUnclaimed } from "@/server/conversations/jobs";
 import { deliverEmail } from "@/server/core/mailer";
 import { backfillOrderImages } from "@/server/orders/images";
-import { fetchProduct } from "@/server/products/info";
+import { fetchProduct, prefetchAllProducts } from "@/server/products/info";
 
 type Handler = (data: Record<string, unknown>) => Promise<void>;
 
@@ -22,6 +22,7 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "order.images": backfillOrderImages,
   "email.send": deliverEmail,
   "product.fetch": fetchProduct,
+  "product.prefetch": prefetchAllProducts,
   "data.retention_purge": retentionPurge,
   "merchant.purge": purgeMerchants,
   "inbound.process": processInbound,

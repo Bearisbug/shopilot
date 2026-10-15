@@ -10,6 +10,7 @@ export const QUEUES = {
   "shop.backfill": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 3, retryDelay: 60 },
   "data.export": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
   "order.images": { policy: "stately" as const, expireInSeconds: 3600, retryLimit: 0 },
+  "product.prefetch": { policy: "stately" as const, expireInSeconds: 3600, retryLimit: 0 },
   "email.send": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "product.fetch": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 2, retryDelay: 60, retryBackoff: true },
   // 定时任务（cron 驱动，每个都是单例）
@@ -83,7 +84,8 @@ export function boss(role: "web" | "worker" = "web"): Promise<PgBoss> {
   return g.__shopilotBoss;
 }
 
-export async function enqueue(name: QueueName, data: object, opts: { singletonKey?: string; startAfter?: number } = {}) {
+/** singletonSeconds 配 singletonKey：同一键在同一时间窗内只投递一个任务（任何队列策略都生效） */
+export async function enqueue(name: QueueName, data: object, opts: { singletonKey?: string; singletonSeconds?: number; startAfter?: number } = {}) {
   const b = await boss();
-  return b.send(name, data, { singletonKey: opts.singletonKey, startAfter: opts.startAfter });
+  return b.send(name, data, { singletonKey: opts.singletonKey, singletonSeconds: opts.singletonSeconds, startAfter: opts.startAfter });
 }

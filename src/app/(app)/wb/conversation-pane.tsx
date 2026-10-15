@@ -16,7 +16,7 @@ import { inTz } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Composer, DraftCard, type EditingDraft } from "./composer";
 import { Timeline } from "./timeline";
-import { Avatar, focusReply, HANDOFF_LABEL, PlatformTag, PollErrorBar, readReply, rememberClaimLost, useBuyer, useConversation, useReplyText, useWbParams, waitText, writeReply } from "./wb-shared";
+import { Avatar, focusReply, HANDOFF_LABEL, PlatformTag, PollErrorBar, readReply, rememberClaimLost, useBuyer, useConversation, useProductProgress, useReplyText, useWbParams, waitText, writeReply } from "./wb-shared";
 
 export function ConversationPane({ id }: { id: string }) {
   const q = useConversation(id);
@@ -30,6 +30,13 @@ export function ConversationPane({ id }: { id: string }) {
   const [olderCardOrders, setOlderCardOrders] = useState<BuyerOrder[]>([]);
   const [editing, setEditing] = useState<EditingDraft>(null);
   const [replacing, setReplacing] = useState<DraftItem | null>(null);
+  const cards: Record<string, ProductCardInfo> = { ...olderProducts, ...q.data?.products };
+  const progress = useProductProgress(
+    id,
+    Object.keys(cards)
+      .filter((k) => cards[k].state === "loading")
+      .sort(),
+  );
 
   const loadOlder = useMutation({
     mutationFn: (before: string) => api.get<ConversationDetail>(`/api/v1/conversations/${id}?before=${before}`),
@@ -82,7 +89,8 @@ export function ConversationPane({ id }: { id: string }) {
   const recentIds = new Set(d.messages.map((m) => m.id));
   const messages = [...older.filter((m) => !recentIds.has(m.id)), ...d.messages];
   const hasMore = olderHasMore ?? d.hasMore;
-  const products = { ...olderProducts, ...d.products };
+  // 还在获取中的商品卡用进度查询的结果
+  const products = Object.fromEntries(Object.entries(cards).map(([k, v]) => [k, v.state === "loading" ? (progress.data?.products[k] ?? v) : v]));
   // 卡片引用的订单先放，买家右栏的订单（带售后）后放、同号时覆盖
   const ordersById = new Map<string, BuyerOrder>([...olderCardOrders, ...d.cardOrders, ...(buyer.data?.orders ?? [])].map((o) => [o.externalOrderId, o]));
 
