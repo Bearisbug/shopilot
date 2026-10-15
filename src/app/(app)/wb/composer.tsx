@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageIcon, InfoIcon, LayoutGridIcon, LoaderCircleIcon, SendIcon, TicketPercentIcon, XIcon, ZapIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import type { ConversationDetail, DraftItem, SendBody, UploadedFile } from "@/contracts/conversations";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,48 @@ const LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
 const IMAGE_RULE = "JPG、PNG、WebP，不超过 10 MB";
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+/** 买家语言未知时按店铺站点预选翻译目标；新加坡、菲律宾买家多用英语 */
+const MARKET_LANG: Record<string, (typeof LANGS)[number]> = { MY: "ms", TH: "th", VN: "vi", ID: "id", PH: "en", SG: "en" };
+
+/** 默认翻译目标：买家语言已知就用它（中文不翻译），否则按店铺站点 */
+function defaultTranslate(c: ConversationDetail["conversation"]): string {
+  const lang = c.buyerLanguage;
+  if (lang?.startsWith("zh")) return "none";
+  if (lang && LANGS.includes(lang as (typeof LANGS)[number])) return lang;
+  return MARKET_LANG[c.shop.market.toUpperCase()] ?? "none";
+}
+
+// 手动改过的翻译目标按会话存进 sessionStorage：切走再回来、刷新都保留；改回默认即删除
+const translateKey = (id: string) => `wb-translate:${id}`;
+const translateListeners = new Set<() => void>();
+const subscribeTranslate = (cb: () => void) => {
+  translateListeners.add(cb);
+  return () => {
+    translateListeners.delete(cb);
+  };
+};
+const readTranslate = (id: string) => {
+  try {
+    return sessionStorage.getItem(translateKey(id));
+  } catch {
+    return null;
+  }
+};
+
+function useTranslateTo(id: string, fallback: string): [string, (lang: string) => void] {
+  const saved = useSyncExternalStore(subscribeTranslate, () => readTranslate(id), () => null);
+  const value = saved && (saved === "none" || LANGS.includes(saved as (typeof LANGS)[number])) ? saved : fallback;
+  const set = (lang: string) => {
+    try {
+      if (lang === fallback) sessionStorage.removeItem(translateKey(id));
+      else sessionStorage.setItem(translateKey(id), lang);
+    } catch {
+      // 存储不可用（无痕、配额满）：只是不记住手动选择
+    }
+    translateListeners.forEach((l) => l());
+  };
+  return [value, set];
+}
 
 /** 待审草稿：原样发送 / 改后发送 / 忽略（11.2）；未认领时「发送」即认领并发送 */
 export function DraftCard({ detail, draft, onEdit }: { detail: ConversationDetail; draft: DraftItem; onEdit: (d: DraftItem) => void }) {
@@ -69,8 +111,7 @@ export type EditingDraft = { id: string; before: string } | null;
 export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { detail: ConversationDetail; editing: EditingDraft; onDoneEditing: () => void; onCancelEditing: () => void }) {
   const c = detail.conversation;
   const [text, setText] = useReplyText(c.id);
-  const defaultLang = c.buyerLanguage && c.buyerLanguage !== "zh" && LANGS.includes(c.buyerLanguage as (typeof LANGS)[number]) ? c.buyerLanguage : "none";
-  const [translateTo, setTranslateTo] = useState<string>(defaultLang);
+  const [translateTo, setTranslateTo] = useTranslateTo(c.id, defaultTranslate(c));
   const fileRef = useRef<HTMLInputElement>(null);
   // 同一段文字重发沿用同一个 clientRequestId：结果未知（504）后再点发送，服务端按它去重，不会发两遍
   const attempt = useRef<{ text: string; key: string } | null>(null);
