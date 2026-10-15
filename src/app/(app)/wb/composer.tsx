@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ImageIcon, LayoutGridIcon, LoaderCircleIcon, SendIcon, TicketPercentIcon, XIcon, ZapIcon } from "lucide-react";
+import { ImageIcon, InfoIcon, LayoutGridIcon, LoaderCircleIcon, SendIcon, TicketPercentIcon, XIcon, ZapIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ConversationDetail, DraftItem, SendBody, UploadedFile } from "@/contracts/conversations";
@@ -135,6 +135,12 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
 
   return (
     <div className="shrink-0 border-t border-border px-4 py-2">
+      {detail.readOnlyNotice && (
+        <p role="note" className="mb-1 flex items-start gap-2 text-xs text-muted-foreground">
+          <InfoIcon className="mt-px size-3.5 shrink-0" aria-hidden />
+          {detail.readOnlyNotice}
+        </p>
+      )}
       {editing && (
         <p className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
           <AiTag />

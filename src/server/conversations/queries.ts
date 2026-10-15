@@ -6,7 +6,7 @@ import { db, schema, type Executor } from "@/server/db/client";
 import { Problem } from "@/server/http/problem";
 import { afterSaleOpen } from "@/server/orders/status";
 import { isReadOnlyShop } from "@/server/platforms/clients";
-import { READ_ONLY_REPLY_REASON } from "@/server/platforms/readonly";
+import { READ_ONLY_COMPOSER_NOTICE } from "@/server/platforms/readonly";
 import { productCards } from "@/server/products/info";
 import { isInHours, receptionContext } from "./hours";
 import { viewCondition, visibleConversations, type ConvView } from "./scope";
@@ -279,9 +279,10 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
       lastBuyerAt: conv.lastBuyerAt?.toISOString() ?? null,
       responseSlaMinutes: rc.responseSlaMinutes,
       overdue: waitingSec !== null && isInHours(rc, new Date()) && waitingSec > rc.responseSlaMinutes * 60,
-      canReply: !readOnly && shopOk && withinWindow && !affiliate,
-      replyBlockedReason: readOnly ? READ_ONLY_REPLY_REASON : affiliate ? "达人会话只记录，不在这里回复。" : !shopOk ? "店铺授权已失效，管理员续期授权后才能发送。" : !withinWindow ? "买家最后发言已超过 7 天，平台不允许再发消息。" : null,
+      canReply: shopOk && withinWindow && !affiliate,
+      replyBlockedReason: affiliate ? "达人会话只记录，不在这里回复。" : !shopOk ? "店铺授权已失效，管理员续期授权后才能发送。" : !withinWindow ? "买家最后发言已超过 7 天，平台不允许再发消息。" : null,
     },
+    readOnlyNotice: readOnly ? READ_ONLY_COMPOSER_NOTICE : null,
     segment: seg ? { id: seg.id, stage: seg.stage, stageSource: seg.stageSource, stageBasis: seg.stageBasis, startedAt: seg.startedAt.toISOString() } : null,
     messages,
     products: await productCards(
@@ -293,12 +294,12 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     draft: draft ? toDraft(draft) : null,
     shadowDrafts: shadow ? shadow.map(toDraft) : null,
     capabilities: {
-      cards: readOnly ? [] : caps.cards,
+      cards: caps.cards,
       productCard: caps.productScope ? { enabled: false, reason: "本期不从工作台发送商品卡。" } : { enabled: false, reason: "店铺没有授予商品读取权限。" },
-      coupons: readOnly ? false : caps.coupons,
+      coupons: caps.coupons,
       endSession: readOnly ? false : caps.endSession,
       maxTextLength: caps.maxTextLength,
-      image: !readOnly,
+      image: true,
     },
     events: audits.map((a) => ({ at: a.createdAt.toISOString(), text: a.summary, actorName: a.actorName ?? "系统" })),
     openTickets: tickets,

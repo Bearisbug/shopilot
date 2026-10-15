@@ -64,7 +64,7 @@ export function ConversationScreen({ id }: { id: string }) {
                 buyerOrders: buyer.data?.orders ?? [],
                 canSendToChat: myConversation !== null,
                 claimerName: claimer,
-                chatBlockedReason: q.data.conversation.shop.readOnly ? q.data.conversation.replyBlockedReason : null,
+                chatBlockedReason: q.data.conversation.shop.readOnly ? "只读接入：发票不能发进平台聊天，只能发邮件" : null,
               }
             : null
         }

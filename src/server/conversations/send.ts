@@ -3,9 +3,8 @@ import { readFile } from "node:fs/promises";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import { dataPath } from "@/server/files/storage";
-import { Problem } from "@/server/http/problem";
-import { isReadOnlyShopId, ShopUnavailableError, withShop } from "@/server/platforms/clients";
-import { READ_ONLY_REPLY_REASON } from "@/server/platforms/readonly";
+import { ShopUnavailableError, withShop } from "@/server/platforms/clients";
+import { READ_ONLY_SEND_FAILED, ReadOnlyPlatformError } from "@/server/platforms/readonly";
 import { shopeeSendImage, shopeeSendOrderCard, shopeeSendText } from "@/server/platforms/shopee";
 import { tiktokSendCouponCard, tiktokSendImage, tiktokSendLogisticsCard, tiktokSendOrderCard, tiktokSendReturnCard, tiktokSendText } from "@/server/platforms/tiktok";
 import { PlatformError, platformErrorText } from "@/server/platforms/types";
@@ -27,10 +26,9 @@ export type OutboundInput = {
 
 export type SendOutcome = { message: MessageRow; error?: { kind: "platform" | "timeout" | "auth"; detail: string; platformCode?: string } };
 
-/** clientRequestId 已存在时返回首次结果，不重复调平台；只读接入的店直接拒绝，不落消息 */
+/** clientRequestId 已存在时返回首次结果，不重复调平台。只读接入的店照常落消息再调平台，由平台层写保护拦下，消息记为发送失败 */
 export async function sendOutbound(input: OutboundInput): Promise<SendOutcome> {
   const conv = input.conversation;
-  if (await isReadOnlyShopId(conv.shopId)) throw new Problem("not-allowed", { detail: READ_ONLY_REPLY_REASON, code: "read_only" });
   const [msg] = await db()
     .insert(schema.message)
     .values({
@@ -138,7 +136,11 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
     let kind: "platform" | "timeout" | "auth" = "platform";
     let detail: string;
     let platformCode: string | undefined;
-    if (e instanceof ShopUnavailableError) {
+    // 只读接入：写请求被平台层拦截，或借用的 token 已过期，请求都没有发出；按普通发送失败记，不当成超时或授权失效
+    if (e instanceof ReadOnlyPlatformError || (e instanceof ShopUnavailableError && e.status === "borrowed_expired")) {
+      detail = READ_ONLY_SEND_FAILED;
+      platformCode = "read_only";
+    } else if (e instanceof ShopUnavailableError) {
       kind = "auth";
       detail = "店铺授权已失效，消息没有发出。请管理员到「店铺与连接」续期授权。";
     } else if (e instanceof PlatformError) {

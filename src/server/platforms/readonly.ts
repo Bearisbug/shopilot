@@ -4,8 +4,12 @@
 import { PlatformError, type PlatformName } from "./types";
 
 export const READ_ONLY_TEXT = "只读接入的店铺不能写平台";
-/** 界面上发送入口置灰的原因（会话回复、发到聊天） */
+/** 发票等非聊天入口发不进平台聊天时的原因 */
 export const READ_ONLY_REPLY_REASON = "只读接入：消息从平台拉取，不能从 Shopilot 发送";
+/** 输入框上方的常驻提示：只读店可以输入和试发，发送在平台请求前被拦截 */
+export const READ_ONLY_COMPOSER_NOTICE = "只读接入：可以输入和试发，消息不会发到平台，发送会显示失败";
+/** 只读店试发后记在消息上的失败原因 */
+export const READ_ONLY_SEND_FAILED = "只读接入，未发送到平台";
 /** 界面上平台操作入口置灰的原因（售后、取消订单） */
 export const READ_ONLY_ACTION_REASON = "只读接入：只能查看，不能从 Shopilot 操作平台";
 

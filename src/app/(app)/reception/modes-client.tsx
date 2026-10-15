@@ -204,8 +204,8 @@ function ModesEditor({ shops }: { shops: ReceptionShop[] }) {
   );
 }
 
-/** auto 受平台规则限制；只读接入的店还不能 assist（都会从 Shopilot 发送） */
-const modeBlocked = (shop: ReceptionShop, m: ReceptionMode) => (m === "auto" && !shop.autoAllowed) || (m === "assist" && !!shop.readOnly);
+/** auto 受平台规则限制；只读接入的店也不开放 auto（原因同样写在 autoBlockedReason） */
+const modeBlocked = (shop: ReceptionShop, m: ReceptionMode) => m === "auto" && !shop.autoAllowed;
 
 function ModeSegments({ shop, value, label, onChange }: { shop: ReceptionShop; value: ReceptionMode; label: string; onChange: (v: string) => void }) {
   const itemClass = "px-3 font-normal data-[state=on]:bg-accent data-[state=on]:font-semibold data-[state=on]:text-(--semantic-color-text-link)";
