@@ -12,6 +12,7 @@ import { capabilitiesFor } from "@/server/platforms/capabilities";
 import { oauthRedirectUrl, shopeeApp } from "@/server/platforms/clients";
 import { shopeeAuthUrl } from "@/server/platforms/shopee";
 import { plan } from "@/server/billing/plans";
+import { builtinCategoryId } from "@/server/knowledge/categories";
 
 if (!/@(127\.0\.0\.1|localhost):/.test(process.env.DATABASE_URL ?? "")) {
   console.error("scenario 只允许对本机数据库执行");
@@ -278,6 +279,24 @@ async function setPlan(code: "basic" | "growth") {
   return plan(code).shopLimit;
 }
 
+/** 一份停在 queued 或 processing、最近更新在 minutesAgo 分钟前的资料（不排入库任务），给 knowledge.purge 的入库补扫用 */
+async function stuckKnowledge(status: "queued" | "processing", minutesAgo: number) {
+  const m = await demo();
+  const owner = await member(m.id, "owner@demo.test");
+  const tag = randomUUID().slice(0, 8);
+  const bytes = new TextEncoder().encode(`补扫场景资料 ${tag}：退货需在签收后 7 天内申请。\n`);
+  const fileId = randomUUID();
+  const documentId = randomUUID();
+  const path = `knowledge/${m.id}/${documentId}.txt`;
+  await writeDataFile(path, bytes);
+  await db().insert(schema.file).values({ id: fileId, merchantId: m.id, kind: "knowledge_source", path, mime: "text/plain", size: bytes.length, createdBy: owner.id });
+  const [doc] = await db()
+    .insert(schema.knowledgeDocument)
+    .values({ id: documentId, merchantId: m.id, categoryId: await builtinCategoryId(m.id), fileId, name: `补扫-${status}-${tag}.txt`, mime: "text/plain", size: bytes.length, sha256: sha256(Buffer.from(bytes).toString("utf8")), status, uploadedBy: owner.id, createdAt: ago(minutesAgo * MIN), updatedAt: ago(minutesAgo * MIN) })
+    .returning();
+  out({ documentId: doc.id, name: doc.name, status: doc.status, updatedAt: doc.updatedAt?.toISOString() ?? null });
+}
+
 async function connectedShops(merchantId: string) {
   return db().select().from(schema.shop).where(and(eq(schema.shop.merchantId, merchantId), inArray(schema.shop.status, ["connected", "auth_expired"])));
 }
@@ -380,6 +399,8 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
     await mockDb().insert(mockShop).values({ platform: "shopee", shopId: pending, appKey: "1000101", name: "Demo Shopee PH", region: "PH", currency: "PHP", mainAccountId: "900001", authStatus: "unauthorized", capabilities: { chat: true } });
     out({ plan: "basic", limit, connectedShops: (await connectedShops(m.id)).length, added, unconnectedMockShop: { shopId: pending, name: "Demo Shopee PH" } });
   },
+  "knowledge-queued-11m": () => stuckKnowledge("queued", 11),
+  "knowledge-processing-26m": () => stuckKnowledge("processing", 26),
 };
 
 async function main() {
