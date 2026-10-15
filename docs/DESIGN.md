@@ -148,7 +148,7 @@
 | --- | --- | --- | --- | --- |
 | 并发 | 同一商户两份资料同时触发建实例 | 只建一个实例 | 竞态「同商户并发创建检索实例」 | 无用例 |
 | 失败 | 账号的检索实例数已到上限 | 资料「失败」，原因写检索服务容量已满 | 迁移 ENT-KnowledgeDocument processing→failed；§17 到上限时新商户的资料入库失败并写原因 | 无用例 |
-| 边界 | 实例名的取法 | `sp-<商户 ID 去掉连字符后的后 12 位>`，不取前 12 位（uuid v7 前段是创建时间，同一时刻注册的商户会撞名） | 已决 Q-KB-INGEST-2 | 无用例 |
+| 边界 | 实例名的取法 | 取商户 ID 去掉连字符后的后 12 位，避开 uuid v7 的时间前缀 | 字段 knowledge_index.instance_name | 无用例 |
 
 ##### S5 按页拆分
 
@@ -170,30 +170,11 @@
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 边界 | 入库中管理员已关掉 AI 可用 | 解析完成后显示「已停用」，不被引用 | 字段 knowledge_document.ai_enabled；RULE-KB-001 | 无用例 |
-| 边界 | 分块从哪里来 | 读回检索服务的分块（按条目分页读取），与检索用的完全一致 | 已决 Q-KB-INGEST-1 | 无用例 |
+| 边界 | 分块从哪里来 | 按条目分页读回检索服务的分块，与检索用的一致 | API-KB-004 | 无用例 |
 
 #### 待决策
 
-- **Q-KB-INGEST-1 · 「解析内容」读回检索服务的分块，还是 Shopilot 自己按同样规则切分？**
-  - 结论（2026-10-15）：读回检索服务的分块。验证时已用 `GET …/items/{条目 ID}/chunks?limit=100&offset=…` 分页读出全部 468 个分块
-  - 现状：未实现
-  - 建议：读回检索服务的分块，与检索用的完全一致
-  - 何时换：实测检索服务没有按条目读回分块的接口
-  - 代价：自己切的分块与检索明细里的片段对不上
-  - 不可逆：否
-  - 何时定：开始写入库任务前
-  - 谁定：技术
-  - 卡住：不卡
-- **Q-KB-INGEST-2 · 检索实例名取商户 ID 的前 12 位还是后 12 位？**
-  - 结论（2026-10-15）：取去掉连字符后的后 12 位
-  - 现状：未实现
-  - 建议：取去掉连字符后的后 12 位，前 12 位是创建时间，16 毫秒内注册的商户会撞名
-  - 何时换：商户 ID 改成纯随机生成时，取哪段都行
-  - 代价：和用户已同意的写法不同，要用户点头
-  - 不可逆：是（实例建好后改名要重建实例并重新入库）
-  - 何时定：开始写入库任务前
-  - 谁定：技术
-  - 卡住：FLOW-KB-INGEST
+无。
 
 另见：§28 Cloudflare AI Search 是 2026-10-01 才 GA 的新产品
 
@@ -376,8 +357,7 @@
 | 失败 | 模型 25 秒内没返回 | 转人工，原因「模型超时」，退回用量 | 迁移 ENT-Conversation bot→awaiting_human；§15 出稿超时转人工，检索超时只降级 | TC-AI-009 |
 | 失败 | 模型要求转人工 | 转人工，原因取模型给的，自动模式发它的安抚句 | 字段 conversation.handoff_reason；迁移 ENT-Conversation bot→awaiting_human | TC-AI-019 |
 | 失败 | 置信度低于阈值 | 转人工，原因「置信度低于阈值」 | 迁移 ENT-Draft [*]→generated；场景「转人工条件」 | TC-AI-016、TC-AI-017 |
-| 边界 | 模型判定资料不足 | 置信度按 0.50 封顶后再比阈值 | RULE-KB-003；场景「资料不足时置信度封顶」 | 无用例 |
-| 边界 | 阈值为 0.50 时资料不足的草稿 | 一律转人工，原因记「置信度低于阈值」 | 已决 Q-AI-DRAFT-1 | 无用例 |
+| 边界 | 模型判定资料不足 | 不论阈值一律转人工，原因记「置信度低于阈值」 | RULE-KB-003；场景「资料不足时转人工」 | 无用例 |
 | 边界 | 模型给的编号不在检索结果里 | 忽略该编号，不显示为依据 | 字段 draft.citations | 无用例 |
 
 ##### S8 按模式存草稿或发送
@@ -398,16 +378,7 @@
 
 #### 待决策
 
-- **Q-AI-DRAFT-1 · 阈值设为 0.50 时，资料不足的草稿照常放行还是一律转人工？**
-  - 结论（2026-10-15）：资料不足一律转人工
-  - 现状：未实现
-  - 建议：资料不足一律转人工，原因记「置信度低于阈值」
-  - 何时换：商户反馈辅助模式下想看到资料不足的草稿
-  - 代价：阈值设 0.50 的商户会少看到一部分草稿
-  - 不可逆：否
-  - 何时定：知识库一期开始实现前
-  - 谁定：产品
-  - 卡住：不卡
+无。
 
 另见：§28 Cloudflare AI Search 是 2026-10-01 才 GA 的新产品；§28 重排模型对泰语、马来语打分接近 0
 
@@ -449,14 +420,14 @@
 
 出处：场景「检索失败时不带资料出稿」；ADR-014
 
-### RULE-KB-003 · 资料不足时置信度封顶 0.50
+### RULE-KB-003 · 资料不足时一律转人工
 
 适用链路：FLOW-AI-DRAFT、FLOW-KB-TEST
 
 - IF 模型判定订单事实与资料都不足以回答
-- THEN 置信度按 0.50 封顶，再按商户阈值决定出稿还是转人工
+- THEN 不论商户阈值设多少，一律转人工，原因记「置信度低于阈值」
 
-出处：字段 draft.insufficient；场景「资料不足时置信度封顶」
+出处：字段 draft.insufficient；场景「资料不足时转人工」
 
 ## L4. 不变量
 
@@ -1682,7 +1653,7 @@ erDiagram
 | 编辑距离 | — | `draft.edit_distance` | int | 否 | `edited_sent` 时原稿与发出文本的字符级编辑距离 | 字符 | — |
 | 模型 | — | `draft.model` | text | 是 | 如 `deepseek-flash` | — | — |
 | 耗时 | — | `draft.latency_ms` | int | 是 | — | 毫秒 | — |
-| 资料不足 | `insufficient` | `draft.insufficient` | boolean | 是 | 默认 false；模型判定订单事实与资料片段都不足以回答时为 true，此时 `confidence` 按 0.50 封顶 | — | — |
+| 资料不足 | `insufficient` | `draft.insufficient` | boolean | 是 | 默认 false；模型判定订单事实与资料片段都不足以回答时为 true，此时一律转人工（RULE-KB-003） | — | — |
 | 检索快照 | — | `draft.retrieval` | jsonb | 否 | 商户有对该店可用的资料时写入：`{ rewrittenQuery, routes[{ kind, mode, latencyMs, error?, hits[{ chunkId, documentId, score }] }], merged[{ n, chunkId, documentId }], degraded, degradedReason?, latencyMs }`；只存分块 ID 与分数，不存正文 | — | — |
 | 依据 | `citations` | `draft.citations` | jsonb | 否 | 模型声明用到的资料 `[{ n, documentId, name }]`，只收 `merged` 里有的编号；`name` 是出稿时的文件名快照；只返回给成员，不随消息发给买家 | — | — |
 | 文件类别 | — | `file.kind` | enum | 是 | `chat_image` / `invoice_pdf` / `invoice_png` / `export_zip` / `knowledge_source`（知识库原文件） | — | — |
@@ -1789,7 +1760,7 @@ erDiagram
 
 | 字段 | API 名 | DB 名 | 类型 | 必填 | 枚举/约束 | 单位/精度 | PII |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 检索实例名 | — | `knowledge_index.instance_name` | text | 是 | `sp-<商户 ID 去掉连字符后的后 12 位>`（见 Q-KB-INGEST-2）；每商户一个，首次入库时创建，全账号唯一 | — | — |
+| 检索实例名 | — | `knowledge_index.instance_name` | text | 是 | `sp-<商户 ID 去掉连字符后的后 12 位>`，避开 uuid v7 的时间前缀；每商户一个，首次入库时创建，全账号唯一 | — | — |
 | 分类名 | `name` | `knowledge_category.name` | text | 是 | 1..20 字，商户内唯一；每商户 ≤ 50 个（含「未分类」） | — | — |
 | 内置分类 | `builtin` | `knowledge_category.builtin` | boolean | 是 | 每商户一个内置「未分类」，商户注册时建，已有商户由迁移补建；不能改名、删除 | — | — |
 | 资料文件名 | `name` | `knowledge_document.name` | text | 是 | 上传时的原文件名，1..200 字 | — | — |
@@ -2605,7 +2576,7 @@ sequenceDiagram
       W->>DS: 出稿，带编号资料片段（25 秒超时）
     end
   end
-  W->>DB: 存草稿、检索快照与依据（11.2 create），资料不足时置信度封顶 0.50
+  W->>DB: 存草稿、检索快照与依据（11.2 create），资料不足时转人工（RULE-KB-003）
   FE->>API: 打开会话 (API-CONV-002)
   API-->>FE: 草稿与依据，页面显示「依据：《文件名》」
 ```
@@ -2631,7 +2602,7 @@ sequenceDiagram
 - 护栏改为：产品参数、兼容性、保修与政策只能依据 `knowledge` 与 `order_facts`，回复里不写片段编号
 - 输出 JSON：`{ reply, confidence, handoff, reason, insufficient, used_sources }`，`used_sources` 是用到的片段编号
 - 资料够不够由模型判断，不按检索分数设门槛：实测无答案题与可答题的分数重叠
-- `insufficient = true` 时置信度按 0.50 封顶，再按商户阈值决定出稿还是转人工（RULE-KB-003）
+- `insufficient = true` 时不论阈值一律转人工，原因记「置信度低于阈值」（RULE-KB-003）
 - 依据：`used_sources` 里在合并结果中的编号按资料去重，存进 `draft.citations`，不在结果里的编号忽略
 - 买家只收到 `reply`，依据与片段编号不随消息发出
 - 耗时预算：改写 ≤ 6 秒，检索每路 ≤ 8 秒、重试 ≤ 5 秒，出稿 ≤ 25 秒，出稿任务超时 60 秒（§17 内部后台任务）
@@ -3049,7 +3020,7 @@ Cloudflare AI Search 的实例配置与限制（ADR-014）：
 
 | 层 | 工具 | 范围 | 环境 |
 | --- | --- | --- | --- |
-| 单元 | Vitest | 阶段判定、状态机守卫、权限表、签名算法、时限计算、额度扣减、去重键、资料格式与大小判断、PDF 拆分、两路检索的过滤与合并、资料不足封顶 | 无数据库 |
+| 单元 | Vitest | 阶段判定、状态机守卫、权限表、签名算法、时限计算、额度扣减、去重键、资料格式与大小判断、PDF 拆分、两路检索的过滤与合并、资料不足转人工 | 无数据库 |
 | 集成 | Vitest + 真实 PostgreSQL（测试库，每个测试文件事务回滚） | 每个 `API-*` 的成功路径、权限（三角色 × 范围内外）、跨商户 404、§16 竞态 | `docker compose` 起的本机 PostgreSQL |
 | 端到端 | Playwright（本机 Edge） | 下列 Gherkin 场景的主路径：注册接入、邀请、模拟器发消息 → 草稿 → 发送、退货工单、开票、三角色侧栏与 403 | `pnpm dev` + Worker + 模拟平台 |
 | 人工 | [TEST.md](TEST.md) | 视觉与交互对照 Quilt 原型、窄屏抽屉、键盘焦点 | 同上 |
@@ -3499,8 +3470,8 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   And 模拟器买家端只收到回复正文，看不到依据与片段编号
   And AI 替身「最近一次请求」里含编号的资料片段，检索替身「最近一次检索请求」里有改写问题与买家原话两路
 
-场景: 资料不足时置信度封顶 (REQ-KB-006)
-  Given 置信度阈值 0.60，AI 替身返回 insufficient = true、confidence 0.9
+场景: 资料不足时转人工 (REQ-KB-006)
+  Given 置信度阈值 0.50，AI 替身返回 insufficient = true、confidence 0.9
   When 买家发消息
   Then 不生成草稿，转人工原因为 low_confidence，审计里这次转人工带「资料不足」标记
 
