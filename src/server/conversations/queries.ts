@@ -5,7 +5,7 @@ import type { MemberContext } from "@/server/auth/context";
 import { db, schema, type Executor } from "@/server/db/client";
 import { Problem } from "@/server/http/problem";
 import { afterSaleOpen } from "@/server/orders/status";
-import { isReadOnlyShop } from "@/server/platforms/clients";
+import { isReadOnlyShop, shopAppRegion } from "@/server/platforms/clients";
 import { READ_ONLY_COMPOSER_NOTICE } from "@/server/platforms/readonly";
 import { productCards } from "@/server/products/info";
 import { isInHours, receptionContext } from "./hours";
@@ -264,7 +264,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
   return {
     conversation: {
       id: conv.id,
-      shop: { id: shop.id, name: shop.name, platform: shop.platform, market: shop.market, status: shop.status, readOnly },
+      shop: { id: shop.id, name: shop.name, platform: shop.platform, market: shop.market, status: shop.status, readOnly, externalShopId: shop.externalShopId, appRegion: await shopAppRegion(shop) },
       buyerName: conv.buyerName,
       buyerAvatarUrl: conv.buyerAvatarUrl,
       buyerExternalId: conv.buyerExternalId,

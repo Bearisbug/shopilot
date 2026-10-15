@@ -4,6 +4,7 @@ import { addDays, format, startOfDay } from "date-fns";
 import { and, asc, desc, eq, gt, ilike, inArray, max, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { AfterSalePending, AfterSaleSummary, InvoiceSummary, OrderDetail, OrderListItem, OrderStats, OrdersQuery, OrdersResponse, StatusGroup, SyncState, TicketRef } from "@/contracts/orders";
 import { STATUS_GROUP_LABEL } from "@/contracts/orders";
+import { sellerOrderUrl } from "@/lib/seller-center";
 import type { MemberContext } from "@/server/auth/context";
 import { audit } from "@/server/core/audit";
 import { visibleConversations } from "@/server/conversations/scope";
@@ -12,7 +13,7 @@ import { db, schema, type Executor } from "@/server/db/client";
 import { csv, json } from "@/server/http/route";
 import { Problem } from "@/server/http/problem";
 import { enqueue } from "@/server/jobs/boss";
-import { isReadOnlyShop, withShop, type ShopRow } from "@/server/platforms/clients";
+import { isReadOnlyShop, shopAppRegion, withShop, type ShopRow } from "@/server/platforms/clients";
 import { READ_ONLY_ACTION_REASON } from "@/server/platforms/readonly";
 import { shopeeCancelOrder } from "@/server/platforms/shopee";
 import { tiktokSellerCancel } from "@/server/platforms/tiktok";
@@ -313,7 +314,14 @@ export async function orderDetail(ctx: MemberContext, id: string): Promise<Order
   const item = toListItem(order, shop, afterSales[0] ?? null, openTicket);
   const openCancel = afterSales.some((a) => a.kind === "cancel" && afterSaleOpen(a.platform, a.kind, a.platformStatus));
   return {
-    order: { ...item, recipient: order.recipient ?? null, trackingEvents: [...(order.tracking?.events ?? [])].sort((a, b) => b.at.localeCompare(a.at)), deadlines: order.deadlines ?? null, syncedAt: order.syncedAt.toISOString() },
+    order: {
+      ...item,
+      recipient: order.recipient ?? null,
+      trackingEvents: [...(order.tracking?.events ?? [])].sort((a, b) => b.at.localeCompare(a.at)),
+      deadlines: order.deadlines ?? null,
+      syncedAt: order.syncedAt.toISOString(),
+      sellerUrl: sellerOrderUrl({ ...shop, appRegion: await shopAppRegion(shop) }, order.externalOrderId),
+    },
     afterSales: afterSales.map(afterSaleSummary),
     tickets: tickets.map(ticketRef),
     invoices: invoices.map(invoiceSummary),

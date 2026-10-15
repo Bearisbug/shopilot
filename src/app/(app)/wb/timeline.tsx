@@ -24,7 +24,10 @@ type Ctx = {
   tz: string;
   /** 点开某条图片消息：在灯箱里从这张开始看本会话已加载的全部图片 */
   openImage: (messageId: string, trigger: HTMLElement) => void;
+  /** 订单、物流、退货退款卡的链接：在平台卖家后台打开这张订单；拼不出链接时为 null */
+  orderLink: (orderNo: string) => CardLink | null;
 };
+type CardLink = { href: string; label: string };
 const NEAR_BOTTOM = 80;
 
 /**
@@ -43,6 +46,7 @@ export function Timeline({
   onLoadMore,
   onRetry,
   retryingId,
+  orderUrl,
 }: {
   messages: MessageItem[];
   shadowDrafts: DraftItem[] | null;
@@ -56,6 +60,8 @@ export function Timeline({
   onLoadMore: () => void;
   onRetry: (messageId: string) => void;
   retryingId: string | null;
+  /** 按平台订单号生成卖家后台的订单链接 */
+  orderUrl: (orderNo: string) => string | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -128,7 +134,11 @@ export function Timeline({
     const index = images.findIndex((i) => i.id === messageId);
     if (index >= 0) setViewer({ index, trigger, open: true });
   };
-  const ctx: Ctx = { ordersById, products, platform, tz, openImage };
+  const orderLink = (orderNo: string) => {
+    const href = orderUrl(orderNo);
+    return href ? { href, label: `在 ${PLATFORM_LABEL[platform]} 卖家中心打开订单 ${orderNo}` } : null;
+  };
+  const ctx: Ctx = { ordersById, products, platform, tz, openImage, orderLink };
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* 滚动位置由上面的逻辑自己还原，关掉浏览器的滚动锚定免得两边一起调；长串在气泡里折行，overflow-x 只是兜底 */}
@@ -240,12 +250,12 @@ function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; o
 // 卡片宽度随对话栏自适应：首选 30rem，放不下时占满消息列（消息列宽度见 MessageRow）
 const CARD_CLASS = "flex w-120 max-w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-left";
 
-/** 卡片消息：标题一行，下面每个非空的 sub 各占一行 */
-function CardBox({ icon: Icon, title, sub = [] }: { icon: React.ComponentType<{ className?: string }>; title: string; sub?: Array<string | null | undefined> }) {
-  return (
-    <div className={CARD_CLASS}>
+/** 卡片消息：标题一行，下面每个非空的 sub 各占一行；带 link 时整张卡片在新标签页打开链接 */
+function CardBox({ icon: Icon, title, sub = [], link = null }: { icon: React.ComponentType<{ className?: string }>; title: string; sub?: Array<string | null | undefined>; link?: CardLink | null }) {
+  const body = (
+    <>
       <Icon className="size-5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 text-xs [overflow-wrap:anywhere]">
+      <span className="min-w-0 flex-1 text-xs [overflow-wrap:anywhere]">
         <span className="block font-medium tabular-nums">{title}</span>
         {sub.filter(Boolean).map((line, i) => (
           <span key={i} className="block text-muted-foreground">
@@ -253,7 +263,14 @@ function CardBox({ icon: Icon, title, sub = [] }: { icon: React.ComponentType<{ 
           </span>
         ))}
       </span>
-    </div>
+      {link && <ExternalLinkIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+    </>
+  );
+  if (!link) return <div className={CARD_CLASS}>{body}</div>;
+  return (
+    <a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label} className={cn(CARD_CLASS, "state-layer focus-ring")}>
+      {body}
+    </a>
   );
 }
 
@@ -295,16 +312,41 @@ function ProductCard({ productId, info, fallbackName, platform }: { productId: s
   );
 }
 
-/** 订单、物流、退货退款卡：标题一行，订单商品明细，底部补充信息；订单镜像里没有这单时退回只有标题的卡片 */
+/** 订单、物流、退货退款卡：标题一行，订单商品明细，底部补充信息；整张卡片在新标签页打开卖家后台的订单页。订单镜像里没有这单时退回只有标题的卡片 */
 const STACK_CLASS = "flex w-120 max-w-full flex-col gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 text-left";
+const STACK_HEAD = "flex items-center gap-1.5 text-xs font-medium tabular-nums";
 
-function StackCard({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
+/**
+ * 卡片里有「还有 N 件」按钮与可聚焦的商品名，整张卡片不能套成一个链接：键盘与读屏经标题行的链接打开，
+ * 卡片其余位置的点击转给这个链接；点到卡片里的按钮由按钮自己处理，拖选文字不算点击。
+ */
+function StackCard({ icon: Icon, title, link, children }: { icon: React.ComponentType<{ className?: string }>; title: string; link: CardLink | null; children: React.ReactNode }) {
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const head = (
+    <>
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{title}</span>
+      {link && <ExternalLinkIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+    </>
+  );
+  if (!link)
+    return (
+      <div className={STACK_CLASS}>
+        <p className={STACK_HEAD}>{head}</p>
+        {children}
+      </div>
+    );
   return (
-    <div className={STACK_CLASS}>
-      <p className="flex items-center gap-1.5 text-xs font-medium tabular-nums">
-        <Icon className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 [overflow-wrap:anywhere]">{title}</span>
-      </p>
+    <div
+      className={cn(STACK_CLASS, "state-layer cursor-pointer")}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("a, button") || window.getSelection()?.toString()) return;
+        linkRef.current?.click();
+      }}
+    >
+      <a ref={linkRef} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label} className={cn(STACK_HEAD, "focus-ring rounded-sm")}>
+        {head}
+      </a>
       {children}
     </div>
   );
@@ -331,10 +373,10 @@ function orderFoot(o: BuyerOrder): string[] {
   return [`合计 ${money(o.total, o.currency)}`, label ? `当前：${label}（${o.status}）` : `当前：${o.status}`];
 }
 
-function OrderCard({ orderId, order }: { orderId: string; order: BuyerOrder | undefined }) {
-  if (!order) return <CardBox icon={PackageIcon} title={`订单 ${orderId}`} />;
+function OrderCard({ orderId, order, link }: { orderId: string; order: BuyerOrder | undefined; link: CardLink | null }) {
+  if (!order) return <CardBox icon={PackageIcon} title={`订单 ${orderId}`} link={link} />;
   return (
-    <StackCard icon={PackageIcon} title={`订单 ${orderId}`}>
+    <StackCard icon={PackageIcon} title={`订单 ${orderId}`} link={link}>
       <OrderItems items={order.items} currency={order.currency} />
       <CardFoot lines={orderFoot(order)} />
     </StackCard>
@@ -349,11 +391,11 @@ function trackingLines(o: BuyerOrder | undefined, tz: string): string[] {
   return [[t.carrier, t.trackingNo ? `运单号 ${t.trackingNo}` : null].filter(Boolean).join(" · "), latest ? `${latest.text} · ${inTz(latest.at, tz, "MM-dd HH:mm")}` : "还没有物流轨迹"];
 }
 
-function LogisticsCard({ orderId, order, tz }: { orderId: string; order: BuyerOrder | undefined; tz: string }) {
+function LogisticsCard({ orderId, order, tz, link }: { orderId: string; order: BuyerOrder | undefined; tz: string; link: CardLink | null }) {
   const title = `物流 · 订单 ${orderId}`;
-  if (!order) return <CardBox icon={TruckIcon} title={title} />;
+  if (!order) return <CardBox icon={TruckIcon} title={title} link={link} />;
   return (
-    <StackCard icon={TruckIcon} title={title}>
+    <StackCard icon={TruckIcon} title={title} link={link}>
       <OrderItems items={order.items} currency={order.currency} />
       <CardFoot lines={trackingLines(order, tz)} />
     </StackCard>
@@ -361,11 +403,11 @@ function LogisticsCard({ orderId, order, tz }: { orderId: string; order: BuyerOr
 }
 
 /** 退货退款卡：退货单带 sku 时把对应那件标出来 */
-function ReturnCard({ orderId, order, skuId }: { orderId: string; order: BuyerOrder | undefined; skuId: string | null }) {
+function ReturnCard({ orderId, order, skuId, link }: { orderId: string; order: BuyerOrder | undefined; skuId: string | null; link: CardLink | null }) {
   const title = `退货退款 · 订单 ${orderId}`;
-  if (!order) return <CardBox icon={Undo2Icon} title={title} />;
+  if (!order) return <CardBox icon={Undo2Icon} title={title} link={link} />;
   return (
-    <StackCard icon={Undo2Icon} title={title}>
+    <StackCard icon={Undo2Icon} title={title} link={link}>
       <OrderItems items={order.items} currency={order.currency} highlightSkuId={skuId} />
     </StackCard>
   );
@@ -411,11 +453,11 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
       );
     }
     case "order_card":
-      return <OrderCard orderId={orderId} order={ordersById.get(orderId)} />;
+      return <OrderCard orderId={orderId} order={ordersById.get(orderId)} link={ctx.orderLink(orderId)} />;
     case "logistics_card":
-      return <LogisticsCard orderId={orderId} order={ordersById.get(orderId)} tz={tz} />;
+      return <LogisticsCard orderId={orderId} order={ordersById.get(orderId)} tz={tz} link={ctx.orderLink(orderId)} />;
     case "return_card":
-      return <ReturnCard orderId={orderId} order={ordersById.get(orderId)} skuId={typeof p.skuId === "string" ? p.skuId : null} />;
+      return <ReturnCard orderId={orderId} order={ordersById.get(orderId)} skuId={typeof p.skuId === "string" ? p.skuId : null} link={ctx.orderLink(orderId)} />;
     case "coupon_card":
       return <CardBox icon={TicketPercentIcon} title="优惠券" sub={[typeof p.couponTitle === "string" ? p.couponTitle : String(p.couponId ?? "")]} />;
     case "product_card": {

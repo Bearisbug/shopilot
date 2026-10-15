@@ -66,6 +66,7 @@ export function useWbParams() {
     const next = new URLSearchParams(params.toString());
     next.delete("dialog");
     next.delete("panel");
+    next.delete("orderDetail");
     const qs = next.toString();
     return `/wb/${conversationId}${qs ? `?${qs}` : ""}`;
   };

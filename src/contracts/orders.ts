@@ -109,6 +109,8 @@ export type OrderDetail = {
     trackingEvents: Array<{ at: string; text: string }>;
     deadlines: Record<string, string> | null;
     syncedAt: string;
+    /** 这张订单在平台卖家后台的详情页（新标签页打开）；站点不认识时为 null */
+    sellerUrl: string | null;
   };
   afterSales: AfterSaleSummary[];
   tickets: TicketRef[];
