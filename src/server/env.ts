@@ -21,12 +21,21 @@ const schema = z.object({
       .optional(),
   ),
   DATA_DIR: z.string().default("./data"),
+  // 知识库检索层（ADR-014）：stub 用进程内替身（本机与测试），cloudflare 调 Cloudflare AI Search，此时下面两项必填
+  KNOWLEDGE_MODE: z.enum(["stub", "cloudflare"]).default("stub"),
+  CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
+  CLOUDFLARE_API_TOKEN: z.string().optional(),
   // 真实发信（SMTP）；三项都配了才发，否则邮件只写发件箱
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().default(465),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+}).superRefine((e, ctx) => {
+  if (e.KNOWLEDGE_MODE !== "cloudflare") return;
+  for (const key of ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"] as const) {
+    if (!e[key]) ctx.addIssue({ code: "custom", path: [key], message: "KNOWLEDGE_MODE=cloudflare 时必填" });
+  }
 });
 
 export type Env = z.infer<typeof schema>;

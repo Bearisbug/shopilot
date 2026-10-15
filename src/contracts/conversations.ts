@@ -111,7 +111,22 @@ export type ProductCardInfo = {
   url: string | null;
 };
 
-export type DraftItem = { id: string; text: string; confidence: number; reason: string | null; mode: "assist" | "auto" | "shadow"; status: string; triggerMessageId: string | null; createdAt: string };
+/** 草稿依据（REQ-KB-006）：available = false 表示资料已删除，只显示文件名、不能点开；依据不随消息发给买家 */
+export type DraftCitationItem = { documentId: string; name: string; available: boolean };
+
+export type DraftItem = {
+  id: string;
+  text: string;
+  confidence: number;
+  reason: string | null;
+  mode: "assist" | "auto" | "shadow";
+  status: string;
+  triggerMessageId: string | null;
+  createdAt: string;
+  /** 模型判定资料不足（RULE-KB-003）；这样的出稿一律转人工，只会出现在影子回复里 */
+  insufficient: boolean;
+  citations: DraftCitationItem[];
+};
 
 export type ConversationDetail = {
   conversation: {

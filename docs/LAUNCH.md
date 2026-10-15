@@ -21,7 +21,11 @@
 | `SHOPEE_HOSTS` | 同上 | 配置值（cn、sg、br 生产主机与沙箱主机） | A：写入 | 首个商户填 Shopee 凭证时识别出区域 | ☑ 2026-10-15 |
 | `TIKTOK_API_HOST` | 同上 | 配置值 `https://open-api.tiktokglobalshop.com` | A：写入 | 同上（TikTok） | ☑ 2026-10-15 |
 | `TIKTOK_AUTH_HOST` | 同上 | 配置值 `https://auth.tiktok-shops.com` | A：写入 | 同上 | ☑ 2026-10-15 |
+| `TIKTOK_AUTHORIZE_URL` | 同上 | 配置值（东南亚跨境店授权页模板，见 `.env.example`） | 写入 | 服务器 .env.production 含键名；不配时退回 `TIKTOK_AUTH_HOST/open/authorize` | ☐ 未核实服务器是否已配 |
 | `DATA_DIR` | 同上 | 配置值 `/data` | A：写入 | `appdata` 卷挂在 `/data`，备份能打包出文件卷 | ☑ 2026-10-15 |
+| `KNOWLEDGE_MODE` | 同上 | 配置值 `cloudflare` | U：写入 | 服务器 .env.production 含键名 | ☑ 2026-10-15 |
+| `CLOUDFLARE_ACCOUNT_ID` | 同上 | 配置值（Cloudflare 账号 ID，见 `.env.example`） | U：写入 | 服务器 .env.production 含键名 | ☑ 2026-10-15 |
+| `CLOUDFLARE_API_TOKEN` | 同上 | Bitwarden `SHOPILOT_AI_SEARCH_TOKEN`（只含 AI Search 编辑与运行权限；同名条目 `CLOUDFLARE_API_TOKEN` 是另一个 token） | U：`bw get password SHOPILOT_AI_SEARCH_TOKEN` 写入，值不经聊天 | 服务器 .env.production 含键名 | ☑ 2026-10-15 |
 | `SMTP_HOST` | 同上 | 配置值 `smtp.feishu.cn` | A：写入 | 注册冒烟的验证邮件 `status = delivered` | ☑ 2026-10-15 |
 | `SMTP_PORT` | 同上 | 配置值 `465` | A：写入 | 同上 | ☑ 2026-10-15 |
 | `SMTP_USER` | 同上 | 配置值 `no-reply@shopilot.live` | A：写入 | 同上 | ☑ 2026-10-15 |

@@ -200,8 +200,30 @@ export async function segmentHistory(conversationId: string, exec: Executor = db
     .limit(20);
 }
 
-function toDraft(d: typeof schema.draft.$inferSelect): DraftItem {
-  return { id: d.id, text: d.text, confidence: d.confidence, reason: d.reason, mode: d.mode, status: d.status, triggerMessageId: d.triggerMessageId, createdAt: d.createdAt.toISOString() };
+function toDraft(d: typeof schema.draft.$inferSelect, live: Set<string>): DraftItem {
+  return {
+    id: d.id,
+    text: d.text,
+    confidence: d.confidence,
+    reason: d.reason,
+    mode: d.mode,
+    status: d.status,
+    triggerMessageId: d.triggerMessageId,
+    createdAt: d.createdAt.toISOString(),
+    insufficient: d.insufficient,
+    citations: (d.citations ?? []).map((c) => ({ documentId: c.documentId, name: c.name, available: live.has(c.documentId) })),
+  };
+}
+
+/** 草稿依据里仍存在（未删除）的资料 */
+async function liveDocuments(merchantId: string, drafts: Array<typeof schema.draft.$inferSelect>): Promise<Set<string>> {
+  const ids = [...new Set(drafts.flatMap((d) => (d.citations ?? []).map((c) => c.documentId)))];
+  if (ids.length === 0) return new Set();
+  const rows = await db()
+    .select({ id: schema.knowledgeDocument.id })
+    .from(schema.knowledgeDocument)
+    .where(and(eq(schema.knowledgeDocument.merchantId, merchantId), inArray(schema.knowledgeDocument.id, ids), ne(schema.knowledgeDocument.status, "deleting")));
+  return new Set(rows.map((r) => r.id));
 }
 
 export async function getConversation(ctx: MemberContext, id: string, before?: string): Promise<ConversationDetail> {
@@ -237,6 +259,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     .limit(1);
   const seeShadow = ctx.membership.role !== "agent";
   const shadow = seeShadow ? await db().select().from(schema.draft).where(and(eq(schema.draft.conversationId, conv.id), eq(schema.draft.status, "shadow"))).orderBy(asc(schema.draft.createdAt)) : null;
+  const live = await liveDocuments(ctx.merchant.id, [...(draft ? [draft] : []), ...(shadow ?? [])]);
 
   const audits = await db()
     .select()
@@ -291,8 +314,8 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     ),
     cardOrders: await cardOrders(conv.shopId, page),
     hasMore: rows.length > MSG_PAGE,
-    draft: draft ? toDraft(draft) : null,
-    shadowDrafts: shadow ? shadow.map(toDraft) : null,
+    draft: draft ? toDraft(draft, live) : null,
+    shadowDrafts: shadow ? shadow.map((d) => toDraft(d, live)) : null,
     capabilities: {
       cards: caps.cards,
       productCard: caps.productScope ? { enabled: false, reason: "本期不从工作台发送商品卡。" } : { enabled: false, reason: "店铺没有授予商品读取权限。" },

@@ -16,6 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { v7 as uuidv7 } from "uuid";
+import type { KnowledgeMarket } from "../../contracts/knowledge";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const id = () => uuid("id").primaryKey().$defaultFn(() => uuidv7());
@@ -488,6 +489,17 @@ export const message = pgTable(
   ],
 );
 
+/** 检索快照（DESIGN §9.3 draft.retrieval）；同一路重试时 routes 里先记失败的混合检索，再记纯向量重试 */
+export type DraftRetrieval = {
+  rewrittenQuery: string | null;
+  routes: Array<{ kind: "rewritten" | "original"; mode: "hybrid" | "vector_only"; latencyMs: number; error?: string; hits: Array<{ chunkId: string; documentId: string; score: number }> }>;
+  merged: Array<{ n: number; chunkId: string; documentId: string }>;
+  degraded: boolean;
+  degradedReason?: string;
+  latencyMs: number;
+};
+export type DraftCitation = { n: number; documentId: string; name: string };
+
 export const draft = pgTable(
   "draft",
   {
@@ -508,6 +520,12 @@ export const draft = pgTable(
     editDistance: integer("edit_distance"),
     model: text("model").notNull(),
     latencyMs: integer("latency_ms").notNull(),
+    /** 模型判定订单事实与资料片段都不足以回答（RULE-KB-003） */
+    insufficient: boolean("insufficient").notNull().default(false),
+    /** 检索快照：商户有对该店可用的资料时写入，只存分块 ID 与分数 */
+    retrieval: jsonb("retrieval").$type<DraftRetrieval | null>(),
+    /** 依据：模型声明用到、且在合并结果里的资料，name 是出稿时的文件名快照 */
+    citations: jsonb("citations").$type<DraftCitation[] | null>(),
     createdAt: createdAt(),
   },
   (t) => [index("draft_conversation_idx").on(t.conversationId, t.createdAt), index("draft_merchant_created_idx").on(t.merchantId, t.createdAt)],
@@ -516,7 +534,7 @@ export const draft = pgTable(
 export const file = pgTable("file", {
   id: id(),
   merchantId: merchantRef(),
-  kind: text("kind", { enum: ["chat_image", "invoice_pdf", "invoice_png", "export_zip", "invoice_logo"] }).notNull(),
+  kind: text("kind", { enum: ["chat_image", "invoice_pdf", "invoice_png", "export_zip", "invoice_logo", "knowledge_source"] }).notNull(),
   path: text("path").notNull(),
   mime: text("mime").notNull(),
   size: integer("size").notNull(),
@@ -947,6 +965,101 @@ export const exportJob = pgTable("export_job", {
   finishedAt: ts("finished_at"),
 });
 
+// ---------- 知识库（DESIGN §9.6） ----------
+
+/** 每商户一个检索服务实例，首次入库时创建；instance_name = sp-<商户 ID 去连字符后的后 12 位> */
+export const knowledgeIndex = pgTable("knowledge_index", {
+  merchantId: uuid("merchant_id")
+    .primaryKey()
+    .references(() => merchant.id, { onDelete: "cascade" }),
+  instanceName: text("instance_name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
+export const knowledgeCategory = pgTable(
+  "knowledge_category",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    name: text("name").notNull(),
+    builtin: boolean("builtin").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("knowledge_category_name_uq").on(t.merchantId, t.name), uniqueIndex("knowledge_category_builtin_uq").on(t.merchantId).where(sql`builtin`)],
+);
+
+export const knowledgeDocument = pgTable(
+  "knowledge_document",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => knowledgeCategory.id),
+    /** 原文件（file.kind = knowledge_source） */
+    fileId: uuid("file_id").notNull(),
+    name: text("name").notNull(),
+    mime: text("mime").notNull(),
+    size: integer("size").notNull(),
+    sha256: text("sha256").notNull(),
+    markets: jsonb("markets").$type<KnowledgeMarket[]>().notNull().default(["ALL"]),
+    status: text("status", { enum: ["queued", "processing", "ready", "failed", "deleting"] }).notNull().default("queued"),
+    aiEnabled: boolean("ai_enabled").notNull().default(true),
+    failureReason: text("failure_reason"),
+    uploadedBy: uuid("uploaded_by").references(() => membership.id, { onDelete: "set null" }),
+    readyAt: ts("ready_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("knowledge_document_sha_uq").on(t.merchantId, t.sha256).where(sql`status <> 'deleting'`),
+    index("knowledge_document_merchant_idx").on(t.merchantId, t.status),
+    index("knowledge_document_category_idx").on(t.categoryId),
+  ],
+);
+
+export const knowledgePart = pgTable(
+  "knowledge_part",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => knowledgeDocument.id, { onDelete: "cascade" }),
+    partNo: integer("part_no").notNull(),
+    pageFrom: integer("page_from"),
+    pageTo: integer("page_to"),
+    /** 检索服务里的条目名 <资料 ID>/<条目号>.<扩展名>；重传沿用同一个名字 */
+    itemKey: text("item_key").notNull().unique(),
+    status: text("status", { enum: ["pending", "indexing", "indexed", "failed"] }).notNull().default("pending"),
+    retries: integer("retries").notNull().default(0),
+    error: text("error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("knowledge_part_document_uq").on(t.documentId, t.partNo)],
+);
+
+export const knowledgeChunk = pgTable(
+  "knowledge_chunk",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => knowledgeDocument.id, { onDelete: "cascade" }),
+    partId: uuid("part_id")
+      .notNull()
+      .references(() => knowledgePart.id, { onDelete: "cascade" }),
+    no: integer("no").notNull(),
+    /** 检索服务给的分块 ID，用来把检索结果对回分块 */
+    remoteId: text("remote_id").notNull(),
+    text: text("text").notNull(),
+  },
+  (t) => [uniqueIndex("knowledge_chunk_document_no_uq").on(t.documentId, t.no), index("knowledge_chunk_remote_idx").on(t.merchantId, t.remoteId)],
+);
+
 export const idempotencyKey = pgTable(
   "idempotency_key",
   {
@@ -964,8 +1077,18 @@ export const idempotencyKey = pgTable(
 
 export const devAiStub = pgTable("dev_ai_stub", {
   id: integer("id").primaryKey().default(1),
-  next: text("next", { enum: ["normal", "low_confidence", "handoff", "invalid_json", "timeout"] }).notNull().default("normal"),
+  next: text("next", { enum: ["normal", "low_confidence", "handoff", "invalid_json", "timeout", "insufficient"] }).notNull().default("normal"),
   sticky: boolean("sticky").notNull().default(false),
   lastRequest: jsonb("last_request").$type<{ kind: string; at: string; model: string; system: string; messages: Array<{ role: string; content: string }> } | null>(),
+  updatedAt: updatedAt(),
+});
+
+/** 检索替身（KNOWLEDGE_MODE=stub，API-MOCK-010）：下一次检索或入库的表现，与最近几次检索请求 */
+export type KnowledgeStubQuery = { at: string; instance: string; query: string; retrievalType: "hybrid" | "vector"; maxResults: number };
+export const devKnowledgeStub = pgTable("dev_knowledge_stub", {
+  id: integer("id").primaryKey().default(1),
+  next: text("next", { enum: ["normal", "no_vector", "timeout", "error", "ingest_error"] }).notNull().default("normal"),
+  sticky: boolean("sticky").notNull().default(false),
+  lastQuery: jsonb("last_query").$type<KnowledgeStubQuery[] | null>(),
   updatedAt: updatedAt(),
 });
