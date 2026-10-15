@@ -1,6 +1,6 @@
 // 会话读取：列表（API-CONV-001）、详情（API-CONV-002）、买家与订单（API-CONV-003）。全部经 visibleConversations 收窄（ADR-003）。
 import { and, asc, count, desc, eq, gte, inArray, ne, notInArray, sql, type SQL } from "drizzle-orm";
-import type { BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConversationsQuery, DraftItem, MessageItem, TicketChip } from "@/contracts/conversations";
+import type { BuyerOrder, BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConversationsQuery, DraftItem, MessageItem, TicketChip } from "@/contracts/conversations";
 import type { MemberContext } from "@/server/auth/context";
 import { db, schema, type Executor } from "@/server/db/client";
 import { Problem } from "@/server/http/problem";
@@ -288,6 +288,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
       shop,
       page.filter((m) => m.type === "product_card").map((m) => String((m.payload as Record<string, unknown>).productId ?? "")),
     ),
+    cardOrders: await cardOrders(conv.shopId, page),
     hasMore: rows.length > MSG_PAGE,
     draft: draft ? toDraft(draft) : null,
     shadowDrafts: shadow ? shadow.map(toDraft) : null,
@@ -313,6 +314,38 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
   };
 }
 
+type OrderRow = typeof schema.order.$inferSelect;
+type AfterSaleRow = typeof schema.afterSale.$inferSelect;
+
+function toBuyerOrder(o: OrderRow, sales: AfterSaleRow[]): BuyerOrder {
+  return {
+    id: o.id,
+    externalOrderId: o.externalOrderId,
+    status: o.platformStatus,
+    statusGroup: o.statusGroup,
+    total: o.totalAmount,
+    currency: o.currency,
+    items: o.items.map((i) => ({ name: i.name, sku: i.sku, skuId: i.skuId, qty: i.qty, unitPrice: i.unitPrice, image: i.image || undefined })),
+    shipByAt: o.shipByAt?.toISOString() ?? null,
+    createdAt: o.platformCreatedAt.toISOString(),
+    tracking: o.tracking,
+    recipient: o.recipient,
+    afterSales: sales
+      .filter((s) => s.externalOrderId === o.externalOrderId)
+      .map((s) => ({ id: s.id, kind: s.kind, externalId: s.externalId, platformStatus: s.platformStatus, sellerDueAt: s.sellerDueAt?.toISOString() ?? null, reason: s.reason, open: afterSaleOpen(o.platform, s.kind, s.platformStatus) })),
+  };
+}
+
+const ORDER_CARD_TYPES = new Set(["order_card", "logistics_card", "return_card"]);
+
+/** 本页卡片消息引用的订单：同店按平台订单号取订单镜像，只读库，不调平台 */
+async function cardOrders(shopId: string, page: Array<{ type: string; payload: unknown }>): Promise<BuyerOrder[]> {
+  const ids = [...new Set(page.filter((m) => ORDER_CARD_TYPES.has(m.type)).map((m) => (m.payload as Record<string, unknown> | null)?.orderId).filter((x): x is string => typeof x === "string" && x !== ""))];
+  if (!ids.length) return [];
+  const rows = await db().select().from(schema.order).where(and(eq(schema.order.shopId, shopId), inArray(schema.order.externalOrderId, ids)));
+  return rows.map((o) => toBuyerOrder(o, []));
+}
+
 export async function getBuyerPanel(ctx: MemberContext, id: string): Promise<BuyerPanel> {
   const conv = await loadVisible(ctx, id);
   const since = new Date(Date.now() - 180 * 86400_000);
@@ -332,22 +365,7 @@ export async function getBuyerPanel(ctx: MemberContext, id: string): Promise<Buy
   const currencies = [...new Set(orders.map((o) => o.currency))];
   return {
     buyer: { name: conv.buyerName, externalId: conv.buyerExternalId, language: conv.buyerLanguage, avatarUrl: conv.buyerAvatarUrl },
-    orders: orders.map((o) => ({
-      id: o.id,
-      externalOrderId: o.externalOrderId,
-      status: o.platformStatus,
-      statusGroup: o.statusGroup,
-      total: o.totalAmount,
-      currency: o.currency,
-      items: o.items.map((i) => ({ name: i.name, sku: i.sku, skuId: i.skuId, qty: i.qty, unitPrice: i.unitPrice, image: i.image || undefined })),
-      shipByAt: o.shipByAt?.toISOString() ?? null,
-      createdAt: o.platformCreatedAt.toISOString(),
-      tracking: o.tracking,
-      recipient: o.recipient,
-      afterSales: sales
-        .filter((s) => s.externalOrderId === o.externalOrderId)
-        .map((s) => ({ id: s.id, kind: s.kind, externalId: s.externalId, platformStatus: s.platformStatus, sellerDueAt: s.sellerDueAt?.toISOString() ?? null, reason: s.reason, open: afterSaleOpen(o.platform, s.kind, s.platformStatus) })),
-    })),
+    orders: orders.map((o) => toBuyerOrder(o, sales)),
     totals: { count180d: orders.length, amount180d: totalAmount.toFixed(2), currency: currencies.length === 1 ? currencies[0] : null },
     piiMasked: orders.some((o) => o.recipient?.masked),
     syncedAt: orders.reduce<Date | null>((m, o) => (!m || o.syncedAt > m ? o.syncedAt : m), null)?.toISOString() ?? null,

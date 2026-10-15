@@ -129,6 +129,8 @@ export type ConversationDetail = {
   messages: MessageItem[];
   /** 本页商品卡片涉及的商品，键为平台商品 ID；信息还没取到时 name 等为 null，链接照常给 */
   products: Record<string, ProductCardInfo>;
+  /** 本页订单卡、物流卡、退货退款卡引用的订单（按平台订单号从订单镜像取，不限买家与时间）；镜像里没有的不出现 */
+  cardOrders: BuyerOrder[];
   hasMore: boolean;
   draft: DraftItem | null;
   shadowDrafts: DraftItem[] | null;

@@ -27,6 +27,7 @@ export function ConversationPane({ id }: { id: string }) {
   const [older, setOlder] = useState<MessageItem[]>([]);
   const [olderHasMore, setOlderHasMore] = useState<boolean | null>(null);
   const [olderProducts, setOlderProducts] = useState<Record<string, ProductCardInfo>>({});
+  const [olderCardOrders, setOlderCardOrders] = useState<BuyerOrder[]>([]);
   const [editing, setEditing] = useState<EditingDraft>(null);
   const [replacing, setReplacing] = useState<DraftItem | null>(null);
 
@@ -36,6 +37,7 @@ export function ConversationPane({ id }: { id: string }) {
       setOlder((prev) => [...d.messages, ...prev]);
       setOlderHasMore(d.hasMore);
       setOlderProducts((prev) => ({ ...prev, ...d.products }));
+      setOlderCardOrders((prev) => [...prev, ...d.cardOrders]);
     },
     onError: (e) => toast.error(errorText(e)),
   });
@@ -81,7 +83,8 @@ export function ConversationPane({ id }: { id: string }) {
   const messages = [...older.filter((m) => !recentIds.has(m.id)), ...d.messages];
   const hasMore = olderHasMore ?? d.hasMore;
   const products = { ...olderProducts, ...d.products };
-  const ordersById = new Map<string, BuyerOrder>((buyer.data?.orders ?? []).map((o) => [o.externalOrderId, o]));
+  // 卡片引用的订单先放，买家右栏的订单（带售后）后放、同号时覆盖
+  const ordersById = new Map<string, BuyerOrder>([...olderCardOrders, ...d.cardOrders, ...(buyer.data?.orders ?? [])].map((o) => [o.externalOrderId, o]));
 
   return (
     <section aria-label={`与 ${d.conversation.buyerName} 的会话`} className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-card">

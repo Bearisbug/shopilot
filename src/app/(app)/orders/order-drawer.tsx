@@ -6,6 +6,7 @@ import type { OrderDetail } from "@/contracts/orders";
 import { PlatformBadge } from "@/components/common/platform-badge";
 import { DueText, KV, progressText, SendStatus, StatusGroupText, TICKET_TYPE_LABEL, useOrderDetail } from "@/components/orders/order-ui";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/shell/page";
+import { OrderItems } from "@/components/orders/order-items";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -86,14 +87,7 @@ function DrawerBody({ orderId, tz, open, close }: { orderId: string; tz: string;
         <dl>
           <KV label="买家">{o.buyerName ?? "—"}</KV>
           <KV label="商品">
-            <ul>
-              {o.items.map((i, idx) => (
-                <li key={idx}>
-                  {i.name}
-                  {i.sku ? <span className="text-muted-foreground"> · {i.sku}</span> : null} ×{i.qty}
-                </li>
-              ))}
-            </ul>
+            <OrderItems items={o.items} currency={o.currency} clamp={false} />
           </KV>
           <KV label="金额">{money(o.total, o.currency)}</KV>
           <KV label="状态">
