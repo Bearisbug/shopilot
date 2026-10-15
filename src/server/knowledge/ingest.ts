@@ -227,9 +227,14 @@ async function indexPart(x: PartInput): Promise<{ itemId: string; retries: numbe
   }
 }
 
-/** 每隔 pollIntervalMs 查一次索引状态，最长 15 分钟；返回 completed 或失败原因 */
+/**
+ * 每隔 pollIntervalMs 查一次索引状态，最长 15 分钟；返回 completed 或失败原因。
+ * 实测条目常在「处理中」停 3–10 分钟以上，而分块约 20 秒后就能读、也已能检索到：
+ * 分块数大于 0 且连续两次查询不变，同样算索引完成
+ */
 async function waitIndexed(svc: KnowledgeSearchService, instance: string, itemId: string, alive: () => Promise<void>): Promise<string> {
   const deadline = Date.now() + INDEX_WAIT_MS;
+  let lastChunks = -1;
   for (;;) {
     await sleep(svc.pollIntervalMs);
     await alive();
@@ -243,6 +248,11 @@ async function waitIndexed(svc: KnowledgeSearchService, instance: string, itemId
     if (item === null) return "检索服务里找不到这个条目";
     if (item?.status === "completed") return "completed";
     if (item && (item.status === "error" || item.status === "skipped")) return item.error ?? item.status;
+    if (item) {
+      const n = await svc.listChunks(instance, itemId).then((c) => c.length, () => -1);
+      if (n > 0 && n === lastChunks) return "completed";
+      lastChunks = n;
+    }
     if (Date.now() > deadline) return "索引超过 15 分钟没有完成";
   }
 }
