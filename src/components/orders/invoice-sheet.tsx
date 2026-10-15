@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { LoaderCircleIcon, MessageSquareIcon, SendIcon, SparklesIcon } from "lucide-react";
+import { useMutation, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { ExternalLinkIcon, LoaderCircleIcon, MessageSquareIcon, SendIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import type { ConversationDetail } from "@/contracts/conversations";
 import type { CreateInvoiceResult, ExtractResult, InvoiceSummary, OrderDetail, OrdersResponse } from "@/contracts/orders";
+import type { InvoicePreviewResponse } from "@/contracts/settings";
 import { PlatformBadge } from "@/components/common/platform-badge";
 import { ErrorState, LoadingRows } from "@/components/shell/page";
 import type { TicketOrderOption } from "@/components/tickets/new-ticket-dialog";
@@ -176,6 +177,7 @@ function InvoiceForm({
 }) {
   const o = detail.order;
   const chat = useChatTarget(detail, conv);
+  const preview = useQuery({ queryKey: ["invoice-preview", o.id], queryFn: () => api.get<InvoicePreviewResponse>(`/api/v1/invoices/preview?orderId=${o.id}`) });
   const invalidate = useOrdersInvalidate();
   const [key, setKey] = useState(newKey);
   const [failure, setFailure] = useState<string | null>(null);
@@ -226,7 +228,7 @@ function InvoiceForm({
             address: v.address,
             email: v.email,
             ...(v.taxId ? { taxId: v.taxId } : {}),
-            items: o.items.map((i) => ({ name: i.name, qty: i.qty, unitPrice: i.unitPrice })),
+            items: o.items.map((i) => ({ name: i.name, ...(i.sku ? { sku: i.sku } : {}), qty: i.qty, unitPrice: i.unitPrice })),
             currency: o.currency,
             ...(v.notes ? { notes: v.notes } : {}),
           },
@@ -281,6 +283,25 @@ function InvoiceForm({
             </Button>
           )}
         </div>
+        {preview.data && preview.data.missing.length > 0 && (
+          <Notice>
+            开票资料还缺{preview.data.missing.join("、")}，照常可以开：
+            {[preview.data.missing.includes("法定主体名称") && "卖方名称先用商户名", preview.data.missing.includes("地址") && "卖方地址空着"].filter(Boolean).join("，")}。
+            {preview.data.canEdit ? (
+              <Link
+                href="/settings/invoice"
+                target="_blank"
+                rel="noopener"
+                className="focus-ring ml-1 inline-flex items-center gap-1 rounded-sm font-semibold text-(--semantic-color-text-link) underline-offset-4 hover:underline"
+              >
+                去「商户设置 → 开票资料」填写
+                <ExternalLinkIcon className="size-3.5" aria-label="（新标签页打开）" />
+              </Link>
+            ) : (
+              "请管理员在「商户设置 → 开票资料」补全。"
+            )}
+          </Notice>
+        )}
         <Controller
           name="kind"
           control={form.control}
@@ -329,7 +350,8 @@ function InvoiceForm({
               </li>
             ))}
           </ul>
-          <p className="mt-1.5 text-xs text-muted-foreground">商品名与单价取自订单；税额按 0 计，合计 {money(o.items.reduce((s, i) => s + Number(i.unitPrice) * i.qty, 0), o.currency)}。</p>
+          <p className="mt-1.5 text-xs text-muted-foreground">商品名与单价取自订单，运费、折扣按订单实付金额拆出，税按开票资料算。</p>
+          <TotalsSummary q={preview} />
         </section>
         <Controller
           name="notes"
@@ -362,6 +384,35 @@ function InvoiceForm({
         </div>
       )}
       <Footer close={close} pending={issue.isPending} ready />
+    </>
+  );
+}
+
+/** 发票上的金额拆分（与开具时同一算法，服务端按开票资料与订单实付计算） */
+function TotalsSummary({ q }: { q: UseQueryResult<InvoicePreviewResponse> }) {
+  if (q.isPending) return <p className="mt-2 text-xs text-muted-foreground">正在按开票资料计算合计…</p>;
+  if (q.isError) return <p className="mt-2 text-xs text-destructive">合计没有算出来：{errorText(q.error)}。开具时仍按开票资料计算。</p>;
+  const { totals: t, currency, taxName, taxInclusive } = q.data;
+  const m = (c: number) => money(c / 100, currency);
+  const rows: Array<{ label: string; value: string; strong?: boolean }> = [{ label: "商品小计", value: m(t.subtotal) }];
+  if (t.shipping) rows.push({ label: "运费", value: m(t.shipping) });
+  if (t.discount) rows.push({ label: "折扣", value: `-${m(t.discount)}` });
+  if (t.fees) rows.push({ label: t.shipping === null ? "运费及其他费用" : "其他费用", value: m(t.fees) });
+  if (t.taxRate) rows.push({ label: `${taxName || "税"} ${t.taxRate}%（${taxInclusive ? "已含在价格里" : "另加"}）`, value: m(t.tax) });
+  rows.push({ label: "合计", value: m(t.total), strong: true });
+  rows.push({ label: t.amountPaid ? "已付" : "已付（订单未付款）", value: m(t.amountPaid) });
+  if (t.due) rows.push({ label: "待付", value: m(t.due), strong: true });
+  return (
+    <>
+      <dl className="mt-2 flex flex-col gap-1 text-sm tabular-nums">
+        {rows.map((r) => (
+          <div key={r.label} className={cn("flex justify-between gap-3", r.strong && "font-semibold")}>
+            <dt className={r.strong ? undefined : "text-muted-foreground"}>{r.label}</dt>
+            <dd>{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {!t.taxRate && <p className="mt-1 text-xs text-muted-foreground">开票资料没设税率，不加税。</p>}
     </>
   );
 }

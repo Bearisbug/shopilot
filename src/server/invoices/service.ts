@@ -16,7 +16,8 @@ import { supersedeDrafts } from "@/server/conversations/ingest";
 import { visibleConversations } from "@/server/conversations/scope";
 import { sendOutbound } from "@/server/conversations/send";
 import { db, schema } from "@/server/db/client";
-import type { InvoiceFields } from "@/server/db/schema";
+import type { InvoiceFields, InvoiceSeller } from "@/server/db/schema";
+import { fromCents, invoiceLayout } from "@/lib/invoice";
 import { dataPath, writeDataFile } from "@/server/files/storage";
 import { json } from "@/server/http/route";
 import { Problem } from "@/server/http/problem";
@@ -25,6 +26,7 @@ import { visibleInvoices } from "@/server/orders/scope";
 import { isReadOnlyShop } from "@/server/platforms/clients";
 import { READ_ONLY_REPLY_REASON } from "@/server/platforms/readonly";
 import { createTicket } from "@/server/tickets/engine";
+import { effectiveProfile, loadLogo, orderTotals } from "./profile";
 import { renderInvoice } from "./render";
 
 const inv = schema.invoice;
@@ -93,6 +95,7 @@ export async function extractFields(ctx: MemberContext, body: { conversationId: 
 
 const cents = (v: string) => Math.round(Number(v) * 100);
 const money = (c: number) => (c / 100).toFixed(2);
+const SELLER_KEYS = ["legalName", "registrationNo", "taxIdLabel", "taxId", "address", "phone", "email", "website", "notes"] as const;
 
 export async function createInvoice(ctx: MemberContext, body: CreateInvoiceBody): Promise<Response> {
   const { order, shop } = await loadOrder(ctx, body.orderId);
@@ -110,37 +113,61 @@ export async function createInvoice(ctx: MemberContext, body: CreateInvoiceBody)
   const email = body.fields.email ? body.fields.email : null;
   const emailWanted = body.sendEmail && !!email;
 
-  const subtotal = body.fields.items.reduce((acc, it) => acc + cents(it.unitPrice) * it.qty, 0);
+  // 卖方信息取店铺生效的开票资料；金额按订单实付拆出运费、折扣与税（开票资料没设税率时不加税）
+  const prof = await effectiveProfile(ctx.merchant.id, shop.id);
+  const items = body.fields.items.map((i) => ({ name: i.name, ...(i.sku ? { sku: i.sku } : {}), qty: i.qty, unitPrice: money(cents(i.unitPrice)) }));
+  const totals = orderTotals(order, items, prof);
+  const pay = order.payment;
+  const seller: InvoiceSeller = {};
+  for (const k of SELLER_KEYS) if (prof[k]) seller[k] = prof[k];
+  if (prof.logo) seller.logoFileId = prof.logo;
   const fields: InvoiceFields = {
     buyerName: body.fields.buyerName,
     address: body.fields.address,
     ...(email ? { email } : {}),
     ...(body.fields.taxId ? { taxId: body.fields.taxId } : {}),
-    items: body.fields.items.map((i) => ({ name: i.name, qty: i.qty, unitPrice: money(cents(i.unitPrice)) })),
+    items,
     currency: body.fields.currency,
-    subtotal: money(subtotal),
-    tax: "0.00",
-    total: money(subtotal),
+    subtotal: fromCents(totals.subtotal),
+    tax: fromCents(totals.tax),
+    total: fromCents(totals.total),
     ...(body.fields.notes ? { notes: body.fields.notes } : {}),
+    ...(totals.shipping ? { shipping: fromCents(totals.shipping) } : {}),
+    ...(totals.discount ? { discount: fromCents(totals.discount) } : {}),
+    ...(totals.fees ? { fees: fromCents(totals.fees) } : {}),
+    ...(totals.taxRate ? { taxName: prof.taxName || "Tax", taxRate: String(totals.taxRate), taxInclusive: prof.pricesIncludeTax ?? true } : {}),
+    amountPaid: fromCents(totals.amountPaid),
+    ...(pay?.paidAt ? { paidAt: pay.paidAt } : {}),
+    ...(pay?.method ? { paymentMethod: pay.method } : {}),
+    seller,
   };
   const tz = ctx.merchant.timezone;
   const now = new TZDate(new Date(), tz);
   const year = format(now, "yyyy");
+  const logo = await loadLogo(prof.logo);
 
   // 号码、渲染、落盘、记录同一事务：渲染失败时整体回滚，号码不跳号、不留记录（§17）
   const row = await db().transaction(async (tx) => {
     const n = await nextSequence(tx, ctx.merchant.id, `${body.kind}:${year}`, 1);
     const number = `${PREFIX[body.kind]}-${year}-${String(n).padStart(6, "0")}`;
-    const out = await renderInvoice({
+    const layout = invoiceLayout({
       kind: body.kind,
       number,
       issuedOn: format(now, "yyyy-MM-dd"),
-      merchantName: ctx.merchant.name,
-      shopName: shop.name,
-      shopLabel: `${shop.platform === "shopee" ? "Shopee" : "TikTok Shop"} · ${shop.market}`,
+      paidOn: pay?.paidAt ? format(new TZDate(pay.paidAt, tz), "yyyy-MM-dd") : null,
       externalOrderId: order.externalOrderId,
-      fields,
+      platform: shop.platform,
+      market: shop.market,
+      seller: prof,
+      sellerFallback: ctx.merchant.name,
+      buyer: { name: fields.buyerName, address: fields.address, email: fields.email, taxId: fields.taxId },
+      items,
+      currency: fields.currency,
+      totals,
+      paymentMethod: pay?.method ?? null,
+      notes: fields.notes,
     });
+    const out = await renderInvoice({ layout, author: prof.legalName || ctx.merchant.name, logo });
     const base = `invoices/${ctx.merchant.id}/${number}`;
     await writeDataFile(`${base}.pdf`, out.pdf);
     await writeDataFile(`${base}.png`, out.png);

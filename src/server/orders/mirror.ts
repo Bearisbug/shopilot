@@ -58,6 +58,7 @@ export async function upsertOrder(ex: Executor, shop: ShopRow, o: NormalizedOrde
     recipient: o.recipient,
     tracking,
     deadlines: o.deadlines,
+    payment: o.payment,
     platformCreatedAt: o.createdAt,
     platformUpdatedAt: o.updatedAt,
     syncedAt: new Date(),

@@ -1,5 +1,6 @@
 // 商户设置（DESIGN §8.10 API-SET-001 至 API-SET-016）与文件下载（API-CONV-011）的请求 schema 与响应类型。
 import { z } from "zod";
+import type { ProfileFields, Totals } from "@/lib/invoice";
 import { zEmail, zPlatform, zTimezone, zUuid } from "./common";
 
 // ---------- 商户资料 API-SET-001 / 002 ----------
@@ -142,3 +143,38 @@ export type OwnershipPreview =
 
 export const deletionBody = z.object({ confirmName: z.string().max(200) });
 export type DeletionResult = { purgeAt: string };
+
+// ---------- 开票资料 API-SET-017 至 API-SET-021 ----------
+
+const profileText = (max: number) => z.string().trim().max(max, `最多 ${max} 个字`);
+/** 整份提交；空串表示没填，按店覆盖里表示沿用商户默认 */
+export const invoiceProfileBody = z.object({
+  legalName: profileText(200),
+  registrationNo: profileText(60),
+  taxIdLabel: profileText(40),
+  taxId: profileText(60),
+  address: profileText(500),
+  phone: profileText(40),
+  email: z
+    .string()
+    .trim()
+    .max(200, "最多 200 个字")
+    .refine((v) => v === "" || zEmail.safeParse(v).success, "邮箱格式不对，例如 billing@example.com"),
+  website: profileText(200),
+  notes: profileText(1000),
+  taxName: profileText(40),
+  taxRate: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (/^\d{1,2}(\.\d{1,2})?$/.test(v) && Number(v) <= 50), "税率填 0 到 50 之间的数字，最多两位小数"),
+  pricesIncludeTax: z.boolean().nullable(),
+}) satisfies z.ZodType<ProfileFields>;
+
+export type InvoiceLogo = { id: string; url: string; width: number | null; height: number | null };
+export type InvoiceProfileView = { shopId: string | null; fields: ProfileFields; logo: InvoiceLogo | null; updatedAt: string | null };
+/** shops 只列设了覆盖的店 */
+export type InvoiceProfilesResponse = { merchant: InvoiceProfileView; shops: InvoiceProfileView[] };
+export const LOGO_MAX_BYTES = 1024 * 1024;
+
+/** 开票弹层：这张订单所在店的开票资料缺哪些项，以及按开票资料算出的金额（分） */
+export type InvoicePreviewResponse = { missing: string[]; canEdit: boolean; currency: string; taxName: string; taxInclusive: boolean; totals: Totals };

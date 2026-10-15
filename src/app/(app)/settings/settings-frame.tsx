@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellRingIcon, Building2Icon, DatabaseIcon, ScrollTextIcon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
+import { BellRingIcon, Building2Icon, DatabaseIcon, ReceiptTextIcon, ScrollTextIcon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/settings", label: "商户资料", icon: Building2Icon },
+  { href: "/settings/invoice", label: "开票资料", icon: ReceiptTextIcon },
   { href: "/settings/notify", label: "通知", icon: BellRingIcon },
   { href: "/settings/security", label: "安全与登录", icon: ShieldCheckIcon },
   { href: "/settings/data", label: "数据与隐私", icon: DatabaseIcon },

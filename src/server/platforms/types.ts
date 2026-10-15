@@ -60,6 +60,7 @@ export type NormalizedOrder = {
   recipient: { name?: string; phone?: string; address?: string; masked: boolean } | null;
   tracking: { trackingNo?: string; carrier?: string; packageId?: string; events: Array<{ at: string; text: string }> } | null;
   deadlines: Record<string, string> | null;
+  payment: { shippingFee?: string; method?: string; paidAt?: string } | null;
   createdAt: Date;
   updatedAt: Date | null;
   buyerRequestedCancel?: boolean;

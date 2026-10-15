@@ -341,6 +341,7 @@ export function normalizeTiktokOrder(o: Record<string, unknown>): NormalizedOrde
   }
   const pkg = ((o.packages as Array<{ id: string }> | undefined) ?? [])[0];
   const rts = Number(o.rts_sla_time ?? 0);
+  const paid = Number(o.paid_time ?? 0);
   return {
     externalOrderId: String(o.id),
     buyerExternalId: o.user_id ? String(o.user_id) : null,
@@ -353,6 +354,11 @@ export function normalizeTiktokOrder(o: Record<string, unknown>): NormalizedOrde
     recipient: ra ? { name: ra.name, phone: ra.phone_number, address: ra.full_address, masked: /\*/.test(`${ra.name}${ra.phone_number}`) } : null,
     tracking: o.tracking_number || pkg ? { trackingNo: String(o.tracking_number ?? "") || undefined, carrier: String(o.shipping_provider ?? "") || undefined, packageId: pkg?.id, events: [] } : null,
     deadlines: Object.keys(deadlines).length ? deadlines : null,
+    payment: {
+      ...(payment.shipping_fee !== undefined ? { shippingFee: Number(payment.shipping_fee).toFixed(2) } : {}),
+      ...(o.payment_method_name ? { method: String(o.payment_method_name) } : {}),
+      ...(paid > 0 ? { paidAt: new Date(paid * 1000).toISOString() } : {}),
+    },
     createdAt: new Date(Number(o.create_time ?? 0) * 1000),
     updatedAt: o.update_time ? new Date(Number(o.update_time) * 1000) : null,
     buyerRequestedCancel: Boolean(o.is_buyer_request_cancel),

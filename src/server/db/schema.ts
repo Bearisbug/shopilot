@@ -516,7 +516,7 @@ export const draft = pgTable(
 export const file = pgTable("file", {
   id: id(),
   merchantId: merchantRef(),
-  kind: text("kind", { enum: ["chat_image", "invoice_pdf", "invoice_png", "export_zip"] }).notNull(),
+  kind: text("kind", { enum: ["chat_image", "invoice_pdf", "invoice_png", "export_zip", "invoice_logo"] }).notNull(),
   path: text("path").notNull(),
   mime: text("mime").notNull(),
   size: integer("size").notNull(),
@@ -530,6 +530,8 @@ export const file = pgTable("file", {
 
 /** image：商品图地址；补图任务取过但平台没给图时记为空串，不再重取 */
 export type OrderItem = { name: string; sku?: string; productId?: string; skuId?: string; qty: number; unitPrice: string; image?: string };
+/** 付款信息（开票用）：shippingFee 买家付的运费（Shopee 订单详情不给，缺省）；paidAt 付款时间 ISO */
+export type OrderPayment = { shippingFee?: string; method?: string; paidAt?: string };
 
 export const order = pgTable(
   "order",
@@ -550,6 +552,7 @@ export const order = pgTable(
     recipient: jsonb("recipient").$type<{ name?: string; phone?: string; address?: string; masked: boolean } | null>(),
     tracking: jsonb("tracking").$type<{ trackingNo?: string; carrier?: string; packageId?: string; events: Array<{ at: string; text: string }> } | null>(),
     deadlines: jsonb("deadlines").$type<Record<string, string> | null>(),
+    payment: jsonb("payment").$type<OrderPayment | null>(),
     platformCreatedAt: ts("platform_created_at").notNull(),
     platformUpdatedAt: ts("platform_updated_at"),
     syncedAt: ts("synced_at").notNull().defaultNow(),
@@ -588,17 +591,42 @@ export const afterSale = pgTable(
   (t) => [uniqueIndex("after_sale_shop_kind_ext_uq").on(t.shopId, t.kind, t.externalId), index("after_sale_order_idx").on(t.shopId, t.externalOrderId)],
 );
 
+/** 开具时的卖方快照（开票资料合并后的值） */
+export type InvoiceSeller = {
+  legalName?: string;
+  registrationNo?: string;
+  taxIdLabel?: string;
+  taxId?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  notes?: string;
+  logoFileId?: string;
+};
+
+/** subtotal 商品小计；tax 税额；total 含税合计。shipping 起的字段是开具时的金额快照，早期记录没有 */
 export type InvoiceFields = {
   buyerName: string;
   address: string;
   email?: string;
   taxId?: string;
-  items: Array<{ name: string; qty: number; unitPrice: string }>;
+  items: Array<{ name: string; sku?: string; qty: number; unitPrice: string }>;
   currency: string;
   subtotal: string;
   tax: string;
   total: string;
   notes?: string;
+  shipping?: string;
+  discount?: string;
+  fees?: string;
+  taxName?: string;
+  taxRate?: string;
+  taxInclusive?: boolean;
+  amountPaid?: string;
+  paidAt?: string;
+  paymentMethod?: string;
+  seller?: InvoiceSeller;
 };
 
 export const invoice = pgTable(
@@ -624,6 +652,33 @@ export const invoice = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("invoice_merchant_number_uq").on(t.merchantId, t.number)],
+);
+
+/** 开票资料（卖方信息）：shop_id 为空是商户默认，非空是按店覆盖；覆盖行里为空的字段沿用商户默认 */
+export const invoiceProfile = pgTable(
+  "invoice_profile",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    shopId: uuid("shop_id").references(() => shop.id, { onDelete: "cascade" }),
+    legalName: text("legal_name"),
+    registrationNo: text("registration_no"),
+    taxIdLabel: text("tax_id_label"),
+    taxId: text("tax_id"),
+    address: text("address"),
+    phone: text("phone"),
+    email: text("email"),
+    website: text("website"),
+    notes: text("notes"),
+    logoFileId: uuid("logo_file_id"),
+    taxName: text("tax_name"),
+    taxRate: numeric("tax_rate", { precision: 5, scale: 2 }),
+    pricesIncludeTax: boolean("prices_include_tax"),
+    updatedBy: uuid("updated_by").references(() => membership.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("invoice_profile_default_uq").on(t.merchantId).where(sql`shop_id is null`), uniqueIndex("invoice_profile_shop_uq").on(t.shopId)],
 );
 
 export const sequence = pgTable(

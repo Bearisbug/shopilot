@@ -197,7 +197,7 @@ export const invoiceFieldsBody = z.object({
   email: z.union([zEmail, z.literal("")]).optional(),
   taxId: z.string().trim().max(60).optional(),
   items: z
-    .array(z.object({ name: z.string().trim().min(1).max(200), qty: z.number().int().min(1).max(100_000), unitPrice: money2 }))
+    .array(z.object({ name: z.string().trim().min(1).max(200), sku: z.string().trim().max(200).optional(), qty: z.number().int().min(1).max(100_000), unitPrice: money2 }))
     .min(1, "至少一行商品")
     .max(50),
   currency: z.string().trim().regex(/^[A-Z]{3}$/, "币种是三位大写字母"),

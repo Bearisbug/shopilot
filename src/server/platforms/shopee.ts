@@ -335,6 +335,7 @@ const ORDER_FIELDS = [
   "shipping_carrier",
   "package_list",
   "pay_time",
+  "payment_method",
   "cancel_by",
   "cancel_reason",
   "buyer_cancel_reason",
@@ -387,6 +388,7 @@ export function normalizeShopeeOrder(o: Record<string, unknown>): NormalizedOrde
   if (shipBy) deadlines.ship_by_date = shipBy.toISOString();
   const returnDue = secDate(o.return_request_due_date);
   if (returnDue) deadlines.return_request_due_date = returnDue.toISOString();
+  const paidAt = secDate(o.pay_time);
   return {
     externalOrderId: String(o.order_sn),
     buyerExternalId: o.buyer_user_id !== undefined ? String(o.buyer_user_id) : null,
@@ -399,6 +401,8 @@ export function normalizeShopeeOrder(o: Record<string, unknown>): NormalizedOrde
     recipient: ra ? { name: ra.name, phone: ra.phone, address: ra.full_address, masked: /\*/.test(`${ra.name}${ra.phone}${ra.full_address}`) } : null,
     tracking: pkg ? { carrier: String(pkg.shipping_carrier ?? o.shipping_carrier ?? "") || undefined, packageId: String(pkg.package_number ?? "") || undefined, events: [] } : null,
     deadlines: Object.keys(deadlines).length ? deadlines : null,
+    // 订单详情不给买家付的运费（只有预估与实际物流成本）
+    payment: { ...(o.payment_method ? { method: String(o.payment_method) } : {}), ...(paidAt ? { paidAt: paidAt.toISOString() } : {}) },
     createdAt: secDate(o.create_time) ?? new Date(),
     updatedAt: secDate(o.update_time),
     buyerRequestedCancel: o.order_status === "IN_CANCEL",
