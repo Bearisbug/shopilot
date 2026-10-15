@@ -16,6 +16,8 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.12 | FLOW-KB-INGEST | 入库补扫按资料最近一次更新计时，排队中改分类、站点或开关会重新计 10 分钟 | 文档 |
+| 2026-10-15 | v1.12 | FLOW-KB-INGEST、FLOW-KB-MANAGE、FLOW-KB-TEST、FLOW-AI-DRAFT、API-KB-001、API-KB-005、API-KB-006、API-KB-007、API-KB-009、API-KB-010、API-KB-011、API-KB-012、API-MOCK-010、EVT:knowledge_updated、EVT:knowledge_reparsed、EVT:knowledge_category_created、EVT:knowledge_category_renamed、EVT:knowledge_category_deleted | 知识库按实现对齐：索引完成判定、补扫、检索报错也重试、测试问答的店铺与限流、依据怎么点开；三条链路已实现 | 文档 |
 | 2026-10-15 | v1.11 | FLOW-KB-INGEST、FLOW-KB-MANAGE | 上传、维护资料的执行者与资料状态迁移的触发者补上组长，与 knowledge.manage 一致 | 文档 |
 | 2026-10-15 | v1.11 | FLOW-KB-INGEST、FLOW-KB-MANAGE、FLOW-AI-DRAFT、REQ-KB-001、REQ-KB-002、REQ-KB-003、REQ-KB-004、REQ-KB-005、REQ-KB-006、REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、RULE-KB-001、RULE-KB-002、RULE-KB-003、INV-KB-001、INV-KB-002、INV-KB-003、INV-AI-001、ADR-014 | 新增知识库：上传资料、分类、测试问答，AI 出稿先查资料并给客服看依据，补了链路总览 | 功能、文档 |
 
@@ -49,9 +51,9 @@
 | FLOW-SHOP-CONNECT | 接入店铺 | 接入 | 已实现 | REQ-SHOP-001、REQ-SHOP-002、REQ-SHOP-003、REQ-SHOP-004、REQ-SHOP-005、REQ-SHOP-011、REQ-SHOP-013 |
 | FLOW-SHOP-MAINTAIN | 维护店铺 | 接入 | 已实现 | REQ-SHOP-006、REQ-SHOP-007、REQ-SHOP-008、REQ-SHOP-009、REQ-SHOP-010、REQ-SHOP-012 |
 | FLOW-RECEPTION | 配置接待 | 接待 | 已实现 | REQ-RCP-001、REQ-RCP-002、REQ-RCP-003、REQ-RCP-004 |
-| FLOW-KB-INGEST | 上传资料 | 知识库 | 设计中 | REQ-KB-001 |
-| FLOW-KB-MANAGE | 维护资料 | 知识库 | 设计中 | REQ-KB-002、REQ-KB-003、REQ-KB-004 |
-| FLOW-KB-TEST | 测试问答 | 知识库 | 设计中 | REQ-KB-005 |
+| FLOW-KB-INGEST | 上传资料 | 知识库 | 已实现 | REQ-KB-001 |
+| FLOW-KB-MANAGE | 维护资料 | 知识库 | 已实现 | REQ-KB-002、REQ-KB-003、REQ-KB-004 |
+| FLOW-KB-TEST | 测试问答 | 知识库 | 已实现 | REQ-KB-005 |
 | FLOW-BILLING | 用量与套餐 | 运营 | 已实现 | REQ-BILL-001、REQ-BILL-002、REQ-BILL-003、REQ-BILL-004、REQ-BILL-005 |
 | FLOW-SETTINGS | 商户设置 | 运营 | 已实现 | REQ-SET-001、REQ-SET-002、REQ-SET-003、REQ-SET-004、REQ-SET-005、REQ-SET-006 |
 
@@ -127,51 +129,54 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 文件超过 20 MB | 413 `/errors/too-large`〔提示：单个文件不能超过 20 MB〕 | `/errors/too-large`；API-KB-002 | 无用例 |
-| 失败 | PDF 以外的文件超过 4 MB | 413 `/errors/too-large`〔提示：PDF 以外的文件不能超过 4 MB〕 | `/errors/too-large`；API-KB-002 | 无用例 |
-| 失败 | 上传的是 PPT | 415 `/errors/unsupported-type`〔提示：请先把 PPT 导出为 PDF 再上传〕 | `/errors/unsupported-type`；API-KB-002 | 无用例 |
-| 失败 | 其他不支持的格式 | 415 `/errors/unsupported-type`〔提示：这种格式暂不支持〕 | `/errors/unsupported-type`；API-KB-002 | 无用例 |
-| 边界 | 一批里有文件被拒 | 其余文件照常上传，被拒的逐个写原因 | API-KB-002；场景「上传不支持或超限的文件被拒」 | 无用例 |
+| 失败 | 文件超过 20 MB | 413 `/errors/too-large`〔提示：单个文件不能超过 20 MB〕 | `/errors/too-large`；API-KB-002 | TC-KB-002、TC-KB-003 |
+| 失败 | PDF 以外的文件超过 4 MB | 413 `/errors/too-large`〔提示：PDF 以外的文件不能超过 4 MB〕 | `/errors/too-large`；API-KB-002 | TC-KB-002、TC-KB-003 |
+| 失败 | 上传的是 PPT | 415 `/errors/unsupported-type`〔提示：请先把 PPT 导出为 PDF 再上传〕 | `/errors/unsupported-type`；API-KB-002 | TC-KB-002、TC-KB-003 |
+| 失败 | 其他不支持的格式 | 415 `/errors/unsupported-type`〔提示：这种格式暂不支持〕 | `/errors/unsupported-type`；API-KB-002 | TC-KB-002、TC-KB-003 |
+| 边界 | 一批里有文件被拒 | 其余文件照常上传，被拒的逐个写原因 | API-KB-002；场景「上传不支持或超限的文件被拒」 | TC-KB-003 |
 
 ##### S3 存原文件、建资料
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 资料数已到上限 | 409 `/errors/not-allowed`〔提示：资料已满，请先删除不用的〕 | `/errors/not-allowed`；API-KB-002 | 无用例 |
-| 失败 | 内容与已有资料相同 | 409 `/errors/duplicate`〔提示：已有同样的文件〕 | `/errors/duplicate`；API-KB-002 | 无用例 |
-| 并发 | 选的分类刚被别人删除 | 422 `/errors/validation` | `/errors/validation`；竞态「删除分类时有资料正上传到它」 | 无用例 |
-| 并发 | 两次上传同时越过资料上限 | 后到的 409 `/errors/not-allowed` | 竞态「并发上传越过资料上限」；INV-KB-001 | 无用例 |
-| 并发 | 同一文件同时上传两次 | 后到的 409 `/errors/duplicate` | 竞态「同一内容同时上传两次」 | 无用例 |
+| 失败 | 资料数已到上限 | 409 `/errors/not-allowed`〔提示：资料已满，请先删除不用的〕 | `/errors/not-allowed`；API-KB-002 | TC-KB-005 |
+| 失败 | 内容与已有资料相同 | 409 `/errors/duplicate`〔提示：已有同样的文件〕 | `/errors/duplicate`；API-KB-002 | TC-KB-004 |
+| 并发 | 选的分类刚被别人删除 | 422 `/errors/validation` | `/errors/validation`；竞态「删除分类时有资料正上传到它」 | 不测：本地造不出两个请求精确交错，见 TEST.md §2 |
+| 并发 | 两次上传同时越过资料上限 | 后到的 409 `/errors/not-allowed` | 竞态「并发上传越过资料上限」；INV-KB-001 | 不测：代码仓测试 knowledge.test.ts 覆盖 |
+| 并发 | 同一文件同时上传两次 | 后到的 409 `/errors/duplicate` | 竞态「同一内容同时上传两次」 | 不测：本地造不出两个请求精确交错，见 TEST.md §2 |
+| 边界 | 排队中 10 分钟没有任何更新 | 每小时补扫时重新排入库 | §17 排队中且 10 分钟没有任何更新的重新排入库 | TC-KB-035 |
 
 ##### S4 确认检索实例
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 并发 | 同一商户两份资料同时触发建实例 | 只建一个实例 | 竞态「同商户并发创建检索实例」 | 无用例 |
-| 失败 | 账号的检索实例数已到上限 | 资料「失败」，原因写检索服务容量已满 | 迁移 ENT-KnowledgeDocument processing→failed；§17 到上限时新商户的资料入库失败并写原因 | 无用例 |
-| 边界 | 实例名的取法 | 取商户 ID 去掉连字符后的后 12 位，避开 uuid v7 的时间前缀 | 字段 knowledge_index.instance_name | 无用例 |
+| 并发 | 同一商户两份资料同时触发建实例 | 只建一个实例 | 竞态「同商户并发创建检索实例」 | 不测：本地造不出两个任务精确交错，见 TEST.md §2 |
+| 失败 | 账号的检索实例数已到上限 | 资料「失败」，原因写检索服务容量已满 | 迁移 ENT-KnowledgeDocument processing→failed；§17 到上限时新商户的资料入库失败并写原因 | 不测：检索替身没有实例数上限 |
+| 边界 | 实例名的取法 | 取商户 ID 去掉连字符后的后 12 位，避开 uuid v7 的时间前缀 | 字段 knowledge_index.instance_name | 不测：实例名只在检索服务里可见，TC-KB-036 人工核对 |
 
 ##### S5 按页拆分
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | PDF 有一页超过 10 MB | 资料「失败」〔提示：第 N 页超过 10 MB，请压缩后重传〕 | 迁移 ENT-KnowledgeDocument processing→failed；场景「大 PDF 按页拆分入库」 | 无用例 |
-| 边界 | PDF 不超过 10 MB | 不拆，整份作为一个条目 | §17 超限的 PDF 按页拆成多个条目 | 无用例 |
+| 失败 | PDF 有一页超过 10 MB | 资料「失败」〔提示：第 N 页超过 10 MB，请压缩后重传〕 | 迁移 ENT-KnowledgeDocument processing→failed；场景「大 PDF 按页拆分入库」 | TC-KB-007 |
+| 边界 | PDF 不超过 10 MB | 不拆，整份作为一个条目 | §17 超限的 PDF 按页拆成多个条目 | TC-KB-001 |
 
 ##### S6 上传并等索引
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 并发 | 入库途中资料被删除 | 入库停下，已上传的条目随删除清掉 | 竞态「删除与入库交错」；INV-KB-003 | 无用例 |
-| 失败 | 重传 2 次仍失败 | 资料「失败」，原因含检索服务给的错误 | 迁移 ENT-KnowledgeDocument processing→failed；场景「索引失败时删除后同名重传」；§15 单份资料入库 ≤ 20 分钟 | 无用例 |
-| 边界 | 索引报错或 15 分钟没完成 | 删除条目后同名重传，最多 2 次 | 场景「索引失败时删除后同名重传」；ADR-014 | 无用例 |
+| 并发 | 入库途中资料被删除 | 入库停下，已上传的条目随删除清掉 | 竞态「删除与入库交错」；INV-KB-003 | 不测：代码仓测试 knowledge.test.ts 覆盖 |
+| 失败 | 重传 2 次仍失败 | 资料「失败」，原因含检索服务给的错误 | 迁移 ENT-KnowledgeDocument processing→failed；场景「索引失败时删除后同名重传」；§15 单份资料入库 ≤ 20 分钟 | TC-KB-009 |
+| 边界 | 索引报错或 15 分钟没完成 | 删除条目后同名重传，最多 2 次 | 场景「索引失败时删除后同名重传」；ADR-014 | TC-KB-008 |
+| 边界 | 条目一直停在「处理中」 | 分块数大于 0 且连续两次查询不变即算完成 | 迁移 ENT-KnowledgeDocument processing→ready；ADR-014 | TC-KB-036 |
+| 失败 | 解析中任务中断超过 25 分钟 | 补扫把资料标「失败」〔提示：入库任务中断，请重新解析〕 | 迁移 ENT-KnowledgeDocument processing→failed；§15 单份资料入库 ≤ 20 分钟 | TC-KB-035 |
 
 ##### S7 读回分块
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 边界 | 入库中管理员已关掉 AI 可用 | 解析完成后显示「已停用」，不被引用 | 字段 knowledge_document.ai_enabled；RULE-KB-001 | 无用例 |
-| 边界 | 分块从哪里来 | 按条目分页读回检索服务的分块，与检索用的一致 | API-KB-004 | 无用例 |
+| 边界 | 分块从哪里来 | 按条目分页读回检索服务的分块，与检索用的一致 | API-KB-004 | TC-KB-015 |
 
 #### 待决策
 
@@ -216,63 +221,71 @@
 
 #### 分支
 
-> 分支未与用户逐类核对：S2–S8
+> 分支未与用户逐类核对：S1–S8
+
+##### S1 筛选资料
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 按某个具体站点筛选 | 同时列出适用全部站点的资料 | API-KB-001 | TC-KB-012 |
+| 边界 | 站点筛选选「全部站点」 | 只列适用全部站点的资料 | API-KB-001 | TC-KB-012 |
 
 ##### S2 打开资料抽屉
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 失败 | 原文件在磁盘上已不存在 | 404 `/errors/not-found`〔提示：文件已不存在〕 | `/errors/not-found`；API-CONV-011 | 无用例 |
-| 边界 | 原文件不是 PDF 或图片 | 不内嵌预览，只给下载 | API-CONV-011 | 无用例 |
-| 边界 | 资料还在解析或已失败 | 解析内容为空，显示状态与失败原因 | API-KB-004 | 无用例 |
+| 边界 | 原文件不是 PDF 或图片 | 不内嵌预览，只给下载 | API-CONV-011 | TC-KB-001 |
+| 边界 | 资料还在解析或已失败 | 解析内容为空，显示状态与失败原因 | API-KB-004 | TC-KB-007、TC-KB-014 |
 
 ##### S3 改分类、站点或开关
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 并发 | 停用时正好有出稿在检索 | 这次出稿可能仍引用它，之后的不再引用 | 竞态「停用与出稿检索交错」 | 无用例 |
-| 失败 | 站点一个都没选 | 422 `/errors/validation`〔提示：至少选一个站点〕 | `/errors/validation`；API-KB-005 | 无用例 |
-| 边界 | 改了分类或站点 | 立即生效，不重新解析 | API-KB-005；RULE-KB-001 | 无用例 |
-| 边界 | 关掉 AI 可用 | 之后的出稿不再引用，已有草稿保留依据 | RULE-KB-001；字段 draft.citations | 无用例 |
+| 并发 | 停用时正好有出稿在检索 | 这次出稿可能仍引用它，之后的不再引用 | 竞态「停用与出稿检索交错」 | 不测：本地造不出两个请求精确交错，见 TEST.md §2 |
+| 失败 | 站点一个都没选 | 422 `/errors/validation`〔提示：至少选一个站点〕 | `/errors/validation`；API-KB-005 | TC-KB-012 |
+| 边界 | 改了分类或站点 | 立即生效，不重新解析 | API-KB-005；RULE-KB-001 | TC-KB-010、TC-KB-012 |
+| 边界 | 关掉 AI 可用 | 之后的出稿不再引用，已有草稿保留依据 | RULE-KB-001；字段 draft.citations | TC-KB-013 |
 
 ##### S4 重新解析
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 资料正在排队或解析 | 409 `/errors/conflict`〔提示：这份资料正在解析，完成后再试〕 | `/errors/conflict`；竞态「资料解析中再点重新解析」 | 无用例 |
-| 边界 | 重新解析期间 | 旧副本先删掉，完成前不被引用 | 迁移 ENT-KnowledgeDocument ready→queued；RULE-KB-001 | 无用例 |
+| 失败 | 资料正在排队或解析 | 409 `/errors/conflict`〔提示：这份资料正在解析，完成后再试〕 | `/errors/conflict`；竞态「资料解析中再点重新解析」 | TC-KB-014 |
+| 边界 | 重新解析期间 | 旧副本先删掉，完成前不被引用 | 迁移 ENT-KnowledgeDocument ready→queued；RULE-KB-001 | TC-KB-015 |
 
 ##### S5 删除资料
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 并发 | 两人同时删除同一份资料 | 都提示已删除，只删一次 | 竞态「两人同时删除同一份资料」 | 无用例 |
-| 并发 | 删除时资料正在解析 | 入库停下，已上传的副本一并删掉 | 竞态「删除与入库交错」；INV-KB-003 | 无用例 |
+| 并发 | 两人同时删除同一份资料 | 都提示已删除，只删一次 | 竞态「两人同时删除同一份资料」 | 不测：本地造不出两个请求精确交错，见 TEST.md §2 |
+| 并发 | 删除时资料正在解析 | 入库停下，已上传的副本一并删掉 | 竞态「删除与入库交错」；INV-KB-003 | 不测：代码仓测试 knowledge.test.ts 覆盖 |
 
 ##### S6 后台删除副本
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 删除检索副本失败 | 列表里已看不到，后台重试到删掉为止 | 迁移 ENT-KnowledgeDocument deleting→[*]；INV-KB-003 | 无用例 |
+| 失败 | 删除检索副本失败 | 列表里已看不到，后台重试到删掉为止 | 迁移 ENT-KnowledgeDocument deleting→[*]；INV-KB-003 | 不测：检索替身删除不会失败 |
+| 边界 | 删除成功后约 30 秒内仍查得到条目 | 以删除接口返回成功为准，照常删记录 | 迁移 ENT-KnowledgeDocument deleting→[*]；ADR-014 | TC-KB-036 |
 
 ##### S7 新增或改名分类
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 分类名与已有分类相同 | 409 `/errors/duplicate`〔提示：已有同名分类〕 | `/errors/duplicate`；API-KB-009 | 无用例 |
-| 失败 | 分类已有 50 个 | 409 `/errors/not-allowed`〔提示：分类最多 50 个〕 | `/errors/not-allowed`；API-KB-009 | 无用例 |
-| 失败 | 改名「未分类」 | 409 `/errors/not-allowed` | `/errors/not-allowed`；API-KB-010 | 无用例 |
+| 失败 | 分类名与已有分类相同 | 409 `/errors/duplicate`〔提示：已有同名分类〕 | `/errors/duplicate`；API-KB-009 | TC-KB-010 |
+| 失败 | 分类已有 50 个 | 409 `/errors/not-allowed`〔提示：分类最多 50 个〕 | `/errors/not-allowed`；API-KB-009 | TC-KB-011 |
+| 失败 | 改名「未分类」 | 409 `/errors/not-allowed` | `/errors/not-allowed`；API-KB-010 | TC-KB-010 |
 
 ##### S8 删除分类
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 删除「未分类」 | 409 `/errors/not-allowed` | `/errors/not-allowed`；API-KB-011 | 无用例 |
-| 边界 | 删除还有资料的分类 | 资料归入「未分类」，不重新解析 | API-KB-011；场景「分类管理与改适用站点」 | 无用例 |
+| 失败 | 删除「未分类」 | 409 `/errors/not-allowed` | `/errors/not-allowed`；API-KB-011 | TC-KB-010 |
+| 边界 | 删除还有资料的分类 | 资料归入「未分类」，不重新解析 | API-KB-011；场景「分类管理与改适用站点」 | TC-KB-010 |
 
 #### 待决策
 
-另见：§28 组长、员工要不要能查看资料与测试问答
+另见：无
 
 #### 关联
 
@@ -309,7 +322,7 @@
 7. S6 两路结果去重合并，取前 8 段编号 〔无界面〕
 8. S7 带提示词、订单事实与资料片段请 DeepSeek 出稿 〔无界面〕
 9. S8 按模式存草稿、存影子回复或直接发给买家 〔无界面〕
-10. S9 员工在工作台看到草稿与「依据：《文件名》」（API-CONV-002） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/composer.tsx〕
+10. S9 员工在工作台看到草稿与「依据：《文件名》」（API-CONV-002） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/composer.tsx、src/app/(app)/wb/wb-shared.tsx〕
 
 #### 分支
 
@@ -333,22 +346,22 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 改写出错或超过 6 秒 | 只用买家原话检索一路 | §17 改写失败时只用买家原话检索；§15 改写 6 秒、检索每路 8 秒加纯向量重试 5 秒 | 无用例 |
+| 失败 | 改写出错或超过 6 秒 | 只用买家原话检索一路 | §17 改写失败时只用买家原话检索；§15 改写 6 秒、检索每路 8 秒加纯向量重试 5 秒 | 不测：替身改写不会失败 |
 | 边界 | 没有对该店站点可用的资料 | 跳过改写与检索，照旧出稿 | RULE-KB-001；场景「assist 模式出草稿」 | TC-AI-003 |
 
 ##### S5a 两路检索
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 某路结果没有向量分或超过 8 秒 | 这一路改用纯向量检索重试一次 | 场景「混合检索降级时改用纯向量重试」；§15 改写 6 秒、检索每路 8 秒加纯向量重试 5 秒 | 无用例 |
-| 失败 | 两路重试后都失败 | 不带资料出稿，不转人工，记降级 | RULE-KB-002；场景「检索失败时不带资料出稿」；§15 出稿超时转人工，检索超时只降级 | 无用例 |
-| 边界 | 命中已停用、站点不符或已删除的资料 | 从结果里丢掉这些分块 | RULE-KB-001；字段 knowledge_document.ai_enabled | 无用例 |
+| 失败 | 某路结果没有向量分、超过 8 秒或返回错误 | 这一路改用纯向量检索重试一次 | 场景「混合检索降级时改用纯向量重试」；§15 改写 6 秒、检索每路 8 秒加纯向量重试 5 秒 | TC-KB-028、TC-KB-029 |
+| 失败 | 两路重试后都失败 | 不带资料出稿，不转人工，记降级 | RULE-KB-002；场景「检索失败时不带资料出稿」；§15 出稿超时转人工，检索超时只降级 | TC-KB-030 |
+| 边界 | 命中已停用、站点不符或已删除的资料 | 从结果里丢掉这些分块 | RULE-KB-001；字段 knowledge_document.ai_enabled | TC-KB-026 |
 
 ##### S6 合并结果
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 两路返回同一分块 | 只保留一次 | 字段 draft.retrieval | 无用例 |
+| 边界 | 两路返回同一分块 | 只保留一次 | 字段 draft.retrieval | TC-KB-017 |
 
 ##### S7 请 DeepSeek 出稿
 
@@ -358,8 +371,8 @@
 | 失败 | 模型 25 秒内没返回 | 转人工，原因「模型超时」，退回用量 | 迁移 ENT-Conversation bot→awaiting_human；§15 出稿超时转人工，检索超时只降级 | TC-AI-009 |
 | 失败 | 模型要求转人工 | 转人工，原因取模型给的，自动模式发它的安抚句 | 字段 conversation.handoff_reason；迁移 ENT-Conversation bot→awaiting_human | TC-AI-019 |
 | 失败 | 置信度低于阈值 | 转人工，原因「置信度低于阈值」 | 迁移 ENT-Draft [*]→generated；场景「转人工条件」 | TC-AI-016、TC-AI-017 |
-| 边界 | 模型判定资料不足 | 不论阈值一律转人工，原因记「置信度低于阈值」 | RULE-KB-003；场景「资料不足时转人工」 | 无用例 |
-| 边界 | 模型给的编号不在检索结果里 | 忽略该编号，不显示为依据 | 字段 draft.citations | 无用例 |
+| 边界 | 模型判定资料不足 | 不论阈值一律转人工，原因记「置信度低于阈值」 | RULE-KB-003；场景「资料不足时转人工」 | TC-KB-027 |
+| 边界 | 模型给的编号不在检索结果里 | 忽略该编号，不显示为依据 | 字段 draft.citations | 不测：单元测试 retrieve.test.ts 覆盖 |
 
 ##### S8 按模式存草稿或发送
 
@@ -368,13 +381,16 @@
 | 并发 | 出稿期间买家又发了消息 | 旧草稿作废，按最新消息重新出稿 | 竞态「草稿生成期间买家又发消息」 | TC-AI-012 |
 | 失败 | 自动模式发送失败 | 草稿记失败，转人工「发送失败」 | 迁移 ENT-Draft generated→failed | TC-AI-020 |
 | 边界 | 影子模式 | 存影子回复不发送，只给管理员和组长看 | 迁移 ENT-Draft [*]→shadow | TC-AI-005 |
+| 边界 | 影子模式下模型判定资料不足 | 照常存影子回复，不显示「资料不足」标记 | 迁移 ENT-Draft [*]→shadow；字段 draft.insufficient | TC-KB-031 |
 | 边界 | 自动模式且置信度达标 | 直接发给买家，依据不随消息发出 | 迁移 ENT-Conversation bot→bot；INV-AI-001 | TC-AI-007 |
 
 ##### S9 员工看到草稿与依据
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 依据的资料之后被删除 | 依据仍显示文件名，不能点开 | 字段 draft.citations；API-CONV-002 | 无用例 |
+| 边界 | 管理员或组长点依据里的文件名 | 新标签打开知识库页的资料抽屉 | API-CONV-002；API-KB-003 | TC-KB-024 |
+| 边界 | 员工看依据 | 只显示文件名，不能点开 | API-CONV-011；字段 draft.citations | TC-KB-024 |
+| 边界 | 依据的资料之后被删除 | 所有人只看到文件名，不能点开 | 字段 draft.citations；API-CONV-002 | TC-KB-025 |
 | 边界 | 草稿 24 小时未处置 | 草稿过期，不再显示 | 迁移 ENT-Draft generated→expired | TC-AI-013 |
 
 #### 待决策
@@ -396,7 +412,7 @@
 | S2–S3 | `src/server/ai/draft.ts#generateDraft`；`src/server/conversations/hours.ts#hitKeyword`；`src/server/billing/usage.ts#reserveDraft` |
 | S4–S6 | `src/server/knowledge/retrieve.ts#retrieveForDraft` |
 | S7–S8 | `src/server/ai/draft.ts#generateDraft`；`src/server/ai/client.ts#chat`；`src/server/ai/draft.ts#handoff` |
-| S9 | `src/app/(app)/wb/composer.tsx#DraftCard` |
+| S9 | `src/app/(app)/wb/composer.tsx#DraftCard`；`src/app/(app)/wb/wb-shared.tsx#Citations` |
 
 ## L3. 业务规则
 
@@ -434,10 +450,10 @@
 
 | ID | 不变量 | 由什么保证 | 验证 |
 | --- | --- | --- | --- |
-| INV-KB-001 | 一个商户没在删除中的资料不超过 500 份 | 竞态「并发上传越过资料上限」；API-KB-002 | 无用例 |
-| INV-KB-002 | 出稿与测试问答只引用解析完成、AI 可用开着且站点相符的资料 | RULE-KB-001；字段 knowledge_document.ai_enabled | 无用例 |
-| INV-KB-003 | 资料记录删掉之前，它在检索服务里的条目已全部删除 | 迁移 ENT-KnowledgeDocument deleting→[*] | 无用例 |
-| INV-AI-001 | 依据只存在草稿的引用里，系统不把它拼进发给买家的正文 | 字段 draft.citations；API-CONV-002 | 无用例 |
+| INV-KB-001 | 一个商户没在删除中的资料不超过 500 份 | 竞态「并发上传越过资料上限」；API-KB-002 | TC-KB-005 |
+| INV-KB-002 | 出稿与测试问答只引用解析完成、AI 可用开着且站点相符的资料 | RULE-KB-001；字段 knowledge_document.ai_enabled | TC-KB-012、TC-KB-013、TC-KB-026 |
+| INV-KB-003 | 资料记录删掉之前，它在检索服务里的条目已全部删除 | 迁移 ENT-KnowledgeDocument deleting→[*] | TC-KB-016 |
+| INV-AI-001 | 依据只存在草稿的引用里，系统不把它拼进发给买家的正文 | 字段 draft.citations；API-CONV-002 | TC-KB-024 |
 
 ## 2. 背景 / 目标 / 非目标
 
@@ -1473,18 +1489,18 @@ erDiagram
 | `API-RCP-008` | `POST /api/v1/quick-replies` | REQ-CONV-009 | `{ title, stage, text(≤2000) }` | 201 | — | 幂等键 |
 | `API-RCP-009` | `PATCH /api/v1/quick-replies/{id}` | REQ-CONV-009 | `{ title?, stage?, text? }` | 200 | — | 幂等 |
 | `API-RCP-010` | `DELETE /api/v1/quick-replies/{id}` | REQ-CONV-009 | — | 204 | — | 幂等 |
-| `API-KB-001` | `GET /api/v1/knowledge/documents` | REQ-KB-002、REQ-KB-003 | `?categoryId=&market=ALL\|MY\|TH\|VN\|PH\|SG\|ID&status=queued\|processing\|ready\|failed&aiEnabled=&q=&cursor=`（`q` 按文件名包含匹配） | `{ items[{ id, name, mime, size, categoryId, markets[], status, aiEnabled, failureReason?, partsCount, chunksCount, uploadedByName, createdAt, readyAt? }], counts{ total, limit }, nextCursor }`；`limit` 为 500 | — | no-store；有排队或解析中的资料时前端 5 秒轮询 |
+| `API-KB-001` | `GET /api/v1/knowledge/documents` | REQ-KB-002、REQ-KB-003 | `?categoryId=&market=ALL\|MY\|TH\|VN\|PH\|SG\|ID&status=queued\|processing\|ready\|failed&aiEnabled=&q=&cursor=`（`q` 按文件名包含匹配；`market` 选具体站点时也列出适用全部站点的资料，选 `ALL` 只列适用全部站点的资料） | `{ items[{ id, name, mime, size, categoryId, markets[], status, aiEnabled, failureReason?, partsCount, chunksCount, uploadedByName, createdAt, readyAt? }], counts{ total, limit }, nextCursor }`；`limit` 为 500 | — | no-store；有排队或解析中的资料时前端 5 秒轮询 |
 | `API-KB-002` | `POST /api/v1/knowledge/documents` | REQ-KB-001 | multipart：`file`（一次一个文件，前端逐个上传并逐个显示结果）、`categoryId?`（默认「未分类」）、`markets[]`（默认 `ALL`） | 201 `{ document }`（`status = queued`），排 `knowledge.ingest`；审计 `EVT:knowledge_uploaded` | 413 `/errors/too-large`（`code: file_limit` 超过 20 MB；`code: retrieval_limit` PDF 以外超过 4 MB）；415 `/errors/unsupported-type`（`code: ppt_export_pdf` 为 PPT，提示先导出为 PDF）；409 `/errors/not-allowed`（`code: document_quota`，已有 500 份）；409 `/errors/duplicate`（内容与已有资料相同，附 `existingId`、`existingName`）；422 `/errors/validation`（分类不存在、站点为空） | 幂等键；同内容由唯一约束兜底 |
 | `API-KB-003` | `GET /api/v1/knowledge/documents/{id}` | REQ-KB-002 | — | `{ document, fileUrl, parts[{ partNo, pageFrom?, pageTo?, status, retries, error? }] }`；`fileUrl` 指向 `API-CONV-011` | — | no-store |
 | `API-KB-004` | `GET /api/v1/knowledge/documents/{id}/chunks` | REQ-KB-002 | `?cursor=`（每页 50） | `{ items[{ no, partNo, text }], nextCursor }`；资料不是 `ready` 时为空列表 | — | no-store |
-| `API-KB-005` | `PATCH /api/v1/knowledge/documents/{id}` | REQ-KB-003、REQ-KB-004 | `{ categoryId?, markets?, aiEnabled? }` | 200 资料；立即生效，不重新解析，不改检索服务里的副本 | 422 `/errors/validation`（分类不存在、站点为空、`ALL` 与具体站点同选） | 幂等 |
-| `API-KB-006` | `POST /api/v1/knowledge/documents/{id}/reparse` | REQ-KB-004 | — | 202 资料（`status = queued`），排 `knowledge.ingest`：先删旧检索副本再重传 | 409 `/errors/conflict`（`code: processing`，正在排队或解析） | 只从 `ready`、`failed` 发起，状态守卫防重复 |
-| `API-KB-007` | `DELETE /api/v1/knowledge/documents/{id}` | REQ-KB-004 | — | 204；资料立即从列表消失（`status = deleting`），由 `knowledge.purge` 删检索副本、原文件与记录；审计 `EVT:knowledge_deleted` | — | 幂等（删除中或已删除返回 204） |
+| `API-KB-005` | `PATCH /api/v1/knowledge/documents/{id}` | REQ-KB-003、REQ-KB-004 | `{ categoryId?, markets?, aiEnabled? }` | 200 `{ document }`；立即生效，不重新解析，不改检索服务里的副本；审计 `EVT:knowledge_updated` | 422 `/errors/validation`（分类不存在、站点为空、`ALL` 与具体站点同选） | 幂等 |
+| `API-KB-006` | `POST /api/v1/knowledge/documents/{id}/reparse` | REQ-KB-004 | — | 202 `{ document }`（`status = queued`），排 `knowledge.ingest`：先删旧检索副本再重传；审计 `EVT:knowledge_reparsed` | 409 `/errors/conflict`（`code: processing`，正在排队或解析） | 只从 `ready`、`failed` 发起，状态守卫防重复 |
+| `API-KB-007` | `DELETE /api/v1/knowledge/documents/{id}` | REQ-KB-004 | — | 204；资料立即从列表消失（`status = deleting`），由 `knowledge.purge` 删检索副本、原文件与记录；审计 `EVT:knowledge_deleted` | — | 幂等（删除中或已删除返回 204；ID 不存在或属于别的商户时同样 204，不做任何改动，与已删除不可区分） |
 | `API-KB-008` | `GET /api/v1/knowledge/categories` | REQ-KB-003 | — | `{ items[{ id, name, builtin, documentCount }] }`，内置「未分类」排第一 | — | no-store |
-| `API-KB-009` | `POST /api/v1/knowledge/categories` | REQ-KB-003 | `{ name }`（1..20 字） | 201 分类 | 409 `/errors/duplicate`（同名）；409 `/errors/not-allowed`（`code: category_quota`，已有 50 个） | 幂等键 |
-| `API-KB-010` | `PATCH /api/v1/knowledge/categories/{id}` | REQ-KB-003 | `{ name }` | 200 分类 | 409 `/errors/duplicate`；409 `/errors/not-allowed`（`code: builtin`，「未分类」不能改名） | 幂等 |
-| `API-KB-011` | `DELETE /api/v1/knowledge/categories/{id}` | REQ-KB-003 | — | 200 `{ movedDocuments }`，其中资料改归「未分类」，不重新解析 | 409 `/errors/not-allowed`（`code: builtin`，「未分类」不能删） | 重复删除返回 404 |
-| `API-KB-012` | `POST /api/v1/knowledge/test` | REQ-KB-005 | `{ question, shopId? }`（问题 1..500 字，任意语言） | 200 `{ answer, confidence, insufficient, wouldHandoff, handoffReason?, sources[{ n, documentId, name, snippet, fileUrl }], retrieval{ rewrittenQuery, routes[{ kind: rewritten\|original, mode: hybrid\|vector_only, latencyMs, error?, chunks[{ documentId, name, chunkNo, text, score, scoreDetails }] }], merged[{ n, documentId, chunkNo }], degraded, degradedReason? }, latencyMs }`；走 12.8 同一条链路，不存草稿、不计出稿用量 | 502 `/errors/ai-unavailable`（出稿那次 DeepSeek 调用失败或超时）；429 `/errors/rate-limited`（每商户每分钟 20 次） | 不幂等；前端超时 60 秒，不自动重试 |
+| `API-KB-009` | `POST /api/v1/knowledge/categories` | REQ-KB-003 | `{ name }`（1..20 字） | 201 分类；审计 `EVT:knowledge_category_created` | 409 `/errors/duplicate`（同名）；409 `/errors/not-allowed`（`code: category_quota`，已有 50 个） | 幂等键 |
+| `API-KB-010` | `PATCH /api/v1/knowledge/categories/{id}` | REQ-KB-003 | `{ name }` | 200 分类；审计 `EVT:knowledge_category_renamed` | 409 `/errors/duplicate`；409 `/errors/not-allowed`（`code: builtin`，「未分类」不能改名） | 幂等 |
+| `API-KB-011` | `DELETE /api/v1/knowledge/categories/{id}` | REQ-KB-003 | — | 200 `{ movedDocuments }`，其中资料改归「未分类」，不重新解析；审计 `EVT:knowledge_category_deleted` | 409 `/errors/not-allowed`（`code: builtin`，「未分类」不能删） | 重复删除返回 404 |
+| `API-KB-012` | `POST /api/v1/knowledge/test` | REQ-KB-005 | `{ question, shopId? }`（问题 1..500 字，任意语言） | 200 `{ answer, confidence, insufficient, wouldHandoff, handoffReason?, sources[{ n, documentId, name, snippet, fileUrl }], retrieval{ rewrittenQuery, routes[{ kind: rewritten\|original, mode: hybrid\|vector_only, latencyMs, error?, chunks[{ documentId, name, chunkNo, text, score, scoreDetails }] }], merged[{ n, documentId, chunkNo }], degraded, degradedReason? }, latencyMs }`；走 12.8 同一条链路，不存草稿、不计出稿用量；没有可用资料时不改写、不检索，`retrieval` 为 null | 404 `/errors/not-found`（`shopId` 不是本人可见、未断开的店铺）；502 `/errors/ai-unavailable`（出稿那次 DeepSeek 调用失败或超时）；429 `/errors/rate-limited`（每商户每分钟 20 次，计数在 Web 进程内存里） | 不幂等；前端超时 60 秒，不自动重试 |
 
 ### 8.9 看板、用量与套餐
 
@@ -1541,7 +1557,7 @@ erDiagram
 | `API-MOCK-007` | `GET/PUT /api/mock/sim/faults` | REQ-MOCK-002 | 故障注入：`{ platform, shopId, category: send_message\|order_read\|after_sale_write, mode: once\|sticky\|off, kind: error\|timeout }`；error 返回平台 5xx（Shopee `error_server`、TikTok 36009003），timeout 延迟 12 秒后照常响应 |
 | `API-MOCK-008` | `GET/PUT /api/dev/ai-stub` | REQ-MOCK-002 | AI 替身（`AI_MODE=stub`）：`next: normal\|low_confidence\|handoff\|invalid_json\|timeout\|insufficient`、`sticky`（否则用一次回到 normal）；请求带资料片段时 normal 回复在 `used_sources` 里引用第 1 段，`insufficient` 返回 `insufficient = true`、`confidence 0.9`；改写请求一律返回买家原话、不受 `next` 影响、不记入 `lastRequest`；GET 另返回各选项的回复 JSON 与 `lastRequest`（最近一次出稿请求的 system 与 messages） |
 | `API-MOCK-009` | `POST /mock/erp/{path}` | REQ-MOCK-001 | 模拟商户自有系统的推送接收端，任何请求都回 200；把模拟应用的回调改到「别处」时用它，平台发的测试推送才能通过 |
-| `API-MOCK-010` | `GET/PUT /api/dev/knowledge-stub` | REQ-MOCK-002 | 检索替身（`KNOWLEDGE_MODE=stub`）：`next: normal\|no_vector\|timeout\|error\|ingest_error`、`sticky`（否则用一次回到 normal）；替身入库把文本类资料按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，检索按关键词重合打分并给出向量分；GET 另返回最近一次检索请求 |
+| `API-MOCK-010` | `GET/PUT /api/dev/knowledge-stub` | REQ-MOCK-002 | 检索替身（`KNOWLEDGE_MODE=stub`）：`next: normal\|no_vector\|timeout\|error\|ingest_error`、`sticky`（否则用一次回到 normal）；替身入库把文本类资料按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，检索按关键词重合打分并给出向量分；GET 另返回最近 6 次检索请求（`lastQuery`，含实例名、查询文字与检索方式） |
 
 ## 9. 数据字典
 
@@ -1779,7 +1795,7 @@ erDiagram
 | 条目号 | `partNo` | `knowledge_part.part_no` | int | 是 | 从 1 起；不拆分的资料只有 1 个条目 | — | — |
 | 页码范围 | `pageFrom` / `pageTo` | `knowledge_part.page_from` / `page_to` | int | 否 | 只对按页拆分的 PDF | 页 | — |
 | 条目键 | — | `knowledge_part.item_key` | text | 是 | 检索服务里的条目名 `<资料 ID>/<条目号>.<扩展名>`；重传沿用同一个名字 | — | — |
-| 条目状态 | `status` | `knowledge_part.status` | enum | 是 | `pending` / `indexing` / `indexed` / `failed`，镜像检索服务的索引状态，由 `knowledge.ingest` 轮询写入 | — | — |
+| 条目状态 | `status` | `knowledge_part.status` | enum | 是 | `pending` / `indexing` / `indexed` / `failed`，由 `knowledge.ingest` 轮询写入；检索服务报完成，或分块数大于 0 且连续两次查询不变，都记 `indexed`（§17 索引完成的判定） | — | — |
 | 重传次数 | `retries` | `knowledge_part.retries` | int | 是 | 0..2 | 次 | — |
 | 条目错误 | `error` | `knowledge_part.error` | text | 否 | 检索服务返回的错误码与说明 | — | — |
 | 分块序号 | `no` | `knowledge_chunk.no` | int | 是 | 资料内从 1 连续编号，按条目号、条目内顺序 | — | — |
@@ -2276,8 +2292,8 @@ stateDiagram-v2
 | [*] → queued | upload | 类型在白名单 且 大小合规 且 未删除的资料 < 500 份 且 `(merchant_id, sha256)` 不存在 | 存原文件（`file.kind = knowledge_source`）、建资料，排 `knowledge.ingest`；审计 `EVT:knowledge_uploaded` | 管理员、组长 | `API-KB-002` |
 | queued → processing | start | `status = queued` 且 任务取得 | 没有检索实例时先建实例 | Worker | 内部任务 `knowledge.ingest` |
 | processing → ready | indexed | 全部条目 `status = indexed` 且 分块已读回 | 写分块与 `ready_at`；审计 `EVT:knowledge_ready` | Worker | 内部任务 `knowledge.ingest` |
-| processing → failed | fail | 有条目重传 2 次后仍 `failed` 或 PDF 单页 > 10 MB 或 实例创建失败 或 任务运行 > 20 分钟 | 写 `failure_reason`，删掉已上传的条目；审计 `EVT:knowledge_failed` | Worker | 内部任务 `knowledge.ingest` |
-| ready → queued | reparse | `status = ready` | 清空分块，排 `knowledge.ingest`（任务先删旧条目再重传） | 管理员、组长 | `API-KB-006` |
+| processing → failed | fail | 有条目重传 2 次后仍 `failed` 或 PDF 单页 > 10 MB 或 实例创建失败 或 任务运行 > 20 分钟 或 `processing` 超过 25 分钟没有更新（任务中断） | 写 `failure_reason`（任务中断时为「入库任务中断，请重新解析」），删掉已上传的条目；审计 `EVT:knowledge_failed` | Worker | 内部任务 `knowledge.ingest`；任务中断由 `knowledge.purge` 的每小时补扫判定 |
+| ready → queued | reparse | `status = ready` | 清空分块，排 `knowledge.ingest`（任务先删旧条目再重传）；审计 `EVT:knowledge_reparsed` | 管理员、组长 | `API-KB-006` |
 | failed → queued | reparse | `status = failed` | 同上，清空 `failure_reason` | 管理员、组长 | `API-KB-006` |
 | queued → deleting | delete | — | 从所有接口隐藏，排 `knowledge.purge`；审计 `EVT:knowledge_deleted` | 管理员、组长 | `API-KB-007` |
 | processing → deleting | delete | — | 同上；入库任务每步之前重读状态，发现 `deleting` 即停 | 管理员、组长 | `API-KB-007` |
@@ -2523,8 +2539,8 @@ sequenceDiagram
   W->>W: PDF 超过 10 MB 时按页拆成多个条目
   loop 每个条目
     W->>CF: 上传条目，元数据带资料 ID、分类 ID、站点
-    loop 每 15 秒查一次，最长 15 分钟
-      W->>CF: 查条目索引状态
+    loop 每 15 秒查一次，最长 15 分钟，完成或分块数大于 0 且连续两次不变即停
+      W->>CF: 查条目索引状态与分块数
     end
     opt 索引报错或超时，且已重传不到 2 次
       W->>CF: 删除条目，以同名重传
@@ -2542,7 +2558,9 @@ sequenceDiagram
   end
 ```
 
-删除资料（`API-KB-007`）：资料转 `deleting` 后立即从列表消失，`knowledge.purge` 先删检索服务里的条目，全部成功后再删原文件与记录（11.14 `purge`）。
+删除资料（`API-KB-007`）：资料转 `deleting` 后立即从列表消失，`knowledge.purge` 先删检索服务里的条目，全部成功后再删原文件与记录（11.14 `purge`）。检索服务的删除是异步的，以删除接口返回成功为准（§17 已知问题）。
+
+补扫：`knowledge.purge` 每小时运行一次，重新排删除停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库，`processing` 超过 25 分钟没有更新的视为任务中断，标失败（11.14 `fail`）。改分类、站点、AI 可用都会刷新资料的更新时间，补扫从最近一次更新重新计时。
 
 ### 12.8 出稿检索知识库（REQ-AI-002、REQ-KB-006、REQ-KB-005）
 
@@ -2566,7 +2584,7 @@ sequenceDiagram
     and 原话路
       W->>CF: 混合检索 20 条，门槛 0（8 秒超时）
     end
-    opt 某路结果没有向量分或超时
+    opt 某路结果没有向量分、超时或返回错误
       W->>CF: 这一路改用纯向量检索重试一次（5 秒超时）
     end
     W->>DB: 按资料当前状态与站点过滤，每路留前 10 条
@@ -2593,7 +2611,7 @@ sequenceDiagram
 - 改写失败时只用买家原话检索一路
 - 两路检索：改写后的问题与买家最近一条文字消息原文并行检索，每路要 20 条
 - 每次检索请求都传 `reranking.match_threshold: 0` 与向量门槛 0：默认门槛 0.4 会让约 70% 的原话查询返回空
-- 纯向量重试：某一路结果里没有任何向量分，或 8 秒内没返回，这一路改用纯向量检索重试一次，5 秒超时
+- 纯向量重试：某一路结果里没有任何向量分、8 秒内没返回或返回 HTTP 错误，这一路改用纯向量检索重试一次，5 秒超时
 - 重试仍失败的那一路记失败；只有一路失败时用另一路的结果
 - 过滤：按 Shopilot 库里资料的当前状态、AI 可用与站点过滤，每路留前 10 条
 - 检索服务里的元数据是上传时的快照，只用来把结果对回资料，不用来过滤
@@ -2609,7 +2627,10 @@ sequenceDiagram
 - 耗时预算：改写 ≤ 6 秒，检索每路 ≤ 8 秒、重试 ≤ 5 秒，出稿 ≤ 25 秒，出稿任务超时 60 秒（§17 内部后台任务）
 - 测试问答（`API-KB-012`）在 API 进程里同步走同一条链路，问题本身既是改写输入也是原话
 - 测试问答选了店铺时按该店站点过滤、用该店的提示词变量，没选时不按站点过滤
+- 测试问答选的店铺不是本人可见、未断开的店铺时返回 404，不计入限流
+- 测试问答没选店铺时，提示词里的店名、平台、站点用占位文字「（测试问答，未选店铺）」「电商平台」「全部站点」
 - 测试问答的提示词取售前阶段，不存草稿、不计出稿用量
+- 测试问答限流每商户每分钟 20 次，计数存在 Web 进程内存里：重启清零，多实例部署时上限按实例数放大（§28 已知限制）
 
 ## 13. 页面与跳转地图
 
@@ -2625,7 +2646,7 @@ sequenceDiagram
 | `PAGE-INVITE` | `/invite/<token>` | 公开 | `API-TEAM-005`、`API-TEAM-006` | 过期 / 撤销 / 已用；已有账号需先登录 |
 | `PAGE-OWNERSHIP` | `/ownership/<token>` | 受让管理员 | `API-SET-014` | 过期；登录账号不是受让人 |
 | `PAGE-ACCOUNT-SECURITY` | `/account/security` | 全部成员（本人） | `API-AUTH-008`、`API-AUTH-009`、`API-AUTH-010`、`API-AUTH-011` | 两步验证开启（二维码，扫不了时手动输入密钥）/ 关闭、本人登录设备与退出、个人偏好（桌面通知、提示音）；商户策略要求两步验证而未开启时登录后强制进入，开启前其他页面不可用 |
-| `PAGE-WB` | `/wb`、`/wb/<id>` | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-NAV-001` | 分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」，点开看原文件，资料已删时只显示文件名 |
+| `PAGE-WB` | `/wb`、`/wb/<id>` | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-NAV-001` | 分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」：有 `knowledge.manage` 的管理员与组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名，资料已删除时所有人只看到文件名；影子回复不显示「资料不足」标记 |
 | `PAGE-WB-TRANSFER` | `/wb/<id>?dialog=transfer` | 同上（员工只对自己的会话） | `API-TEAM-012`、`API-CONV-005` | 无可选同事 |
 | `PAGE-WB-END` | `?dialog=end` | 同上 | `API-CONV-006` | 有未结工单时提示工单不受影响 |
 | `PAGE-WB-CANCEL` | `?dialog=cancel` | 同上 | `API-ORD-004` | 已发货不可取消 |
@@ -2646,7 +2667,7 @@ sequenceDiagram
 | `PAGE-RECEPTION-HOURS` | `/reception/hours` | 管理员 | `API-RCP-001`、`API-RCP-003` | 关键词满 30 个 |
 | `PAGE-RECEPTION-PROMPTS` | `/reception/prompts` | 管理员 | `API-RCP-001`、`API-RCP-004`、`API-RCP-005`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | 护栏只读 |
 | `PAGE-RECEPTION-TICKETS` | `/reception/tickets` | 管理员 | `API-RCP-006`、`API-RCP-007` | 平台类时限只读 |
-| `PAGE-RECEPTION-KB` | `/reception/knowledge`（含 `?doc=<id>` 资料抽屉、`?dialog=upload \| categories`） | 管理员、组长 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
+| `PAGE-RECEPTION-KB` | `/reception/knowledge`（含 `?doc=<id>` 资料抽屉、`?docTab=parsed` 抽屉停在「解析内容」标签、`?dialog=upload \| categories`，筛选 `?category=&market=&state=&q=`） | 管理员、组长 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
 | `PAGE-SHOPS` | `/shops`（含详情抽屉、`?dialog=rotate-key \| reauth \| disconnect`） | 管理员 | `API-SHOP-008`、`API-SHOP-009`、`API-SHOP-010`、`API-SHOP-011`、`API-SHOP-004`、`API-SHOP-012`、`API-SHOP-013` | 无店铺时引导去接入；授权失效 |
 | `PAGE-CONNECT` | `/shops/connect`（含 `?dialog=assist`） | 管理员 | `API-SHOP-001`、`API-SHOP-002`、`API-SHOP-014` | — |
 | `PAGE-CONNECT-GUIDE` | `/shops/connect/<platform>/guide` | 管理员 | `API-SHOP-001`、`API-SHOP-002` | — |
@@ -2676,8 +2697,10 @@ sequenceDiagram
 - 位置：接待设置子导航在「工单类型与时限」之后加「知识库」标签，进入后页面左右两栏，左侧资料列表，右侧测试问答面板。组长进接待设置只看到「知识库」这一个标签，打开 `/reception` 直接进知识库页。
 - 资料列表：顶部「上传资料」「分类管理」按钮与资料数（如 32 / 500）；按分类、站点、状态筛选，按文件名搜索；每行文件名、分类、站点、状态、AI 可用开关、上传时间。
 - 状态标签：排队中、解析中、可用、已停用、失败；失败行直接显示失败原因与「重新解析」。有排队或解析中的资料时每 5 秒刷新列表。
-- 上传弹窗：拖入或选择多个文件，为这批文件选一个分类与适用站点（默认「全部站点」）；逐个显示上传结果，被拒的文件写明原因（大小、格式、重复、资料已满）；弹窗写明支持的格式与大小上限，PPT 提示先导出为 PDF。
-- 资料抽屉：顶部文件名、状态、失败原因与操作（改分类、改站点、AI 可用开关、重新解析、删除）；下方两个标签「原文件」（PDF 内嵌预览、图片大图、其他格式给下载）与「解析内容」（按序号列出分块文字，拆分的 PDF 标出页码范围）。删除前二次确认，写明会同时删掉检索服务里的副本。
+- 上传弹窗：拖入或选择多个文件，为这批文件选一个分类与适用站点（默认「全部站点」）；逐个显示上传结果，被拒的文件写明原因（大小、格式、重复、资料已满）；弹窗写明支持的格式与大小上限，PPT 提示先导出为 PDF。上传进行中弹窗不能关闭（关闭按钮隐藏，Esc 与点遮罩无效）。
+- 上传预检：选文件时前端先按契约常量（支持的扩展名、20 MB、PDF 以外 4 MB）挡一遍，被挡的文件直接显示原因、不发请求，最终以服务端结果为准；文件选择框也允许选 PPT，选了显示「请先把 PPT 导出为 PDF 再上传」。
+- 筛选与地址：分类、站点、状态筛选与文件名搜索写进地址参数 `category`（分类 ID）、`market`（`MY` 等站点或 `ALL`）、`state`（`queued`、`processing`、`available`、`disabled`、`failed`）、`q`；地址里不认识的值丢掉，不发给接口。
+- 资料抽屉：顶部文件名、状态、失败原因与操作（改分类、改站点、AI 可用开关、重新解析、删除）；下方两个标签「原文件」（PDF 内嵌预览、图片大图、其他格式给下载）与「解析内容」（按序号列出分块文字，拆分的 PDF 标出页码范围）；切到「解析内容」时地址带 `?docTab=parsed`，刷新后仍停在该标签。删除前二次确认，写明会同时删掉检索服务里的副本。
 - 分类管理弹窗：列出分类与资料数，新增、改名、删除；「未分类」不能改名或删除；删除时提示其中资料会归入「未分类」。
 - 测试问答：问题输入框（任意语言）、店铺下拉（可不选，只列本人可见的店铺，来自 `API-AUTH-006`）、「提问」按钮；结果区依次是回答、置信度与「按当前阈值会出草稿 / 会转人工」、「资料不足」标记、引用列表（文件名 + 片段，点开打开资料抽屉）、可展开的「检索明细」（改写后的问题、两路各自返回的分块与分数、是否纯向量重试、合并后的 8 段）。
 - 页态：没有资料时列表区是空态，引导拖入文件，测试问答仍可用并会标「资料不足」；提问中显示加载并禁用按钮；检索降级时结果区顶部提示「这次没查到资料，回答没有引用」；DeepSeek 失败时提示「AI 暂时不可用」并保留问题可重试。
@@ -2825,7 +2848,7 @@ flowchart LR
 | 限流 | 登录 | 同一邮箱 15 分钟内失败 10 次锁 15 分钟（423）；同一 IP 每分钟 30 次（429） |
 | 限流 | `/api/v1` 一般请求 | 每个登录会话每分钟 600 次（约为轮询负载的 30 倍），超出 429 |
 | 限流 | 发邀请、找回密码、重置成员密码 | 每商户每天 100 封邀请；同一邮箱 60 秒 1 封 |
-| 限流 | 测试问答 | 每商户每分钟 20 次，超出 429 |
+| 限流 | 测试问答 | 每商户每分钟 20 次，超出 429；计数在 Web 进程内存里，多实例部署时上限按实例数放大（§28 已知限制） |
 | 限流 | 平台调用 | TikTok 客服接口每店每天 10,000 次，回补最多占 30%；Shopee 按平台返回的限流错误退避 |
 | 数据增长 | 消息、草稿、会话、订单镜像 | 12 个月增长见 §2；`data.retention_purge` 每天按商户保存期限删除早于期限的会话段、消息、草稿、订单镜像与聊天图片 |
 | 数据增长 | 审计日志、登录记录 | 审计日志保留 2 年、登录记录保留 1 年，与商户保存期限无关（安全追溯） |
@@ -2876,13 +2899,13 @@ flowchart LR
 | 依赖 | 用途 | SLA | 超时/重试 | 失败影响 | 降级 |
 | --- | --- | --- | --- | --- | --- |
 | DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒） | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
-| Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 检索每路 8 秒，无向量分或超时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
+| Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 检索每路 8 秒，无向量分、超时或返回 HTTP 错误时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
 | 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息、订单、售后、店铺指标 | 未公布 SLA | 10 秒；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
 | PostgreSQL 17（含 pgvector 扩展，本期不用向量） | 全部业务数据、任务队列 | 单实例，本机 | 连接池 20；查询超时 5 秒（报表 30 秒） | 全站不可用 | 无降级，返回 503 |
 | 本地磁盘 `DATA_DIR` | 聊天图片、发票、导出包、知识库原文件 | 本机 | — | 图片与发票不可用；资料无法预览与重新解析 | 发送图片失败提示；发票生成失败返回 500 不建记录；资料原文件读不到时抽屉提示「文件已不存在」 |
 | 发件箱（`email_outbox` 表） | 代替真实发信 | 同数据库 | — | 同数据库 | — |
 
-内部后台任务（pg-boss；Worker 进程单独运行，`pnpm worker`）：
+内部后台任务（pg-boss；Worker 进程单独运行，`pnpm worker`）。Web 与 Worker 启动时按下表同步已有队列的超时与重试参数；队列的投递策略建好后不能改，不在同步之列。
 
 | 任务 | 触发 | 批量/互斥 | 超时 | 失败策略 | 对应告警 |
 | --- | --- | --- | --- | --- | --- |
@@ -2890,7 +2913,7 @@ flowchart LR
 | `inbound.sweep` | 每分钟 | 单实例 | 1 分钟 | 下轮补扫 | 同上 |
 | `draft.generate` | 入站处理后入队 | `singletonKey = conversation_id`；全局并发 20、单商户 5 | 60 秒（改写 6 + 检索 13 + 出稿 25 + 余量） | 不重试；转人工 | 同上 |
 | `knowledge.ingest` | `API-KB-002`、`API-KB-006` | `singletonKey = document_id`；全局并发 4、单商户 2 | 20 分钟 | 条目级删除后同名重传最多 2 次；任务异常或超时把资料标 `failed`，管理员可重新解析 | 同上 |
-| `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
+| `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库（改分类、站点、AI 可用都会重新计时），`processing` 超过 25 分钟没有更新的标失败，原因「入库任务中断，请重新解析」；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
 | `message.translate` | TikTok 买家消息落库后入队 | 并发 10 | 15 秒 | 重试 1 次，仍失败保留原文 | 同上 |
 | `order.sync` | 每小时每店；`API-ORD-003` 手动 | `singletonKey = shop_id`；每批 50 单；时间窗 ≤ 15 天（平台上限） | 5 分钟 | 重试 2 次，下轮补 | 同上 |
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
@@ -2911,13 +2934,15 @@ flowchart LR
 
 Cloudflare AI Search 的实例配置与限制（ADR-014）：
 
+- 接口：REST 路径 `https://api.cloudflare.com/client/v4/accounts/{账号 ID}/ai-search/namespaces/default/instances/...`，实例、条目、分块、检索都在 `default` 命名空间下。
 - 实例：每商户一个，首次入库时创建，名字见 §9 `knowledge_index.instance_name`；账号上限免费档 100 个、付费档 5,000 个，到上限时新商户的资料入库失败并写原因。
 - 配置：向量模型 `@cf/qwen/qwen3-embedding-0.6b`；混合检索（向量 + BM25，RRF 融合）；重排 `@cf/baai/bge-reranker-base`；PDF 开 OCR；分块 512 token、重叠 15%。
 - 自定义元数据：资料 ID、分类 ID、站点三个字段（每实例最多 5 个）；只在上传时写入，改分类、站点不重传。
 - 文件上限：开 OCR 的 PDF 10 MiB，其他格式 4 MiB。超限的 PDF 按页拆成多个条目，单页仍超限判失败；其他格式超限在上传时拒收。
-- 已知问题：入库偶发 `workers_ai_timeout_error`；「重新同步」接口返回成功但实际没有重建，所以重试一律用「删除后同名重传」。
+- 索引完成的判定：条目状态为完成，或分块数大于 0 且连续两次查询（间隔 15 秒）不变。实测条目常在「处理中」停 3–10 分钟以上，而分块约 20 秒后就可读、可检索。
+- 已知问题：入库偶发 `workers_ai_timeout_error`；「重新同步」接口返回成功但实际没有重建，所以重试一律用「删除后同名重传」；删除条目是异步的，删除接口返回成功后约 30 秒内仍可能查到该条目，以删除接口返回成功为准，不等它查不到。
 - 计费（2026-11-01 起）：语义检索每千次 0.75 美元（每月含 1,000 次）；入库每百万 token 0.75 美元（每月含 500 万）；存储每 GB 每月 2 美元（含 10 GB）。每份草稿检索 2 次，纯向量重试另计。
-- 本机与测试：`KNOWLEDGE_MODE=stub` 时检索层换成进程内替身（`API-MOCK-010`），不调用 Cloudflare；只有服务器为 `cloudflare`。
+- 本机与测试：`KNOWLEDGE_MODE=stub` 时检索层换成进程内替身（`API-MOCK-010`），不调用 Cloudflare；只有服务器为 `cloudflare`。本机临时用 `cloudflare` 模式联调时，Web 与 Worker 都要带 `NODE_USE_ENV_PROXY=1`，让 Node 的 fetch 走本机代理；服务器直连 Cloudflare，不需要。
 
 新增运行时配置（键名登记在 `.env.example`，值不写进文档与仓库）：
 
@@ -3415,9 +3440,9 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Then 返回 409 /errors/not-allowed，提示先删除不用的资料
 
 场景: 大 PDF 按页拆分入库 (REQ-KB-001)
-  Given 一份 26 MB、40 页的扫描 PDF，每页不超过 1 MB
+  Given 一份 18 MB、30 页的扫描 PDF，每页约 0.6 MB（单文件上限 20 MB 以内）
   When 管理员上传它
-  Then 资料拆成 3 个检索条目，每个不超过 10 MB，全部索引完成后资料为「可用」，抽屉的解析内容标出页码范围
+  Then 资料拆成 2 个检索条目，每个不超过 10 MB，全部索引完成后资料为「可用」，抽屉的解析内容标出页码范围
   Given 一份 PDF 的第 12 页单页 11 MB
   When 管理员上传它
   Then 资料「失败」，原因写明第 12 页超过 10 MB，检索服务里不留它的条目
@@ -3463,11 +3488,14 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Given 测试问答一分钟内已提问 20 次
   When 再提问一次
   Then 返回 429 /errors/rate-limited
+  When 组长提问时带上不在自己负责范围内的店铺
+  Then 返回 404 /errors/not-found，不计入限流
 
 场景: 出稿检索资料并给客服显示依据 (REQ-AI-002, REQ-KB-006)
   Given 店铺工作时间内模式为 assist，商户有可用资料「保修政策.pdf」
   When 买家问「保修多久」
-  Then 草稿回答保修 12 个月，草稿下方显示「依据：《保修政策.pdf》」，点开看原文件
+  Then 草稿回答保修 12 个月，草稿下方显示「依据：《保修政策.pdf》」
+  And 管理员、组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名、不能点开
   And 模拟器买家端只收到回复正文，看不到依据与片段编号
   And AI 替身「最近一次请求」里含编号的资料片段，检索替身「最近一次检索请求」里有改写问题与买家原话两路
 
@@ -3759,7 +3787,12 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 | `EVT:knowledge_uploaded` | 资料上传成功（11.14 upload） | document_id, mime, size, markets | 知识库运营（诊断） |
 | `EVT:knowledge_ready` | 资料解析完成（11.14 indexed） | document_id, parts, chunks, ingest_sec, retries | 知识库运营（诊断） |
 | `EVT:knowledge_failed` | 资料入库失败（11.14 fail） | document_id, reason | 知识库运营（诊断） |
-| `EVT:knowledge_deleted` | 管理员删除资料（11.14 delete） | document_id | 知识库运营（诊断） |
+| `EVT:knowledge_deleted` | 管理员或组长删除资料（11.14 delete） | document_id | 知识库运营（诊断） |
+| `EVT:knowledge_updated` | 改资料的分类、站点或 AI 可用（`API-KB-005`） | fields, ai_enabled, markets | 知识库运营（诊断） |
+| `EVT:knowledge_reparsed` | 重新解析资料（11.14 reparse） | —（资料 ID 记在审计的目标字段） | 知识库运营（诊断） |
+| `EVT:knowledge_category_created` | 新增资料分类（`API-KB-009`） | —（分类 ID 记在审计的目标字段） | 知识库运营（诊断） |
+| `EVT:knowledge_category_renamed` | 资料分类改名（`API-KB-010`） | —（同上） | 知识库运营（诊断） |
+| `EVT:knowledge_category_deleted` | 删除资料分类（`API-KB-011`） | moved_documents | 知识库运营（诊断） |
 | `EVT:usage_threshold_crossed` | 用量跨过提醒阈值 | threshold, used, quota | 用量（诊断） |
 | `EVT:permission_denied` | 服务端返回 403 或业务规则 409 `not-allowed` | api_id, role, reason | 角色分权有效 |
 
@@ -3817,6 +3850,7 @@ N/A — 本期不上线。
 | 风险 | 商户没上传资料、或资料没覆盖买家问的内容时，AI 对产品参数类问题仍会因资料不足转人工，草稿采纳率随资料覆盖面变化 | 用户 | 知识库上线后看两周数据 |
 | 风险 | Cloudflare AI Search 是 2026-10-01 才 GA 的新产品，2026-11-01 起计费；实测混合检索约 2.6% 静默降级、入库偶发超时、「重新同步」返回成功却没重建，接口与价格可能再变 | 实现 | 每月核对一次产品变更；命中 ADR-014 换回条件时 |
 | 风险 | 重排模型对泰语、马来语打分接近 0，越南语扫描件 OCR 丢声调；这几种语言的检索主要靠中文改写那一路 | 实现 | 上线后按语种抽检命中率 |
+| 风险 | 已知限制：测试问答的限流计数存在 Web 进程内存里，重启清零；多实例部署时每商户每分钟的实际上限是 20 × 实例数 | 实现 | Web 扩到多实例时改存数据库或 Redis |
 | 风险 | 资料自相矛盾时 AI 会照着答错：OBSBOT 话术库 PRE-015 写「所有相机都有内置麦克风」，而 Tail 2 只有 3.5mm 麦克风接口，曾导致真实投诉 | 用户 | OBSBOT 资料入库前清理一遍 |
 | 假设 | 检索费用：按 §2 草稿上限每月约 33 万次检索、约 250 美元；OBSBOT 规模（每天约 300 份草稿）每月约 1.8 万次、约 13 美元；入库与存储在免费额度内。费用由 Shopilot 承担，不计商户出稿用量 | 用户 | 定价时 |
 | 风险 | 应用层租户隔离依赖代码纪律（ADR-003） | 实现 | 每次新增接口都补跨商户测试 |
