@@ -179,49 +179,122 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   };
 
   return (
-    <div className="shrink-0 border-t border-border px-4 py-2">
-      {detail.readOnlyNotice && (
-        <p role="note" className="mb-1 flex items-start gap-2 text-xs text-muted-foreground">
-          <InfoIcon className="mt-px size-3.5 shrink-0" aria-hidden />
-          {detail.readOnlyNotice}
-        </p>
-      )}
-      {editing && (
-        <p className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-          <AiTag />
-          正在修改 AI 草稿，发送后记为「改后发送」
-          <Button variant="ghost" size="icon-xs" aria-label="不改了" onClick={onCancelEditing}>
-            <XIcon />
-          </Button>
-        </p>
-      )}
+    <div className="shrink-0 px-4 pt-2 pb-4">
       <label htmlFor="wb-reply" className="sr-only">
         回复 {c.buyerName}
       </label>
       <Popover open={slash.open} onOpenChange={(o) => !o && slash.dismiss()}>
+        {/* 输入盒子：提示、文字区、超限说明、工具栏共用 px-3 这一条左右缘；聚焦态只挂在盒子上（细描边换焦点色），文字区自身不出焦点环。
+            焦点期间的透明 outline 只在强制颜色模式下被系统着色，兜住描边换色在该模式下失效（A11Y-008） */}
         <PopoverAnchor asChild>
-          <Textarea
-            id="wb-reply"
-            rows={1}
-            value={text}
-            {...slash.inputProps}
-            onChange={(e) => {
-              setText(e.target.value);
-              slash.sync(e.currentTarget, true);
+          <div
+            className="@container/composer rounded-lg border border-border bg-card focus-within:border-ring focus-within:outline focus-within:outline-transparent has-[[aria-invalid=true]]:border-destructive"
+            // 文字区上下的留白属于盒子本身：点在这里也聚焦输入框
+            onMouseDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              e.preventDefault();
+              slash.inputRef.current?.focus();
             }}
-            onKeyDown={(e) => {
-              if (slash.onKeyDown(e)) return;
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            placeholder={translateTo === "none" ? `回复 ${c.buyerName}，输入 / 选快捷回复` : `回复 ${c.buyerName}，可写中文，发送前译成${LANG_LABEL[translateTo]}`}
-            aria-invalid={over > 0 || undefined}
-            aria-describedby={over > 0 ? "wb-reply-over" : undefined}
-            // 写满 max-h-40 后在框内滚动，不显示滚动条（复用 globals.css 的 scroll-nav）
-            className="scroll-nav max-h-40 min-h-10 resize-none border-0 bg-transparent px-0 shadow-none"
-          />
+          >
+            {detail.readOnlyNotice && (
+              <p role="note" className="flex items-start gap-2 px-3 pt-3 text-xs text-muted-foreground">
+                <InfoIcon className="mt-px size-3.5 shrink-0" aria-hidden />
+                {detail.readOnlyNotice}
+              </p>
+            )}
+            {editing && (
+              <p className="flex items-center gap-2 px-3 pt-2 text-xs text-muted-foreground">
+                <AiTag />
+                正在修改 AI 草稿，发送后记为「改后发送」
+                <Button variant="ghost" size="icon-xs" aria-label="不改了" onClick={onCancelEditing}>
+                  <XIcon />
+                </Button>
+              </p>
+            )}
+            <Textarea
+              id="wb-reply"
+              rows={1}
+              value={text}
+              {...slash.inputProps}
+              onChange={(e) => {
+                setText(e.target.value);
+                slash.sync(e.currentTarget, true);
+              }}
+              onKeyDown={(e) => {
+                if (slash.onKeyDown(e)) return;
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder={translateTo === "none" ? `回复 ${c.buyerName}，输入 / 选快捷回复` : `回复 ${c.buyerName}，可写中文，发送前译成${LANG_LABEL[translateTo]}`}
+              aria-invalid={over > 0 || undefined}
+              aria-describedby={over > 0 ? "wb-reply-over" : undefined}
+              // 写满 max-h-40 后在框内滚动，不显示滚动条（复用 globals.css 的 scroll-nav）。
+              // 上下留白用外边距而不是内边距：内边距会随内容一起滚走，滚动时文字贴到盒子描边上
+              className="scroll-nav mt-3 mb-2 max-h-40 min-h-11 resize-none border-0 bg-transparent px-3 py-0 leading-relaxed shadow-none focus-visible:outline-none"
+            />
+            {/* 超限说明单独一行、右缘与文字区对齐，窄屏不挤掉发送按钮 */}
+            {over > 0 && (
+              <p id="wb-reply-over" className="px-3 pb-1 text-right text-xs text-destructive tabular-nums">
+                超出 {over.toLocaleString("en-US")} 字，最多 {max.toLocaleString("en-US")} 字
+              </p>
+            )}
+            {/* 盒子窄于 24rem（手机宽度）时固定分两行：图标一行，翻译、计数、发送一行，发送始终在右下角；更宽时放不下也整组换行 */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2">
+              <div className="flex items-center gap-0.5">
+                {/* -ml-2 抵消 ghost 图标按钮的内边距（(32−16)/2 = 8px），图形左缘与文字左缘对齐 */}
+                <Tip label={`发图片（${IMAGE_RULE}）`}>
+                  <Button variant="ghost" size="icon-sm" aria-label={`发图片（${IMAGE_RULE}）`} disabled={busy} onClick={() => fileRef.current?.click()} className="-ml-2">
+                    {upload.isPending ? <LoaderCircleIcon className="animate-spin" /> : <ImageIcon />}
+                  </Button>
+                </Tip>
+                {tiktok && (
+                  <Tip label="发卡片：订单、物流、退货退款">
+                    <Button variant="ghost" size="icon-sm" aria-label="发卡片" onClick={() => set({ dialog: "cards" }, "push")}>
+                      <LayoutGridIcon />
+                    </Button>
+                  </Tip>
+                )}
+                {tiktok && detail.capabilities.coupons && (
+                  <Tip label="发优惠券">
+                    <Button variant="ghost" size="icon-sm" aria-label="发优惠券" onClick={() => set({ dialog: "coupons" }, "push")}>
+                      <TicketPercentIcon />
+                    </Button>
+                  </Tip>
+                )}
+                <Tip label="快捷回复（也可在输入框输入 / 唤起）">
+                  <Button variant="ghost" size="icon-sm" aria-label="快捷回复（也可在输入框输入 / 唤起）" onClick={() => set({ dialog: "replies" }, "push")}>
+                    <ZapIcon />
+                  </Button>
+                </Tip>
+              </div>
+              <div className="flex min-w-0 flex-auto items-center gap-2 @max-sm/composer:basis-full">
+                {/* -ml-2.5 抵消触发器左内边距（pl-2.5），换到第二行时文字与输入框文字左缘对齐 */}
+                <Select value={translateTo} onValueChange={setTranslateTo}>
+                  <SelectTrigger size="sm" aria-label="发送前翻译" className="-ml-2.5 min-w-0 border-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">不翻译</SelectItem>
+                    {LANGS.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        译成{LANG_LABEL[l]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className={`ml-auto text-xs whitespace-nowrap tabular-nums ${over > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                  {length.toLocaleString("en-US")} / {max.toLocaleString("en-US")}
+                </span>
+                <Tip label="发送（⌘ / Ctrl + Enter）">
+                  <Button size="icon-sm" variant="outline" aria-label="发送" disabled={!canSubmit} onClick={submit}>
+                    {send.isPending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
+                  </Button>
+                </Tip>
+              </div>
+            </div>
+          </div>
         </PopoverAnchor>
         <SlashRepliesContent slash={slash} canManage={canManageReplies} />
       </Popover>
@@ -236,66 +309,13 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
           if (f) pickImage(f);
         }}
       />
-      {/* 超限说明放在计数正上方单独一行，窄屏不挤掉发送按钮 */}
-      {over > 0 && (
-        <p id="wb-reply-over" className="mt-1 text-right text-xs text-destructive tabular-nums">
-          超出 {over.toLocaleString("en-US")} 字，最多 {max.toLocaleString("en-US")} 字
-        </p>
-      )}
-      <div className="mt-1 flex items-center gap-0.5">
-        <Tip label={`发图片（${IMAGE_RULE}）`}>
-          <Button variant="ghost" size="icon-sm" aria-label={`发图片（${IMAGE_RULE}）`} disabled={busy} onClick={() => fileRef.current?.click()}>
-            {upload.isPending ? <LoaderCircleIcon className="animate-spin" /> : <ImageIcon />}
-          </Button>
-        </Tip>
-        {tiktok && (
-          <Tip label="发卡片：订单、物流、退货退款">
-            <Button variant="ghost" size="icon-sm" aria-label="发卡片" onClick={() => set({ dialog: "cards" }, "push")}>
-              <LayoutGridIcon />
-            </Button>
-          </Tip>
-        )}
-        {tiktok && detail.capabilities.coupons && (
-          <Tip label="发优惠券">
-            <Button variant="ghost" size="icon-sm" aria-label="发优惠券" onClick={() => set({ dialog: "coupons" }, "push")}>
-              <TicketPercentIcon />
-            </Button>
-          </Tip>
-        )}
-        <Tip label="快捷回复（也可在输入框输入 / 唤起）">
-          <Button variant="ghost" size="icon-sm" aria-label="快捷回复（也可在输入框输入 / 唤起）" onClick={() => set({ dialog: "replies" }, "push")}>
-            <ZapIcon />
-          </Button>
-        </Tip>
-        <Select value={translateTo} onValueChange={setTranslateTo}>
-          <SelectTrigger size="sm" aria-label="发送前翻译" className="ml-1 border-transparent">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">不翻译</SelectItem>
-            {LANGS.map((l) => (
-              <SelectItem key={l} value={l}>
-                译成{LANG_LABEL[l]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className={`ml-auto text-xs whitespace-nowrap tabular-nums ${over > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-          {length.toLocaleString("en-US")} / {max.toLocaleString("en-US")}
-        </span>
-        <RepliesDialog
-          stage={detail.segment?.stage ?? "unknown"}
-          canManage={canManageReplies}
-          onPick={(t) => setText(text.trim() ? `${text}\n${t}` : t)}
-        />
-        {tiktok && <CardsDialog detail={detail} orders={buyer.data?.orders ?? []} />}
-        {tiktok && detail.capabilities.coupons && <CouponsDialog detail={detail} />}
-        <Tip label="发送（⌘ / Ctrl + Enter）">
-          <Button size="icon-sm" variant="outline" aria-label="发送" disabled={!canSubmit} onClick={submit} className="ml-2">
-            {send.isPending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
-          </Button>
-        </Tip>
-      </div>
+      <RepliesDialog
+        stage={detail.segment?.stage ?? "unknown"}
+        canManage={canManageReplies}
+        onPick={(t) => setText(text.trim() ? `${text}\n${t}` : t)}
+      />
+      {tiktok && <CardsDialog detail={detail} orders={buyer.data?.orders ?? []} />}
+      {tiktok && detail.capabilities.coupons && <CouponsDialog detail={detail} />}
     </div>
   );
 }

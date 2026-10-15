@@ -150,7 +150,7 @@ export function SlashRepliesContent({ slash, canManage }: { slash: SlashState; c
       }}
       // 点菜单任何位置都不让输入框失焦
       onMouseDown={(e) => e.preventDefault()}
-      className="max-h-[min(22rem,var(--radix-popover-content-available-height))] w-(--radix-popover-trigger-width) max-w-lg gap-0 p-1 data-[state=closed]:animate-none data-[state=open]:animate-none"
+      className="max-h-[min(22rem,var(--radix-popover-content-available-height))] w-(--radix-popover-trigger-width) gap-0 p-1 data-[state=closed]:animate-none data-[state=open]:animate-none"
     >
       <p aria-hidden="true" className="flex items-center justify-between gap-3 px-2.5 pt-1 pb-1.5 text-xs whitespace-nowrap text-muted-foreground">
         <span className="font-medium text-foreground">快捷回复</span>
