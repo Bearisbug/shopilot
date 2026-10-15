@@ -329,9 +329,9 @@ async function loadInvoice(ctx: MemberContext, id: string) {
   return r;
 }
 
-// ── API-INV-004 下载 PDF ──
+// ── API-INV-004 下载 PDF；inline 时在页面里内嵌预览 ──
 
-export async function invoicePdf(ctx: MemberContext, id: string): Promise<Response> {
+export async function invoicePdf(ctx: MemberContext, id: string, inline = false): Promise<Response> {
   const { i } = await loadInvoice(ctx, id);
   const [file] = i.pdfFileId ? await db().select().from(schema.file).where(eq(schema.file.id, i.pdfFileId)).limit(1) : [];
   const full = file ? dataPath(file.path) : null;
@@ -341,7 +341,7 @@ export async function invoicePdf(ctx: MemberContext, id: string): Promise<Respon
     headers: {
       "content-type": "application/pdf",
       "content-length": String(info.size),
-      "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(`${i.number}.pdf`)}`,
+      "content-disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(`${i.number}.pdf`)}`,
       "cache-control": "private, max-age=300",
       "x-content-type-options": "nosniff",
     },

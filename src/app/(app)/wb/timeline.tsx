@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownIcon, ExternalLinkIcon, ImageIcon, PackageIcon, ShoppingBagIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
+import { ArrowDownIcon, ExternalLinkIcon, ImageIcon, PackageIcon, PlayIcon, ShoppingBagIcon, SmileIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BuyerOrder, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
@@ -12,7 +12,7 @@ import { OrderItems, Thumb, useClamped } from "@/components/orders/order-items";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { inTz, money, PLATFORM_LABEL } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ImageViewer, type ViewerImage } from "./image-viewer";
+import { MediaViewer, type ViewerItem } from "./media-viewer";
 import { AiTag, latestEvent } from "./wb-shared";
 
 const STATUS_TEXT = { sending: "发送中", sent: "已发送", failed: "发送失败" } as const;
@@ -24,8 +24,11 @@ type Ctx = {
   products: Record<string, ProductCardInfo>;
   platform: "shopee" | "tiktok";
   tz: string;
-  /** 点开某条图片消息：在灯箱里从这张开始看本会话已加载的全部图片 */
-  openImage: (messageId: string, trigger: HTMLElement) => void;
+  /** 点开某条图片或视频消息：在灯箱里从这一项开始看本会话已加载的全部图片与视频 */
+  openMedia: (messageId: string, trigger: HTMLElement) => void;
+  /** 加载失败（链接过期）的图片、视频、贴纸消息：显示过期提示，不进灯箱 */
+  failed: ReadonlySet<string>;
+  markFailed: (messageId: string) => void;
   /** 订单、物流、退货退款卡的链接：在平台卖家后台打开这张订单；拼不出链接时为 null */
   orderLink: (orderNo: string) => CardLink | null;
 };
@@ -37,6 +40,7 @@ const NEAR_BOTTOM = 80;
  * 贴底时内容变高（图片加载、输入框变高）仍保持贴底；加载更早的消息后保持原来的阅读位置。
  */
 export function Timeline({
+  conversationId,
   messages,
   shadowDrafts,
   ordersById,
@@ -50,6 +54,8 @@ export function Timeline({
   retryingId,
   orderUrl,
 }: {
+  /** 媒体下载接口按会话与消息取文件 */
+  conversationId: string;
   messages: MessageItem[];
   shadowDrafts: DraftItem[] | null;
   ordersById: Map<string, BuyerOrder>;
@@ -125,22 +131,28 @@ export function Timeline({
   }
 
   const days = messages.map((m) => inTz(m.sentAt, tz, "M 月 d 日"));
-  const images: ViewerImage[] = messages.flatMap((m) => {
-    const url = m.type === "image" && typeof m.payload.url === "string" ? m.payload.url : null;
-    if (!url) return [];
-    const who = m.direction === "in" ? "买家" : m.senderRole === "ai" ? "AI" : (m.senderName ?? "我方");
-    return [{ id: m.id, src: url, caption: `${who} · ${inTz(m.sentAt, tz, "MM-dd HH:mm")}` }];
-  });
-  const [viewer, setViewer] = useState<{ index: number; trigger: HTMLElement; open: boolean } | null>(null);
-  const openImage = (messageId: string, trigger: HTMLElement) => {
-    const index = images.findIndex((i) => i.id === messageId);
-    if (index >= 0) setViewer({ index, trigger, open: true });
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+  const markFailed = (messageId: string) => setFailed((s) => (s.has(messageId) ? s : new Set(s).add(messageId)));
+  const [viewer, setViewer] = useState<{ items: ViewerItem[]; index: number; trigger: HTMLElement; open: boolean } | null>(null);
+  // 点开时按时间顺序取本会话已加载、没有加载失败的图片与视频
+  const openMedia = (messageId: string, trigger: HTMLElement) => {
+    const items = messages.flatMap((m): ViewerItem[] => {
+      const p = m.payload;
+      const url = typeof p.url === "string" ? p.url : null;
+      if (!url || failed.has(m.id) || (m.type !== "image" && m.type !== "video")) return [];
+      const who = m.direction === "in" ? "买家" : m.senderRole === "ai" ? "AI" : (m.senderName ?? "我方");
+      const base = { id: m.id, src: url, caption: `${who} · ${inTz(m.sentAt, tz, "MM-dd HH:mm")}`, downloadUrl: `/api/v1/conversations/${conversationId}/messages/${m.id}/media` };
+      if (m.type === "image") return [{ ...base, kind: "image" }];
+      return [{ ...base, kind: "video", poster: typeof p.cover === "string" ? p.cover : undefined, width: Number(p.width) || undefined, height: Number(p.height) || undefined }];
+    });
+    const index = items.findIndex((i) => i.id === messageId);
+    if (index >= 0) setViewer({ items, index, trigger, open: true });
   };
   const orderLink = (orderNo: string) => {
     const href = orderUrl(orderNo);
     return href ? { href, label: `在 ${PLATFORM_LABEL[platform]} 卖家中心打开订单 ${orderNo}` } : null;
   };
-  const ctx: Ctx = { ordersById, products, platform, tz, openImage, orderLink };
+  const ctx: Ctx = { ordersById, products, platform, tz, openMedia, failed, markFailed, orderLink };
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* 滚动位置由上面的逻辑自己还原，关掉浏览器的滚动锚定免得两边一起调；长串在气泡里折行，overflow-x 只是兜底 */}
@@ -181,13 +193,14 @@ export function Timeline({
         </Button>
       )}
       {viewer && (
-        <ImageViewer
+        <MediaViewer
           open={viewer.open}
-          images={images}
+          items={viewer.items}
           index={viewer.index}
           trigger={viewer.trigger}
           onClose={() => setViewer((v) => v && { ...v, open: false })}
           onExited={() => setViewer(null)}
+          onVideoError={markFailed}
         />
       )}
     </div>
@@ -204,34 +217,24 @@ function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; o
     );
   }
   const ours = m.direction === "out";
-  // 卡片、图片、视频自带边框，不再套聊天气泡
-  const bubble = CARD_TYPES.has(m.type) || m.type === "image" || m.type === "video" ? (
-    <Content m={m} ctx={ctx} />
-  ) : (
-    <div className={cn("max-w-full min-w-0 rounded-lg px-3 py-2 text-sm leading-relaxed [overflow-wrap:anywhere]", ours ? "rounded-tr-sm bg-accent" : "rounded-tl-sm bg-muted")}>
-      <Content m={m} ctx={ctx} />
-      {m.translation && (
-        <p className="mt-1.5 border-t border-border pt-1.5 text-xs leading-relaxed text-muted-foreground">
-          <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
-            译 · {m.translationSource === "platform" ? "Shopee" : "Shopilot"}
-          </Badge>
-          {m.translation}
-        </p>
-      )}
-      {m.originalText && (
-        <p className="mt-1.5 border-t border-border pt-1.5 text-xs leading-relaxed text-muted-foreground">
-          <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
-            原文
-          </Badge>
-          {m.originalText}
-        </p>
-      )}
-    </div>
-  );
+  // 卡片与图片、视频、贴纸不套聊天气泡；带文字的图片（Shopee image_with_text）把文字作为普通文字消息放在图片下方
+  const bare = CARD_TYPES.has(m.type) || m.type === "image" || m.type === "video" || (m.type === "sticker" && typeof m.payload.url === "string");
+  const caption = m.type === "image" && m.text ? m.text : null;
   return (
     // 卡片消息在窄对话栏里占满宽度，栏宽超过 28rem 再和普通消息一样留出 15%
     <div className={cn("flex min-w-0 flex-col", CARD_TYPES.has(m.type) ? "max-w-full @md/tl:max-w-[85%]" : "max-w-[85%]", ours ? "items-end self-end" : "items-start")}>
-      {bubble}
+      {bare ? (
+        <Content m={m} ctx={ctx} />
+      ) : (
+        <Bubble m={m}>
+          <Content m={m} ctx={ctx} />
+        </Bubble>
+      )}
+      {caption && (
+        <Bubble m={m} className="mt-1">
+          <span className="whitespace-pre-wrap">{caption}</span>
+        </Bubble>
+      )}
       <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
         {m.senderRole === "ai" && <AiTag />}
         {ours && m.senderName && m.senderRole !== "ai" && <span>{m.senderName}</span>}
@@ -250,6 +253,32 @@ function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; o
             {retrying ? "重试中…" : "重试"}
           </Button>
         </span>
+      )}
+    </div>
+  );
+}
+
+/** 聊天气泡：我方在右、用 accent 底，对方在左、用 muted 底；平台译文与发送前的原文跟在正文下面 */
+function Bubble({ m, className, children }: { m: MessageItem; className?: string; children: React.ReactNode }) {
+  const ours = m.direction === "out";
+  return (
+    <div className={cn("max-w-full min-w-0 rounded-lg px-3 py-2 text-sm leading-relaxed [overflow-wrap:anywhere]", ours ? "rounded-tr-sm bg-accent" : "rounded-tl-sm bg-muted", className)}>
+      {children}
+      {m.translation && (
+        <p className="mt-1.5 border-t border-border pt-1.5 text-xs leading-relaxed text-muted-foreground">
+          <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
+            译 · {m.translationSource === "platform" ? "Shopee" : "Shopilot"}
+          </Badge>
+          {m.translation}
+        </p>
+      )}
+      {m.originalText && (
+        <p className="mt-1.5 border-t border-border pt-1.5 text-xs leading-relaxed text-muted-foreground">
+          <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
+            原文
+          </Badge>
+          {m.originalText}
+        </p>
       )}
     </div>
   );
@@ -439,46 +468,82 @@ function ReturnCard({ orderId, order, skuId, link }: { orderId: string; order: B
   );
 }
 
-// 缩略图最大 240 × 256（max-w-60、max-h-64）
+// 缩略图最大 240 × 256（max-w-60、max-h-64）；贴纸最大 120 × 120
 const THUMB_W = 240;
 const THUMB_H = 256;
+const STICKER_MAX = 120;
+const EXPIRED_HINT = "加载不出来，链接可能已过期，请到平台后台查看";
 
-/** 缩略图点开在灯箱里看原图；按 payload 的宽高先占好位置，图片加载完不再撑高时间线 */
-function ChatImage({ id, url, width, height, onOpen }: { id: string; url: string; width: number; height: number; onOpen: Ctx["openImage"] }) {
-  const scale = Math.min(1, THUMB_W / width, THUMB_H / height);
+/** 按 payload 的宽高等比缩进上限：先占好位置，媒体加载完不再撑高时间线 */
+function fitBox(width: number, height: number, maxW: number, maxH: number): React.CSSProperties {
+  const scale = Math.min(1, maxW / width, maxH / height);
+  return { width: Math.round(width * scale), aspectRatio: `${width} / ${height}` };
+}
+
+/** 图片缩略图：点开在灯箱里看原图；加载失败（链接过期）时换成过期提示 */
+function ChatImage({ id, url, width, height, ctx }: { id: string; url: string; width: number; height: number; ctx: Ctx }) {
+  if (ctx.failed.has(id)) return <CardBox icon={ImageIcon} title="图片" sub={[`图片${EXPIRED_HINT}`]} />;
   return (
-    <button type="button" aria-label="查看大图" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget)} className="focus-ring block max-w-full cursor-zoom-in rounded-lg">
+    <button type="button" aria-label="查看大图" aria-haspopup="dialog" onClick={(e) => ctx.openMedia(id, e.currentTarget)} className="focus-ring block max-w-full cursor-zoom-in rounded-lg">
       <Image
         src={url}
         alt="聊天图片"
         width={width}
         height={height}
         unoptimized
+        onError={() => ctx.markFailed(id)}
         className="h-auto max-w-full rounded-lg border border-border object-cover"
-        style={{ width: Math.round(width * scale), aspectRatio: `${width} / ${height}` }}
+        style={fitBox(width, height, THUMB_W, THUMB_H)}
       />
     </button>
   );
 }
 
-/** 聊天视频：就地播放；没有封面时取第 0.1 秒那一帧当封面。平台视频链接会过期（TikTok 带签名），加载失败时提示到平台后台查看 */
-function ChatVideo({ url, cover, width, height, duration }: { url: string; cover: string | null; width: number; height: number; duration: number | null }) {
-  const [failed, setFailed] = useState(false);
-  const scale = Math.min(1, THUMB_W / width, THUMB_H / height);
-  if (failed) return <CardBox icon={VideoIcon} title="视频" sub={["视频加载不出来，链接可能已过期，请到平台后台查看"]} />;
+function durationText(sec: number): string {
+  const t = Math.round(sec);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+}
+
+/**
+ * 视频缩略图：封面 + 播放键 + 时长，点开在灯箱里播放（窄栏里就地播放的播放器太小）。
+ * 没有封面或封面加载失败时取第 0.1 秒那一帧当封面；视频本身加载失败（链接过期，TikTok 带签名）时换成过期提示
+ */
+function ChatVideo({ id, url, cover, width, height, duration, ctx }: { id: string; url: string; cover: string | null; width: number; height: number; duration: number | null; ctx: Ctx }) {
+  const [coverFailed, setCoverFailed] = useState(false);
+  if (ctx.failed.has(id)) return <CardBox icon={VideoIcon} title="视频" sub={[`视频${EXPIRED_HINT}`]} />;
   return (
-    <video
-      src={cover ? url : `${url}#t=0.1`}
-      poster={cover ?? undefined}
-      controls
-      preload="metadata"
-      playsInline
-      aria-label={duration ? `聊天视频，时长 ${Math.round(duration)} 秒` : "聊天视频"}
-      onError={() => setFailed(true)}
-      className="block h-auto max-w-full rounded-lg border border-border bg-muted object-contain"
-      style={{ width: Math.round(width * scale), aspectRatio: `${width} / ${height}` }}
-    />
+    <button
+      type="button"
+      aria-label={duration ? `播放视频，时长 ${Math.round(duration)} 秒` : "播放视频"}
+      aria-haspopup="dialog"
+      onClick={(e) => ctx.openMedia(id, e.currentTarget)}
+      className="focus-ring relative block max-w-full overflow-hidden rounded-lg border border-border bg-(--semantic-color-surface-inverse)"
+      style={fitBox(width, height, THUMB_W, THUMB_H)}
+    >
+      {cover && !coverFailed ? (
+        <Image src={cover} alt="" fill unoptimized sizes={`${THUMB_W}px`} onError={() => setCoverFailed(true)} className="object-contain" />
+      ) : (
+        <video src={`${url}#t=0.1`} preload="metadata" muted playsInline aria-hidden="true" onError={() => ctx.markFailed(id)} className="size-full object-contain" />
+      )}
+      <span className="absolute inset-0 grid place-items-center">
+        <span className="grid size-10 place-items-center rounded-full bg-(--semantic-color-surface-inverse)/70 text-(--semantic-color-text-on-inverse)">
+          {/* 光学修正：三角形重心偏左，右移 1px 才显得居中 */}
+          <PlayIcon className="size-5 translate-x-px fill-current" aria-hidden="true" />
+        </span>
+      </span>
+      {duration ? (
+        <span className="absolute right-1.5 bottom-1.5 rounded-sm bg-(--semantic-color-surface-inverse)/70 px-1.5 text-xs leading-5 text-(--semantic-color-text-on-inverse) tabular-nums">
+          {durationText(duration)}
+        </span>
+      ) : null}
+    </button>
   );
+}
+
+/** 贴纸：按原图小尺寸显示，不进灯箱、点击无动作；加载失败时换成过期提示 */
+function ChatSticker({ id, url, width, height, ctx }: { id: string; url: string; width: number; height: number; ctx: Ctx }) {
+  if (ctx.failed.has(id)) return <CardBox icon={SmileIcon} title="表情" sub={[`表情${EXPIRED_HINT}`]} />;
+  return <Image src={url} alt="表情" width={width} height={height} unoptimized onError={() => ctx.markFailed(id)} className="block h-auto max-w-full" style={fitBox(width, height, STICKER_MAX, STICKER_MAX)} />;
 }
 
 function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
@@ -493,7 +558,7 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
       const w = Number(p.width) || 240;
       const h = Number(p.height) || 240;
       return url ? (
-        <ChatImage id={m.id} url={url} width={w} height={h} onOpen={ctx.openImage} />
+        <ChatImage id={m.id} url={url} width={w} height={h} ctx={ctx} />
       ) : (
         <CardBox icon={ImageIcon} title="图片" />
       );
@@ -510,15 +575,18 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
       const productId = String(p.productId ?? "");
       return <ProductCard productId={productId} info={ctx.products[productId]} fallbackName={typeof p.productName === "string" ? p.productName : undefined} platform={ctx.platform} />;
     }
-    case "sticker":
-      return <span className="text-muted-foreground">[表情]</span>;
+    case "sticker": {
+      // 早先入库的贴纸没有地址，只能显示文字
+      const url = typeof p.url === "string" ? p.url : null;
+      return url ? <ChatSticker id={m.id} url={url} width={Number(p.width) || STICKER_MAX} height={Number(p.height) || STICKER_MAX} ctx={ctx} /> : <span className="text-muted-foreground">[表情]</span>;
+    }
     case "video": {
       const url = typeof p.url === "string" ? p.url : null;
       // 早先入库的视频没有尺寸，按手机竖屏 9:16 摆
       const w = Number(p.width) || 270;
       const h = Number(p.height) || 480;
       return url ? (
-        <ChatVideo url={url} cover={typeof p.cover === "string" ? p.cover : null} width={w} height={h} duration={Number(p.duration) || null} />
+        <ChatVideo id={m.id} url={url} ctx={ctx} cover={typeof p.cover === "string" ? p.cover : null} width={w} height={h} duration={Number(p.duration) || null} />
       ) : (
         <CardBox icon={VideoIcon} title="视频" sub={["请到平台后台查看"]} />
       );

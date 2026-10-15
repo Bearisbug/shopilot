@@ -201,7 +201,8 @@ export function normalizeTiktokMessage(m: Record<string, unknown>): NormalizedMe
       break;
     case "VIDEO":
       type = "video";
-      Object.assign(payload, { url: c.url ?? c.vid, cover: c.cover, width: c.width, height: c.height, duration: c.duration });
+      // 视频地址带签名，expire_time（秒）之后失效
+      Object.assign(payload, { url: c.url ?? c.vid, cover: c.cover, width: c.width, height: c.height, duration: c.duration, expireTime: Number(c.expire_time) || undefined });
       break;
     case "PRODUCT_CARD":
       type = "product_card";
@@ -225,6 +226,7 @@ export function normalizeTiktokMessage(m: Record<string, unknown>): NormalizedMe
       break;
     case "EMOTICONS":
       type = "sticker";
+      Object.assign(payload, { url: c.url, width: c.width, height: c.height });
       break;
     case "NOTIFICATION":
       text = String(c.content ?? "");

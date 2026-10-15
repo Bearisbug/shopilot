@@ -223,6 +223,13 @@ export async function shopeeMessages(app: ShopeeApp, shop: ShopeeShopAuth, conve
 /** 平台系统消息：通知、打包的机器人消息、转人工提示。不算买家发言，也不算卖家人工回复（DESIGN §9 发送方） */
 const SHOPEE_SYSTEM_TYPES = new Set(["notification", "bundle_message", "chatbot_msg", "live_agent_transfer"]);
 
+/** 聊天内容里的 thumb_url 是图片 ID，拼上图片 CDN 才是地址；已是完整地址的原样返回 */
+const SHOPEE_IMAGE_CDN = "https://down-my.img.susercontent.com/file/";
+function shopeeImageUrl(v: unknown): string | undefined {
+  if (typeof v !== "string" || !v) return undefined;
+  return /^https?:\/\//i.test(v) ? v : SHOPEE_IMAGE_CDN + v;
+}
+
 export function normalizeShopeeMessage(m: Record<string, unknown>, shopId: string): NormalizedMessage {
   const fromShop = String(m.from_shop_id ?? "0") === String(shopId);
   const c = (m.content ?? {}) as Record<string, unknown>;
@@ -276,10 +283,11 @@ export function normalizeShopeeMessage(m: Record<string, unknown>, shopId: strin
       break;
     case "sticker":
       type = "sticker";
+      Object.assign(payload, { url: (typeof c.url === "string" && c.url) || shopeeImageUrl(c.thumb_url), width: c.thumb_width ?? c.width, height: c.thumb_height ?? c.height });
       break;
     case "video":
       type = "video";
-      Object.assign(payload, { url: c.video_url, width: c.thumb_width, height: c.thumb_height, duration: c.duration_seconds });
+      Object.assign(payload, { url: c.video_url, cover: shopeeImageUrl(c.thumb_url), width: c.thumb_width, height: c.thumb_height, duration: c.duration_seconds });
       break;
     default:
       text = typeof c.text === "string" ? c.text : null;

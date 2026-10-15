@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { DownloadIcon, LoaderCircleIcon, SendIcon } from "lucide-react";
+import { DownloadIcon, EyeIcon, LoaderCircleIcon, SendIcon } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
 import { inTz, money } from "@/lib/format";
 import { KV, Notice, SendStatus, useOrderDetail, useOrdersInvalidate } from "./order-ui";
+import { PdfPreview } from "./pdf-preview";
 
 type Props = {
   open: boolean;
@@ -197,6 +198,12 @@ function DetailBody({ invoiceId, givenOrderId, close }: { invoiceId: string | nu
           <Link href={`/orders?order=${o.id}`}>查看订单</Link>
         </Button>
         <div className="flex flex-wrap justify-end gap-2">
+          <PdfPreview url={inv.pdfUrl} title={inv.number}>
+            <Button variant="outline">
+              <EyeIcon />
+              预览
+            </Button>
+          </PdfPreview>
           <Button asChild variant="outline">
             <a href={inv.pdfUrl} download>
               <DownloadIcon />

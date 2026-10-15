@@ -90,6 +90,10 @@ export const api = {
   upload<T>(url: string, form: FormData) {
     return once<T>("POST", url, form, { timeoutMs: 60_000 });
   },
+  /** 下载文件：出错时同样按 problem 抛 ApiError；成功返回原始响应，由调用方读 blob（超时只管到响应头） */
+  download(url: string) {
+    return once<Response>("GET", url, undefined, { timeoutMs: 30_000, raw: true });
+  },
 };
 
 export const newKey = () => crypto.randomUUID();

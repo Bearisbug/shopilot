@@ -34,6 +34,27 @@ describe("Shopee 消息归一化", () => {
     expect(shopee("return_refund_card", {}, false).type).toBe("return_card");
     expect(shopee("image_with_text", { url: "https://x/y.jpg", text: "see this" }, false)).toMatchObject({ type: "image", text: "see this" });
   });
+  it("图片、带文字的图片存地址与尺寸", () => {
+    const content = { url: "https://cf.shopee.sg/file/abc", thumb_url: "abc_tn", thumb_width: 400, thumb_height: 711 };
+    expect(shopee("image", content, false)).toMatchObject({ type: "image", text: null, payload: { url: "https://cf.shopee.sg/file/abc", width: 400, height: 711 } });
+    expect(shopee("image_with_text", { ...content, text: "this one" }, false)).toMatchObject({ type: "image", text: "this one", payload: { url: "https://cf.shopee.sg/file/abc", width: 400, height: 711 } });
+  });
+  it("贴纸存地址与尺寸；只有图片 ID 时拼成 CDN 地址，取不到的字段不存", () => {
+    expect(shopee("sticker", { url: "https://cf.shopee.sg/file/st1", thumb_width: 160, thumb_height: 160 }, false).payload).toEqual({ url: "https://cf.shopee.sg/file/st1", width: 160, height: 160 });
+    expect(shopee("sticker", { thumb_url: "sg-11134201-st2", thumb_width: 120, thumb_height: 120 }, false)).toMatchObject({
+      type: "sticker",
+      payload: { url: "https://down-my.img.susercontent.com/file/sg-11134201-st2", width: 120, height: 120 },
+    });
+    expect(JSON.parse(JSON.stringify(shopee("sticker", { sticker_id: "9" }, false).payload))).toEqual({});
+  });
+  it("视频存地址、封面（图片 ID 拼成 CDN 地址）、尺寸与时长", () => {
+    const m = shopee("video", { video_url: "https://down-ws-sg.vod.susercontent.com/v.mp4", thumb_url: "vn-11134231-cover", thumb_width: 720, thumb_height: 1280, duration_seconds: 15 }, false);
+    expect(m).toMatchObject({
+      type: "video",
+      payload: { url: "https://down-ws-sg.vod.susercontent.com/v.mp4", cover: "https://down-my.img.susercontent.com/file/vn-11134231-cover", width: 720, height: 1280, duration: 15 },
+    });
+    expect(shopee("video", { video_url: "https://v/x.mp4", thumb_url: "https://cdn/x.jpg" }, false).payload.cover).toBe("https://cdn/x.jpg");
+  });
 });
 
 const tiktok = (type: string, role: string, content: Record<string, unknown>) =>
@@ -50,5 +71,14 @@ describe("TikTok 消息归一化", () => {
   it("买家文字、平台机器人文字保持原角色", () => {
     expect(tiktok("TEXT", "BUYER", { content: "hi" })).toMatchObject({ senderRole: "buyer", fromBuyer: true, text: "hi" });
     expect(tiktok("TEXT", "ROBOT", { content: "auto" })).toMatchObject({ senderRole: "platform_bot", fromBuyer: false });
+  });
+  it("图片存地址与尺寸，表情归为贴纸并存地址与尺寸", () => {
+    expect(tiktok("IMAGE", "BUYER", { url: "https://p16/i.jpeg", width: 1080, height: 1920 })).toMatchObject({ type: "image", payload: { url: "https://p16/i.jpeg", width: 1080, height: 1920 } });
+    expect(tiktok("EMOTICONS", "BUYER", { url: "https://p16/e.png", width: 200, height: 180 })).toMatchObject({ type: "sticker", payload: { url: "https://p16/e.png", width: 200, height: 180 } });
+  });
+  it("视频存地址、封面、尺寸、时长与过期时间", () => {
+    const m = tiktok("VIDEO", "BUYER", { url: "https://v16/v.mp4?x-expires=1", cover: "https://p16/c.jpeg", width: 720, height: 1280, duration: "12.5", expire_time: "1681980481", vid: "v1" });
+    expect(m).toMatchObject({ type: "video", payload: { url: "https://v16/v.mp4?x-expires=1", cover: "https://p16/c.jpeg", width: 720, height: 1280, duration: "12.5", expireTime: 1681980481 } });
+    expect(tiktok("VIDEO", "BUYER", { url: "https://v16/v.mp4" }).payload.expireTime).toBeUndefined();
   });
 });

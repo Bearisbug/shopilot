@@ -1,12 +1,13 @@
 "use client";
 
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
-import { AlertTriangleIcon, DownloadIcon, FilePlusIcon, FileTextIcon, SendIcon } from "lucide-react";
+import { AlertTriangleIcon, DownloadIcon, EyeIcon, FilePlusIcon, FileTextIcon, SendIcon } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { Me } from "@/contracts/auth";
 import type { InvoiceListItem, InvoicesResponse, InvoiceSummary } from "@/contracts/orders";
 import { SendStatus, useOrdersInvalidate } from "@/components/orders/order-ui";
+import { PdfPreview } from "@/components/orders/pdf-preview";
 import { PageActions } from "@/components/shell/app-shell";
 import { EmptyState, ErrorState, LoadingRows, PageHeader, PageScroll, Panel, PanelHeader } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
@@ -94,8 +95,8 @@ export function InvoicesClient({ me }: { me: Me }) {
                   <TableHead className="text-right">金额</TableHead>
                   <TableHead>发送</TableHead>
                   <TableHead className="hidden xl:table-cell">开具时间</TableHead>
-                  {/* 操作列定宽（放得下 PDF 与重发）并贴右：有没有「重发」都不改列宽，窄屏横滚时按钮仍可见 */}
-                  <TableHead className="sticky right-0 w-44 bg-card">
+                  {/* 操作列定宽并贴右：宽屏放得下预览、PDF 与重发一行，窄屏放得下预览与 PDF、重发折到第二行；有没有「重发」都不改列宽，窄屏横滚时按钮仍可见 */}
+                  <TableHead className="sticky right-0 w-44 bg-card xl:w-64">
                     <span className="sr-only">操作</span>
                   </TableHead>
                 </TableRow>
@@ -140,8 +141,14 @@ export function InvoicesClient({ me }: { me: Me }) {
                       )}
                     </TableCell>
                     <TableCell className="hidden text-xs whitespace-nowrap text-muted-foreground tabular-nums xl:table-cell">{inTz(i.createdAt, tz)}</TableCell>
-                    <TableCell className="sticky right-0 w-44 bg-card" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-2">
+                    <TableCell className="sticky right-0 w-44 bg-card xl:w-64" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex min-w-40 flex-wrap justify-end gap-2">
+                        <PdfPreview url={i.pdfUrl} title={i.number}>
+                          <Button variant="outline" size="sm" aria-label={`预览 ${i.number} 的 PDF`}>
+                            <EyeIcon />
+                            预览
+                          </Button>
+                        </PdfPreview>
                         <Button asChild variant="outline" size="sm">
                           <a href={i.pdfUrl} download aria-label={`下载 ${i.number} 的 PDF`}>
                             <DownloadIcon />

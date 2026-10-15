@@ -101,6 +101,7 @@ export function ConversationPane({ id }: { id: string }) {
       {q.isError && <PollErrorBar className="mx-4 mt-2 shrink-0" onRetry={() => q.refetch()} />}
       <Timeline
         key={id}
+        conversationId={id}
         messages={messages}
         shadowDrafts={d.shadowDrafts}
         ordersById={ordersById}
