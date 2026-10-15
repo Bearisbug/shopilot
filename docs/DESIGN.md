@@ -8,10 +8,17 @@
 | 项目画像 | 生产产品（面向外部商户的多商户 SaaS）。本期只在本机跑通、没有生产环境，§21–§23 按场景级原因写 N/A，上线前由 deploy-pipeline 补齐 |
 | Owner | 产品负责人：用户；实现：「Shopilot 实现」会话 |
 | 评审人 | 用户 |
-| 最后更新 | 2026-10-14 |
+| 最后更新 | 2026-10-15 |
 | 关联 | 交接 [implementation-handoff.md](implementation-handoff.md) · 角色 [roles.md](roles.md) · 逐按钮清单 [ui-interactions.md](ui-interactions.md) · 功能与接口对照 [ui-feasibility.md](ui-feasibility.md) · 5 条需求 [requirements-ui-impact.md](requirements-ui-impact.md) · 平台接口 [platform-api/](platform-api/README.md) · Quilt 项目「Shopilot」`924976f9-2aa2-4b5d-9671-fe0f6f7d6587` · 现网参考 `~/Documents/Projects/Bots/Obsbot`（docs/DESIGN.md §11–§12） · 契约 `src/contracts/`（zod） · 测试 [TEST.md](TEST.md) · 视觉 `brand/` |
+| 链路层 | 部分 |
 
 变更记录：
+
+| 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
+| --- | --- | --- | --- | --- |
+| 2026-10-15 | v1.11 | FLOW-KB-INGEST、FLOW-KB-MANAGE、FLOW-AI-DRAFT、REQ-KB-001、REQ-KB-002、REQ-KB-003、REQ-KB-004、REQ-KB-005、REQ-KB-006、REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、RULE-KB-001、RULE-KB-002、RULE-KB-003、INV-KB-001、INV-KB-002、INV-KB-003、INV-AI-001、ADR-014 | 新增知识库：上传资料、分类、测试问答，AI 出稿先查资料并给客服看依据，补了链路总览 | 功能、文档 |
+
+变更记录（旧格式）：
 
 | 日期 | 版本 | 改动 | 作者 |
 | --- | --- | --- | --- |
@@ -28,6 +35,438 @@
 | 2026-10-12 | v1.5 | RUN-001 失败项的修复回写：登录时拒绝被停用的成员（`API-AUTH-002` 403 `member_disabled`）；重置密码令牌区分 `used` / `expired` / `invalid`，成功后回登录页（`API-AUTH-005`）；`API-TEAM-001` 返回结构按实现写为 `members`、`invitations`、`stats`；TikTok `RETURN_OR_REFUND_REQUEST_SUCCESS` 改为「等待平台 · 退款中」，`_COMPLETE` 才解决（11.4）；删除买家数据时订单镜像去掉买家身份，返回补 `orders`（`API-SET-009`）；Shopee 平台译文只来自推送 code 10 的 `content.translation`（REQ-CONV-008）；模拟平台：退款批准后紧接着打款到 COMPLETE，重复授权不作废旧 token（`API-MOCK-002`、`API-MOCK-003`），新增模拟商户自有系统的推送接收端 `API-MOCK-009` | 实现会话 |
 | 2026-10-12 | v1.4 | 实现中定下的细节回写：时区修改立即生效（REQ-SET-001）；`API-CONV-002` 补接待时限、可回复判定、历史段与按钮权限；`API-CONV-003` 只读订单镜像；`API-CONV-007` 加 `couponTitle`；模拟平台授权页按真实平台路径、表单 303 回跳、Shopee 主账号可逐店勾选（`API-MOCK-003`），新增故障注入 `API-MOCK-007` 与 AI 替身 `API-MOCK-008`，发件箱补退信与附件（`API-MOCK-006`）；数据字典补 `connect_draft.shop_ids`、`subscription.status`、`dev_ai_stub`；作废的平台类工单不再被平台事件重建（11.4）；`/errors/duplicate` 的工单字段；商品卡本期一律置灰；§28 记实现期决定与假设；搜索分买家、消息、订单、工单四组（`API-SEARCH-001`），消息正文加 pg_trgm 索引；看板比率样本下限 10；草稿采纳率分母去掉过期与被替代 | 实现会话 |
 
+## L1. 链路总览
+
+领域顺序：账号 → 接入 → 接待 → 知识库 → 售后 → 工单 → 运营 → 开发
+
+### 角色：管理员
+
+| 链路 | 名称 | 领域 | 状态 | 涉及需求 |
+| --- | --- | --- | --- | --- |
+| FLOW-SIGNUP | 注册商户 | 账号 | 已实现 | REQ-AUTH-001 |
+| FLOW-TEAM | 管理团队 | 账号 | 已实现 | REQ-TEAM-001、REQ-TEAM-003、REQ-TEAM-004、REQ-TEAM-005、REQ-TEAM-006 |
+| FLOW-SHOP-CONNECT | 接入店铺 | 接入 | 已实现 | REQ-SHOP-001、REQ-SHOP-002、REQ-SHOP-003、REQ-SHOP-004、REQ-SHOP-005、REQ-SHOP-011、REQ-SHOP-013 |
+| FLOW-SHOP-MAINTAIN | 维护店铺 | 接入 | 已实现 | REQ-SHOP-006、REQ-SHOP-007、REQ-SHOP-008、REQ-SHOP-009、REQ-SHOP-010、REQ-SHOP-012 |
+| FLOW-RECEPTION | 配置接待 | 接待 | 已实现 | REQ-RCP-001、REQ-RCP-002、REQ-RCP-003、REQ-RCP-004 |
+| FLOW-KB-INGEST | 上传资料 | 知识库 | 设计中 | REQ-KB-001 |
+| FLOW-KB-MANAGE | 维护资料 | 知识库 | 设计中 | REQ-KB-002、REQ-KB-003、REQ-KB-004 |
+| FLOW-KB-TEST | 测试问答 | 知识库 | 设计中 | REQ-KB-005 |
+| FLOW-BILLING | 用量与套餐 | 运营 | 已实现 | REQ-BILL-001、REQ-BILL-002、REQ-BILL-003、REQ-BILL-004、REQ-BILL-005 |
+| FLOW-SETTINGS | 商户设置 | 运营 | 已实现 | REQ-SET-001、REQ-SET-002、REQ-SET-003、REQ-SET-004、REQ-SET-005、REQ-SET-006 |
+
+### 角色：组长
+
+| 链路 | 名称 | 领域 | 状态 | 涉及需求 |
+| --- | --- | --- | --- | --- |
+| FLOW-DASHBOARD | 查看看板 | 运营 | 已实现 | REQ-DASH-001 |
+
+### 角色：员工
+
+| 链路 | 名称 | 领域 | 状态 | 涉及需求 |
+| --- | --- | --- | --- | --- |
+| FLOW-INBOUND | 接收买家消息 | 接待 | 已实现 | REQ-CONV-001、REQ-CONV-006、REQ-CONV-007、REQ-CONV-010、REQ-CONV-011 |
+| FLOW-AI-DRAFT | AI 出稿 | 接待 | 已实现 | REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、REQ-KB-006 |
+| FLOW-WB-HANDLE | 接待会话 | 接待 | 已实现 | REQ-CONV-002、REQ-CONV-003、REQ-CONV-004、REQ-CONV-005、REQ-CONV-008、REQ-CONV-009、REQ-AI-003 |
+| FLOW-SEARCH | 全局搜索 | 接待 | 已实现 | REQ-SEARCH-001 |
+| FLOW-ORDER | 订单与售后 | 售后 | 已实现 | REQ-ORD-001、REQ-ORD-002、REQ-ORD-003、REQ-ORD-004、REQ-ORD-005 |
+| FLOW-INVOICE | 开票 | 售后 | 已实现 | REQ-ORD-006、REQ-AI-006 |
+| FLOW-TICKET | 跟进工单 | 工单 | 已实现 | REQ-TKT-001、REQ-TKT-002、REQ-TKT-003、REQ-TKT-004、REQ-TKT-005 |
+| FLOW-NOTIFY | 站内通知 | 运营 | 已实现 | REQ-NOTIF-001 |
+
+### 角色：全部成员
+
+| 链路 | 名称 | 领域 | 状态 | 涉及需求 |
+| --- | --- | --- | --- | --- |
+| FLOW-LOGIN | 登录与权限 | 账号 | 已实现 | REQ-AUTH-002、REQ-AUTH-003、REQ-AUTH-004、REQ-AUTH-005、REQ-AUTH-006、REQ-PERM-001、REQ-PERM-002 |
+
+### 角色：受邀成员
+
+| 链路 | 名称 | 领域 | 状态 | 涉及需求 |
+| --- | --- | --- | --- | --- |
+| FLOW-INVITE-ACCEPT | 接受邀请 | 账号 | 已实现 | REQ-TEAM-002 |
+
+### 角色：开发者
+
+| 链路 | 名称 | 领域 | 状态 | 涉及需求 |
+| --- | --- | --- | --- | --- |
+| FLOW-MOCK | 模拟平台与发件箱 | 开发 | 已实现 | REQ-MOCK-001、REQ-MOCK-002、REQ-MOCK-003 |
+
+界面外壳：Web｜src/components/shell/*.tsx、src/app/(app)/layout.tsx
+
+## L2. 链路卡
+
+> 图例：现状待确认 = 实现已定、文档未写，等你确认是否定稿；无用例 = 这一行还没有测试用例；分支未与用户逐类核对 = 所列步骤的分支由 Agent 按文档与代码预填，还没和你逐类问过
+
+### FLOW-KB-INGEST · 上传资料
+
+#### 概要
+
+- **执行者**：管理员（ROLE-Admin）
+- **触发**：在接待设置的知识库页拖入或选择文件（PAGE-RECEPTION-KB）
+- **进入条件**：商户没在删除中的资料不足 500 份
+- **结果**：资料解析入库后默认可被 AI 引用，列表显示「可用」
+- **不管**：改分类、站点与开关，删除资料；把 PPT 转成 PDF
+
+#### 主流程
+
+1. S1 管理员拖入或选择多个文件，选一个分类与适用站点 〔界面：Web 上传弹窗｜src/app/(app)/reception/knowledge/upload-dialog.tsx〕
+2. S2 逐个上传文件，服务端检查格式与大小（API-KB-002） 〔界面：Web 上传弹窗｜src/app/(app)/reception/knowledge/upload-dialog.tsx〕
+3. S3 存原文件、建资料，列表出现「排队中」 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/knowledge-client.tsx〕
+4. S4 后台确认商户有检索实例，没有就创建 〔无界面〕
+5. S5 超过 10 MB 的 PDF 按页拆成多个条目 〔无界面〕
+6. S6 每个条目上传到检索服务并等索引完成 〔无界面〕
+7. S7 读回分块文字，资料变为可用 〔无界面〕
+8. S8 列表显示可用，抽屉可看解析内容（API-KB-001、API-KB-004） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/knowledge-client.tsx、src/app/(app)/reception/knowledge/document-drawer.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S2–S7
+
+##### S2 检查格式与大小
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 文件超过 20 MB | 413 `/errors/too-large`〔提示：单个文件不能超过 20 MB〕 | `/errors/too-large`；API-KB-002 | 无用例 |
+| 失败 | PDF 以外的文件超过 4 MB | 413 `/errors/too-large`〔提示：PDF 以外的文件不能超过 4 MB〕 | `/errors/too-large`；API-KB-002 | 无用例 |
+| 失败 | 上传的是 PPT | 415 `/errors/unsupported-type`〔提示：请先把 PPT 导出为 PDF 再上传〕 | `/errors/unsupported-type`；API-KB-002 | 无用例 |
+| 失败 | 其他不支持的格式 | 415 `/errors/unsupported-type`〔提示：这种格式暂不支持〕 | `/errors/unsupported-type`；API-KB-002 | 无用例 |
+| 边界 | 一批里有文件被拒 | 其余文件照常上传，被拒的逐个写原因 | API-KB-002；场景「上传不支持或超限的文件被拒」 | 无用例 |
+
+##### S3 存原文件、建资料
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 资料数已到上限 | 409 `/errors/not-allowed`〔提示：资料已满，请先删除不用的〕 | `/errors/not-allowed`；API-KB-002 | 无用例 |
+| 失败 | 内容与已有资料相同 | 409 `/errors/duplicate`〔提示：已有同样的文件〕 | `/errors/duplicate`；API-KB-002 | 无用例 |
+| 并发 | 选的分类刚被别人删除 | 422 `/errors/validation` | `/errors/validation`；竞态「删除分类时有资料正上传到它」 | 无用例 |
+| 并发 | 两次上传同时越过资料上限 | 后到的 409 `/errors/not-allowed` | 竞态「并发上传越过资料上限」；INV-KB-001 | 无用例 |
+| 并发 | 同一文件同时上传两次 | 后到的 409 `/errors/duplicate` | 竞态「同一内容同时上传两次」 | 无用例 |
+
+##### S4 确认检索实例
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 同一商户两份资料同时触发建实例 | 只建一个实例 | 竞态「同商户并发创建检索实例」 | 无用例 |
+| 失败 | 账号的检索实例数已到上限 | 资料「失败」，原因写检索服务容量已满 | 迁移 ENT-KnowledgeDocument processing→failed；§17 到上限时新商户的资料入库失败并写原因 | 无用例 |
+| 边界 | 实例名的取法 | `sp-<商户 ID 去掉连字符后的后 12 位>`，不取前 12 位（uuid v7 前段是创建时间，同一时刻注册的商户会撞名） | 已决 Q-KB-INGEST-2 | 无用例 |
+
+##### S5 按页拆分
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | PDF 有一页超过 10 MB | 资料「失败」〔提示：第 N 页超过 10 MB，请压缩后重传〕 | 迁移 ENT-KnowledgeDocument processing→failed；场景「大 PDF 按页拆分入库」 | 无用例 |
+| 边界 | PDF 不超过 10 MB | 不拆，整份作为一个条目 | §17 超限的 PDF 按页拆成多个条目 | 无用例 |
+
+##### S6 上传并等索引
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 入库途中资料被删除 | 入库停下，已上传的条目随删除清掉 | 竞态「删除与入库交错」；INV-KB-003 | 无用例 |
+| 失败 | 重传 2 次仍失败 | 资料「失败」，原因含检索服务给的错误 | 迁移 ENT-KnowledgeDocument processing→failed；场景「索引失败时删除后同名重传」；§15 单份资料入库 ≤ 20 分钟 | 无用例 |
+| 边界 | 索引报错或 15 分钟没完成 | 删除条目后同名重传，最多 2 次 | 场景「索引失败时删除后同名重传」；ADR-014 | 无用例 |
+
+##### S7 读回分块
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 入库中管理员已关掉 AI 可用 | 解析完成后显示「已停用」，不被引用 | 字段 knowledge_document.ai_enabled；RULE-KB-001 | 无用例 |
+| 边界 | 分块从哪里来 | 读回检索服务的分块（按条目分页读取），与检索用的完全一致 | 已决 Q-KB-INGEST-1 | 无用例 |
+
+#### 待决策
+
+- **Q-KB-INGEST-1 · 「解析内容」读回检索服务的分块，还是 Shopilot 自己按同样规则切分？**
+  - 结论（2026-10-15）：读回检索服务的分块。验证时已用 `GET …/items/{条目 ID}/chunks?limit=100&offset=…` 分页读出全部 468 个分块
+  - 现状：未实现
+  - 建议：读回检索服务的分块，与检索用的完全一致
+  - 何时换：实测检索服务没有按条目读回分块的接口
+  - 代价：自己切的分块与检索明细里的片段对不上
+  - 不可逆：否
+  - 何时定：开始写入库任务前
+  - 谁定：技术
+  - 卡住：不卡
+- **Q-KB-INGEST-2 · 检索实例名取商户 ID 的前 12 位还是后 12 位？**
+  - 结论（2026-10-15）：取去掉连字符后的后 12 位
+  - 现状：未实现
+  - 建议：取去掉连字符后的后 12 位，前 12 位是创建时间，16 毫秒内注册的商户会撞名
+  - 何时换：商户 ID 改成纯随机生成时，取哪段都行
+  - 代价：和用户已同意的写法不同，要用户点头
+  - 不可逆：是（实例建好后改名要重建实例并重新入库）
+  - 何时定：开始写入库任务前
+  - 谁定：技术
+  - 卡住：FLOW-KB-INGEST
+
+另见：§28 Cloudflare AI Search 是 2026-10-01 才 GA 的新产品
+
+#### 关联
+
+- **契约锚点**：API-KB-002；API-KB-001；API-KB-004；ENT-KnowledgeDocument；ENT-KnowledgePart；迁移 ENT-KnowledgeDocument [*]→queued；迁移 ENT-KnowledgeDocument processing→ready；ADR-014
+- **上游**：—
+- **下游**：FLOW-KB-MANAGE、FLOW-AI-DRAFT
+- **守住的不变量**：INV-KB-001、INV-KB-003
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/app/(app)/reception/knowledge/upload-dialog.tsx#UploadDialog` |
+| S2–S3 | `src/app/(app)/reception/knowledge/upload-dialog.tsx#UploadDialog`；`src/server/knowledge/documents.ts#uploadDocument` |
+| S4–S7 | `src/server/knowledge/ingest.ts#ingestDocument`；`src/server/knowledge/search-service.ts#KnowledgeSearchService` |
+| S8 | `src/app/(app)/reception/knowledge/knowledge-client.tsx#KnowledgePage`；`src/app/(app)/reception/knowledge/document-drawer.tsx#DocumentDrawer` |
+
+### FLOW-KB-MANAGE · 维护资料
+
+#### 概要
+
+- **执行者**：管理员（ROLE-Admin）
+- **触发**：在知识库页打开资料抽屉或分类管理（PAGE-RECEPTION-KB）
+- **进入条件**：资料已上传，没在删除中
+- **结果**：分类、站点与 AI 可用按修改立即生效，删除的资料连同检索副本清掉
+- **不管**：在线改资料内容；保留资料的历史版本
+
+#### 主流程
+
+1. S1 按分类、站点、状态筛选资料（API-KB-001） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/knowledge-client.tsx〕
+2. S2 打开资料抽屉，看原文件与解析内容（API-KB-003、API-KB-004） 〔界面：Web 资料抽屉｜src/app/(app)/reception/knowledge/document-drawer.tsx〕
+3. S3 改分类、站点或 AI 可用开关（API-KB-005） 〔界面：Web 资料抽屉｜src/app/(app)/reception/knowledge/document-drawer.tsx〕
+4. S4 点「重新解析」，资料重新入库（API-KB-006） 〔界面：Web 资料抽屉｜src/app/(app)/reception/knowledge/document-drawer.tsx〕
+5. S5 点「删除」并确认，资料从列表消失（API-KB-007） 〔界面：Web 资料抽屉｜src/app/(app)/reception/knowledge/document-drawer.tsx〕
+6. S6 后台删掉检索副本、原文件与记录 〔无界面〕
+7. S7 在分类管理里新增或改名分类（API-KB-009、API-KB-010） 〔界面：Web 分类管理弹窗｜src/app/(app)/reception/knowledge/categories-dialog.tsx〕
+8. S8 删除分类，其中资料归入「未分类」（API-KB-011） 〔界面：Web 分类管理弹窗｜src/app/(app)/reception/knowledge/categories-dialog.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S2–S8
+
+##### S2 打开资料抽屉
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 原文件在磁盘上已不存在 | 404 `/errors/not-found`〔提示：文件已不存在〕 | `/errors/not-found`；API-CONV-011 | 无用例 |
+| 边界 | 原文件不是 PDF 或图片 | 不内嵌预览，只给下载 | API-CONV-011 | 无用例 |
+| 边界 | 资料还在解析或已失败 | 解析内容为空，显示状态与失败原因 | API-KB-004 | 无用例 |
+
+##### S3 改分类、站点或开关
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 停用时正好有出稿在检索 | 这次出稿可能仍引用它，之后的不再引用 | 竞态「停用与出稿检索交错」 | 无用例 |
+| 失败 | 站点一个都没选 | 422 `/errors/validation`〔提示：至少选一个站点〕 | `/errors/validation`；API-KB-005 | 无用例 |
+| 边界 | 改了分类或站点 | 立即生效，不重新解析 | API-KB-005；RULE-KB-001 | 无用例 |
+| 边界 | 关掉 AI 可用 | 之后的出稿不再引用，已有草稿保留依据 | RULE-KB-001；字段 draft.citations | 无用例 |
+
+##### S4 重新解析
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 资料正在排队或解析 | 409 `/errors/conflict`〔提示：这份资料正在解析，完成后再试〕 | `/errors/conflict`；竞态「资料解析中再点重新解析」 | 无用例 |
+| 边界 | 重新解析期间 | 旧副本先删掉，完成前不被引用 | 迁移 ENT-KnowledgeDocument ready→queued；RULE-KB-001 | 无用例 |
+
+##### S5 删除资料
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 两人同时删除同一份资料 | 都提示已删除，只删一次 | 竞态「两人同时删除同一份资料」 | 无用例 |
+| 并发 | 删除时资料正在解析 | 入库停下，已上传的副本一并删掉 | 竞态「删除与入库交错」；INV-KB-003 | 无用例 |
+
+##### S6 后台删除副本
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 删除检索副本失败 | 列表里已看不到，后台重试到删掉为止 | 迁移 ENT-KnowledgeDocument deleting→[*]；INV-KB-003 | 无用例 |
+
+##### S7 新增或改名分类
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 分类名与已有分类相同 | 409 `/errors/duplicate`〔提示：已有同名分类〕 | `/errors/duplicate`；API-KB-009 | 无用例 |
+| 失败 | 分类已有 50 个 | 409 `/errors/not-allowed`〔提示：分类最多 50 个〕 | `/errors/not-allowed`；API-KB-009 | 无用例 |
+| 失败 | 改名「未分类」 | 409 `/errors/not-allowed` | `/errors/not-allowed`；API-KB-010 | 无用例 |
+
+##### S8 删除分类
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 删除「未分类」 | 409 `/errors/not-allowed` | `/errors/not-allowed`；API-KB-011 | 无用例 |
+| 边界 | 删除还有资料的分类 | 资料归入「未分类」，不重新解析 | API-KB-011；场景「分类管理与改适用站点」 | 无用例 |
+
+#### 待决策
+
+另见：§28 组长、员工要不要能查看资料与测试问答
+
+#### 关联
+
+- **契约锚点**：API-KB-001；API-KB-003；API-KB-004；API-KB-005；API-KB-006；API-KB-007；API-KB-009；API-KB-010；API-KB-011；API-CONV-011；ENT-KnowledgeCategory；迁移 ENT-KnowledgeDocument ready→deleting
+- **上游**：FLOW-KB-INGEST
+- **下游**：FLOW-AI-DRAFT
+- **守住的不变量**：INV-KB-002、INV-KB-003
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/app/(app)/reception/knowledge/knowledge-client.tsx#KnowledgePage` |
+| S2–S5 | `src/app/(app)/reception/knowledge/document-drawer.tsx#DocumentDrawer`；`src/server/knowledge/documents.ts#updateDocument` |
+| S6 | `src/server/knowledge/purge.ts#purgeDocument` |
+| S7–S8 | `src/app/(app)/reception/knowledge/categories-dialog.tsx#CategoriesDialog`；`src/server/knowledge/categories.ts#deleteCategory` |
+
+### FLOW-AI-DRAFT · AI 出稿
+
+#### 概要
+
+- **执行者**：系统出稿任务，替负责该店的员工准备回复（ROLE-Agent）
+- **触发**：买家在 AI 接待中的会话里发来新消息
+- **进入条件**：会话由 AI 接待，或影子模式下待认领
+- **结果**：生成一份草稿，自动模式直接发出，客服能看到草稿依据的资料
+- **不管**：客服怎么处置草稿；资料怎么上传与维护
+
+#### 主流程
+
+1. S1 买家消息入库后排出稿任务 〔无界面〕
+2. S2 检查消息类型与转人工关键词 〔无界面〕
+3. S3 预占 1 次出稿用量 〔无界面〕
+4. S4 有可用资料时把买家问题改写成中文完整问题 〔无界面〕
+5. S5a 用改写后的问题检索知识库 〔无界面〕
+6. S5b 用买家原话检索知识库 〔无界面〕
+7. S6 两路结果去重合并，取前 8 段编号 〔无界面〕
+8. S7 带提示词、订单事实与资料片段请 DeepSeek 出稿 〔无界面〕
+9. S8 按模式存草稿、存影子回复或直接发给买家 〔无界面〕
+10. S9 员工在工作台看到草稿与「依据：《文件名》」（API-CONV-002） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/composer.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S4–S9
+
+##### S2 检查消息类型与关键词
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 买家发的不是文字 | 转人工，原因「非文本消息」 | 迁移 ENT-Conversation bot→awaiting_human；场景「转人工条件」 | TC-AI-018 |
+| 失败 | 消息命中转人工关键词 | 转人工，自动模式先发一句安抚 | 迁移 ENT-Conversation bot→awaiting_human；场景「转人工条件」 | TC-AI-015 |
+
+##### S3 预占出稿用量
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 额度临界时多条消息同时出稿 | 只出额度内的稿，其余转人工「用量上限」 | 竞态「额度临界时并发出稿」 | 无用例 |
+| 失败 | 额度用尽且超量策略为停止 | 不出稿，转人工，原因「用量上限」 | 竞态「额度临界时并发出稿」；场景「额度用尽」 | TC-AI-021 |
+
+##### S4 改写问题
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 改写出错或超过 6 秒 | 只用买家原话检索一路 | §17 改写失败时只用买家原话检索；§15 改写 6 秒、检索每路 8 秒加纯向量重试 5 秒 | 无用例 |
+| 边界 | 没有对该店站点可用的资料 | 跳过改写与检索，照旧出稿 | RULE-KB-001；场景「assist 模式出草稿」 | TC-AI-003 |
+
+##### S5a 两路检索
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 某路结果没有向量分或超过 8 秒 | 这一路改用纯向量检索重试一次 | 场景「混合检索降级时改用纯向量重试」；§15 改写 6 秒、检索每路 8 秒加纯向量重试 5 秒 | 无用例 |
+| 失败 | 两路重试后都失败 | 不带资料出稿，不转人工，记降级 | RULE-KB-002；场景「检索失败时不带资料出稿」；§15 出稿超时转人工，检索超时只降级 | 无用例 |
+| 边界 | 命中已停用、站点不符或已删除的资料 | 从结果里丢掉这些分块 | RULE-KB-001；字段 knowledge_document.ai_enabled | 无用例 |
+
+##### S6 合并结果
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 两路返回同一分块 | 只保留一次 | 字段 draft.retrieval | 无用例 |
+
+##### S7 请 DeepSeek 出稿
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 模型返回的不是合法 JSON | 转人工，原因「模型出错」，退回用量 | 场景「模型输出不合法时转人工」；迁移 ENT-Conversation bot→awaiting_human | TC-AI-008 |
+| 失败 | 模型 25 秒内没返回 | 转人工，原因「模型超时」，退回用量 | 迁移 ENT-Conversation bot→awaiting_human；§15 出稿超时转人工，检索超时只降级 | TC-AI-009 |
+| 失败 | 模型要求转人工 | 转人工，原因取模型给的，自动模式发它的安抚句 | 字段 conversation.handoff_reason；迁移 ENT-Conversation bot→awaiting_human | TC-AI-019 |
+| 失败 | 置信度低于阈值 | 转人工，原因「置信度低于阈值」 | 迁移 ENT-Draft [*]→generated；场景「转人工条件」 | TC-AI-016、TC-AI-017 |
+| 边界 | 模型判定资料不足 | 置信度按 0.50 封顶后再比阈值 | RULE-KB-003；场景「资料不足时置信度封顶」 | 无用例 |
+| 边界 | 阈值为 0.50 时资料不足的草稿 | 一律转人工，原因记「置信度低于阈值」 | 已决 Q-AI-DRAFT-1 | 无用例 |
+| 边界 | 模型给的编号不在检索结果里 | 忽略该编号，不显示为依据 | 字段 draft.citations | 无用例 |
+
+##### S8 按模式存草稿或发送
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 出稿期间买家又发了消息 | 旧草稿作废，按最新消息重新出稿 | 竞态「草稿生成期间买家又发消息」 | TC-AI-012 |
+| 失败 | 自动模式发送失败 | 草稿记失败，转人工「发送失败」 | 迁移 ENT-Draft generated→failed | TC-AI-020 |
+| 边界 | 影子模式 | 存影子回复不发送，只给管理员和组长看 | 迁移 ENT-Draft [*]→shadow | TC-AI-005 |
+| 边界 | 自动模式且置信度达标 | 直接发给买家，依据不随消息发出 | 迁移 ENT-Conversation bot→bot；INV-AI-001 | TC-AI-007 |
+
+##### S9 员工看到草稿与依据
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 依据的资料之后被删除 | 依据仍显示文件名，不能点开 | 字段 draft.citations；API-CONV-002 | 无用例 |
+| 边界 | 草稿 24 小时未处置 | 草稿过期，不再显示 | 迁移 ENT-Draft generated→expired | TC-AI-013 |
+
+#### 待决策
+
+- **Q-AI-DRAFT-1 · 阈值设为 0.50 时，资料不足的草稿照常放行还是一律转人工？**
+  - 结论（2026-10-15）：资料不足一律转人工
+  - 现状：未实现
+  - 建议：资料不足一律转人工，原因记「置信度低于阈值」
+  - 何时换：商户反馈辅助模式下想看到资料不足的草稿
+  - 代价：阈值设 0.50 的商户会少看到一部分草稿
+  - 不可逆：否
+  - 何时定：知识库一期开始实现前
+  - 谁定：产品
+  - 卡住：不卡
+
+另见：§28 Cloudflare AI Search 是 2026-10-01 才 GA 的新产品；§28 重排模型对泰语、马来语打分接近 0
+
+#### 关联
+
+- **契约锚点**：API-CONV-002；ENT-Draft；迁移 ENT-Draft [*]→generated；ADR-014；RULE-KB-001；RULE-KB-002；RULE-KB-003
+- **上游**：FLOW-INBOUND、FLOW-KB-INGEST、FLOW-KB-MANAGE
+- **下游**：FLOW-WB-HANDLE
+- **守住的不变量**：INV-KB-002、INV-AI-001
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/server/conversations/ingest.ts#enqueueDraft` |
+| S2–S3 | `src/server/ai/draft.ts#generateDraft`；`src/server/conversations/hours.ts#hitKeyword`；`src/server/billing/usage.ts#reserveDraft` |
+| S4–S6 | `src/server/knowledge/retrieve.ts#retrieveForDraft` |
+| S7–S8 | `src/server/ai/draft.ts#generateDraft`；`src/server/ai/client.ts#chat`；`src/server/ai/draft.ts#handoff` |
+| S9 | `src/app/(app)/wb/composer.tsx#DraftCard` |
+
+## L3. 业务规则
+
+### RULE-KB-001 · 只有可用资料能被检索引用
+
+适用链路：FLOW-AI-DRAFT、FLOW-KB-TEST
+
+| 解析状态 | AI 可用 | 适用站点 | 结果 |
+| --- | --- | --- | --- |
+| 解析完成 | 开 | 含「全部」或该店站点 | 可以采用并引用 |
+
+表外组合一律从检索结果里丢掉；测试问答没选店铺时不看站点。
+
+出处：字段 knowledge_document.ai_enabled；字段 knowledge_document.markets；迁移 ENT-KnowledgeDocument processing→ready；API-KB-005
+
+### RULE-KB-002 · 检索失败时不带资料出稿
+
+适用链路：FLOW-AI-DRAFT、FLOW-KB-TEST
+
+- IF 两路检索在纯向量重试后都失败
+- THEN 不带资料继续出稿，不因此转人工，记一次检索降级
+
+出处：场景「检索失败时不带资料出稿」；ADR-014
+
+### RULE-KB-003 · 资料不足时置信度封顶 0.50
+
+适用链路：FLOW-AI-DRAFT、FLOW-KB-TEST
+
+- IF 模型判定订单事实与资料都不足以回答
+- THEN 置信度按 0.50 封顶，再按商户阈值决定出稿还是转人工
+
+出处：字段 draft.insufficient；场景「资料不足时置信度封顶」
+
+## L4. 不变量
+
+| ID | 不变量 | 由什么保证 | 验证 |
+| --- | --- | --- | --- |
+| INV-KB-001 | 一个商户没在删除中的资料不超过 500 份 | 竞态「并发上传越过资料上限」；API-KB-002 | 无用例 |
+| INV-KB-002 | 出稿与测试问答只引用解析完成、AI 可用开着且站点相符的资料 | RULE-KB-001；字段 knowledge_document.ai_enabled | 无用例 |
+| INV-KB-003 | 资料记录删掉之前，它在检索服务里的条目已全部删除 | 迁移 ENT-KnowledgeDocument deleting→[*] | 无用例 |
+| INV-AI-001 | 依据只存在草稿的引用里，系统不把它拼进发给买家的正文 | 字段 draft.citations；API-CONV-002 | 无用例 |
+
 ## 2. 背景 / 目标 / 非目标
 
 - 背景：OBSBOT 的 11 家店（Shopee 6、TikTok Shop 5）在单商户系统 Obsbot v2 上做客服，会话收发、认领、订单侧栏、开票、AI 草稿都已验证（`Shopilot 产品梳理 2026-10-08.md`）。用户 10-09 定方向：把它扩展成给所有跨境卖家用的多商户 SaaS。两个平台都不给服务商聊天接口（Shopee 公告 1026；TikTok 客服 scope 门槛 1000 卖家），所以商户要自建平台应用，把凭证交给 Shopilot。Quilt 原型 73 屏已画完，是界面与交互的唯一依据。
@@ -38,8 +477,9 @@
   - G4 带平台截止时间或要等某一方的事项建成工单，按截止时间跟到结束。
   - G5 管理员、组长、员工三种角色按 [roles.md](roles.md) 在服务端强制鉴权，组长与员工按负责店铺收窄。
   - G6 看板、用量、审计日志能看到上面每一步的结果。
+  - G7 商户上传自己的产品与政策资料，AI 出稿时检索并引用它们，客服在草稿下方看到依据。
 - 非目标：
-  - 知识库整个模块：资料上传与切分、经验卡、更新审核、AI 回复核验（需求 2）、AI 测试、产品目录与商品归类、工作台「标记为知识」「标记知识缺口」。AI 出稿不走检索，产品维度不判定（用户 10-11 定）。
+  - 知识库一期只做资料上传、分类、检索、出稿引用与测试问答（用户 10-15 定）。以下仍不做：经验卡、更新审核与版本回滚、AI 回复核验（需求 2）、产品目录与按产品过滤、知识缺口看板、工作台「标记为知识」「标记知识缺口」、飞书问答。
   - 对话助手 `/assistant`（排在闭环之后）。
   - 真实平台接口：本期适配器只连模拟平台（ADR-004）。
   - 飞书：登录、群通知、成员同步、草稿卡（用户 10-11 定），通知只做站内与邮件。
@@ -55,8 +495,8 @@
 | 维度 | 估算 | 依据 / 假设 |
 | --- | --- | --- |
 | 用户量 | ≤ 50 商户；每商户 ≤ 20 店、≤ 30 成员；全站 ≤ 1,000 店、≤ 1,500 账号；同时在线客服峰值 ≤ 300 | 用户选定；在线峰值按每商户 6 人假设。商户 > 100 或在线 > 300 时重估（改推送式刷新，见 ADR-007） |
-| 请求量 | 入站消息日均 ≤ 2 万条，峰值 10 条/秒；工作台轮询读峰值约 120 次/秒（300 人 ×（列表 1/10 秒 + 详情 1/4 秒 + 导航摘要 1/30 秒））；写操作峰值 ≤ 20 次/秒 | OBSBOT 11 店近 90 天约每天 60 个会话、600 条消息，放大约 33 倍；日入站 > 20 万条时重估 |
-| 数据量 | 12 个月：消息 ≤ 730 万行、会话 ≤ 73 万、草稿 ≤ 200 万、订单镜像 ≤ 730 万、工单 ≤ 20 万、审计日志 ≤ 1,500 万 | 按日入站 2 万条、每会话 10 条消息、每会话 ≤ 3 份草稿、每店每天 ≤ 20 单假设；商户按保存期限（180 天 / 1 年 / 2 年）每日清理 |
+| 请求量 | 入站消息日均 ≤ 2 万条，峰值 10 条/秒；工作台轮询读峰值约 120 次/秒（300 人 ×（列表 1/10 秒 + 详情 1/4 秒 + 导航摘要 1/30 秒））；写操作峰值 ≤ 20 次/秒；知识检索每份草稿 2 次，日均 ≤ 1.1 万次 | OBSBOT 11 店近 90 天约每天 60 个会话、600 条消息，放大约 33 倍；日入站 > 20 万条时重估；检索次数按草稿上限（每年 200 万份）推算 |
+| 数据量 | 12 个月：消息 ≤ 730 万行、会话 ≤ 73 万、草稿 ≤ 200 万、订单镜像 ≤ 730 万、工单 ≤ 20 万、审计日志 ≤ 1,500 万；知识库每商户 ≤ 500 份资料，全站原文件约 10 GB、分块约 50 万行 | 按日入站 2 万条、每会话 10 条消息、每会话 ≤ 3 份草稿、每店每天 ≤ 20 单假设；商户按保存期限（180 天 / 1 年 / 2 年）每日清理；知识库按每商户平均 100 份、每份 2 MB、100 个分块假设，原文件全站 > 50 GB 时重估存放方式 |
 | 分布与形态 | 单区域、单机部署（位置待定）；买家与商户在东南亚，无 CDN 需求 | 页面需登录、资源量小；商户跨大洲后重估 |
 
 ## 3. 成功指标 / 验收阈值
@@ -106,6 +546,19 @@
 | 发票 | 开给买家的 Invoice 或 Receipt | `invoice`（`kind` = `invoice` / `receipt`） | `ENT-Invoice` |
 | 账单 | Shopilot 向商户收费的记录；与「发票」区分 | `billing_statement` | `ENT-BillingStatement` |
 | 快捷回复 | 商户维护的常用回复，带阶段标签 | `quick_reply` | `ENT-QuickReply` |
+| 知识库 | 商户上传的产品与政策资料；AI 出稿前检索它，引用其中的片段 | `knowledge` | `ENT-KnowledgeDocument` |
+| 资料 | 知识库里的一份上传文件及其解析结果 | `knowledge_document` | `ENT-KnowledgeDocument` |
+| 资料分类 | 商户自定义的资料分组，每份资料一个分类；内置「未分类」 | `knowledge_category` | `ENT-KnowledgeCategory` |
+| 适用站点 | 资料适用的站点：全部站点，或 MY、TH、VN、PH、SG、ID 中的若干个 | `knowledge_document.markets` | `ENT-KnowledgeDocument` |
+| AI 可用 | 资料能否被出稿与测试问答引用的开关，默认开 | `knowledge_document.ai_enabled` | `ENT-KnowledgeDocument` |
+| 检索服务实例 | 每个商户在 Cloudflare AI Search 上的一个实例，存该商户全部资料的检索副本 | `knowledge_index` | `ENT-KnowledgeIndex` |
+| 检索条目 | 资料上传到检索服务的一份；超过 10 MB 的 PDF 按页拆成多份 | `knowledge_part` | `ENT-KnowledgePart` |
+| 分块 | 检索服务从条目切出的一段文字，检索按分块返回 | `knowledge_chunk` | `ENT-KnowledgeChunk` |
+| 检索快照 | 一次出稿的改写问题、两路检索结果、分数与耗时，存在草稿上 | `draft.retrieval` | `ENT-Draft` |
+| 检索降级 | 两路检索都失败或超时，改为不带资料出稿 | `draft.retrieval.degraded` | `ENT-Draft` |
+| 依据 | 模型声明用到的资料，显示在草稿下方，只给成员看，买家看不到 | `draft.citations` | `ENT-Draft` |
+| 资料不足 | 模型判定订单事实与资料片段都不足以回答买家的问题 | `draft.insufficient` | `ENT-Draft` |
+| 测试问答 | 管理员在知识库页提问，查看 AI 用出稿同一条链路给出的回答、引用与检索明细 | — | — |
 | 审计日志 | 所有写操作与系统动作的追加记录，也是埋点事件的落点 | `audit_log` | `ENT-AuditLog` |
 | 通知 | 发给某个成员的站内消息 | `notification` | `ENT-Notification` |
 | 发件箱 | 本期代替真实发信：Shopilot 要发的邮件写在这里，开发页可看 | `email_outbox` | `ENT-EmailOutbox` |
@@ -157,11 +610,11 @@
 | REQ-CONV-009 | 快捷回复：弹层按阶段筛选、点选插入输入框；管理员在「语气与提示词」页维护 | G2 | P1 |
 | REQ-CONV-010 | 待认领提醒：待认领超过商户设定分钟数（5 / 10 / 15 / 不提醒），站内通知负责该店的组长一次（无对外 API，见 11.1 文末内部任务 `unclaimed.remind`） | G2 | P1 |
 | REQ-CONV-011 | 空闲结束：会话 72 小时无新消息自动结束本段（无对外 API，见 11.1 `idle_close`） | G2 | P0 |
-| REQ-AI-001 | 按店铺 × 工作时间内外的接待模式出稿：off 不出稿直接待认领；shadow 出稿不发送、不给员工看，会话待认领，影子回复在会话里折叠只读显示给管理员、组长；assist 草稿显示在工作台；auto 直接发送（只对 TikTok 店开放）（无对外 API，见 11.1 `open`、11.2 `create` / `create_shadow`、12.2、12.3；模式由 `API-RCP-002` 设置） | G2 | P0 |
-| REQ-AI-002 | 出稿输入：最近 20 条对话、订单事实、阶段提示词、品牌语气、锁定护栏；DeepSeek 输出 JSON（reply、confidence、handoff、reason）；不检索知识（无对外 API，见 12.2 DeepSeek 调用） | G2 | P0 |
+| REQ-AI-001 | 按店铺与工作时间内外的接待模式出稿 | G2 | P0 |
+| REQ-AI-002 | 出稿输入含最近 20 条对话、订单事实、提示词、护栏与检索到的资料 | G2 | P0 |
 | REQ-AI-003 | 草稿处置：原样发送、改后发送、忽略；24 小时未处置过期；新买家消息到达时旧草稿作废并重新出稿；发送失败转人工 | G2 | P0 |
-| REQ-AI-004 | 转人工：命中转人工关键词、置信度低于阈值、非文本消息、模型出错或超时、发送失败、买家要求人工、用量上限；auto 模式转人工前先发一句安抚（无对外 API，见 11.1 `handoff`、12.3） | G2 | P0 |
-| REQ-AI-005 | 出稿计量：每份草稿计 1 次（含影子）；出稿前检查当期额度与超量策略，超出且策略为「停止」时跳过出稿并记转人工原因「用量上限」；跨过提醒阈值按渠道提醒一次（无对外 API，见 11.2 `create` 守卫、§16 额度竞态；策略由 `API-BILL-005` 设置） | G6 | P0 |
+| REQ-AI-004 | 命中转人工条件时把会话交给人工，auto 模式先发安抚句 | G2 | P0 |
+| REQ-AI-005 | 每份草稿计 1 次出稿用量，额度用尽时按超量策略处理 | G6 | P0 |
 | REQ-AI-006 | 从对话提取开票字段：大模型从当前会话抽取抬头、地址、邮箱、税号 | G3 | P1 |
 | REQ-ORD-001 | 订单镜像：按店增量同步、手动「立即同步」；会话右栏显示买家近 180 天订单、金额、状态、最晚发货、物流轨迹、售后子状态 | G3 | P0 |
 | REQ-ORD-002 | 取消订单：仅发货前，原因选「买家要求」，结果写回订单与会话时间线 | G3 | P0 |
@@ -178,6 +631,12 @@
 | REQ-RCP-002 | 工作时间与转人工：时区（商户级）、周排班、节假日、转人工关键词（≤ 30 个）、置信度阈值、待认领提醒 | G2 | P0 |
 | REQ-RCP-003 | 语气与提示词：品牌语气、三个阶段的提示词正文，保存保留最近 10 个版本、可恢复默认；护栏锁定不可改；未确认阶段用固定正文 | G2 | P0 |
 | REQ-RCP-004 | 工单类型与时限：每类的自动建单开关、商户时限、默认负责人、提醒阈值；全局「已解决 N 天后自动关闭」；只影响之后新建的工单 | G4 | P0 |
+| REQ-KB-001 | 上传资料：选分类与站点后批量上传，后台解析入库 | G7 | P0 |
+| REQ-KB-002 | 查看资料：看原文件、解析内容、处理状态与失败原因 | G7 | P0 |
+| REQ-KB-003 | 分类与站点：商户自定义分类，资料可改分类与适用站点 | G7 | P0 |
+| REQ-KB-004 | 资料开关与删除：随时停用或重新解析，删除时清掉检索副本 | G7 | P0 |
+| REQ-KB-005 | 测试问答：按出稿同一链路回答，显示引用与检索明细 | G7 | P0 |
+| REQ-KB-006 | 出稿检索：出稿前检索资料，草稿下方给客服显示依据 | G7 | P0 |
 | REQ-DASH-001 | 看板：会话段数、AI 独立解决、人工首响、转人工原因、草稿处置、按人统计、工单区；平台口径单列不合并；组长只看负责店铺；时间范围与导出 | G6 | P0 |
 | REQ-BILL-001 | 用量：本期出稿（按日、按店、按模式堆叠）、额度与剩余、AI 独立解决段、账单列表 | G6 | P0 |
 | REQ-BILL-002 | 套餐：全部套餐、月付 / 年付、改套餐（仅所有者；店铺数超新套餐上限时不可降级）、联系销售（记线索） | G6 | P1 |
@@ -195,6 +654,21 @@
 | REQ-MOCK-001 | 模拟平台：实现 §8「模拟平台接口」所列 Shopee / TikTok 接口子集，路径、字段、签名照官方文档；种子数据全部是假值；只在 `MOCK_PLATFORM=1` 时挂载 | G1 | P0 |
 | REQ-MOCK-002 | 模拟器：选店铺与买家，以买家身份发文字 / 图片 / 订单卡 / 商品卡，下单、推进订单状态、申请取消、申请退货、寄回；看到卖家发出的消息与卡片；每个动作按平台格式向 Shopilot 回调地址发推送 | G2 | P0 |
 | REQ-MOCK-003 | 发件箱：开发页列出 Shopilot 发出的邮件（邀请、重置密码、发票、提醒），可打开其中链接 | G5 | P0 |
+
+需求补充说明（一句话需求的细则与「无对外 API」标注）：
+
+- REQ-AI-001：off 不出稿，会话直接待认领
+- REQ-AI-001：shadow 出稿不发送、员工看不到，影子回复在会话里折叠只读给管理员、组长
+- REQ-AI-001：assist 草稿显示在工作台；auto 直接发送，只对 TikTok 店开放
+- REQ-AI-001：无对外 API，见 11.1 `open`、11.2 `create` 与 `create_shadow`、12.2、12.3，模式由 `API-RCP-002` 设置
+- REQ-AI-002：输入还含品牌语气，DeepSeek 输出 JSON 的字段见 12.8「出稿检索规则」
+- REQ-AI-002：无对外 API，见 12.2、12.8
+- REQ-AI-004：转人工条件是命中关键词、置信度低于阈值、非文本消息、模型出错或超时、发送失败、买家要求人工、用量上限
+- REQ-AI-004：无对外 API，见 11.1 `handoff`、12.3
+- REQ-AI-005：影子回复同样计 1 次；跨过提醒阈值按渠道提醒一次
+- REQ-AI-005：超量策略为「停止」时跳过出稿，转人工原因记「用量上限」
+- REQ-AI-005：无对外 API，见 11.2 `create` 守卫与 §16「额度临界时并发出稿」，策略由 `API-BILL-005` 设置
+- REQ-KB-006：无对外 API，见 12.8，依据经 `API-CONV-002` 返回工作台
 
 ## 6. 总体架构
 
@@ -223,6 +697,7 @@ flowchart LR
   db[(PostgreSQL 17)]
   files[(DATA_DIR 本地文件)]
   ds[DeepSeek API]
+  cfs[Cloudflare AI Search · 每商户一个实例]
   real[真实 Shopee / TikTok 开放平台 · 本期不接]
   users --> pages
   pages --> api
@@ -236,6 +711,8 @@ flowchart LR
   jobs --> core
   jobs --> ds
   core --> ds
+  jobs -->|资料入库、出稿检索| cfs
+  core -->|测试问答检索| cfs
   adapters -->|HTTP 签名请求| mockapi
   adapters -.->|上线后改主机| real
   mockapi --> db
@@ -246,7 +723,7 @@ flowchart LR
 - 前端「我调谁」：页面只调 `/api/v1/*`、`/api/auth/*`；不直接调平台、不直连数据库。
 - 后端「谁调我」：浏览器（成员会话 cookie）、平台回调（签名，§10 免列）、Worker（进程内调用领域服务，不走 HTTP）。
 - 模拟平台与 Shopilot 同进程部署只为本机方便；它与 Shopilot 之间只经 HTTP 与签名回调交互，与真实平台一样，不共享领域代码（ADR-004）。
-- 外部依赖与 §17 一一对应：DeepSeek、平台开放接口（本期为模拟平台）、PostgreSQL、本地文件。邮件本期不出进程（写 `email_outbox`）。
+- 外部依赖与 §17 一一对应：DeepSeek、Cloudflare AI Search、平台开放接口（本期为模拟平台）、PostgreSQL、本地文件。邮件本期不出进程（写 `email_outbox`）。
 
 ## 7. 数据模型 / 领域实体
 
@@ -274,7 +751,7 @@ flowchart LR
 | `ENT-Segment` | 会话段 | 阶段、统计口径 |
 | `ENT-Message` | 消息 | 进出两向、类型、译文 |
 | `ENT-Draft` | 草稿 | 模式、置信度、处置 |
-| `ENT-File` | 文件 | 图片、发票 PDF / PNG、导出包，存 DATA_DIR |
+| `ENT-File` | 文件 | 图片、发票 PDF / PNG、导出包、知识库原文件，存 DATA_DIR |
 | `ENT-Order` | 订单镜像 | 平台原始状态 + 归一状态组 |
 | `ENT-AfterSale` | 售后单镜像 | 退货退款 / 取消申请 |
 | `ENT-Invoice` | 发票 | 两路发送状态 |
@@ -283,6 +760,11 @@ flowchart LR
 | `ENT-ReceptionSettings` | 接待设置 | 商户级：排班、关键词、阈值、提醒、品牌语气 |
 | `ENT-PromptTemplate` | 阶段提示词 | 商户 × 阶段，保留 10 个版本 |
 | `ENT-QuickReply` | 快捷回复 | 商户级 |
+| `ENT-KnowledgeIndex` | 检索服务实例 | 每商户一个，首次入库时创建 |
+| `ENT-KnowledgeCategory` | 资料分类 | 商户级；内置「未分类」 |
+| `ENT-KnowledgeDocument` | 资料 | 处理状态、AI 可用、适用站点、原文件 |
+| `ENT-KnowledgePart` | 检索条目 | 资料在检索服务里的一份副本 |
+| `ENT-KnowledgeChunk` | 分块 | 检索服务切出的文字，供「解析内容」与检索明细 |
 | `ENT-TicketTypeConfig` | 工单类型配置 | 商户 × 类型 |
 | `ENT-Subscription` | 订阅 | 套餐、周期、自动续费、模拟付款方式 |
 | `ENT-UsagePeriod` | 用量周期 | 当期出稿数、额度、提醒记录 |
@@ -508,6 +990,9 @@ erDiagram
     numeric confidence
     boolean handoff
     text reason
+    boolean insufficient
+    jsonb retrieval
+    jsonb citations
     text status
     uuid disposed_by FK
     uuid sent_message_id FK
@@ -729,6 +1214,65 @@ erDiagram
   }
 ```
 
+知识库（本组表结构待签字：上线后再改要做数据迁移）：
+
+```mermaid
+erDiagram
+  MERCHANT ||--o| KNOWLEDGE_INDEX : "检索实例"
+  MERCHANT ||--o{ KNOWLEDGE_CATEGORY : "分类"
+  KNOWLEDGE_CATEGORY ||--o{ KNOWLEDGE_DOCUMENT : "归类"
+  KNOWLEDGE_DOCUMENT ||--|| FILE : "原文件"
+  KNOWLEDGE_DOCUMENT ||--o{ KNOWLEDGE_PART : "检索条目"
+  KNOWLEDGE_PART ||--o{ KNOWLEDGE_CHUNK : "分块"
+  KNOWLEDGE_DOCUMENT ||--o{ KNOWLEDGE_CHUNK : "含"
+  KNOWLEDGE_INDEX {
+    uuid merchant_id PK
+    text instance_name UK
+    timestamptz created_at
+  }
+  KNOWLEDGE_CATEGORY {
+    uuid id PK
+    uuid merchant_id FK
+    text name
+    boolean builtin
+  }
+  KNOWLEDGE_DOCUMENT {
+    uuid id PK
+    uuid merchant_id FK
+    uuid category_id FK
+    uuid file_id FK
+    text name
+    text mime
+    int size
+    text sha256
+    jsonb markets
+    text status
+    boolean ai_enabled
+    text failure_reason
+    uuid uploaded_by FK
+    timestamptz ready_at
+  }
+  KNOWLEDGE_PART {
+    uuid id PK
+    uuid document_id FK
+    int part_no
+    int page_from
+    int page_to
+    text item_key UK
+    text status
+    int retries
+    text error
+  }
+  KNOWLEDGE_CHUNK {
+    uuid id PK
+    uuid document_id FK
+    uuid part_id FK
+    int no
+    text remote_id
+    text text
+  }
+```
+
 模拟平台（`mock_` 前缀，只服务 §8「模拟平台接口」与模拟器；Shopilot 业务代码不得直接读写这些表，只能经 HTTP）：
 
 ```mermaid
@@ -897,7 +1441,7 @@ erDiagram
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 10 秒轮询 |
-| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt }, shadowDrafts?[{ id, text, confidence, triggerMessageId, createdAt }]（只返回给管理员、组长）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 4 秒轮询 |
+| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ documentId, name, available }] }, shadowDrafts?[{ id, text, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 4 秒轮询 |
 | `API-CONV-003` | `GET /api/v1/conversations/{id}/buyer` | REQ-ORD-001、REQ-CONV-003 | — | `{ buyer{ name, externalId, language }, orders[{ id, externalOrderId, status, statusGroup, total, currency, items, shipByAt, tracking?, recipient?, afterSales[{ kind, platformStatus, sellerDueAt, open }] }], totals{ count180d, amount180d, currency }, piiMasked, syncedAt }`；只读订单镜像，不实时调平台（镜像由推送、每小时 `order.sync` 与 `API-ORD-003` 手动同步保持新鲜） | — | no-store；前端 10 秒轮询（订单推送到达后 10 秒内显示，见 §19） |
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004 | `{ version }` | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
@@ -906,7 +1450,7 @@ erDiagram
 | `API-CONV-008` | `POST /api/v1/conversations/{id}/drafts/{draftId}/ignore` | REQ-AI-003 | — | 200 | 409 `/errors/conflict`（草稿已处置或过期） | 已忽略再忽略返回 200 |
 | `API-CONV-009` | `PATCH /api/v1/conversations/{id}/segment` | REQ-CONV-007 | `{ stage: presale\|insale\|aftersale\|unknown }` | 200 段 | — | 幂等 |
 | `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005 | multipart `file`（JPG / PNG / WebP，≤ 10 MB） | 201 `{ id, url, width, height }` | 413 `/errors/too-large`；415 `/errors/unsupported-type` | — |
-| `API-CONV-011` | `GET /api/v1/files/{id}` | REQ-CONV-005、REQ-ORD-006、REQ-SET-004 | — | 文件流；按所属对象鉴权 | — | `private, max-age=300` |
+| `API-CONV-011` | `GET /api/v1/files/{id}` | REQ-CONV-005、REQ-ORD-006、REQ-SET-004、REQ-KB-002 | — | 文件流；按所属对象鉴权（知识库原文件要求 `reception.manage`）；PDF 与图片 `inline`，其余 `attachment` | — | `private, max-age=300` |
 | `API-CONV-012` | `POST /api/v1/translate` | REQ-CONV-008 | `{ text, target: ms\|en\|th\|vi\|id\|tl\|zh }` | 200 `{ text }` | 502 / 504 `/errors/ai-unavailable` | 可重试 |
 | `API-CONV-013` | `GET /api/v1/shops/{id}/coupons` | REQ-CONV-005 | — | `{ items[{ couponId, title, discount, endsAt }] }`（只返回可在聊天发送的券） | 409 `/errors/not-allowed`（Shopee 店） | no-store |
 | `API-CONV-014` | `GET /api/v1/quick-replies` | REQ-CONV-009 | `?stage=` | `{ items[{ id, title, stage, text }] }` | — | no-store |
@@ -957,6 +1501,18 @@ erDiagram
 | `API-RCP-008` | `POST /api/v1/quick-replies` | REQ-CONV-009 | `{ title, stage, text(≤2000) }` | 201 | — | 幂等键 |
 | `API-RCP-009` | `PATCH /api/v1/quick-replies/{id}` | REQ-CONV-009 | `{ title?, stage?, text? }` | 200 | — | 幂等 |
 | `API-RCP-010` | `DELETE /api/v1/quick-replies/{id}` | REQ-CONV-009 | — | 204 | — | 幂等 |
+| `API-KB-001` | `GET /api/v1/knowledge/documents` | REQ-KB-002、REQ-KB-003 | `?categoryId=&market=ALL\|MY\|TH\|VN\|PH\|SG\|ID&status=queued\|processing\|ready\|failed&aiEnabled=&q=&cursor=`（`q` 按文件名包含匹配） | `{ items[{ id, name, mime, size, categoryId, markets[], status, aiEnabled, failureReason?, partsCount, chunksCount, uploadedByName, createdAt, readyAt? }], counts{ total, limit }, nextCursor }`；`limit` 为 500 | — | no-store；有排队或解析中的资料时前端 5 秒轮询 |
+| `API-KB-002` | `POST /api/v1/knowledge/documents` | REQ-KB-001 | multipart：`file`（一次一个文件，前端逐个上传并逐个显示结果）、`categoryId?`（默认「未分类」）、`markets[]`（默认 `ALL`） | 201 `{ document }`（`status = queued`），排 `knowledge.ingest`；审计 `EVT:knowledge_uploaded` | 413 `/errors/too-large`（`code: file_limit` 超过 20 MB；`code: retrieval_limit` PDF 以外超过 4 MB）；415 `/errors/unsupported-type`（`code: ppt_export_pdf` 为 PPT，提示先导出为 PDF）；409 `/errors/not-allowed`（`code: document_quota`，已有 500 份）；409 `/errors/duplicate`（内容与已有资料相同，附 `existingId`、`existingName`）；422 `/errors/validation`（分类不存在、站点为空） | 幂等键；同内容由唯一约束兜底 |
+| `API-KB-003` | `GET /api/v1/knowledge/documents/{id}` | REQ-KB-002 | — | `{ document, fileUrl, parts[{ partNo, pageFrom?, pageTo?, status, retries, error? }] }`；`fileUrl` 指向 `API-CONV-011` | — | no-store |
+| `API-KB-004` | `GET /api/v1/knowledge/documents/{id}/chunks` | REQ-KB-002 | `?cursor=`（每页 50） | `{ items[{ no, partNo, text }], nextCursor }`；资料不是 `ready` 时为空列表 | — | no-store |
+| `API-KB-005` | `PATCH /api/v1/knowledge/documents/{id}` | REQ-KB-003、REQ-KB-004 | `{ categoryId?, markets?, aiEnabled? }` | 200 资料；立即生效，不重新解析，不改检索服务里的副本 | 422 `/errors/validation`（分类不存在、站点为空、`ALL` 与具体站点同选） | 幂等 |
+| `API-KB-006` | `POST /api/v1/knowledge/documents/{id}/reparse` | REQ-KB-004 | — | 202 资料（`status = queued`），排 `knowledge.ingest`：先删旧检索副本再重传 | 409 `/errors/conflict`（`code: processing`，正在排队或解析） | 只从 `ready`、`failed` 发起，状态守卫防重复 |
+| `API-KB-007` | `DELETE /api/v1/knowledge/documents/{id}` | REQ-KB-004 | — | 204；资料立即从列表消失（`status = deleting`），由 `knowledge.purge` 删检索副本、原文件与记录；审计 `EVT:knowledge_deleted` | — | 幂等（删除中或已删除返回 204） |
+| `API-KB-008` | `GET /api/v1/knowledge/categories` | REQ-KB-003 | — | `{ items[{ id, name, builtin, documentCount }] }`，内置「未分类」排第一 | — | no-store |
+| `API-KB-009` | `POST /api/v1/knowledge/categories` | REQ-KB-003 | `{ name }`（1..20 字） | 201 分类 | 409 `/errors/duplicate`（同名）；409 `/errors/not-allowed`（`code: category_quota`，已有 50 个） | 幂等键 |
+| `API-KB-010` | `PATCH /api/v1/knowledge/categories/{id}` | REQ-KB-003 | `{ name }` | 200 分类 | 409 `/errors/duplicate`；409 `/errors/not-allowed`（`code: builtin`，「未分类」不能改名） | 幂等 |
+| `API-KB-011` | `DELETE /api/v1/knowledge/categories/{id}` | REQ-KB-003 | — | 200 `{ movedDocuments }`，其中资料改归「未分类」，不重新解析 | 409 `/errors/not-allowed`（`code: builtin`，「未分类」不能删） | 重复删除返回 404 |
+| `API-KB-012` | `POST /api/v1/knowledge/test` | REQ-KB-005 | `{ question, shopId? }`（问题 1..500 字，任意语言） | 200 `{ answer, confidence, insufficient, wouldHandoff, handoffReason?, sources[{ n, documentId, name, snippet, fileUrl }], retrieval{ rewrittenQuery, routes[{ kind: rewritten\|original, mode: hybrid\|vector_only, latencyMs, error?, chunks[{ documentId, name, chunkNo, text, score, scoreDetails }] }], merged[{ n, documentId, chunkNo }], degraded, degradedReason? }, latencyMs }`；走 12.8 同一条链路，不存草稿、不计出稿用量 | 502 `/errors/ai-unavailable`（出稿那次 DeepSeek 调用失败或超时）；429 `/errors/rate-limited`（每商户每分钟 20 次） | 不幂等；前端超时 60 秒，不自动重试 |
 
 ### 8.9 看板、用量与套餐
 
@@ -1011,8 +1567,9 @@ erDiagram
 | `API-MOCK-005` | `GET /api/mock/sim/state` | REQ-MOCK-002 | 模拟器读数：店铺、买家会话（含卖家发出的消息与卡片）、订单、售后单、推送日志 |
 | `API-MOCK-006` | `GET /api/dev/outbox`、`POST /api/dev/outbox/{id}/bounce`、`GET /api/dev/outbox/{id}/attachments/{fileId}` | REQ-MOCK-003 | 发件箱列表与正文（`?to=` 按收件人筛选）、标记退信（发票邮件转 11.9 bounce）、下载附件；只在 `MOCK_PLATFORM=1` 时可用 |
 | `API-MOCK-007` | `GET/PUT /api/mock/sim/faults` | REQ-MOCK-002 | 故障注入：`{ platform, shopId, category: send_message\|order_read\|after_sale_write, mode: once\|sticky\|off, kind: error\|timeout }`；error 返回平台 5xx（Shopee `error_server`、TikTok 36009003），timeout 延迟 12 秒后照常响应 |
-| `API-MOCK-008` | `GET/PUT /api/dev/ai-stub` | REQ-MOCK-002 | AI 替身（`AI_MODE=stub`）：`next: normal\|low_confidence\|handoff\|invalid_json\|timeout`、`sticky`（否则用一次回到 normal）；GET 另返回各选项的回复 JSON 与 `lastRequest`（最近一次出稿请求的 system 与 messages） |
+| `API-MOCK-008` | `GET/PUT /api/dev/ai-stub` | REQ-MOCK-002 | AI 替身（`AI_MODE=stub`）：`next: normal\|low_confidence\|handoff\|invalid_json\|timeout\|insufficient`、`sticky`（否则用一次回到 normal）；请求带资料片段时 normal 回复在 `used_sources` 里引用第 1 段，`insufficient` 返回 `insufficient = true`、`confidence 0.9`；改写请求一律返回买家原话、不受 `next` 影响、不记入 `lastRequest`；GET 另返回各选项的回复 JSON 与 `lastRequest`（最近一次出稿请求的 system 与 messages） |
 | `API-MOCK-009` | `POST /mock/erp/{path}` | REQ-MOCK-001 | 模拟商户自有系统的推送接收端，任何请求都回 200；把模拟应用的回调改到「别处」时用它，平台发的测试推送才能通过 |
+| `API-MOCK-010` | `GET/PUT /api/dev/knowledge-stub` | REQ-MOCK-002 | 检索替身（`KNOWLEDGE_MODE=stub`）：`next: normal\|no_vector\|timeout\|error\|ingest_error`、`sticky`（否则用一次回到 normal）；替身入库把文本类资料按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，检索按关键词重合打分并给出向量分；GET 另返回最近一次检索请求 |
 
 ## 9. 数据字典
 
@@ -1125,7 +1682,10 @@ erDiagram
 | 编辑距离 | — | `draft.edit_distance` | int | 否 | `edited_sent` 时原稿与发出文本的字符级编辑距离 | 字符 | — |
 | 模型 | — | `draft.model` | text | 是 | 如 `deepseek-flash` | — | — |
 | 耗时 | — | `draft.latency_ms` | int | 是 | — | 毫秒 | — |
-| 文件类别 | — | `file.kind` | enum | 是 | `chat_image` / `invoice_pdf` / `invoice_png` / `export_zip` | — | — |
+| 资料不足 | `insufficient` | `draft.insufficient` | boolean | 是 | 默认 false；模型判定订单事实与资料片段都不足以回答时为 true，此时 `confidence` 按 0.50 封顶 | — | — |
+| 检索快照 | — | `draft.retrieval` | jsonb | 否 | 商户有对该店可用的资料时写入：`{ rewrittenQuery, routes[{ kind, mode, latencyMs, error?, hits[{ chunkId, documentId, score }] }], merged[{ n, chunkId, documentId }], degraded, degradedReason?, latencyMs }`；只存分块 ID 与分数，不存正文 | — | — |
+| 依据 | `citations` | `draft.citations` | jsonb | 否 | 模型声明用到的资料 `[{ n, documentId, name }]`，只收 `merged` 里有的编号；`name` 是出稿时的文件名快照；只返回给成员，不随消息发给买家 | — | — |
+| 文件类别 | — | `file.kind` | enum | 是 | `chat_image` / `invoice_pdf` / `invoice_png` / `export_zip` / `knowledge_source`（知识库原文件） | — | — |
 
 ### 9.4 订单、售后、发票、工单
 
@@ -1203,6 +1763,7 @@ erDiagram
 | 自动续费 | `autoRenew` | `subscription.auto_renew` | boolean | 是 | 默认 true | — | — |
 | 订阅状态 | `status` | `subscription.status` | enum | 是 | `active` / `readonly`（关闭自动续费后到期，或续费扣款失败；下次扣款成功恢复） | — | — |
 | AI 替身设定 | — | `dev_ai_stub.next` / `sticky` / `last_request` | text / bool / jsonb | 是 | 只在 `AI_MODE=stub` 时读写，单行（id = 1），见 `API-MOCK-008` | — | — |
+| 检索替身设定 | — | `dev_knowledge_stub.next` / `sticky` / `last_query` | text / bool / jsonb | 是 | 只在 `KNOWLEDGE_MODE=stub` 时读写，单行（id = 1），见 `API-MOCK-010` | — | — |
 | 付款方式 | `paymentMethod` | `subscription.payment_method` | jsonb | 否 | `{ brand, last4, expiry, mockFail: bool }`；不存完整卡号 | — | — |
 | 超量策略 | `overage.policy` | `subscription.overage_policy` | enum | 是 | `stop`（默认）/ `continue` | — | — |
 | 超量预算 | `overage.budget` | `subscription.overage_budget` | numeric(10,2) | 否 | `continue` 时必填 | 美元 | — |
@@ -1224,6 +1785,35 @@ erDiagram
 | 发件状态 | `status` | `email_outbox.status` | enum | 是 | `queued` / `delivered`（本期写入即 delivered）/ `bounced`（模拟器可标退信） | — | — |
 | 导出状态 | `status` | `export_job.status` | enum | 是 | `queued` / `running` / `done` / `failed` / `expired` | — | — |
 
+### 9.6 知识库
+
+| 字段 | API 名 | DB 名 | 类型 | 必填 | 枚举/约束 | 单位/精度 | PII |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 检索实例名 | — | `knowledge_index.instance_name` | text | 是 | `sp-<商户 ID 去掉连字符后的后 12 位>`（见 Q-KB-INGEST-2）；每商户一个，首次入库时创建，全账号唯一 | — | — |
+| 分类名 | `name` | `knowledge_category.name` | text | 是 | 1..20 字，商户内唯一；每商户 ≤ 50 个（含「未分类」） | — | — |
+| 内置分类 | `builtin` | `knowledge_category.builtin` | boolean | 是 | 每商户一个内置「未分类」，商户注册时建，已有商户由迁移补建；不能改名、删除 | — | — |
+| 资料文件名 | `name` | `knowledge_document.name` | text | 是 | 上传时的原文件名，1..200 字 | — | — |
+| 资料类型 | `mime` | `knowledge_document.mime` | text | 是 | 只收 PDF、docx、xlsx、xls、csv、jpg、png、webp、gif、bmp、tiff、heic、md、txt、html、odt、ods；按扩展名与文件头一起判断；ppt、pptx 拒收并提示先导出为 PDF | — | — |
+| 资料大小 | `size` | `knowledge_document.size` | int | 是 | ≤ 20 MB；PDF 以外 ≤ 4 MB（检索服务对非 PDF 的上限） | 字节 | — |
+| 内容哈希 | — | `knowledge_document.sha256` | text | 是 | 原文件 SHA-256；`(merchant_id, sha256)` 在非删除中的资料上唯一 | — | — |
+| 原文件 | `fileId` | `knowledge_document.file_id` | uuid | 是 | 指向 `file`（`kind = knowledge_source`），预览与下载经 `API-CONV-011` | — | — |
+| 分类 | `categoryId` | `knowledge_document.category_id` | uuid | 是 | 默认「未分类」；所属分类被删时改为「未分类」 | — | — |
+| 适用站点 | `markets` | `knowledge_document.markets` | jsonb | 是 | `["ALL"]`（默认，全部站点）或 `MY`、`TH`、`VN`、`PH`、`SG`、`ID` 的非空子集；`ALL` 不与具体站点同选；店铺站点为 `TW`、`BR`、`OTHER` 时只匹配 `ALL` | — | — |
+| 处理状态 | `status` | `knowledge_document.status` | enum | 是 | `queued`（排队中）/ `processing`（解析中）/ `ready`（解析完成）/ `failed`（失败）/ `deleting`（删除中，任何接口都不返回）；页面显示的「可用」= `ready` 且 AI 可用，「已停用」= `ready` 且 AI 可用关闭 | — | — |
+| AI 可用 | `aiEnabled` | `knowledge_document.ai_enabled` | boolean | 是 | 默认 true；任何处理状态下都可改，立即生效 | — | — |
+| 失败原因 | `failureReason` | `knowledge_document.failure_reason` | text | 否 | `failed` 时必有，中文，如「第 12 页超过 10 MB」「检索服务索引失败（已重传 2 次）：workers_ai_timeout_error」 | — | — |
+| 上传人 | `uploadedByName` | `knowledge_document.uploaded_by` | uuid | 是 | membership ID；接口返回姓名 | — | — |
+| 可用时间 | `readyAt` | `knowledge_document.ready_at` | timestamptz | 否 | 最近一次变为 `ready` 的时间 | — | — |
+| 条目号 | `partNo` | `knowledge_part.part_no` | int | 是 | 从 1 起；不拆分的资料只有 1 个条目 | — | — |
+| 页码范围 | `pageFrom` / `pageTo` | `knowledge_part.page_from` / `page_to` | int | 否 | 只对按页拆分的 PDF | 页 | — |
+| 条目键 | — | `knowledge_part.item_key` | text | 是 | 检索服务里的条目名 `<资料 ID>/<条目号>.<扩展名>`；重传沿用同一个名字 | — | — |
+| 条目状态 | `status` | `knowledge_part.status` | enum | 是 | `pending` / `indexing` / `indexed` / `failed`，镜像检索服务的索引状态，由 `knowledge.ingest` 轮询写入 | — | — |
+| 重传次数 | `retries` | `knowledge_part.retries` | int | 是 | 0..2 | 次 | — |
+| 条目错误 | `error` | `knowledge_part.error` | text | 否 | 检索服务返回的错误码与说明 | — | — |
+| 分块序号 | `no` | `knowledge_chunk.no` | int | 是 | 资料内从 1 连续编号，按条目号、条目内顺序 | — | — |
+| 分块远端 ID | — | `knowledge_chunk.remote_id` | text | 是 | 检索服务给的分块 ID，用来把检索结果对回分块 | — | — |
+| 分块正文 | `text` | `knowledge_chunk.text` | text | 是 | 检索服务切出的文字（512 token、重叠 15%） | — | — |
+
 ## 10. 权限与角色
 
 角色（术语见 §4）：
@@ -1234,7 +1824,7 @@ erDiagram
 | `ROLE-Lead` | 组长 | 负责店铺内的全部会话、工单、订单；可改派、作废、核对看板 |
 | `ROLE-Agent` | 员工 | 负责店铺的待认领会话、自己处理中的会话、指派给自己的工单 |
 
-权限的唯一出处是 `src/lib/permissions.ts`（由 [roles.md](roles.md) 权限表逐行转写，`/team/permissions` 页直接渲染它；知识库、助手两组本期不做，不列入也不显示）。服务端每个端点先过「成员已启用 + 角色允许」，再过「对象在可见范围内」；前端用同一份表决定侧栏、按钮显隐。被拒请求写 `EVT:permission_denied`。
+权限的唯一出处是 `src/lib/permissions.ts`（由 [roles.md](roles.md) 权限表逐行转写，`/team/permissions` 页直接渲染它；roles.md 的知识库几行描述的是完整知识库模块，一期知识库是接待设置里的一个标签页，归 `reception.manage`，那几行不转写；助手本期不做，不列入也不显示）。服务端每个端点先过「成员已启用 + 角色允许」，再过「对象在可见范围内」；前端用同一份表决定侧栏、按钮显隐。被拒请求写 `EVT:permission_denied`。
 
 权限矩阵（✓ 允许；「范围」= 只对负责店铺内的对象；「本人」= 只对本人的对象；— 拒绝，返回 403）：
 
@@ -1251,7 +1841,7 @@ erDiagram
 | `API-CONV-006`、`API-CONV-009` | ✓ | 范围 | 本人 | 员工只能操作自己处理中的会话 |
 | `API-CONV-007`、`API-CONV-015` | 本人 | 本人 | 本人 | 只有处理人能发；待认领会话发送 = 先认领（同 `API-CONV-004` 的范围） |
 | `API-CONV-008` | ✓ | 范围 | 范围 + 本人 | 能看到草稿的人能忽略 |
-| `API-CONV-010`、`API-CONV-011`、`API-CONV-012`、`API-CONV-014` | ✓ | ✓ | ✓ | `API-CONV-011` 另按文件所属对象鉴权 |
+| `API-CONV-010`、`API-CONV-011`、`API-CONV-012`、`API-CONV-014` | ✓ | ✓ | ✓ | `API-CONV-011` 另按文件所属对象鉴权，知识库原文件只给管理员 |
 | `API-CONV-013` | ✓ | 范围 | 范围 | — |
 | `API-ORD-001`、`API-ORD-002`、`API-ORD-003`、`API-ORD-004`、`API-ORD-005`、`API-ORD-006`、`API-ORD-007`、`API-ORD-008` | ✓ | 范围 | 范围 | 订单与开票三种角色都有，按负责店铺收窄 |
 | `API-INV-001`、`API-INV-002`、`API-INV-003`、`API-INV-004`、`API-INV-005` | ✓ | 范围 | 范围 | 同上 |
@@ -1260,6 +1850,7 @@ erDiagram
 | `API-TKT-004` | ✓ | 范围 | 本人 | 只对手动类；员工只能改指派给自己的 |
 | `API-TKT-005`、`API-TKT-007`、`API-TKT-008` | ✓ | 范围 | — | 改派、作废、改单张时限 |
 | `API-RCP-001`、`API-RCP-002`、`API-RCP-003`、`API-RCP-004`、`API-RCP-005`、`API-RCP-006`、`API-RCP-007`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | ✓ | — | — | 接待设置只对管理员开放 |
+| `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012` | ✓ | — | — | 知识库是接待设置的标签页，同 `reception.manage`；组长、员工是否开放见 §28 开放问题 |
 | `API-DASH-001` | ✓ | 范围 | — | 看板 |
 | `API-BILL-001`、`API-BILL-002`、`API-BILL-004`、`API-BILL-005`、`API-BILL-006`、`API-BILL-008`、`API-BILL-009` | ✓ | — | — | 用量与套餐 |
 | `API-BILL-003`、`API-BILL-007` | Admin·Owner | — | — | 其他管理员返回 403 `/errors/owner-only` |
@@ -1274,7 +1865,7 @@ erDiagram
 - `API-TEAM-005`、`API-TEAM-006`：公开端点，主体是邀请令牌持有人；令牌一次性、7 天有效。
 - `API-SHOP-005`：平台授权回调（浏览器重定向），鉴权 = 一次性 `state`（绑定发起的管理员与商户，与授权链接同为 5 分钟有效）。
 - `API-HOOK-001`、`API-HOOK-002`：平台推送，鉴权 = 平台签名，非登录主体，不参与面向人的操作矩阵。
-- `API-MOCK-001`、`API-MOCK-002`、`API-MOCK-003`、`API-MOCK-004`、`API-MOCK-005`、`API-MOCK-006`、`API-MOCK-007`、`API-MOCK-008`、`API-MOCK-009`：模拟平台与开发页，只在 `MOCK_PLATFORM=1` 时挂载；`API-MOCK-001`、`API-MOCK-002` 的鉴权是平台签名与 token，其余为开发者使用，不参与商户权限。
+- `API-MOCK-001`、`API-MOCK-002`、`API-MOCK-003`、`API-MOCK-004`、`API-MOCK-005`、`API-MOCK-006`、`API-MOCK-007`、`API-MOCK-008`、`API-MOCK-009`、`API-MOCK-010`：模拟平台与开发页，只在 `MOCK_PLATFORM=1` 时挂载；`API-MOCK-001`、`API-MOCK-002` 的鉴权是平台签名与 token，其余为开发者使用，不参与商户权限。
 
 行级可见性（同一读端点按角色返回不同子集）：
 
@@ -1282,6 +1873,8 @@ erDiagram
 | --- | --- | --- | --- |
 | 会话 | 全部店铺 | 负责店铺内全部 | 负责店铺内 `bot` / `awaiting_human` 的会话 + `claimed_by = 本人` 的会话 + 本人处理过的已结束会话 |
 | 影子回复（`shadowDrafts`） | 可见 | 负责店铺内可见 | 不返回 |
+| 草稿依据（`citations`） | 随草稿与影子回复返回 | 同左 | 随草稿返回 |
+| 知识库资料与测试问答 | 全部 | — | — |
 | 会话列表视图 | queue、ai、mine、team、done | queue、ai、mine、team、done（范围内） | queue、ai、mine、done |
 | 订单、售后单、发票 | 全部店铺 | 负责店铺 | 负责店铺 |
 | 工单 | 全部店铺 | 负责店铺 | `assignee = 本人` |
@@ -1307,6 +1900,7 @@ erDiagram
 | `merchant.status` | 建机 11.10 |
 | `ownership_transfer.status` | 建机 11.11 |
 | `export_job.status` | 建机 11.12 |
+| `knowledge_document.status` | 建机 11.14 |
 | `membership.status` | 免建 ③ 极简运营态：创建即 `active`（`API-AUTH-001` 注册、`API-TEAM-006` 接受邀请）；`active → disabled` 只由管理员 `API-TEAM-008`；`disabled → active` 只由 `API-TEAM-009`；无多步流程 |
 | `platform_app.status`、`platform_app.callback_state` | 免建 ① 纯派生：最近一次校验结果的投影。`verified` / `invalid` 由 `API-SHOP-003`、`API-SHOP-011` 的校验结果写入，平台调用返回鉴权失败时由领域服务写 `invalid`；`callback_state` 每次 `API-SHOP-003`、`API-SHOP-010` 读回调配置后重算 |
 | `connect_draft.step` | 免建 ③：向导页面位置指针，由 `API-SHOP-002` 直接写，任意步骤可回退 |
@@ -1317,6 +1911,8 @@ erDiagram
 | `billing_statement.status` | 免建 ③：模拟支付同步返回，创建即终态 `paid` / `failed` |
 | `email_outbox.status` | 免建 ③：写入即 `delivered`；开发页「标记退信」单向改为 `bounced`，并驱动 11.9 的 `bounce` |
 | `notification.read_at` | 免建 ①：已读是 `read_at` 非空的派生 |
+| `knowledge_document.ai_enabled` | 免建 ③：管理员经 `API-KB-005` 单向开关，任何处理状态下都可改，不改 `status` |
+| `knowledge_part.status` | 免建 ②：检索服务索引状态的镜像，由内部任务 `knowledge.ingest` 轮询写入；条目全部 `indexed` 驱动 11.14 `indexed`，重传 2 次仍 `failed` 驱动 11.14 `fail` |
 
 ### 11.1 会话接待状态 `ENT-Conversation.handling_state`
 
@@ -1623,7 +2219,7 @@ stateDiagram-v2
 | [*] → active | signup | 邮箱未注册 | 建商户、所有者管理员成员、默认配置（接待、提示词、工单类型、通知规则、订阅 `basic` 月付、用量周期）；审计 `EVT:signup_completed` | 访客 | `API-AUTH-001` |
 | active → pending_deletion | request_deletion | 操作人是所有者 且 确认名称 = 商户名 | `purge_at = now + 30d`；解绑全部店铺（同 11.6 disconnect，保留数据）；停用除所有者外全部成员；邮件通知全部管理员 | 所有者 | `API-SET-015` |
 | pending_deletion → active | cancel_deletion | 操作人是所有者 且 `now < purge_at` | 清空 `purge_at`；成员保持停用，需管理员逐个重新启用，店铺需重新授权 | 所有者 | `API-SET-016` |
-| pending_deletion → deleted | purge | `now ≥ purge_at` | 删除商户全部业务数据与文件，保留商户行与审计摘要 | 定时任务 `merchant.purge` | 内部任务 `merchant.purge` |
+| pending_deletion → deleted | purge | `now ≥ purge_at` | 删除商户全部业务数据与文件，并经 `knowledge.purge` 删除该商户的检索服务实例；保留商户行与审计摘要 | 定时任务 `merchant.purge` | 内部任务 `merchant.purge` |
 
 `pending_deletion` 期间只有所有者能登录该商户，且只能访问商户设置页。
 
@@ -1681,6 +2277,41 @@ stateDiagram-v2
 | 6 | 该店订单镜像还没完成首次同步（`shop.backfill` 未完成且镜像里没有该买家订单）：买家消息命中售后关键词（退款、退货、坏了、refund、return、broken…）→ aftersale；命中物流关键词（发货、物流、到哪了、shipping、tracking…）→ insale；都不中 | 对应阶段，`stage_source = keyword`；都不中为 unknown | 「订单尚未同步，关键词：refund」 |
 
 人工改判（`API-CONV-009`）只改当前段的 `stage`，`stage_source = manual`，写审计；本段之后的出稿按新阶段取提示词；下一段重新自动判定。
+
+### 11.14 资料 `ENT-KnowledgeDocument.status`
+
+只有 `ready` 且 AI 可用开着、站点相符的资料会被检索引用（RULE-KB-001）。AI 可用开关不改本状态。
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued : upload
+  queued --> processing : start
+  processing --> ready : indexed
+  processing --> failed : fail
+  ready --> queued : reparse
+  failed --> queued : reparse
+  queued --> deleting : delete
+  processing --> deleting : delete
+  ready --> deleting : delete
+  failed --> deleting : delete
+  deleting --> [*] : purge
+```
+
+迁移表：
+
+| 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
+| --- | --- | --- | --- | --- | --- |
+| [*] → queued | upload | 类型在白名单 且 大小合规 且 未删除的资料 < 500 份 且 `(merchant_id, sha256)` 不存在 | 存原文件（`file.kind = knowledge_source`）、建资料，排 `knowledge.ingest`；审计 `EVT:knowledge_uploaded` | 管理员 | `API-KB-002` |
+| queued → processing | start | `status = queued` 且 任务取得 | 没有检索实例时先建实例 | Worker | 内部任务 `knowledge.ingest` |
+| processing → ready | indexed | 全部条目 `status = indexed` 且 分块已读回 | 写分块与 `ready_at`；审计 `EVT:knowledge_ready` | Worker | 内部任务 `knowledge.ingest` |
+| processing → failed | fail | 有条目重传 2 次后仍 `failed` 或 PDF 单页 > 10 MB 或 实例创建失败 或 任务运行 > 20 分钟 | 写 `failure_reason`，删掉已上传的条目；审计 `EVT:knowledge_failed` | Worker | 内部任务 `knowledge.ingest` |
+| ready → queued | reparse | `status = ready` | 清空分块，排 `knowledge.ingest`（任务先删旧条目再重传） | 管理员 | `API-KB-006` |
+| failed → queued | reparse | `status = failed` | 同上，清空 `failure_reason` | 管理员 | `API-KB-006` |
+| queued → deleting | delete | — | 从所有接口隐藏，排 `knowledge.purge`；审计 `EVT:knowledge_deleted` | 管理员 | `API-KB-007` |
+| processing → deleting | delete | — | 同上；入库任务每步之前重读状态，发现 `deleting` 即停 | 管理员 | `API-KB-007` |
+| ready → deleting | delete | — | 同 queued → deleting | 管理员 | `API-KB-007` |
+| failed → deleting | delete | — | 同 queued → deleting | 管理员 | `API-KB-007` |
+| deleting → [*] | purge | 检索服务里该资料的条目全部删除成功 | 删分块、条目、原文件与资料记录 | Worker | 内部任务 `knowledge.purge` |
 
 ## 12. 关键流程时序
 
@@ -1749,6 +2380,7 @@ sequenceDiagram
   W->>DB: 检查额度与超量策略（REQ-AI-005）
   alt 额度允许且模式 assist
     W->>DB: 读订单镜像、提示词、关键词、最近 20 条消息
+    Note over W: 有可用资料时先改写问题并检索知识库（见 12.8）
     W->>DS: chat/completions（JSON 输出，25 秒超时）
     alt 合法 JSON、置信度达标、未要求转人工
       W->>DB: 草稿 generated，用量 +1（11.2 create）
@@ -1892,9 +2524,124 @@ sequenceDiagram
   end
 ```
 
+### 12.7 上传资料与入库（REQ-KB-001、REQ-KB-002）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant FE as 管理员浏览器
+  participant API as Shopilot API
+  participant DB as PostgreSQL
+  participant FS as DATA_DIR
+  participant W as Worker
+  participant CF as Cloudflare AI Search
+  FE->>API: 逐个上传文件，带分类与站点 (API-KB-002)
+  alt 格式、大小、资料数或内容重复不合规
+    API-->>FE: 413 / 415 / 409 / 422（§14）
+  else 通过
+    API->>FS: 存原文件
+    API->>DB: 资料 queued（11.14 upload），排 knowledge.ingest
+    API-->>FE: 201
+  end
+  W->>DB: knowledge.ingest 取得任务，资料 processing（11.14 start）
+  opt 商户还没有检索实例
+    W->>CF: 建实例（配置见 §17）
+    W->>DB: 记 knowledge_index
+  end
+  W->>W: PDF 超过 10 MB 时按页拆成多个条目
+  loop 每个条目
+    W->>CF: 上传条目，元数据带资料 ID、分类 ID、站点
+    loop 每 15 秒查一次，最长 15 分钟
+      W->>CF: 查条目索引状态
+    end
+    opt 索引报错或超时，且已重传不到 2 次
+      W->>CF: 删除条目，以同名重传
+    end
+  end
+  alt 全部条目已索引
+    W->>CF: 按条目读回分块
+    W->>DB: 存分块，资料 ready（11.14 indexed）
+  else 有条目重传 2 次仍失败，或 PDF 单页超过 10 MB
+    W->>CF: 删除已上传的条目
+    W->>DB: 资料 failed，写原因（11.14 fail）
+  end
+  loop 有排队或解析中的资料时每 5 秒
+    FE->>API: 资料列表 (API-KB-001)
+  end
+```
+
+删除资料（`API-KB-007`）：资料转 `deleting` 后立即从列表消失，`knowledge.purge` 先删检索服务里的条目，全部成功后再删原文件与记录（11.14 `purge`）。
+
+### 12.8 出稿检索知识库（REQ-AI-002、REQ-KB-006、REQ-KB-005）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant W as Worker（draft.generate）
+  participant DB as PostgreSQL
+  participant DS as DeepSeek
+  participant CF as Cloudflare AI Search
+  participant API as Shopilot API
+  participant FE as 员工浏览器
+  W->>DB: 查对该店站点可用的资料（RULE-KB-001）
+  alt 没有可用资料
+    W->>DS: 出稿，不带资料段（同 12.2）
+  else 有可用资料
+    W->>DB: 读最近 10 条消息与订单事实
+    W->>DS: 改写成一个中文完整问题（6 秒超时）
+    par 改写路
+      W->>CF: 混合检索 20 条，门槛 0（8 秒超时）
+    and 原话路
+      W->>CF: 混合检索 20 条，门槛 0（8 秒超时）
+    end
+    opt 某路结果没有向量分或超时
+      W->>CF: 这一路改用纯向量检索重试一次（5 秒超时）
+    end
+    W->>DB: 按资料当前状态与站点过滤，每路留前 10 条
+    W->>W: 两路交替合并、按分块去重，取前 8 段编号
+    alt 两路都失败
+      W->>DS: 出稿，不带资料段，记检索降级
+    else 至少一路有结果
+      W->>DS: 出稿，带编号资料片段（25 秒超时）
+    end
+  end
+  W->>DB: 存草稿、检索快照与依据（11.2 create），资料不足时置信度封顶 0.50
+  FE->>API: 打开会话 (API-CONV-002)
+  API-->>FE: 草稿与依据，页面显示「依据：《文件名》」
+```
+
+出稿检索规则：
+
+- 何时检索：商户有 `ready`、AI 可用开着、站点含「全部」或该店站点的资料时才改写与检索（RULE-KB-001）
+- 没有这样的资料时不改写、不检索，出稿请求里没有资料段
+- 改写输入：最近 10 条消息（含商品卡、订单卡）与订单事实
+- 改写调用：DeepSeek 输出 `{ "query": "…" }`，6 秒超时、不重试
+- 改写输出：一个中文完整问题，概括买家最近几条消息在问什么
+- 改写规则：政策类问题（退换货、保修、运费、发票）不加品牌名与型号，产品类问题带上对话里出现的型号
+- 改写失败时只用买家原话检索一路
+- 两路检索：改写后的问题与买家最近一条文字消息原文并行检索，每路要 20 条
+- 每次检索请求都传 `reranking.match_threshold: 0` 与向量门槛 0：默认门槛 0.4 会让约 70% 的原话查询返回空
+- 纯向量重试：某一路结果里没有任何向量分，或 8 秒内没返回，这一路改用纯向量检索重试一次，5 秒超时
+- 重试仍失败的那一路记失败；只有一路失败时用另一路的结果
+- 过滤：按 Shopilot 库里资料的当前状态、AI 可用与站点过滤，每路留前 10 条
+- 检索服务里的元数据是上传时的快照，只用来把结果对回资料，不用来过滤
+- 合并：两路按名次交替取，改写路在前，按分块去重，取前 8 段，编号 1–8 放进出稿请求
+- 降级：两路都失败时不带资料出稿、不转人工，检索快照记 `degraded = true` 与原因（RULE-KB-002）
+- 出稿请求的 user 载荷新增 `knowledge: [{ n, title, text }]`
+- 护栏改为：产品参数、兼容性、保修与政策只能依据 `knowledge` 与 `order_facts`，回复里不写片段编号
+- 输出 JSON：`{ reply, confidence, handoff, reason, insufficient, used_sources }`，`used_sources` 是用到的片段编号
+- 资料够不够由模型判断，不按检索分数设门槛：实测无答案题与可答题的分数重叠
+- `insufficient = true` 时置信度按 0.50 封顶，再按商户阈值决定出稿还是转人工（RULE-KB-003）
+- 依据：`used_sources` 里在合并结果中的编号按资料去重，存进 `draft.citations`，不在结果里的编号忽略
+- 买家只收到 `reply`，依据与片段编号不随消息发出
+- 耗时预算：改写 ≤ 6 秒，检索每路 ≤ 8 秒、重试 ≤ 5 秒，出稿 ≤ 25 秒，出稿任务超时 60 秒（§17 内部后台任务）
+- 测试问答（`API-KB-012`）在 API 进程里同步走同一条链路，问题本身既是改写输入也是原话
+- 测试问答选了店铺时按该店站点过滤、用该店的提示词变量，没选时不按站点过滤
+- 测试问答的提示词取售前阶段，不存草稿、不计出稿用量
+
 ## 13. 页面与跳转地图
 
-视觉来源：品牌目录 `brand/`（`brand/DESIGN.md`；配色、字体、标志「叠信」都取自 Quilt 项目「Shopilot」设计系统 v5「奶油 / 可可 / 芒果 / 焦糖」，与原型一致）；页面结构与交互以 Quilt 原型 73 屏为准（ACRU 仪表盘结构：白侧栏可收起、顶栏搜索 + 图标按钮 + 账号卡、白色圆角面板网格；图表一律 Chart.js）。原型里属于知识库、助手的屏不实现，侧栏不显示「知识库」，顶栏不显示「助手」。
+视觉来源：品牌目录 `brand/`（`brand/DESIGN.md`；配色、字体、标志「叠信」都取自 Quilt 项目「Shopilot」设计系统 v5「奶油 / 可可 / 芒果 / 焦糖」，与原型一致）；页面结构与交互以 Quilt 原型 73 屏为准（ACRU 仪表盘结构：白侧栏可收起、顶栏搜索 + 图标按钮 + 账号卡、白色圆角面板网格；图表一律 Chart.js）。原型里知识库模块的屏（经验卡、更新审核、AI 核验、产品目录）与助手的屏不实现；知识库一期是接待设置里的「知识库」标签页，侧栏不单列「知识库」，顶栏不显示「助手」。
 
 原型里的弹层屏（如 `/wb/transfer`）在实现中是所在页面上的对话框，用查询参数 `?dialog=<名>` 记录打开状态，便于刷新与分享链接；原型里的演示会话路由（如 `/wb/siti`）实现为 `/wb/<会话 ID>`，工单详情 `/tickets/siti` 实现为 `/tickets/<工单 ID>`。
 
@@ -1906,7 +2653,7 @@ sequenceDiagram
 | `PAGE-INVITE` | `/invite/<token>` | 公开 | `API-TEAM-005`、`API-TEAM-006` | 过期 / 撤销 / 已用；已有账号需先登录 |
 | `PAGE-OWNERSHIP` | `/ownership/<token>` | 受让管理员 | `API-SET-014` | 过期；登录账号不是受让人 |
 | `PAGE-ACCOUNT-SECURITY` | `/account/security` | 全部成员（本人） | `API-AUTH-008`、`API-AUTH-009`、`API-AUTH-010`、`API-AUTH-011` | 两步验证开启（二维码，扫不了时手动输入密钥）/ 关闭、本人登录设备与退出、个人偏好（桌面通知、提示音）；商户策略要求两步验证而未开启时登录后强制进入，开启前其他页面不可用 |
-| `PAGE-WB` | `/wb`、`/wb/<id>` | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-NAV-001` | 分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉 |
+| `PAGE-WB` | `/wb`、`/wb/<id>` | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-NAV-001` | 分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」，点开看原文件，资料已删时只显示文件名 |
 | `PAGE-WB-TRANSFER` | `/wb/<id>?dialog=transfer` | 同上（员工只对自己的会话） | `API-TEAM-012`、`API-CONV-005` | 无可选同事 |
 | `PAGE-WB-END` | `?dialog=end` | 同上 | `API-CONV-006` | 有未结工单时提示工单不受影响 |
 | `PAGE-WB-CANCEL` | `?dialog=cancel` | 同上 | `API-ORD-004` | 已发货不可取消 |
@@ -1927,6 +2674,7 @@ sequenceDiagram
 | `PAGE-RECEPTION-HOURS` | `/reception/hours` | 管理员 | `API-RCP-001`、`API-RCP-003` | 关键词满 30 个 |
 | `PAGE-RECEPTION-PROMPTS` | `/reception/prompts` | 管理员 | `API-RCP-001`、`API-RCP-004`、`API-RCP-005`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | 护栏只读 |
 | `PAGE-RECEPTION-TICKETS` | `/reception/tickets` | 管理员 | `API-RCP-006`、`API-RCP-007` | 平台类时限只读 |
+| `PAGE-RECEPTION-KB` | `/reception/knowledge`（含 `?doc=<id>` 资料抽屉、`?dialog=upload \| categories`） | 管理员 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
 | `PAGE-SHOPS` | `/shops`（含详情抽屉、`?dialog=rotate-key \| reauth \| disconnect`） | 管理员 | `API-SHOP-008`、`API-SHOP-009`、`API-SHOP-010`、`API-SHOP-011`、`API-SHOP-004`、`API-SHOP-012`、`API-SHOP-013` | 无店铺时引导去接入；授权失效 |
 | `PAGE-CONNECT` | `/shops/connect`（含 `?dialog=assist`） | 管理员 | `API-SHOP-001`、`API-SHOP-002`、`API-SHOP-014` | — |
 | `PAGE-CONNECT-GUIDE` | `/shops/connect/<platform>/guide` | 管理员 | `API-SHOP-001`、`API-SHOP-002` | — |
@@ -1950,6 +2698,17 @@ sequenceDiagram
 | `PAGE-MOCK-SIM` | `/mock/simulator` | 开发者 | `API-MOCK-004`、`API-MOCK-005` | 回调未配置时提示 |
 | `PAGE-DEV-OUTBOX` | `/dev/outbox` | 开发者 | `API-MOCK-006` | 空 |
 | `PAGE-NOT-FOUND` | 任何未匹配的地址 | 公开 | — | 说明找不到页面并给「回到工作台」（未登录时由工作台带去登录页） |
+
+知识库页（`PAGE-RECEPTION-KB`）：
+
+- 位置：接待设置子导航在「工单类型与时限」之后加「知识库」标签，进入后页面左右两栏，左侧资料列表，右侧测试问答面板。
+- 资料列表：顶部「上传资料」「分类管理」按钮与资料数（如 32 / 500）；按分类、站点、状态筛选，按文件名搜索；每行文件名、分类、站点、状态、AI 可用开关、上传时间。
+- 状态标签：排队中、解析中、可用、已停用、失败；失败行直接显示失败原因与「重新解析」。有排队或解析中的资料时每 5 秒刷新列表。
+- 上传弹窗：拖入或选择多个文件，为这批文件选一个分类与适用站点（默认「全部站点」）；逐个显示上传结果，被拒的文件写明原因（大小、格式、重复、资料已满）；弹窗写明支持的格式与大小上限，PPT 提示先导出为 PDF。
+- 资料抽屉：顶部文件名、状态、失败原因与操作（改分类、改站点、AI 可用开关、重新解析、删除）；下方两个标签「原文件」（PDF 内嵌预览、图片大图、其他格式给下载）与「解析内容」（按序号列出分块文字，拆分的 PDF 标出页码范围）。删除前二次确认，写明会同时删掉检索服务里的副本。
+- 分类管理弹窗：列出分类与资料数，新增、改名、删除；「未分类」不能改名或删除；删除时提示其中资料会归入「未分类」。
+- 测试问答：问题输入框（任意语言）、店铺下拉（可不选）、「提问」按钮；结果区依次是回答、置信度与「按当前阈值会出草稿 / 会转人工」、「资料不足」标记、引用列表（文件名 + 片段，点开打开资料抽屉）、可展开的「检索明细」（改写后的问题、两路各自返回的分块与分数、是否纯向量重试、合并后的 8 段）。
+- 页态：没有资料时列表区是空态，引导拖入文件，测试问答仍可用并会标「资料不足」；提问中显示加载并禁用按钮；检索降级时结果区顶部提示「这次没查到资料，回答没有引用」；DeepSeek 失败时提示「AI 暂时不可用」并保留问题可重试。
 
 侧栏（按 [roles.md](roles.md)）：工作台（子项：待认领、AI 草稿、我处理中、已结束，组长以上加「同事处理中」）、工单（徽标 = 6 小时内到期 + 已超时）、订单与开票对全部角色显示；看板对管理员、组长显示；接待设置、店铺与连接、团队与权限、用量与套餐、商户设置只对管理员显示。登录后默认进 `/wb`；新注册商户进 `/shops/connect`。
 
@@ -2004,6 +2763,7 @@ flowchart LR
     PAGE_RECEPTION[接待设置 店铺模式] --> PAGE_RECEPTION_HOURS[工作时间与转人工]
     PAGE_RECEPTION --> PAGE_RECEPTION_PROMPTS[语气与提示词]
     PAGE_RECEPTION --> PAGE_RECEPTION_TICKETS[工单类型与时限]
+    PAGE_RECEPTION --> PAGE_RECEPTION_KB[知识库]
     PAGE_TEAM[团队与权限 /team]
     PAGE_BILLING[用量与套餐 /billing] --> PAGE_BILLING_PLANS[全部套餐]
     PAGE_SETTINGS[商户设置 /settings] --> PAGE_SETTINGS_NOTIFY[通知]
@@ -2057,20 +2817,20 @@ flowchart LR
 | `/errors/two-factor-required` | 403 | 商户要求两步验证而本人未开 | 跳 `/account/security` |
 | `/errors/ip-blocked` | 403 | 来源 IP 不在商户白名单 | 登录页提示联系管理员 |
 | `/errors/not-found` | 404 | 资源不存在或不属于当前商户 | 显示「找不到或已删除」，返回上级 |
-| `/errors/conflict` | 409 | 状态已被他人改变（认领冲突、版本不一致、草稿已处置） | 提示 `detail` 并刷新该对象，不自动重试 |
-| `/errors/duplicate` | 409 | 已存在同一对象（邮箱已注册、已是成员、同去重键工单） | 提示并给出已存在对象的链接（`extra.existingId`；工单另带 `existingTicketId`、`number`） |
-| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
+| `/errors/conflict` | 409 | 状态已被他人改变（认领冲突、版本不一致、草稿已处置、资料正在解析时重新解析） | 提示 `detail` 并刷新该对象，不自动重试 |
+| `/errors/duplicate` | 409 | 已存在同一对象（邮箱已注册、已是成员、同去重键工单、同名资料分类、内容相同的资料） | 提示并给出已存在对象的链接（`extra.existingId`；工单另带 `existingTicketId`、`number`） |
+| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制、资料满 500 份、分类满 50 个、改动「未分类」） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
 | `/errors/callback-occupied` | 409 | Shopee 应用回调已指向其他系统，需商户确认覆盖 | 凭证页展开确认勾选 |
 | `/errors/expired` | 410 | 邀请、重置、转让令牌过期或已用；`code` 区分 `expired` / `revoked` / `used` / `invalid`（令牌不存在，含重发后作废的旧链接） | 提示原因与下一步 |
 | `/errors/locked` | 423 | 同一邮箱连续输错 10 次，锁 15 分钟 | 显示剩余分钟（`extra.retryAfter`） |
 | `/errors/payment-failed` | 402 | 模拟支付失败 | 提示换卡 |
-| `/errors/too-large` | 413 | 上传超过 10 MB | 提示大小上限 |
-| `/errors/unsupported-type` | 415 | 上传类型不支持 | 提示支持 JPG / PNG / WebP |
+| `/errors/too-large` | 413 | 上传超过大小上限：聊天图片 10 MB；资料 20 MB，PDF 以外的资料 4 MB（`code` 区分 `file_limit` / `retrieval_limit`） | 提示 `detail` 里的大小上限 |
+| `/errors/unsupported-type` | 415 | 上传类型不支持；PPT 资料带 `code: ppt_export_pdf` | 提示 `detail` 里列出的支持类型；PPT 提示先导出为 PDF |
 | `/errors/platform-credentials` | 422 | 平台凭证校验不通过；`extra.attempts[]` 列出每个区域主机的结果 | 凭证页逐区域显示原因 |
 | `/errors/rate-limited` | 429 | 超过限流（§15）；带 `Retry-After` | 提示稍后再试；轮询按 `Retry-After` 退避 |
 | `/errors/internal` | 500 | 未预期错误 | 通用提示 + 请求编号 |
 | `/errors/platform` | 502 | 平台返回错误；`extra.platformCode`、`extra.platformMessage` 原样带出，`detail` 给中文解释 | 提示中文解释；写操作给「重试」（复用幂等键） |
-| `/errors/ai-unavailable` | 502 | DeepSeek 返回错误或空结果 | 提示「AI 暂时不可用」，可手动重试 |
+| `/errors/ai-unavailable` | 502 | DeepSeek 返回错误、空结果或超时（翻译、开票字段抽取、测试问答） | 提示「AI 暂时不可用」，可手动重试 |
 | `/errors/platform-timeout` | 504 | 平台 10 秒未响应；写操作可能已生效 | 提示「结果未知，先刷新确认」，刷新后再决定是否重试 |
 | `/errors/signature` | 401 | 平台回调签名不通过（只用于 `/api/webhooks/*`） | 不适用（平台调用方） |
 
@@ -2083,17 +2843,22 @@ flowchart LR
 | 延迟 | 回调应答（`API-HOOK-001`、`API-HOOK-002`） | P99 < 1 秒（Shopee 聊天推送超时 2 秒） |
 | 延迟 | 会话列表、会话详情、工单列表、订单列表 | 服务端 P95 < 300 ms（120 次/秒读负载下） |
 | 延迟 | 发送消息（不含平台耗时） | 服务端 P95 < 300 ms；含平台调用的总超时 10 秒 |
-| 延迟 | 买家消息到草稿出现在工作台 | P95 < 20 秒（DeepSeek 超时预算 25 秒 + 入队与轮询 ≤ 5 秒）；超预算转人工 |
+| 延迟 | 买家消息到草稿出现在工作台 | P95 < 20 秒，含知识检索（实测检索 P50 3–4 秒、P95 7–10 秒）；每跳超时：改写 6 秒、检索每路 8 秒加纯向量重试 5 秒、出稿 25 秒，入队与轮询 ≤ 5 秒；出稿超时转人工，检索超时只降级 |
+| 延迟 | 测试问答（`API-KB-012`） | P95 < 25 秒，同出稿链路但同步返回；前端超时 60 秒 |
 | 刷新 | 工作台列表 / 会话详情 / 导航摘要轮询 | 10 秒 / 4 秒 / 30 秒；标签页不可见时暂停 |
+| 刷新 | 知识库资料列表 | 有排队或解析中的资料时 5 秒轮询，没有时不轮询 |
 | 容量 | 入站峰值 | 10 条/秒持续 5 分钟不积压：`inbound.process` 并发 10，单条处理 P95 < 500 ms（不含出稿） |
 | 容量 | 出稿并发 | `draft.generate` 全局并发 20，单商户并发 5（防一家商户占满） |
+| 容量 | 知识库 | 每商户 ≤ 500 份资料、≤ 50 个分类；单文件 ≤ 20 MB；`knowledge.ingest` 全局并发 4、单商户 2，单份资料入库 ≤ 20 分钟 |
 | 限流 | 登录 | 同一邮箱 15 分钟内失败 10 次锁 15 分钟（423）；同一 IP 每分钟 30 次（429） |
 | 限流 | `/api/v1` 一般请求 | 每个登录会话每分钟 600 次（约为轮询负载的 30 倍），超出 429 |
 | 限流 | 发邀请、找回密码、重置成员密码 | 每商户每天 100 封邀请；同一邮箱 60 秒 1 封 |
+| 限流 | 测试问答 | 每商户每分钟 20 次，超出 429 |
 | 限流 | 平台调用 | TikTok 客服接口每店每天 10,000 次，回补最多占 30%；Shopee 按平台返回的限流错误退避 |
 | 数据增长 | 消息、草稿、会话、订单镜像 | 12 个月增长见 §2；`data.retention_purge` 每天按商户保存期限删除早于期限的会话段、消息、草稿、订单镜像与聊天图片 |
 | 数据增长 | 审计日志、登录记录 | 审计日志保留 2 年、登录记录保留 1 年，与商户保存期限无关（安全追溯） |
 | 数据增长 | 文件 | 聊天图片 ≤ 10 MB/张；发票 PDF + PNG ≈ 300 KB/张；导出包 24 小时后删除 |
+| 数据增长 | 知识库原文件与分块 | 按 §2 假设全站原文件约 10 GB、分块约 50 万行；不随数据保存期限清理，删除资料或商户时删除；原文件全站 > 50 GB 时重估存放方式 |
 | 安全 | 平台密钥、token | AES-256-GCM 加密存储；日志、审计、API 响应零明文 |
 | 安全 | 会话 cookie | `HttpOnly`、`SameSite=Lax`、生产 `Secure`；写端点校验 `Origin` 与站点一致（Better Auth 内置 CSRF 校验） |
 | 兼容 | 浏览器 | Edge / Chrome / Safari 最近两个大版本；最小视口 1024 px；工作台三栏需 ≥ 1280 px，窄于此右栏收成抽屉，对话栏最小 400 px |
@@ -2118,21 +2883,31 @@ flowchart LR
 | 改角色或负责店铺 | `API-TEAM-007` 与该成员请求 | 下一请求即按新权限 | 权限每次请求从数据库计算，不缓存 |
 | 邀请被接受两次 | `API-TEAM-006` × 2 | 一次成功；另一次 410 `used` | `UPDATE invitation … WHERE status='pending'` |
 | 手动同步与定时同步同店 | `API-ORD-003` 与 `order.sync` | 只跑一个 | pg-boss `singletonKey = shop_id` |
+| 并发上传越过资料上限 | `API-KB-002` × n | 不超过 500 份；越限的 409 `/errors/not-allowed` | 计数与插入在同一事务，先取 `pg_advisory_xact_lock(hash(merchant_id))` |
+| 同一内容同时上传两次 | `API-KB-002` × 2 | 一份成功；另一份 409 `/errors/duplicate` | 部分唯一索引 `(merchant_id, sha256) WHERE status <> deleting` |
+| 同商户并发创建检索实例 | `knowledge.ingest` × 2 | 只建一个实例 | 建实例前取同一把商户咨询锁；`knowledge_index.merchant_id` 为主键，`ON CONFLICT DO NOTHING` 后重读 |
+| 资料解析中再点重新解析 | `API-KB-006` 与 `knowledge.ingest` | 409 `/errors/conflict` | `UPDATE … SET status=queued WHERE status IN (ready,failed)`，0 行即冲突 |
+| 删除与入库交错 | `API-KB-007` 与 `knowledge.ingest` | 入库停下，已上传的条目由 `knowledge.purge` 删除；资料不会再变回 ready | 入库任务每步前重读状态；写 `ready` 用 `WHERE status = processing`，0 行即放弃 |
+| 两人同时删除同一份资料 | `API-KB-007` × 2 | 都返回 204，只排一次 `knowledge.purge` | `UPDATE … SET status=deleting WHERE status <> deleting`，0 行时直接 204 |
+| 停用与出稿检索交错 | `API-KB-005` 与 `draft.generate` | 已过了过滤那一步的出稿可能仍引用它；之后的出稿与测试问答不再引用；已生成草稿的依据保留 | 过滤时读资料当前值，不加锁、不缓存 |
+| 删除分类时有资料正上传到它 | `API-KB-011` 与 `API-KB-002` | 上传先到则资料随后归入「未分类」；删除先到则上传 422 `/errors/validation` | 分类删除与改归属在同一事务；上传在插入事务内校验分类存在 |
 
 一致性承诺：
 
 - read-after-write：单主库，写成功后同一用户立即读可见；工作台写操作成功后前端立即失效并重拉对应查询（列表、详情、导航摘要）。
 - 列表与看板：别人的写入在下一次轮询（≤ 10 秒）可见；看板聚合直接查询，无缓存。
 - 异步：平台推送与 webhook 至少一次（平台重试），pg-boss 任务至少一次；消费端按上表的唯一键与条件更新保证幂等。站内通知按 `dedupe_key` 10 分钟内去重。
+- 知识库：改分类、站点与 AI 可用后，下一次出稿与测试问答立即按新值过滤；入库进度在资料列表下一次轮询（≤ 5 秒）可见。`knowledge.ingest` 重复执行时按条目键覆盖重传，`knowledge.purge` 删除不存在的条目视为成功。
 
 ## 17. 依赖与外部系统 / SLA
 
 | 依赖 | 用途 | SLA | 超时/重试 | 失败影响 | 降级 |
 | --- | --- | --- | --- | --- | --- |
-| DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、开票字段抽取、翻译 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；抽取 15 秒、不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒） | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；翻译失败显示原文与「译文暂不可用」 |
+| DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒） | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
+| Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 检索每路 8 秒，无向量分或超时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
 | 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息、订单、售后、店铺指标 | 未公布 SLA | 10 秒；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
 | PostgreSQL 17（含 pgvector 扩展，本期不用向量） | 全部业务数据、任务队列 | 单实例，本机 | 连接池 20；查询超时 5 秒（报表 30 秒） | 全站不可用 | 无降级，返回 503 |
-| 本地磁盘 `DATA_DIR` | 聊天图片、发票、导出包 | 本机 | — | 图片与发票不可用 | 发送图片失败提示；发票生成失败返回 500 不建记录 |
+| 本地磁盘 `DATA_DIR` | 聊天图片、发票、导出包、知识库原文件 | 本机 | — | 图片与发票不可用；资料无法预览与重新解析 | 发送图片失败提示；发票生成失败返回 500 不建记录；资料原文件读不到时抽屉提示「文件已不存在」 |
 | 发件箱（`email_outbox` 表） | 代替真实发信 | 同数据库 | — | 同数据库 | — |
 
 内部后台任务（pg-boss；Worker 进程单独运行，`pnpm worker`）：
@@ -2141,7 +2916,9 @@ flowchart LR
 | --- | --- | --- | --- | --- | --- |
 | `inbound.process` | 回调落库后入队 | 单事件；并发 10；同会话咨询锁 | 30 秒 | 记 `failed`，由 `inbound.sweep` 重试至第 3 次 | 本期无告警（§21 N/A），Worker 日志 error |
 | `inbound.sweep` | 每分钟 | 单实例 | 1 分钟 | 下轮补扫 | 同上 |
-| `draft.generate` | 入站处理后入队 | `singletonKey = conversation_id`；全局并发 20、单商户 5 | 30 秒 | 不重试；转人工 | 同上 |
+| `draft.generate` | 入站处理后入队 | `singletonKey = conversation_id`；全局并发 20、单商户 5 | 60 秒（改写 6 + 检索 13 + 出稿 25 + 余量） | 不重试；转人工 | 同上 |
+| `knowledge.ingest` | `API-KB-002`、`API-KB-006` | `singletonKey = document_id`；全局并发 4、单商户 2 | 20 分钟 | 条目级删除后同名重传最多 2 次；任务异常或超时把资料标 `failed`，管理员可重新解析 | 同上 |
+| `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
 | `message.translate` | TikTok 买家消息落库后入队 | 并发 10 | 15 秒 | 重试 1 次，仍失败保留原文 | 同上 |
 | `order.sync` | 每小时每店；`API-ORD-003` 手动 | `singletonKey = shop_id`；每批 50 单；时间窗 ≤ 15 天（平台上限） | 5 分钟 | 重试 2 次，下轮补 | 同上 |
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
@@ -2159,6 +2936,24 @@ flowchart LR
 | `data.retention_purge` | 每小时（只处理当地时间 03:00 的商户）；也清理过期导出 | 每商户分批 5,000 行 | 10 分钟 | 下轮续删 | 同上 |
 | `data.export` | `API-SET-010` | 每商户串行 | 10 分钟 | 11.12 `fail` | 同上 |
 | `merchant.purge` | 每天 | 单实例 | 30 分钟 | 下轮续删 | 同上 |
+
+Cloudflare AI Search 的实例配置与限制（ADR-014）：
+
+- 实例：每商户一个，首次入库时创建，名字见 §9 `knowledge_index.instance_name`；账号上限免费档 100 个、付费档 5,000 个，到上限时新商户的资料入库失败并写原因。
+- 配置：向量模型 `@cf/qwen/qwen3-embedding-0.6b`；混合检索（向量 + BM25，RRF 融合）；重排 `@cf/baai/bge-reranker-base`；PDF 开 OCR；分块 512 token、重叠 15%。
+- 自定义元数据：资料 ID、分类 ID、站点三个字段（每实例最多 5 个）；只在上传时写入，改分类、站点不重传。
+- 文件上限：开 OCR 的 PDF 10 MiB，其他格式 4 MiB。超限的 PDF 按页拆成多个条目，单页仍超限判失败；其他格式超限在上传时拒收。
+- 已知问题：入库偶发 `workers_ai_timeout_error`；「重新同步」接口返回成功但实际没有重建，所以重试一律用「删除后同名重传」。
+- 计费（2026-11-01 起）：语义检索每千次 0.75 美元（每月含 1,000 次）；入库每百万 token 0.75 美元（每月含 500 万）；存储每 GB 每月 2 美元（含 10 GB）。每份草稿检索 2 次，纯向量重试另计。
+- 本机与测试：`KNOWLEDGE_MODE=stub` 时检索层换成进程内替身（`API-MOCK-010`），不调用 Cloudflare；只有服务器为 `cloudflare`。
+
+新增运行时配置（键名登记在 `.env.example`，值不写进文档与仓库）：
+
+| 键 | 用途 | 获取 | 部署层 |
+| --- | --- | --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账号 ID（配置，非密钥） | Cloudflare 控制台账号首页 | 服务器 .env.production |
+| `CLOUDFLARE_API_TOKEN` | 只含 AI Search 编辑与运行权限的专用 token | Bitwarden 条目 `SHOPILOT_AI_SEARCH_TOKEN`（不是同名条目 `CLOUDFLARE_API_TOKEN`） | 服务器 .env.production |
+| `KNOWLEDGE_MODE` | `stub` 用检索替身，`cloudflare` 调真实检索服务（配置，非密钥） | 本机与测试固定 `stub`，服务器 `cloudflare` | 服务器 .env.production |
 
 ## 18. ADR 决策记录
 
@@ -2222,11 +3017,12 @@ flowchart LR
   - Alternatives：数据库透明加密——防不住数据库导出泄露；外部 KMS——本期无云环境。
   - Consequences：主密钥丢失则全部平台凭证需商户重填。
 
-- **`ADR-011` 出稿用 DeepSeek，不检索知识** — Status: Accepted（用户 10-11 定「先用 DeepSeek，知识库先不用实现」）
-  - Context：知识库不做。
+- **`ADR-011` 出稿用 DeepSeek，不检索知识** — Status: Superseded（被 `ADR-014` 取代）
+  - Context：知识库不做（用户 10-11 定「先用 DeepSeek，知识库先不用实现」）。
   - Decision：出稿输入为阶段提示词 + 品牌语气 + 最近 20 条消息 + 订单事实 + 锁定护栏（沿用 Obsbot v2 `prompts.py` 的护栏与 JSON 输出格式，去掉 `retrieved_sources`）；护栏要求没有依据就不编，说明会有同事跟进。
   - Alternatives：等知识库做好再上 AI——闭环里就没有 AI 环节。
   - Consequences：AI 只能回答订单、物流类有事实依据的问题，产品参数类问题会被护栏导向转人工；知识库上线后在出稿输入里加检索结果，不改接口。
+  - 后续（2026-10-15）：知识库一期接入检索。出稿仍用 DeepSeek，输入加检索到的资料片段，输出加 `insufficient` 与 `used_sources`，见 `ADR-014` 与 12.8；`API-CONV-002` 只新增字段。
 
 - **`ADR-012` 埋点事件写审计日志表** — Status: Accepted（用户 10-11 确认设计文档）
   - Context：§3 指标要由事件计算；审计页也要同一批动作。
@@ -2240,18 +3036,25 @@ flowchart LR
   - Alternatives：Recharts（Obsbot v2 在用）——与用户指定不符。
   - Consequences：图表配色从 brand tokens 读取，深浅色一致。
 
+- **`ADR-014` 出稿先检索知识库，检索层用 Cloudflare AI Search** — Status: Accepted（用户 10-15 同意知识库一期方案）
+  - Context：知识库一期要在出稿前检索商户资料。资料多是 PDF（含扫描件）、表格与图片，买家用马来语、泰语、越南语、英语等提问。2026-10 用 OBSBOT 32 份真实资料与 85 道真实买家问题实测：77 道可答题里，买家原话单路检索前 5 含答案 79%，中文改写单路 82%（找对产品资料 100%），两路合并 10 段 96%；延迟 P50 3–4 秒、P95 7–10 秒（本机经代理）。
+  - Decision：出稿仍用 DeepSeek（沿用 `ADR-011` 的模型与护栏）。检索层用 Cloudflare AI Search，每商户一个实例，配置见 §17 实例配置与限制；出稿前改写问题、两路并行检索、合并取前 8 段，规则见 12.8；资料够不够由模型判断，不靠分数门槛。原文件存在 Shopilot 自己的 `DATA_DIR`。检索层做成接口，本机与测试用替身（`KNOWLEDGE_MODE=stub`）。
+  - Alternatives：自建 pgvector + 百炼向量与重排——PostgreSQL 已带 pgvector，模型可按语种换，但 PDF、Office、图片的解析与 OCR、分块、混合检索、入库队列都要自己写和维护，一期工作量最大；百炼知识库——托管解析与检索，但要另开阿里云账号与计费，每商户隔离的方式与配额要另行核实；Amazon Bedrock 知识库——服务器已在 AWS，但要另配向量存储与 S3 数据源，每商户隔离要建多个知识库或靠元数据过滤，配置项最多；Ragie——接入快，但多一家处理商户资料的第三方与计费。选 AI Search 是因为项目已有 Cloudflare 账号，解析（含 PDF OCR）、混合检索与重排都托管，实测命中率达标，每商户一个实例天然隔离。
+  - Consequences：依赖一个 2026-10-01 才 GA、11-01 才开始计费的产品；重排对泰语、马来语打分接近 0，越南语扫描件 OCR 丢声调，靠中文改写那一路补；约 2.6% 的混合检索静默降级，靠纯向量重试兜底。适合「AI 起草、人工确认」，auto 模式同样走护栏与阈值。原文件在 Shopilot 手里，换回自建时可以从 `DATA_DIR` 全量重新入库。
+  - 换回自建（pgvector + 百炼）的触发条件，任一条成立即评估：每月抽检 50 道真实问题，合并后的 8 段含答案低于 90%；检索 P95 连续 7 天超过 10 秒，或月可用率低于 99%；检索、入库与存储月费超过 200 美元；需要它给不了的能力（改元数据不重传、超过 5 个元数据字段、按资料 ID 精确过滤）。
+
 ## 19. 验收 / 测试
 
 测试策略：
 
 | 层 | 工具 | 范围 | 环境 |
 | --- | --- | --- | --- |
-| 单元 | Vitest | 阶段判定、状态机守卫、权限表、签名算法、时限计算、额度扣减、去重键 | 无数据库 |
+| 单元 | Vitest | 阶段判定、状态机守卫、权限表、签名算法、时限计算、额度扣减、去重键、资料格式与大小判断、PDF 拆分、两路检索的过滤与合并、资料不足封顶 | 无数据库 |
 | 集成 | Vitest + 真实 PostgreSQL（测试库，每个测试文件事务回滚） | 每个 `API-*` 的成功路径、权限（三角色 × 范围内外）、跨商户 404、§16 竞态 | `docker compose` 起的本机 PostgreSQL |
 | 端到端 | Playwright（本机 Edge） | 下列 Gherkin 场景的主路径：注册接入、邀请、模拟器发消息 → 草稿 → 发送、退货工单、开票、三角色侧栏与 403 | `pnpm dev` + Worker + 模拟平台 |
 | 人工 | [TEST.md](TEST.md) | 视觉与交互对照 Quilt 原型、窄屏抽屉、键盘焦点 | 同上 |
 
-DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路径至少一轮调用真实 DeepSeek。
+DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路径至少一轮调用真实 DeepSeek。Cloudflare AI Search 在单元、集成、端到端测试里一律用检索替身（`KNOWLEDGE_MODE=stub`，`API-MOCK-010`）；真实检索只在服务器上由人工按 TEST.md 验收。
 
 ```gherkin
 功能: 注册与登录
@@ -2559,7 +3362,7 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Given 店铺工作时间内模式为 assist，买家有一张 SHIPPED 订单
   When 买家问「我的包裹到哪了」
   Then 20 秒内会话出现在「AI 草稿」，草稿引用了订单号与物流状态，显示置信度
-  And DeepSeek 请求里含售中阶段提示词、订单事实、锁定护栏，不含任何知识检索结果
+  And 商户没有可用资料时不改写、不检索，DeepSeek 请求里含售中阶段提示词、订单事实、锁定护栏，没有资料段
 
 场景: shadow 模式只给管理员和组长看影子回复 (REQ-AI-001)
   Given 店铺模式为 shadow
@@ -2616,6 +3419,100 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Given 买家在会话里发了公司名、地址与邮箱
   When 员工在开票弹层点「从对话提取」
   Then 抬头、地址、邮箱被填入，可修改；用量不变
+
+功能: 知识库
+
+场景: 批量上传资料并解析为可用 (REQ-KB-001, REQ-KB-002)
+  Given 管理员在 /reception/knowledge，商户还没有资料
+  When 拖入「保修政策.pdf」（3 MB）与「型号对照.xlsx」（1 MB），分类选「售后政策」，站点保持「全部站点」，点「上传」
+  Then 两份资料出现在列表，状态从「排队中」「解析中」变为「可用」
+  And 打开「保修政策.pdf」的抽屉，「原文件」内嵌预览 PDF，「解析内容」按序号列出分块文字
+  And 打开「型号对照.xlsx」的抽屉，「原文件」只给下载
+
+场景: 上传不支持或超限的文件被拒 (REQ-KB-001)
+  When 管理员上传「产品介绍.pptx」
+  Then 返回 415 /errors/unsupported-type，提示先导出为 PDF，不建资料
+  When 上传 25 MB 的 PDF
+  Then 返回 413 /errors/too-large，提示单个文件不能超过 20 MB
+  When 上传 5 MB 的 Word 文件
+  Then 返回 413 /errors/too-large，提示 PDF 以外的文件不能超过 4 MB
+  When 上传与已有资料内容相同的文件
+  Then 返回 409 /errors/duplicate，提示已有同样的文件并给出它的名字
+  Given 商户已有 500 份资料
+  When 再上传一份
+  Then 返回 409 /errors/not-allowed，提示先删除不用的资料
+
+场景: 大 PDF 按页拆分入库 (REQ-KB-001)
+  Given 一份 26 MB、40 页的扫描 PDF，每页不超过 1 MB
+  When 管理员上传它
+  Then 资料拆成 3 个检索条目，每个不超过 10 MB，全部索引完成后资料为「可用」，抽屉的解析内容标出页码范围
+  Given 一份 PDF 的第 12 页单页 11 MB
+  When 管理员上传它
+  Then 资料「失败」，原因写明第 12 页超过 10 MB，检索服务里不留它的条目
+
+场景: 索引失败时删除后同名重传 (REQ-KB-001)
+  Given 检索替身设为入库报错一次
+  When 管理员上传一份资料
+  Then 该条目被删除后以同名重传，资料最终「可用」
+  Given 检索替身设为入库一直报错
+  When 管理员上传一份资料
+  Then 重传 2 次后资料「失败」，原因含检索服务给的错误，点「重新解析」可以再来一次
+
+场景: 分类管理与改适用站点 (REQ-KB-003)
+  When 管理员新增分类「售后政策」，再改名为「保修与退换」
+  Then 资料列表的分类筛选跟着变化
+  When 新增一个与已有分类同名的分类
+  Then 返回 409 /errors/duplicate
+  When 删除含 3 份资料的分类「保修与退换」
+  Then 3 份资料归入「未分类」，不重新解析
+  When 删除或改名「未分类」
+  Then 返回 409 /errors/not-allowed
+  When 把一份资料的站点从「全部站点」改为 MY
+  Then 立即生效、不重新解析；TH 店之后的出稿不再引用它，MY 店照常引用
+
+场景: 停用、重新解析与删除资料 (REQ-KB-004)
+  Given 资料「旧版保修政策.pdf」可用
+  When 管理员关掉它的 AI 可用开关
+  Then 列表显示「已停用」，之后的出稿与测试问答都不再引用它
+  When 管理员删除它并确认
+  Then 列表里立即消失，检索服务里它的条目被删除，原文件被删除
+  Given 一份资料正在解析
+  When 管理员点「重新解析」
+  Then 返回 409 /errors/conflict，提示完成后再试
+
+场景: 测试问答显示引用与检索明细 (REQ-KB-005)
+  Given 资料「保修政策.pdf」可用，写明保修 12 个月
+  When 管理员在测试问答输入马来语「Berapa lama waranti?」，选店铺 Shopee MY，点「提问」
+  Then 显示 AI 回答提到 12 个月，引用列出「保修政策.pdf」与片段，点开打开资料抽屉
+  And 展开「检索明细」看到改写后的中文问题，以及两路检索各自返回的分块与分数
+  And 用量页的出稿次数不变
+  When 提问资料里没有的问题
+  Then 回答标「资料不足」，并显示按当前阈值会转人工
+  Given 测试问答一分钟内已提问 20 次
+  When 再提问一次
+  Then 返回 429 /errors/rate-limited
+
+场景: 出稿检索资料并给客服显示依据 (REQ-AI-002, REQ-KB-006)
+  Given 店铺工作时间内模式为 assist，商户有可用资料「保修政策.pdf」
+  When 买家问「保修多久」
+  Then 草稿回答保修 12 个月，草稿下方显示「依据：《保修政策.pdf》」，点开看原文件
+  And 模拟器买家端只收到回复正文，看不到依据与片段编号
+  And AI 替身「最近一次请求」里含编号的资料片段，检索替身「最近一次检索请求」里有改写问题与买家原话两路
+
+场景: 资料不足时置信度封顶 (REQ-KB-006)
+  Given 置信度阈值 0.60，AI 替身返回 insufficient = true、confidence 0.9
+  When 买家发消息
+  Then 不生成草稿，转人工原因为 low_confidence，审计里这次转人工带「资料不足」标记
+
+场景: 混合检索降级时改用纯向量重试 (REQ-KB-006)
+  Given 检索替身设为返回没有向量分的结果
+  When 买家发消息
+  Then 该路检索改用纯向量重试一次，草稿照常生成，检索快照记录了这次重试
+
+场景: 检索失败时不带资料出稿 (REQ-KB-006)
+  Given 检索替身设为超时并保持
+  When 买家发消息
+  Then 草稿照常生成且没有依据，会话不转人工，检索快照标记降级与原因
 
 功能: 订单、售后、开票
 
@@ -2876,9 +3773,9 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 | `EVT:conversation_opened` | 会话开段（11.1 open / open_to_queue / reopen / reopen_to_queue） | shop_id, platform, stage, mode | 人工首响中位时长 |
 | `EVT:conversation_claimed` | 认领（11.1 claim） | wait_sec | 人工首响中位时长（诊断） |
 | `EVT:agent_reply_sent` | 成员发出消息成功 | segment_id, is_first_human_reply, seconds_since_segment_start, in_hours | 人工首响中位时长 |
-| `EVT:draft_generated` | 草稿生成（11.2 create / create_shadow） | mode, confidence, latency_ms, stage | 草稿采纳率（分母诊断）、用量 |
+| `EVT:draft_generated` | 草稿生成（11.2 create / create_shadow） | mode, confidence, latency_ms, stage, insufficient, retrieval_ms, retrieval_degraded, vector_retry, sources_used | 草稿采纳率（分母诊断）、用量、检索耗时与降级、资料不足率 |
 | `EVT:draft_disposed` | 草稿被发送、改后发送、忽略 | disposition, edit_distance, mode | 草稿采纳率 |
-| `EVT:handoff` | 转人工（11.1 handoff） | reason, mode | 看板转人工原因 |
+| `EVT:handoff` | 转人工（11.1 handoff） | reason, mode, insufficient, retrieval_degraded（后两项只在模型出稿后转人工时有） | 看板转人工原因、资料不足率 |
 | `EVT:conversation_closed` | 会话段结束 | end_reason, ai_resolved | 看板 AI 独立解决 |
 | `EVT:order_cancelled` | 取消订单成功 | platform | 售后处理（诊断） |
 | `EVT:aftersale_decided` | 处理售后申请成功 | kind, decision | 售后处理（诊断） |
@@ -2887,6 +3784,10 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 | `EVT:ticket_resolved` | 工单解决 | type, on_time, resolve_sec, due_source | 工单按时完成率 |
 | `EVT:ticket_due_soon` | 到期提醒发出 | type | 工单按时完成率（诊断） |
 | `EVT:ticket_overdue` | 超时通知发出 | type, due_source | 工单按时完成率（诊断） |
+| `EVT:knowledge_uploaded` | 资料上传成功（11.14 upload） | document_id, mime, size, markets | 知识库运营（诊断） |
+| `EVT:knowledge_ready` | 资料解析完成（11.14 indexed） | document_id, parts, chunks, ingest_sec, retries | 知识库运营（诊断） |
+| `EVT:knowledge_failed` | 资料入库失败（11.14 fail） | document_id, reason | 知识库运营（诊断） |
+| `EVT:knowledge_deleted` | 管理员删除资料（11.14 delete） | document_id | 知识库运营（诊断） |
 | `EVT:usage_threshold_crossed` | 用量跨过提醒阈值 | threshold, used, quota | 用量（诊断） |
 | `EVT:permission_denied` | 服务端返回 403 或业务规则 409 `not-allowed` | api_id, role, reason | 角色分权有效 |
 
@@ -2894,13 +3795,15 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 
 N/A — 场景级原因：本期只在本机运行，没有生产环境与值守（§1 项目画像）。本期只做日志：API 与 Worker 输出单行 JSON 日志（`level`、`msg`、`requestId`、`merchantId`、`route` 或 `job`、`durationMs`、`err`），不打印任何密钥、token、cookie、完整卡号与买家聊天正文。上线前由 deploy-pipeline 补齐 SLI（回调应答 P99、出稿成功率、发送成功率、`inbound_event` 失败率、Worker 任务积压）与告警，并在 §22 建对应 Runbook。
 
+知识库另记三项（日志字段 `job=draft.generate` 的 `retrievalMs`、`retrievalDegraded`、`vectorRetry`、`insufficient`，与 `EVT:draft_generated`、`EVT:handoff` 同口径）：检索耗时 P50 与 P95；检索降级次数占有检索出稿的比例；资料不足率 = 模型判定资料不足的出稿 / 有检索的出稿。入库另记 `job=knowledge.ingest` 的条目重传次数与失败原因。补 SLI 时这三项一并纳入，降级比例超过 5% 或检索 P95 超过 10 秒时告警。
+
 ## 22. 运维 Runbook
 
 N/A — 场景级原因：本期无生产环境、无告警（§21）。本机排障手段：`pnpm inbound:replay <id>` 重放失败的入站事件；`pnpm db:studio` 查看数据；模拟器页的推送日志查看每次回调的 HTTP 状态。
 
 ## 23. 发布: Feature Flag / 灰度 / 回滚
 
-N/A — 场景级原因：本期不部署（用户 10-11 定「这期只本地跑」）。本期唯一的开关是环境变量 `MOCK_PLATFORM`（`1` 挂载模拟平台与开发页，生产必须为 `0`）。上线时由 deploy-pipeline 补齐：灰度按商户放量、Shopee 店 auto 模式评审结论、回滚两层（应用层开关与数据层迁移回滚）、上线前检查单与用户文档。
+N/A — 场景级原因：本期不部署（用户 10-11 定「这期只本地跑」）。本期唯一的开关是环境变量 `MOCK_PLATFORM`（`1` 挂载模拟平台与开发页，生产必须为 `0`）；知识库的检索方式由 `KNOWLEDGE_MODE` 决定（本机与测试 `stub`，服务器 `cloudflare`，见 §17 运行时配置）。上线时由 deploy-pipeline 补齐：灰度按商户放量、Shopee 店 auto 模式评审结论、回滚两层（应用层开关与数据层迁移回滚）、上线前检查单与用户文档。
 
 ## 24. 契约同步与防漂移机制
 
@@ -2911,7 +3814,7 @@ N/A — 场景级原因：本期不部署（用户 10-11 定「这期只本地�
 
 ## 25. 迁移 / 数据回填
 
-N/A — 新库，无存量数据；数据库结构由 drizzle-kit 迁移文件从零建立（`drizzle/`）。OBSBOT 从 Obsbot v2 迁入是后续独立工作（§28）。
+N/A — 新库，无存量数据；数据库结构由 drizzle-kit 迁移文件从零建立（`drizzle/`）。知识库的新表与草稿的新字段（可空或带默认值）同样由迁移建立，旧草稿不回填；迁移为每个已有商户补建「未分类」。OBSBOT 从 Obsbot v2 迁入是后续独立工作（§28）。
 
 ## 26. 里程碑
 
@@ -2923,6 +3826,7 @@ N/A — 新库，无存量数据；数据库结构由 drizzle-kit 迁移文件�
 4. 订单、售后、开票、工单。
 5. 看板、用量与套餐、商户设置、搜索；P1 项。
 6. 按 [TEST.md](TEST.md) 执行全量一轮并登记，关键路径截图交付。
+7. 知识库一期：检索层接口与替身、资料上传与入库、分类、测试问答、出稿检索与依据显示；先用替身跑通，再在服务器上用真实 Cloudflare AI Search 与 OBSBOT 资料验收。
 
 ## 27. 上线后度量与复盘
 
@@ -2938,7 +3842,12 @@ N/A — 本期不上线。
 | Open Question | 部署位置、真实发信服务、支付服务商 | 用户 | 上线前 |
 | 风险 | 2026-10-13 用 OBSBOT 现网 token 只读实测（Shopee 6 店、TikTok 5 店）：店铺信息、平台指标、会话与消息、订单列表与详情、物流轨迹、退货与取消、拒绝原因、聊天券、坐席接单状态都能由 Shopilot 适配器读通并正确归一。写接口（发消息、改推送、登记 webhook、换 token、售后同意或拒绝、取消订单、结束会话、改坐席接单）没有实测：现网 Obsbot v2 在用同一套应用，写操作会影响真实买家或现网回调；TikTok 售后写接口与 Send Message（202606）仍是「推断可调」 | 实现 | 接入第一家试点店时，用测试买家账号逐个实测写接口 |
 | 风险 | Shopee Chat 接口文档不公开，模拟平台按 Obsbot v2 现网代码实现，字段可能不全 | 实现 | 接真实平台时 |
-| 风险 | 本期不检索知识，AI 对产品参数类问题会转人工，草稿采纳率会偏低 | 用户 | 知识库排期时 |
+| 风险 | 商户没上传资料、或资料没覆盖买家问的内容时，AI 对产品参数类问题仍会因资料不足转人工，草稿采纳率随资料覆盖面变化 | 用户 | 知识库上线后看两周数据 |
+| 风险 | Cloudflare AI Search 是 2026-10-01 才 GA 的新产品，2026-11-01 起计费；实测混合检索约 2.6% 静默降级、入库偶发超时、「重新同步」返回成功却没重建，接口与价格可能再变 | 实现 | 每月核对一次产品变更；命中 ADR-014 换回条件时 |
+| 风险 | 重排模型对泰语、马来语打分接近 0，越南语扫描件 OCR 丢声调；这几种语言的检索主要靠中文改写那一路 | 实现 | 上线后按语种抽检命中率 |
+| 风险 | 资料自相矛盾时 AI 会照着答错：OBSBOT 话术库 PRE-015 写「所有相机都有内置麦克风」，而 Tail 2 只有 3.5mm 麦克风接口，曾导致真实投诉 | 用户 | OBSBOT 资料入库前清理一遍 |
+| 假设 | 检索费用：按 §2 草稿上限每月约 33 万次检索、约 250 美元；OBSBOT 规模（每天约 300 份草稿）每月约 1.8 万次、约 13 美元；入库与存储在免费额度内。费用由 Shopilot 承担，不计商户出稿用量 | 用户 | 定价时 |
+| Open Question | 组长、员工要不要能查看资料与测试问答：roles.md 原表给了组长上传、全员查看与测试；一期知识库挂在接待设置下，只给管理员 | 用户 | 知识库一期上线前 |
 | 风险 | 应用层租户隔离依赖代码纪律（ADR-003） | 实现 | 每次新增接口都补跨商户测试 |
 | 假设 | 套餐价格、额度、店铺与席位上限沿用原型演示值（`src/server/billing/plans.ts`），不是业务规则 | 用户 | 定价时 |
 | 技术债 | 英文界面未做；商户语言设置只有简体中文 | 用户 | 有非中文客服时 |
