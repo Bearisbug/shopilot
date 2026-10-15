@@ -25,7 +25,7 @@ const NO_SHOP = "none";
 const ROUTE_LABEL: Record<KnowledgeRoute["kind"], string> = { rewritten: "改写路", original: "原话路" };
 const ROUTE_ERROR: Record<string, string> = { timeout: "超时", no_vector: "结果里没有向量分" };
 
-const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} 秒`;
+const seconds = (ms: number) => (ms < 1000 ? `${Math.round(ms)} 毫秒` : `${(ms / 1000).toFixed(1)} 秒`);
 const score = (n: number | null | undefined) => (typeof n === "number" ? n.toFixed(2) : "—");
 
 /** 提问失败的说明（PAGE-RECEPTION-KB 页态：AI 不可用时保留问题可重试） */
