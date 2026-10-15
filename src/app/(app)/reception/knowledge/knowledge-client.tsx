@@ -442,7 +442,10 @@ function DocumentsTable({ me, items, categoryName, onOpen }: { me: Me; items: Kn
                 <DocStatus doc={d} />
               </TableCell>
               <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
-                <Switch checked={d.aiEnabled} onCheckedChange={(v) => toggle.mutate({ doc: d, aiEnabled: v })} aria-label={`${d.name} AI 可用`} />
+                {/* 包一层 flex：开关不坐在文字基线上，与同行状态文字垂直居中 */}
+                <div className="flex">
+                  <Switch checked={d.aiEnabled} onCheckedChange={(v) => toggle.mutate({ doc: d, aiEnabled: v })} aria-label={`${d.name} AI 可用`} />
+                </div>
               </TableCell>
               <TableCell className="hidden py-3 text-muted-foreground tabular-nums @xl:table-cell">{inTz(d.createdAt, tz)}</TableCell>
             </TableRow>
