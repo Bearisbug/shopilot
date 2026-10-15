@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-15 | v1.11 | FLOW-KB-INGEST、FLOW-KB-MANAGE | 上传、维护资料的执行者与资料状态迁移的触发者补上组长，与 knowledge.manage 一致 | 文档 |
 | 2026-10-15 | v1.11 | FLOW-KB-INGEST、FLOW-KB-MANAGE、FLOW-AI-DRAFT、REQ-KB-001、REQ-KB-002、REQ-KB-003、REQ-KB-004、REQ-KB-005、REQ-KB-006、REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、RULE-KB-001、RULE-KB-002、RULE-KB-003、INV-KB-001、INV-KB-002、INV-KB-003、INV-AI-001、ADR-014 | 新增知识库：上传资料、分类、测试问答，AI 出稿先查资料并给客服看依据，补了链路总览 | 功能、文档 |
 
 变更记录（旧格式）：
@@ -101,7 +102,7 @@
 
 #### 概要
 
-- **执行者**：管理员（ROLE-Admin）
+- **执行者**：管理员、组长（ROLE-Admin、ROLE-Lead）
 - **触发**：在接待设置的知识库页拖入或选择文件（PAGE-RECEPTION-KB）
 - **进入条件**：商户没在删除中的资料不足 500 份
 - **结果**：资料解析入库后默认可被 AI 引用，列表显示「可用」
@@ -196,7 +197,7 @@
 
 #### 概要
 
-- **执行者**：管理员（ROLE-Admin）
+- **执行者**：管理员、组长（ROLE-Admin、ROLE-Lead）
 - **触发**：在知识库页打开资料抽屉或分类管理（PAGE-RECEPTION-KB）
 - **进入条件**：资料已上传，没在删除中
 - **结果**：分类、站点与 AI 可用按修改立即生效，删除的资料连同检索副本清掉
@@ -1845,7 +1846,7 @@ erDiagram
 | 会话 | 全部店铺 | 负责店铺内全部 | 负责店铺内 `bot` / `awaiting_human` 的会话 + `claimed_by = 本人` 的会话 + 本人处理过的已结束会话 |
 | 影子回复（`shadowDrafts`） | 可见 | 负责店铺内可见 | 不返回 |
 | 草稿依据（`citations`） | 随草稿与影子回复返回 | 同左 | 随草稿返回 |
-| 知识库资料与测试问答 | 全部 | — | — |
+| 知识库资料与测试问答 | 全部 | 全部（测试问答的店铺只列负责店铺） | — |
 | 会话列表视图 | queue、ai、mine、team、done | queue、ai、mine、team、done（范围内） | queue、ai、mine、done |
 | 订单、售后单、发票 | 全部店铺 | 负责店铺 | 负责店铺 |
 | 工单 | 全部店铺 | 负责店铺 | `assignee = 本人` |
@@ -2272,16 +2273,16 @@ stateDiagram-v2
 
 | 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
 | --- | --- | --- | --- | --- | --- |
-| [*] → queued | upload | 类型在白名单 且 大小合规 且 未删除的资料 < 500 份 且 `(merchant_id, sha256)` 不存在 | 存原文件（`file.kind = knowledge_source`）、建资料，排 `knowledge.ingest`；审计 `EVT:knowledge_uploaded` | 管理员 | `API-KB-002` |
+| [*] → queued | upload | 类型在白名单 且 大小合规 且 未删除的资料 < 500 份 且 `(merchant_id, sha256)` 不存在 | 存原文件（`file.kind = knowledge_source`）、建资料，排 `knowledge.ingest`；审计 `EVT:knowledge_uploaded` | 管理员、组长 | `API-KB-002` |
 | queued → processing | start | `status = queued` 且 任务取得 | 没有检索实例时先建实例 | Worker | 内部任务 `knowledge.ingest` |
 | processing → ready | indexed | 全部条目 `status = indexed` 且 分块已读回 | 写分块与 `ready_at`；审计 `EVT:knowledge_ready` | Worker | 内部任务 `knowledge.ingest` |
 | processing → failed | fail | 有条目重传 2 次后仍 `failed` 或 PDF 单页 > 10 MB 或 实例创建失败 或 任务运行 > 20 分钟 | 写 `failure_reason`，删掉已上传的条目；审计 `EVT:knowledge_failed` | Worker | 内部任务 `knowledge.ingest` |
-| ready → queued | reparse | `status = ready` | 清空分块，排 `knowledge.ingest`（任务先删旧条目再重传） | 管理员 | `API-KB-006` |
-| failed → queued | reparse | `status = failed` | 同上，清空 `failure_reason` | 管理员 | `API-KB-006` |
-| queued → deleting | delete | — | 从所有接口隐藏，排 `knowledge.purge`；审计 `EVT:knowledge_deleted` | 管理员 | `API-KB-007` |
-| processing → deleting | delete | — | 同上；入库任务每步之前重读状态，发现 `deleting` 即停 | 管理员 | `API-KB-007` |
-| ready → deleting | delete | — | 同 queued → deleting | 管理员 | `API-KB-007` |
-| failed → deleting | delete | — | 同 queued → deleting | 管理员 | `API-KB-007` |
+| ready → queued | reparse | `status = ready` | 清空分块，排 `knowledge.ingest`（任务先删旧条目再重传） | 管理员、组长 | `API-KB-006` |
+| failed → queued | reparse | `status = failed` | 同上，清空 `failure_reason` | 管理员、组长 | `API-KB-006` |
+| queued → deleting | delete | — | 从所有接口隐藏，排 `knowledge.purge`；审计 `EVT:knowledge_deleted` | 管理员、组长 | `API-KB-007` |
+| processing → deleting | delete | — | 同上；入库任务每步之前重读状态，发现 `deleting` 即停 | 管理员、组长 | `API-KB-007` |
+| ready → deleting | delete | — | 同 queued → deleting | 管理员、组长 | `API-KB-007` |
+| failed → deleting | delete | — | 同 queued → deleting | 管理员、组长 | `API-KB-007` |
 | deleting → [*] | purge | 检索服务里该资料的条目全部删除成功 | 删分块、条目、原文件与资料记录 | Worker | 内部任务 `knowledge.purge` |
 
 ## 12. 关键流程时序
@@ -2645,7 +2646,7 @@ sequenceDiagram
 | `PAGE-RECEPTION-HOURS` | `/reception/hours` | 管理员 | `API-RCP-001`、`API-RCP-003` | 关键词满 30 个 |
 | `PAGE-RECEPTION-PROMPTS` | `/reception/prompts` | 管理员 | `API-RCP-001`、`API-RCP-004`、`API-RCP-005`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | 护栏只读 |
 | `PAGE-RECEPTION-TICKETS` | `/reception/tickets` | 管理员 | `API-RCP-006`、`API-RCP-007` | 平台类时限只读 |
-| `PAGE-RECEPTION-KB` | `/reception/knowledge`（含 `?doc=<id>` 资料抽屉、`?dialog=upload \| categories`） | 管理员 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
+| `PAGE-RECEPTION-KB` | `/reception/knowledge`（含 `?doc=<id>` 资料抽屉、`?dialog=upload \| categories`） | 管理员、组长 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
 | `PAGE-SHOPS` | `/shops`（含详情抽屉、`?dialog=rotate-key \| reauth \| disconnect`） | 管理员 | `API-SHOP-008`、`API-SHOP-009`、`API-SHOP-010`、`API-SHOP-011`、`API-SHOP-004`、`API-SHOP-012`、`API-SHOP-013` | 无店铺时引导去接入；授权失效 |
 | `PAGE-CONNECT` | `/shops/connect`（含 `?dialog=assist`） | 管理员 | `API-SHOP-001`、`API-SHOP-002`、`API-SHOP-014` | — |
 | `PAGE-CONNECT-GUIDE` | `/shops/connect/<platform>/guide` | 管理员 | `API-SHOP-001`、`API-SHOP-002` | — |
