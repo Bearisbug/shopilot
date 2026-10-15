@@ -136,11 +136,19 @@ export function Sidebar({
     else if (c.top < b.top + edge) box.scrollTop -= b.top + edge - c.top;
   }, [ready, pathname, view]);
 
+  // 接待设置对管理员、组长显示；组长只有知识库（knowledge.manage），直接链到知识库页
+  const fullReception = can("reception.manage");
   const primary: Item[] = [
     { href: "/tickets", label: "工单", icon: ClipboardListIcon, badge: summary?.ticketsBadge, match: (p) => p.startsWith("/tickets") },
     { href: "/orders", label: "订单与开票", icon: ReceiptIcon, match: (p) => p.startsWith("/orders") },
     { href: "/dashboard", label: "看板", icon: ChartColumnIcon, perm: "dashboard.view", match: (p) => p.startsWith("/dashboard") },
-    { href: "/reception", label: "接待设置", icon: BotIcon, perm: "reception.manage", match: (p) => p.startsWith("/reception") },
+    {
+      href: fullReception ? "/reception" : "/reception/knowledge",
+      label: "接待设置",
+      icon: BotIcon,
+      perm: fullReception ? "reception.manage" : "knowledge.manage",
+      match: (p) => p.startsWith("/reception"),
+    },
   ];
   const adminItems: Item[] = [
     { href: "/shops", label: "店铺与连接", icon: StoreIcon, perm: "shops.manage", badge: summary?.shopsAttention, match: (p) => p.startsWith("/shops") },

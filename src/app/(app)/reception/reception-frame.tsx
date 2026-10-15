@@ -1,10 +1,12 @@
 "use client";
 
-import { ClipboardListIcon, ClockIcon, MessageSquareQuoteIcon, StoreIcon } from "lucide-react";
+import { ClipboardListIcon, ClockIcon, LibraryBigIcon, MessageSquareQuoteIcon, StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageHeader, PageScroll, Panel } from "@/components/shell/page";
+import { useCan } from "@/hooks/use-me";
+import type { Permission } from "@/lib/permissions";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -17,12 +19,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const SUB_NAV = [
-  { href: "/reception", label: "店铺模式", icon: StoreIcon },
-  { href: "/reception/hours", label: "工作时间与转人工", icon: ClockIcon },
-  { href: "/reception/prompts", label: "语气与提示词", icon: MessageSquareQuoteIcon },
-  { href: "/reception/tickets", label: "工单类型与时限", icon: ClipboardListIcon },
-] as const;
+/** 按权限显示：组长只有 knowledge.manage，只看到「知识库」 */
+const SUB_NAV: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }>; perm: Permission }> = [
+  { href: "/reception", label: "店铺模式", icon: StoreIcon, perm: "reception.manage" },
+  { href: "/reception/hours", label: "工作时间与转人工", icon: ClockIcon, perm: "reception.manage" },
+  { href: "/reception/prompts", label: "语气与提示词", icon: MessageSquareQuoteIcon, perm: "reception.manage" },
+  { href: "/reception/tickets", label: "工单类型与时限", icon: ClipboardListIcon, perm: "reception.manage" },
+  { href: "/reception/knowledge", label: "知识库", icon: LibraryBigIcon, perm: "knowledge.manage" },
+];
 
 /**
  * 有未保存修改时拦住离开：刷新、关页走浏览器原生确认；站内链接（侧栏、子导航、顶栏）先弹确认。
@@ -79,10 +83,11 @@ function useLeaveGuard(dirty: boolean) {
   };
 }
 
-/** 接待设置四个子页共用：页头 + 左侧子导航（原型 s_reception.py 的 page()）；dirty 为子页是否有未保存的修改 */
+/** 接待设置各子页共用：页头 + 左侧子导航（原型 s_reception.py 的 page()）；dirty 为子页是否有未保存的修改 */
 export function ReceptionFrame({ facts, dirty = false, children }: { facts?: React.ReactNode; dirty?: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const guard = useLeaveGuard(dirty);
+  const can = useCan();
   return (
     <PageScroll>
       <PageHeader title="接待设置" facts={facts ?? " "} />
@@ -90,7 +95,7 @@ export function ReceptionFrame({ facts, dirty = false, children }: { facts?: Rea
         <Panel as="div" className="p-3 xl:sticky xl:top-0">
           <nav aria-label="接待设置分组">
             <ul className="flex flex-wrap gap-1 xl:flex-col">
-              {SUB_NAV.map((item) => {
+              {SUB_NAV.filter((item) => can(item.perm)).map((item) => {
                 const active = pathname === item.href;
                 return (
                   <li key={item.href}>

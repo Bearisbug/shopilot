@@ -75,8 +75,8 @@ export const api = {
       throw e;
     }
   },
-  post<T>(url: string, body?: unknown, idempotencyKey?: string) {
-    return once<T>("POST", url, body ?? {}, { timeoutMs: 30_000, idempotencyKey });
+  post<T>(url: string, body?: unknown, idempotencyKey?: string, timeoutMs = 30_000) {
+    return once<T>("POST", url, body ?? {}, { timeoutMs, idempotencyKey });
   },
   put<T>(url: string, body: unknown, idempotencyKey?: string) {
     return once<T>("PUT", url, body, { timeoutMs: 30_000, idempotencyKey });
@@ -89,6 +89,31 @@ export const api = {
   },
   upload<T>(url: string, form: FormData) {
     return once<T>("POST", url, form, { timeoutMs: 60_000 });
+  },
+  /** 带上传进度的上传：fetch 拿不到上传进度，改用 XMLHttpRequest；错误同样按 problem 抛 ApiError（登录过期由页面上的下一次读请求带去登录页） */
+  uploadWithProgress<T>(url: string, form: FormData, onProgress: (ratio: number) => void, idempotencyKey?: string): Promise<T> {
+    const rid = requestId();
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.timeout = 120_000;
+      xhr.setRequestHeader("x-request-id", rid);
+      if (idempotencyKey) xhr.setRequestHeader("idempotency-key", idempotencyKey);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        const ct = xhr.getResponseHeader("content-type") ?? "";
+        const body = ct.includes("json") && xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
+        if (xhr.status >= 200 && xhr.status < 300) return resolve(body as T);
+        const problem: Problem = body ?? { type: "/errors/internal", title: "请求失败", status: xhr.status, instance: url, requestId: xhr.getResponseHeader("x-request-id") ?? rid };
+        reject(new ApiError(problem));
+      };
+      xhr.onerror = () => reject(new ApiError({ type: "/errors/internal", title: "网络连接失败", detail: "请检查网络后重试。", status: 0, instance: url, requestId: rid }));
+      xhr.ontimeout = () =>
+        reject(new ApiError({ type: "/errors/platform-timeout", title: "请求超时", detail: "服务器没有及时响应，结果未知，请先刷新确认。", status: 504, instance: url, requestId: rid }));
+      xhr.send(form);
+    });
   },
   /** 下载文件：出错时同样按 problem 抛 ApiError；成功返回原始响应，由调用方读 blob（超时只管到响应头） */
   download(url: string) {

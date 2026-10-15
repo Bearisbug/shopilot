@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { inTz, money, PLATFORM_LABEL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MediaViewer, type ViewerItem } from "./media-viewer";
-import { AiTag, latestEvent } from "./wb-shared";
+import { AiTag, Citations, latestEvent } from "./wb-shared";
 
 const STATUS_TEXT = { sending: "发送中", sent: "已发送", failed: "发送失败" } as const;
 /** 卡片类消息不套聊天气泡：卡片自身就是带边框的块，按发送方左右对齐 */
@@ -605,6 +605,7 @@ function ShadowDraft({ d, tz }: { d: DraftItem; tz: string }) {
         AI 影子回复（未发送）· 置信度 <span className="tabular-nums">{d.confidence.toFixed(2)}</span> · <span className="tabular-nums">{inTz(d.createdAt, tz, "HH:mm")}</span>
       </summary>
       <p className="mt-2 leading-relaxed whitespace-pre-wrap">{d.text}</p>
+      <Citations items={d.citations} className="mt-2" />
     </details>
   );
 }

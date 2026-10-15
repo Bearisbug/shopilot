@@ -3,11 +3,12 @@
 // 工作台共用：URL 状态、查询键、显示用的小组件与文案。
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { Fragment, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import type { BuyerPanel, ConversationDetail, ConvView, HandlingState, ProductCardInfo, SendBody, SendResult, Stage } from "@/contracts/conversations";
+import type { BuyerPanel, ConversationDetail, ConvView, DraftCitationItem, HandlingState, ProductCardInfo, SendBody, SendResult, Stage } from "@/contracts/conversations";
 import { Avatar as AvatarRoot, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useCan } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +96,35 @@ export function PlatformTag({ platform, market, className }: { platform: "shopee
 /** 「AI」小标：可可底 + 反白字（brand/DESIGN.md 角色用法） */
 export function AiTag({ className }: { className?: string }) {
   return <span className={cn("inline-flex h-5 items-center rounded-sm bg-(--semantic-color-surface-inverse) px-1.5 text-xs font-semibold text-(--semantic-color-text-on-inverse)", className)}>AI</span>;
+}
+
+/**
+ * 草稿依据（REQ-KB-006）：「依据：《A》、《B》」，只给成员看。
+ * 能管理知识库的成员（knowledge.manage）点开在新标签打开资料抽屉看原文件；资料已删除、或没有知识库权限时只显示文件名
+ */
+export function Citations({ items, className }: { items: DraftCitationItem[]; className?: string }) {
+  const can = useCan();
+  if (items.length === 0) return null;
+  const canOpen = can("knowledge.manage");
+  return (
+    <p className={cn("text-xs text-muted-foreground [overflow-wrap:anywhere]", className)}>
+      依据：
+      {items.map((c, i) => (
+        <Fragment key={c.documentId}>
+          {i > 0 && "、"}
+          {c.available && canOpen ? (
+            <a href={`/reception/knowledge?doc=${c.documentId}`} target="_blank" rel="noopener" className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link)">
+              《{c.name}》<span className="sr-only">（在新标签打开）</span>
+            </a>
+          ) : (
+            <span className="text-foreground">
+              《{c.name}》{!c.available && <span className="sr-only">（资料已删除）</span>}
+            </span>
+          )}
+        </Fragment>
+      ))}
+    </p>
+  );
 }
 
 /** 买家头像：平台给了地址就显示图片，没有、加载中或加载失败（TikTok 的 CDN 链接会过期）时显示名字首字。名字已在旁边写出，头像本身对读屏隐藏 */

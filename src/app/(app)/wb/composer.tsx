@@ -14,7 +14,7 @@ import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
 import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
 import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
-import { AiTag, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
+import { AiTag, Citations, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
 const LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
 const IMAGE_RULE = "JPG、PNG、WebP，不超过 10 MB";
@@ -89,6 +89,7 @@ export function DraftCard({ detail, draft, onEdit }: { detail: ConversationDetai
         </span>
       </p>
       <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{draft.text}</p>
+      <Citations items={draft.citations} className="mt-2" />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={!can || send.isPending} onClick={() => send.mutate({ type: "text", text: draft.text, draftId: draft.id, disposition: "sent" })}>
           {send.isPending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
