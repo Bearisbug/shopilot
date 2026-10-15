@@ -356,7 +356,7 @@ function FirstUpload({ onFiles }: { onFiles: (files: File[]) => void }) {
           if (files.length) onFiles(files);
         }}
       />
-      <p className="mt-2 text-xs text-muted-foreground">没有资料时也能在右侧测试问答，回答会标「资料不足」。</p>
+      <p className="mt-2 text-xs text-muted-foreground">没有资料时也能用测试问答提问，回答会标「资料不足」。</p>
     </div>
   );
 }
