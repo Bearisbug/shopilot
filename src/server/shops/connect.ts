@@ -476,6 +476,8 @@ async function authorize(platform: Platform, state: StateRow, q: URLSearchParams
   // 已授权、还没点「完成接入」的店（connect_draft.shop_ids）再授权不算续期，仍按接入记
   const pending = new Set((await draftRow(state.merchantId, platform))?.shopIds ?? []);
   const touched: Array<{ id: string; kind: "new" | "reconnect" | "pending" | "renew"; ext: string; cipher: string }> = [];
+  // 这次授权才拿到 TikTok 商品权限的店：之前的商品卡是从订单借来的，授权后作废缓存、改从商品接口重新取
+  const productScopeGained = platform === "tiktok" && capabilities.productScope ? existing.filter((s) => !s.capabilities.productScope).map((s) => s.id) : [];
 
   await db().transaction(async (tx) => {
     for (const s of grant.shops) {
@@ -572,6 +574,11 @@ async function authorize(platform: Platform, state: StateRow, q: URLSearchParams
     }
   });
   if (platform === "tiktok" && app.status !== "verified") await updateApp(app.id, { status: "verified", verifiedAt: now });
+  const gained = productScopeGained.filter((id) => touched.some((t) => t.id === id));
+  if (gained.length > 0) {
+    await db().update(schema.productInfo).set({ fetchedAt: new Date(0) }).where(inArray(schema.productInfo.shopId, gained));
+    await enqueue("product.prefetch", {});
+  }
 
   // 平台侧设置（失败不回滚授权，写连接事件，检查页与店铺页会显示）
   if (platform === "tiktok") {

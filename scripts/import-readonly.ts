@@ -1,8 +1,7 @@
 // 只读接入导入：把借用自其他系统（现网 Obsbot v2）的平台凭证与店铺 token 写进 Shopilot，供 inbound.poll 拉取真实消息。
 // 标准输入是 JSON（与 obsbot-platform-tokens 导出文件同结构）；只打印计数，绝不打印凭证。
 //   --setup --admin <邮箱>  没有则建商户「OBSBOT 影子」（该账号为所有者），建两个只读平台应用与全部店铺，排历史回补
-//   --tokens                只更新已有只读店的 access token 与过期时间（Shopee token 4 小时有效，过期后重新同步用这个）；
-//                           TikTok 凭证带 granted_scopes 时同步商品权限，新拿到权限就把商品卡缓存作废并重新预取
+//   --tokens                只更新已有只读店的 access token 与过期时间（Shopee token 4 小时有效，过期后重新同步用这个）
 // 服务器上：docker compose exec -T web sh -c "cd /app && node --import tsx scripts/import-readonly.ts --setup --admin <邮箱>" < 导出文件
 import { and, eq } from "drizzle-orm";
 import { encrypt } from "@/server/core/crypto";
@@ -18,7 +17,7 @@ type Export = {
   tiktok: {
     app_key: string;
     app_secret: string;
-    credentials: Array<{ access_token: string; expires_at: string; granted_scopes?: string[] }>;
+    credentials: Array<{ access_token: string; expires_at: string }>;
     shops: Array<{ shop_id: string; name: string; region: string; cipher: string }>;
   };
 };
@@ -152,25 +151,7 @@ async function tokens(data: Export) {
       updated++;
     }
   }
-  const scopes = tiktokToken?.granted_scopes;
-  let productScopeGranted = 0;
-  if (scopes) {
-    const productScope = scopes.some((s) => s.startsWith("seller.product"));
-    const tiktokShops = await db()
-      .select({ id: schema.shop.id, capabilities: schema.shop.capabilities })
-      .from(schema.shop)
-      .innerJoin(schema.platformApp, eq(schema.platformApp.id, schema.shop.platformAppId))
-      .where(and(eq(schema.platformApp.readOnly, true), eq(schema.shop.platform, "tiktok")));
-    for (const s of tiktokShops.filter((x) => x.capabilities.productScope !== productScope)) {
-      await db().update(schema.shop).set({ capabilities: { ...s.capabilities, productScope }, updatedAt: now }).where(eq(schema.shop.id, s.id));
-      if (!productScope) continue;
-      // 之前从订单借来的商品卡：作废缓存，重新预取时改从平台商品接口取
-      await db().update(schema.productInfo).set({ fetchedAt: new Date(0) }).where(eq(schema.productInfo.shopId, s.id));
-      productScopeGranted++;
-    }
-    if (productScopeGranted) await enqueue("product.prefetch", {});
-  }
-  console.log(JSON.stringify({ tokensUpdated: updated, inFile: want.length, productScopeGranted }));
+  console.log(JSON.stringify({ tokensUpdated: updated, inFile: want.length }));
 }
 
 const data = await readStdin();
