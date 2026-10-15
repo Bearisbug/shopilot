@@ -1,0 +1,5 @@
+{
+  "step": 2,
+  "expected": "ready、aiEnabled false；列表已停用",
+  "actual": "{\"d1\":{\"id\":\"5f8e4548-f2fe-4283-b802-5ec1076a9b6a\",\"name\":\"补扫-queued-8c5611f1.txt\",\"mime\":\"text/plain\",\"size\":70,\"categoryId\":\"01a14044-f173-7681-8c7d-4d451c5d04ef\",\"markets\":[\"ALL\"],\"status\":\"queued\",\"aiEnabled\":false,\"failureReason\":null,\"partsCount\":0,\"chunksCount\":0,\"uploadedByName\":\"林晓\",\"createdAt\":\"2026-10-15T15:51:40.803Z\",\"readyAt\":null},\"rt\":\"补扫-queued-8c5611f1.txt 未分类 · 全部站点 · 10-15 23:51 排队中\"}"
+}
