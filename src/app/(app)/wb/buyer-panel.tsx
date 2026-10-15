@@ -240,7 +240,15 @@ function OrderItem({ o, d, tz }: { o: BuyerOrder; d: ConversationDetail; tz: str
   return (
     <div className="text-sm">
       <p className="flex items-center justify-between gap-2">
-        <span className="truncate font-medium tabular-nums">{o.externalOrderId}</span>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => set({ orderDetail: o.id }, "push")}
+          className="focus-ring min-w-0 truncate rounded-sm text-left font-medium text-(--semantic-color-text-link) tabular-nums underline-offset-4 hover:underline"
+        >
+          {o.externalOrderId}
+          <span className="sr-only">，查看订单详情</span>
+        </button>
         <span className="shrink-0 text-xs text-muted-foreground">{STATUS_GROUP_LABEL[o.statusGroup as StatusGroup] ?? o.status}</span>
       </p>
       <OrderItems items={o.items} currency={o.currency} className="mt-2" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardPlusIcon, FileTextIcon, MessageSquareIcon, PackageXIcon, XIcon } from "lucide-react";
+import { ClipboardPlusIcon, ExternalLinkIcon, FileTextIcon, MessageSquareIcon, PackageXIcon, ReceiptIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import type { OrderDetail } from "@/contracts/orders";
 import { PlatformBadge } from "@/components/common/platform-badge";
@@ -19,12 +19,32 @@ const TICKET_STATUS: Record<string, string> = { open: "待处理", in_progress: 
 /** 订单详情抽屉（REQ-ORD-003）：?order=<订单 ID> */
 export function OrderDrawer({ tz }: { tz: string }) {
   const { params, update } = useUrlParams();
-  const orderId = params.get("order");
-  const close = () => update({ order: null, dialog: null, afterSale: null, invoice: null });
+  return (
+    <OrderSheet
+      orderId={params.get("order")}
+      tz={tz}
+      open={(dialog, extra = {}) => update({ dialog, ...extra }, "push")}
+      close={() => update({ order: null, dialog: null, afterSale: null, invoice: null })}
+    />
+  );
+}
+
+type SheetProps = {
+  orderId: string | null;
+  tz: string;
+  /** 打开订单相关弹层：cancel、invoice、ticket、cancel-request、return-review、invoice-detail，由宿主页按 dialog 参数挂载 */
+  open: (dialog: string, extra?: Record<string, string>) => void;
+  close: () => void;
+  /** 工作台里打开：底部「打开会话」换成「在订单页打开」，建工单走工作台的建工单弹层（关联当前会话） */
+  workbench?: boolean;
+};
+
+/** 订单详情侧栏：订单页由 OrderDrawer 按 ?order= 打开，工作台按 ?orderDetail= 打开 */
+export function OrderSheet({ orderId, tz, open, close, workbench = false }: SheetProps) {
   return (
     <Sheet open={!!orderId} onOpenChange={(o) => !o && close()}>
       <SheetContent className="w-full overscroll-contain data-[side=right]:sm:max-w-lg" aria-describedby={undefined}>
-        {orderId && <DrawerBody key={orderId} orderId={orderId} tz={tz} open={(dialog, extra = {}) => update({ dialog, ...extra }, "push")} close={close} />}
+        {orderId && <DrawerBody key={orderId} orderId={orderId} tz={tz} open={open} close={close} workbench={workbench} />}
       </SheetContent>
     </Sheet>
   );
@@ -41,7 +61,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-function DrawerBody({ orderId, tz, open, close }: { orderId: string; tz: string; open: (dialog: string, extra?: Record<string, string>) => void; close: () => void }) {
+function DrawerBody({ orderId, tz, open, close, workbench }: Omit<SheetProps, "orderId"> & { orderId: string }) {
   const q = useOrderDetail(orderId);
   // 404（含地址里的订单 ID 不合法）是确定结果，只给关闭；其他错误才给重试
   const notFound = q.error instanceof ApiError && (q.error.type === "not-found" || q.error.type === "validation");
@@ -81,6 +101,12 @@ function DrawerBody({ orderId, tz, open, close }: { orderId: string; tz: string;
         <SheetDescription className="flex flex-wrap items-center gap-2">
           <PlatformBadge platform={o.shop.platform} market={o.shop.market} />
           {o.shop.name}
+          {o.sellerUrl && (
+            <a href={o.sellerUrl} target="_blank" rel="noopener noreferrer" className="focus-ring inline-flex items-center gap-1 rounded-sm text-(--semantic-color-text-link) underline-offset-4 hover:underline">
+              在卖家后台打开
+              <ExternalLinkIcon className="size-3.5" aria-hidden="true" />
+            </a>
+          )}
         </SheetDescription>
       </SheetHeader>
       <div className="scroll-y flex min-h-0 flex-1 flex-col gap-5 px-4 pb-4">
@@ -194,7 +220,14 @@ function DrawerBody({ orderId, tz, open, close }: { orderId: string; tz: string;
         </Section>
       </div>
       <SheetFooter className="flex-row flex-wrap justify-end gap-2 border-t border-border">
-        {d.conversation ? (
+        {workbench ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/orders?order=${o.id}`}>
+              <ReceiptIcon />
+              在订单页打开
+            </Link>
+          </Button>
+        ) : d.conversation ? (
           <Button asChild variant="outline" size="sm">
             <Link href={`/wb/${d.conversation.id}`}>
               <MessageSquareIcon />
@@ -216,12 +249,19 @@ function DrawerBody({ orderId, tz, open, close }: { orderId: string; tz: string;
         ) : (
           <DisabledButton icon={XIcon} label="取消订单" reason={d.cancel.reason ?? "当前状态不能取消"} />
         )}
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/tickets?dialog=ticket&order=${o.id}`}>
+        {workbench ? (
+          <Button variant="outline" size="sm" onClick={() => open("ticket")}>
             <ClipboardPlusIcon />
             建工单
-          </Link>
-        </Button>
+          </Button>
+        ) : (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/tickets?dialog=ticket&order=${o.id}`}>
+              <ClipboardPlusIcon />
+              建工单
+            </Link>
+          </Button>
+        )}
       </SheetFooter>
     </>
   );

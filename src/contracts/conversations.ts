@@ -116,8 +116,8 @@ export type DraftItem = { id: string; text: string; confidence: number; reason: 
 export type ConversationDetail = {
   conversation: {
     id: string;
-    /** readOnly：只读接入的店（消息从平台拉取，不能从 Shopilot 发送或操作平台） */
-    shop: ShopRef & { status: "connected" | "auth_expired" | "disconnected"; readOnly: boolean };
+    /** readOnly：只读接入的店（消息从平台拉取，不能从 Shopilot 发送或操作平台）；externalShopId 与 appRegion 用来拼卖家后台的订单链接 */
+    shop: ShopRef & { status: "connected" | "auth_expired" | "disconnected"; readOnly: boolean; externalShopId: string; appRegion: string | null };
     buyerName: string;
     buyerAvatarUrl: string | null;
     buyerExternalId: string;

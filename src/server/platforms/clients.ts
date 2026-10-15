@@ -39,6 +39,12 @@ export async function isReadOnlyShop(shop: Pick<ShopRow, "platformAppId">, ex: E
   return Boolean(a?.readOnly);
 }
 
+/** 店铺所属应用的区域（Shopee：cn / sg / br），拼卖家后台链接用 */
+export async function shopAppRegion(shop: Pick<ShopRow, "platformAppId">, ex: Executor = db()): Promise<string | null> {
+  const [a] = await ex.select({ region: schema.platformApp.region }).from(schema.platformApp).where(eq(schema.platformApp.id, shop.platformAppId)).limit(1);
+  return a?.region ?? null;
+}
+
 export function shopeeApp(app: AppRow): ShopeeApp {
   if (!app.apiHost) throw new Error("Shopee 应用还没识别出区域主机");
   return { partnerId: app.appKey, partnerKey: decrypt(app.secretEnc), host: app.apiHost, readOnly: app.readOnly };

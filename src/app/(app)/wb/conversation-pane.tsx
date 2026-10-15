@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText } from "@/lib/api";
 import { inTz } from "@/lib/format";
+import { sellerOrderUrl } from "@/lib/seller-center";
 import { cn } from "@/lib/utils";
 import { Composer, DraftCard, type EditingDraft } from "./composer";
 import { Timeline } from "./timeline";
@@ -111,6 +112,7 @@ export function ConversationPane({ id }: { id: string }) {
         onLoadMore={() => messages[0] && loadOlder.mutate(messages[0].id)}
         onRetry={(mid) => retry.mutate(mid)}
         retryingId={retry.isPending ? (retry.variables ?? null) : null}
+        orderUrl={(orderNo) => sellerOrderUrl(d.conversation.shop, orderNo)}
       />
       {d.draft && d.conversation.handlingState !== "closed" && editing?.id !== d.draft.id && <DraftCard detail={d} draft={d.draft} onEdit={startEdit} />}
       <Footer
