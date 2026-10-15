@@ -314,6 +314,22 @@ describe.skipIf(!process.env.DATABASE_URL)("知识库（需要数据库）", asy
     expect(await problemOf(docs.updateDocument(admin, doc.id, { categoryId: randomUUID() }))).toMatchObject({ status: 422 });
   });
 
+  it("别的商户的资料与分类一律 404，删除也不生效（ADR-003）", async () => {
+    const doc = await uploadReady(admin, "跨商户.txt", text("跨商户资料"));
+    const other = await newMerchant("别的商户");
+    const otherCtx = ctxFor(other.merchant, other.membershipId, other.userId, "admin", null);
+    expect(await problemOf(docs.getDocument(otherCtx, doc.id))).toMatchObject({ status: 404 });
+    expect(await problemOf(docs.listDocumentChunks(otherCtx, doc.id))).toMatchObject({ status: 404 });
+    expect(await problemOf(docs.updateDocument(otherCtx, doc.id, { aiEnabled: false }))).toMatchObject({ status: 404 });
+    expect(await problemOf(docs.reparseDocument(otherCtx, doc.id))).toMatchObject({ status: 404 });
+    await docs.deleteDocument(otherCtx, doc.id);
+    expect((await docRow(doc.id)).status).toBe("ready");
+    const builtin = (await cats.listCategories(admin)).items[0].id;
+    expect(await problemOf(cats.renameCategory(otherCtx, builtin, "改不了"))).toMatchObject({ status: 404 });
+    expect((await docs.listDocuments(otherCtx, { limit: 30 })).items).toEqual([]);
+    expect(await problemOf(docs.uploadDocument(otherCtx, uploadReq("y.txt", text("y"), { categoryId: builtin })))).toMatchObject({ status: 422 });
+  });
+
   it("资料满 500 份：两份同时上传只放行一份，越限的 409", async () => {
     const m = await newMerchant("资料上限");
     const ctx = ctxFor(m.merchant, m.membershipId, m.userId, "admin", null);
