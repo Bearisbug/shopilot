@@ -4,7 +4,11 @@ import { env } from "../env";
 
 export const QUEUES = {
   "inbound.process": { policy: "key_strict_fifo" as const, expireInSeconds: 60, retryLimit: 3, retryDelay: 10, retryBackoff: true },
-  "draft.generate": { policy: "stately" as const, expireInSeconds: 45, retryLimit: 0 },
+  // 出稿含改写 6 + 检索 13 + 出稿 25 秒，任务超时 60 秒（§17）
+  "draft.generate": { policy: "stately" as const, expireInSeconds: 60, retryLimit: 0 },
+  // 知识库：入库单份 ≤ 20 分钟（任务内自己计时，这里留余量）；删除重试 5 次指数退避，每小时补扫
+  "knowledge.ingest": { policy: "stately" as const, expireInSeconds: 1320, retryLimit: 0 },
+  "knowledge.purge": { policy: "standard" as const, expireInSeconds: 300, retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "message.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
   "order.sync": { policy: "stately" as const, expireInSeconds: 300, retryLimit: 2, retryDelay: 30 },
   "shop.backfill": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 3, retryDelay: 60 },
@@ -51,6 +55,7 @@ export const SCHEDULES: Partial<Record<QueueName, string>> = {
   "usage.rollover": "50 * * * *",
   "data.retention_purge": "0 * * * *",
   "merchant.purge": "30 3 * * *",
+  "knowledge.purge": "40 * * * *",
 };
 
 /** pg-boss 定时投递用的内部队列名（pg-boss 未导出该常量） */
@@ -70,7 +75,9 @@ async function create(role: "web" | "worker"): Promise<PgBoss> {
   await boss.start();
   for (const [name, opts] of Object.entries(QUEUES)) {
     const { policy, ...rest } = opts;
+    // 已有队列同步超时与重试参数（策略建了就不能改）
     if (!(await boss.getQueue(name))) await boss.createQueue(name, { policy, ...rest });
+    else await boss.updateQueue(name, rest);
   }
   // 定时随队列一起登记（幂等 upsert）：pnpm db:reset 删掉 pgboss schema 后，db:seed 调 boss() 重建队列时把定时也补回，
   // 不必重启 Worker。定时由 Worker 的 pg-boss 经内部队列 __pgboss__send-it 投递，它只在 Worker 启动时建，这里一并补上。

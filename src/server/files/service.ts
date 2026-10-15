@@ -1,8 +1,8 @@
-// 文件下载（API-CONV-011）：按文件所属商户鉴权，导出包另要求商户设置权限、过期后 410。
+// 文件下载（API-CONV-011）：按文件所属商户鉴权，导出包另要求商户设置权限、过期后 410；知识库原文件另要求 knowledge.manage。
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { MemberContext } from "../auth/context";
 import { db, schema } from "../db/client";
 import { Problem } from "../http/problem";
@@ -26,6 +26,17 @@ export async function downloadFile(ctx: MemberContext, id: string): Promise<Resp
     const [job] = await db().select().from(schema.exportJob).where(eq(schema.exportJob.fileId, file.id));
     if (!job || job.status !== "done" || !job.expiresAt || job.expiresAt < new Date()) throw new Problem("expired", { detail: EXPORT_GONE, code: "expired" });
     filename = `shopilot-export-${inTzText(job.createdAt, ctx.merchant.timezone, "yyyyMMdd-HHmm")}.zip`;
+  }
+  if (file.kind === "knowledge_source") {
+    // 知识库原文件只给有 knowledge.manage 的管理员与组长（§10）；资料删除中即视为不存在
+    if (!ctx.can("knowledge.manage")) throw new Problem("forbidden", { detail: "知识库资料只对管理员与组长开放。", code: "knowledge.manage" });
+    const [doc] = await db()
+      .select({ name: schema.knowledgeDocument.name })
+      .from(schema.knowledgeDocument)
+      .where(and(eq(schema.knowledgeDocument.fileId, file.id), eq(schema.knowledgeDocument.merchantId, ctx.merchant.id), ne(schema.knowledgeDocument.status, "deleting")))
+      .limit(1);
+    if (!doc) throw new Problem("not-found", { detail: "文件已不存在。" });
+    filename = doc.name;
   }
   const full = dataPath(file.path);
   const info = await stat(full).catch(() => null);

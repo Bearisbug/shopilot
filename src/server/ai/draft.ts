@@ -1,4 +1,4 @@
-// draft.generate（DESIGN §11.2 create / create_shadow，§12.2、§12.3）：转人工判定 → 额度 → 出稿 → assist 存草稿 / auto 直接发 / shadow 存影子。
+// draft.generate（DESIGN §11.2 create / create_shadow，§12.2、§12.3、§12.8）：转人工判定 → 额度 → 检索知识库 → 出稿 → assist 存草稿 / auto 直接发 / shadow 存影子。
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { audit, systemActor } from "@/server/core/audit";
@@ -9,6 +9,7 @@ import { hitKeyword, receptionContext } from "@/server/conversations/hours";
 import { systemEvent, type ConversationRow } from "@/server/conversations/ingest";
 import { sendOutbound } from "@/server/conversations/send";
 import { db, schema } from "@/server/db/client";
+import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
 import { AiError, chat, parseJson, type ChatMessage } from "./client";
 import { composePrompt, DEFAULT_PROMPTS, UNKNOWN_STAGE_PROMPT, type PromptStage } from "./prompts";
 
@@ -72,39 +73,48 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     .orderBy(desc(schema.message.sentAt))
     .limit(20);
   const facts = await orderFacts(conv);
+  const conversation = history.reverse().map((m) => ({ from: m.senderRole === "buyer" ? "buyer" : m.senderRole === "system" ? "system" : "seller", type: m.type, text: m.text ?? "", card: m.type.endsWith("_card") ? m.payload : undefined, at: m.sentAt.toISOString() }));
+  // 有对该店站点可用的资料时，用最近 10 条消息与订单事实改写问题，再两路检索（§12.8）；检索失败只降级、不转人工（RULE-KB-002）
+  const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts });
+  const knowledge = knowledgePayload(retrieval);
   const userPayload = {
     brand_voice: rc.brandVoice ?? "",
     order_facts: facts,
-    conversation: history.reverse().map((m) => ({ from: m.senderRole === "buyer" ? "buyer" : m.senderRole === "system" ? "system" : "seller", type: m.type, text: m.text ?? "", card: m.type.endsWith("_card") ? m.payload : undefined, at: m.sentAt.toISOString() })),
+    conversation,
     latest_buyer_message: trigger.text ?? `[${trigger.type}]`,
+    ...(knowledge ? { knowledge } : {}),
   };
   const messages: ChatMessage[] = [
     { role: "system", content: system },
     { role: "user", content: JSON.stringify(userPayload) },
   ];
 
-  let parsed: { reply: string; confidence: number; handoff: boolean; reason: string };
+  let parsed: ModelOutput;
   let model = "";
   let latencyMs = 0;
   try {
     const res = await chat("draft", messages, { json: true, stubHint: trigger.text ?? "" });
     model = res.model;
     latencyMs = res.latencyMs;
-    const j = parseJson(res.content);
-    parsed = { reply: String(j.reply ?? "").trim(), confidence: clamp(Number(j.confidence ?? 0)), handoff: j.handoff === true, reason: String(j.reason ?? "none") };
+    parsed = parseModelOutput(parseJson(res.content));
   } catch (e) {
     await releaseDraft(conv.merchantId);
     const reason: HandoffReason = e instanceof AiError && e.kind === "timeout" ? "timeout" : "model_error";
+    logRetrieval(conv, retrieval, null);
     if (mode !== "shadow") await handoff(conv, reason, mode);
     return;
   }
+  logRetrieval(conv, retrieval, parsed.insufficient);
+  const citations = citationsFrom(retrieval, parsed.usedSources);
+  const knowledgeFields = { insufficient: parsed.insufficient, retrieval: retrieval ? retrievalSnapshot(retrieval) : null, citations: citations.length ? citations : null };
+  const evt = { mode, confidence: parsed.confidence, latency_ms: latencyMs, stage, ...retrievalEvent(retrieval, parsed.insufficient), sources_used: citations.length };
 
   if (mode === "shadow") {
     const [d] = await db()
       .insert(schema.draft)
-      .values({ merchantId: conv.merchantId, conversationId: conv.id, segmentId: conv.currentSegmentId, triggerMessageId: trigger.id, mode, text: parsed.reply || "（空回复）", confidence: parsed.confidence, handoff: parsed.handoff, reason: parsed.reason, status: "shadow", model, latencyMs })
+      .values({ merchantId: conv.merchantId, conversationId: conv.id, segmentId: conv.currentSegmentId, triggerMessageId: trigger.id, mode, text: parsed.reply || "（空回复）", confidence: parsed.confidence, handoff: parsed.handoff, reason: parsed.reason, status: "shadow", model, latencyMs, ...knowledgeFields })
       .returning();
-    await audit(systemActor(conv.merchantId), { module: "workbench", action: "draft_generated", summary: `影子回复 ${conv.buyerName}`, targetType: "draft", targetId: d.id, data: { mode, confidence: parsed.confidence } });
+    await audit(systemActor(conv.merchantId), { module: "workbench", action: "draft_generated", summary: `影子回复 ${conv.buyerName}`, targetType: "draft", targetId: d.id, data: evt });
     return;
   }
 
@@ -115,17 +125,17 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     return;
   }
 
-  if (parsed.handoff || !parsed.reply || parsed.confidence < rc.confidenceThreshold) {
+  const verdict = handoffVerdict(parsed, rc.confidenceThreshold);
+  if (verdict) {
     await releaseDraft(conv.merchantId);
-    const reason: HandoffReason = parsed.handoff ? ((MODEL_REASONS.has(parsed.reason) ? parsed.reason : "policy") as HandoffReason) : !parsed.reply ? "model_error" : "low_confidence";
-    return handoff(now, reason, mode, parsed.handoff && parsed.reply ? parsed.reply : undefined);
+    return handoff(now, verdict, mode, parsed.handoff && parsed.reply ? parsed.reply : undefined, { ...retrievalEvent(retrieval, parsed.insufficient) });
   }
 
   const [draft] = await db()
     .insert(schema.draft)
-    .values({ merchantId: conv.merchantId, conversationId: conv.id, segmentId: conv.currentSegmentId, triggerMessageId: trigger.id, mode, text: parsed.reply, confidence: parsed.confidence, handoff: false, reason: parsed.reason, status: "generated", model, latencyMs })
+    .values({ merchantId: conv.merchantId, conversationId: conv.id, segmentId: conv.currentSegmentId, triggerMessageId: trigger.id, mode, text: parsed.reply, confidence: parsed.confidence, handoff: false, reason: parsed.reason, status: "generated", model, latencyMs, ...knowledgeFields })
     .returning();
-  await audit(systemActor(conv.merchantId), { module: "workbench", action: "draft_generated", summary: `草稿 ${conv.buyerName}`, targetType: "draft", targetId: draft.id, data: { mode, confidence: parsed.confidence } });
+  await audit(systemActor(conv.merchantId), { module: "workbench", action: "draft_generated", summary: `草稿 ${conv.buyerName}`, targetType: "draft", targetId: draft.id, data: evt });
   if (mode !== "auto") return;
 
   // auto：立即发送（11.2 send；11.1 ai_reply）
@@ -237,3 +247,41 @@ async function releaseDraft(merchantId: string) {
 }
 
 const clamp = (n: number) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
+
+export type ModelOutput = { reply: string; confidence: number; handoff: boolean; reason: string; insufficient: boolean; usedSources: number[] };
+
+/** 模型 JSON 输出（§12.8）：{ reply, confidence, handoff, reason, insufficient, used_sources } */
+export function parseModelOutput(j: Record<string, unknown>): ModelOutput {
+  const used = Array.isArray(j.used_sources) ? j.used_sources.map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
+  return {
+    reply: String(j.reply ?? "").trim(),
+    confidence: clamp(Number(j.confidence ?? 0)),
+    handoff: j.handoff === true,
+    reason: String(j.reason ?? "none"),
+    insufficient: j.insufficient === true,
+    usedSources: [...new Set(used)],
+  };
+}
+
+/**
+ * 出稿后要不要转人工、原因是什么；null 表示可以出稿。
+ * 资料不足时不论阈值一律转人工，原因记「置信度低于阈值」（RULE-KB-003）。测试问答（API-KB-012）用同一个判定。
+ */
+export function handoffVerdict(p: ModelOutput, threshold: number): HandoffReason | null {
+  if (p.handoff) return (MODEL_REASONS.has(p.reason) ? p.reason : "policy") as HandoffReason;
+  if (!p.reply) return "model_error";
+  if (p.insufficient || p.confidence < threshold) return "low_confidence";
+  return null;
+}
+
+/** EVT:draft_generated、EVT:handoff 的检索属性（§20）；没检索时不带 */
+function retrievalEvent(r: RetrievalOutcome | null, insufficient: boolean) {
+  if (!r) return { insufficient };
+  return { insufficient, retrieval_ms: r.latencyMs, retrieval_degraded: r.degraded, vector_retry: r.vectorRetry };
+}
+
+/** §21 日志字段：job=draft.generate 的 retrievalMs、retrievalDegraded、vectorRetry、insufficient */
+function logRetrieval(conv: ConversationRow, r: RetrievalOutcome | null, insufficient: boolean | null) {
+  if (!r) return;
+  console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", job: "draft.generate", merchantId: conv.merchantId, conversationId: conv.id, retrievalMs: r.latencyMs, retrievalDegraded: r.degraded, vectorRetry: r.vectorRetry, insufficient }));
+}

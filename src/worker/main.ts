@@ -8,7 +8,7 @@ async function main() {
     const handler = handlers[name];
     if (!handler) continue;
     // 入站按店严格先后：同一店的下一条要等上一条完成后的下一次轮询，轮询间隔压到 0.5 秒（pg-boss 下限）
-    const opts = { localConcurrency: name === "inbound.process" ? 10 : name === "draft.generate" ? 20 : 2, ...(name === "inbound.process" ? { pollingIntervalSeconds: 0.5 } : {}) };
+    const opts = { localConcurrency: name === "inbound.process" ? 10 : name === "draft.generate" ? 20 : name === "knowledge.ingest" ? 4 : 2, ...(name === "inbound.process" ? { pollingIntervalSeconds: 0.5 } : {}) };
     await b.work(name, opts, async (jobs) => {
       for (const job of jobs) {
         const started = Date.now();

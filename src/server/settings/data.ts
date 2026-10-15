@@ -390,6 +390,9 @@ export async function purgeMerchants(data: Record<string, unknown> = {}): Promis
   for (const m of due) {
     const files = await db().select({ id: schema.file.id }).from(schema.file).where(eq(schema.file.merchantId, m.id));
     await deleteFiles(files.map((f) => f.id));
+    // 知识库检索实例由 knowledge.purge 删除（带重试）；实例名随载荷带走，下面删表后库里就查不到了
+    const [kb] = await db().select({ name: schema.knowledgeIndex.instanceName }).from(schema.knowledgeIndex).where(eq(schema.knowledgeIndex.merchantId, m.id));
+    if (kb) await enqueue("knowledge.purge", { instance: kb.name }, { singletonKey: `instance:${kb.name}` });
     const tables = await merchantTables();
     const deleted: Record<string, number> = {};
     // 外键顺序由级联兜底；个别表因引用暂删不掉时下一轮重试
