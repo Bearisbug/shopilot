@@ -433,6 +433,9 @@ describe.skipIf(!process.env.DATABASE_URL)("知识库（需要数据库）", asy
       const [ai] = await db().select().from(schema.devAiStub).where(eq(schema.devAiStub.id, 1));
       const payload = JSON.parse(ai.lastRequest?.messages.find((m) => m.role === "user")?.content ?? "{}");
       expect(payload.knowledge[0]).toMatchObject({ n: 1, title: expect.any(String), text: expect.any(String) });
+      // 给模型的时间是商户时区的本地时间（模型会照抄回复买家），不是 UTC 的 ISO 串
+      expect(payload.timezone).toBe(ctx.merchant.timezone);
+      expect(payload.conversation.at(-1).at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
       expect(draft.text).not.toMatch(/\[\d\]/);
 
       const cited = draft.citations![0];

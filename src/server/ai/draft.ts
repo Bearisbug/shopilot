@@ -9,6 +9,7 @@ import { hitKeyword, receptionContext } from "@/server/conversations/hours";
 import { systemEvent, type ConversationRow } from "@/server/conversations/ingest";
 import { sendOutbound } from "@/server/conversations/send";
 import { db, schema } from "@/server/db/client";
+import { inTzText } from "@/server/settings/data";
 import { queueFeishuCard } from "@/server/feishu/deliver";
 import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
 import { AiError, chat, parseJson, type ChatMessage } from "./client";
@@ -55,7 +56,7 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
   }
 
   const [seg] = conv.currentSegmentId ? await db().select().from(schema.segment).where(eq(schema.segment.id, conv.currentSegmentId)).limit(1) : [];
-  const [merchant] = await db().select({ name: schema.merchant.name }).from(schema.merchant).where(eq(schema.merchant.id, conv.merchantId)).limit(1);
+  const [merchant] = await db().select({ name: schema.merchant.name, timezone: schema.merchant.timezone }).from(schema.merchant).where(eq(schema.merchant.id, conv.merchantId)).limit(1);
   const stage = (seg?.stage ?? "unknown") as PromptStage | "unknown";
   let body = UNKNOWN_STAGE_PROMPT;
   if (stage !== "unknown") {
@@ -73,13 +74,17 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     .where(eq(schema.message.conversationId, conv.id))
     .orderBy(desc(schema.message.sentAt))
     .limit(20);
-  const facts = await orderFacts(conv);
-  const conversation = history.reverse().map((m) => ({ from: m.senderRole === "buyer" ? "buyer" : m.senderRole === "system" ? "system" : "seller", type: m.type, text: m.text ?? "", card: m.type.endsWith("_card") ? m.payload : undefined, at: m.sentAt.toISOString() }));
+  // 给模型的时间一律换成商户时区的本地时间（模型会照抄时间回复买家，UTC 会差出时区）
+  const tz = merchant?.timezone ?? "Asia/Kuala_Lumpur";
+  const local = (d: Date | string) => inTzText(new Date(d), tz, "yyyy-MM-dd HH:mm");
+  const facts = await orderFacts(conv, local);
+  const conversation = history.reverse().map((m) => ({ from: m.senderRole === "buyer" ? "buyer" : m.senderRole === "system" ? "system" : "seller", type: m.type, text: m.text ?? "", card: m.type.endsWith("_card") ? m.payload : undefined, at: local(m.sentAt) }));
   // 有对该店站点可用的资料时，用最近 10 条消息与订单事实改写问题，再两路检索（§12.8）；检索失败只降级、不转人工（RULE-KB-002）
   const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts });
   const knowledge = knowledgePayload(retrieval);
   const userPayload = {
     brand_voice: rc.brandVoice ?? "",
+    timezone: tz,
     order_facts: facts,
     conversation,
     latest_buyer_message: trigger.text ?? `[${trigger.type}]`,
@@ -214,7 +219,7 @@ export function fixedSoothing(buyerText: string): string {
 }
 
 /** 买家近 180 天在本店的订单与售后（只读镜像），作为 order_facts */
-async function orderFacts(conv: ConversationRow) {
+async function orderFacts(conv: ConversationRow, local: (d: Date | string) => string) {
   const orders = await db()
     .select()
     .from(schema.order)
@@ -229,11 +234,11 @@ async function orderFacts(conv: ConversationRow) {
   return orders.map((o) => ({
     order_id: o.externalOrderId,
     status: o.platformStatus,
-    created_at: o.platformCreatedAt.toISOString(),
+    created_at: local(o.platformCreatedAt),
     total: `${o.totalAmount} ${o.currency}`,
     items: o.items.map((i) => `${i.name}${i.sku ? ` (${i.sku})` : ""} × ${i.qty}`),
-    ship_by: o.shipByAt?.toISOString() ?? null,
-    tracking: o.tracking ? { number: o.tracking.trackingNo ?? null, carrier: o.tracking.carrier ?? null, latest: o.tracking.events[0] ?? null } : null,
+    ship_by: o.shipByAt ? local(o.shipByAt) : null,
+    tracking: o.tracking ? { number: o.tracking.trackingNo ?? null, carrier: o.tracking.carrier ?? null, latest: o.tracking.events[0] ? { at: local(o.tracking.events[0].at), text: o.tracking.events[0].text } : null } : null,
     after_sales: sales.filter((s) => s.externalOrderId === o.externalOrderId).map((s) => ({ kind: s.kind, id: s.externalId, status: s.platformStatus, reason: s.reason })),
   }));
 }
