@@ -9,6 +9,7 @@ import { hitKeyword, receptionContext } from "@/server/conversations/hours";
 import { systemEvent, type ConversationRow } from "@/server/conversations/ingest";
 import { sendOutbound } from "@/server/conversations/send";
 import { db, schema } from "@/server/db/client";
+import { queueFeishuCard } from "@/server/feishu/deliver";
 import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
 import { AiError, chat, parseJson, type ChatMessage } from "./client";
 import { composePrompt, DEFAULT_PROMPTS, UNKNOWN_STAGE_PROMPT, type PromptStage } from "./prompts";
@@ -149,7 +150,7 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
 }
 
 /**
- * 11.1 handoff：bot → awaiting_human，记原因，审计 EVT:handoff，通知负责该店的启用成员；auto 模式先发安抚句。
+ * 11.1 handoff：bot → awaiting_human，记原因，审计 EVT:handoff，通知负责该店的启用成员，推飞书待认领卡；auto 模式先发安抚句。
  * mode = shadow 时会话已在待认领，不再处理。
  */
 export async function handoff(conv: ConversationRow, reason: HandoffReason, mode: "shadow" | "assist" | "auto", soothing?: string, data: Record<string, unknown> = {}): Promise<void> {
@@ -175,6 +176,7 @@ export async function handoff(conv: ConversationRow, reason: HandoffReason, mode
     link: `/wb/${conv.id}`,
     dedupeKey: `handoff:${conv.id}`,
   });
+  await queueFeishuCard(conv.id, "unclaimed");
 }
 
 export const HANDOFF_LABEL: Record<string, string> = {

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, CircleCheckIcon, CopyIcon, KeyRoundIcon, LaptopIcon, LogOutIcon, SmartphoneIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -163,6 +164,10 @@ function TotpQr({ uri }: { uri: string }) {
 
 function SetupSteps({ me, setup, onCancel }: { me: Me; setup: Setup; onCancel: () => void }) {
   const qc = useQueryClient();
+  const router = useRouter();
+  // 被商户要求开两步验证时从别的页面带过来的原目标（登录回跳、飞书卡片链接）；开好后回到那里
+  const next = useSearchParams().get("next");
+  const back = next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/account/security") ? next : null;
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const verify = useMutation({
@@ -172,6 +177,7 @@ function SetupSteps({ me, setup, onCancel }: { me: Me; setup: Setup; onCancel: (
       await qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
       onCancel();
+      if (back) router.replace(back);
     },
     onError: (e) => setError(problemText(e, "验证码不正确。")),
   });

@@ -1,6 +1,7 @@
 // 入站消息落库与会话状态（DESIGN §11.1 open / open_to_queue / record_only / reopen / platform_human，§11.2 supersede）。
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { schema, type Executor } from "@/server/db/client";
+import { queueFeishuCard } from "@/server/feishu/deliver";
 import { enqueue } from "@/server/jobs/boss";
 import type { ShopRow } from "@/server/platforms/clients";
 import type { NormalizedMessage } from "@/server/platforms/types";
@@ -183,7 +184,7 @@ export async function ingestMessage(
       .insert(schema.message)
       .values({ merchantId: shop.merchantId, conversationId: conv.id, segmentId: seg.id, externalMessageId: m.externalMessageId, direction: "in", senderRole: "buyer", type: m.type, text: m.text, translation: m.translation, translationSource: m.translation ? "platform" : null, payload: m.payload, sentAt: m.sentAt })
       .returning();
-    return { status: "done", conversationId: conv.id, messageId: msg.id, ...afterCommit(conv.id, msg.id, shop.platform, plan.draftMode, m) };
+    return { status: "done", conversationId: conv.id, messageId: msg.id, ...afterCommit(conv.id, msg.id, shop.platform, plan.draftMode, m, plan.state === "awaiting_human") };
   }
 
   // 已有会话：先落消息（重复推送在这里挡住）
@@ -222,7 +223,7 @@ export async function ingestMessage(
       .update(schema.conversation)
       .set({ ...base, handlingState: plan.state, handoffReason: plan.handoffReason, claimedBy: null, claimedAt: null, currentSegmentId: seg.id, version: existing.version + 1 })
       .where(eq(schema.conversation.id, existing.id));
-    return { status: "done", conversationId: existing.id, messageId: msg.id, ...afterCommit(existing.id, msg.id, shop.platform, plan.draftMode, m) };
+    return { status: "done", conversationId: existing.id, messageId: msg.id, ...afterCommit(existing.id, msg.id, shop.platform, plan.draftMode, m, plan.state === "awaiting_human") };
   }
 
   await ex.update(schema.conversation).set(base).where(eq(schema.conversation.id, existing.id));
@@ -235,9 +236,9 @@ export async function ingestMessage(
   return { status: "done", conversationId: existing.id, messageId: msg.id, ...afterCommit(existing.id, msg.id, shop.platform, null, m) };
 }
 
-/** 事务提交后要做的事（出稿、翻译），由调用方在提交后执行 */
-function afterCommit(conversationId: string, messageId: string, platform: "shopee" | "tiktok", draftMode: "shadow" | "assist" | "auto" | null, m: NormalizedMessage) {
-  return { followUp: { conversationId, messageId, draftMode, translate: platform === "tiktok" && m.type === "text" && !!m.text } };
+/** 事务提交后要做的事（出稿、翻译、会话进入待认领时的飞书卡片），由调用方在提交后执行 */
+function afterCommit(conversationId: string, messageId: string, platform: "shopee" | "tiktok", draftMode: "shadow" | "assist" | "auto" | null, m: NormalizedMessage, unclaimed = false) {
+  return { followUp: { conversationId, messageId, draftMode, translate: platform === "tiktok" && m.type === "text" && !!m.text, unclaimed } };
 }
 
 export type FollowUp = ReturnType<typeof afterCommit>["followUp"];
@@ -245,6 +246,7 @@ export type FollowUp = ReturnType<typeof afterCommit>["followUp"];
 export async function runFollowUp(f: FollowUp | undefined) {
   if (!f) return;
   if (f.translate) await enqueue("message.translate", { messageId: f.messageId });
+  if (f.unclaimed) await queueFeishuCard(f.conversationId, "unclaimed");
   if (f.draftMode) await enqueueDraft(f.conversationId, f.draftMode);
 }
 

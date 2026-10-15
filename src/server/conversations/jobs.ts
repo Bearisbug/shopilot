@@ -3,6 +3,7 @@ import { and, eq, isNull, lt, notInArray, sql } from "drizzle-orm";
 import { audit, systemActor } from "@/server/core/audit";
 import { notify, shopLeads } from "@/server/core/notify";
 import { db, schema } from "@/server/db/client";
+import { queueFeishuCard } from "@/server/feishu/deliver";
 import { expireOwnershipTransfers } from "@/server/settings/ownership";
 import { endSegment } from "./actions";
 import { supersedeDrafts, systemEvent } from "./ingest";
@@ -41,7 +42,7 @@ export async function expireDrafts(): Promise<void> {
 }
 
 /**
- * REQ-CONV-010：待认领超过商户设定分钟数且本段未提醒过 → 通知负责该店的组长一次（无组长时为管理员）。
+ * REQ-CONV-010：待认领超过商户设定分钟数且本段未提醒过 → 通知负责该店的组长一次（无组长时为管理员），并推飞书超时卡。
  * 等待起点取最早一条未回复的买家消息。
  */
 export async function remindUnclaimed(): Promise<void> {
@@ -69,6 +70,7 @@ export async function remindUnclaimed(): Promise<void> {
       link: `/wb/${conv.id}`,
       dedupeKey: `unclaimed:${seg.id}`,
     });
+    await queueFeishuCard(conv.id, "overdue");
   }
 }
 

@@ -6,14 +6,15 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.12，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.13，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
-| 最后更新 | 2026-10-15 |
+| 最后更新 | 2026-10-16 |
 
 变更记录（登用例增改，不登执行轮次）：
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | 按 DESIGN v1.13 补飞书群推送：新增功能域「飞书推送」`TC-FEISHU-001` 至 `TC-FEISHU-016`（冒烟 2、回归 14，其中人工 1），用例共 281 条；原位修改 `TC-AUTH-014` 第 4 步（开启后自动回到登录前要去的页面）、`TC-SHOP-024` 第 2 步（只查接入向导与店铺页没有飞书入口）、`TC-SET-006` 第 1 步（注明一期不做飞书登录）、`TC-MOCK-002` 第 2 步（加飞书投递记录接口）；§2 范围与不测项、§3 飞书发送替身与「连上飞书替身」、§5 冒烟集加两条 | 实现会话 |
 | 2026-10-16 | RUN-010 之后修正 `TC-KB-035`（原位修改）：前置去掉「入库前关掉 AI 可用」，那一步刷新了资料的更新时间，补扫按最近一次更新计时（DESIGN v1.12 §17 写明）；第 2 步改为状态「可用」 | 实现会话 |
 | 2026-10-15 | 按 DESIGN v1.11–v1.12 补知识库：新增功能域「知识库」`TC-KB-001` 至 `TC-KB-036`（冒烟 2、回归 28、边缘 6，其中人工 1），用例共 265 条；`TC-AI-003` 改为「没有可用资料时不检索」；`TC-PERM-001` 组长看到接待设置且只有知识库标签；`TC-TEAM-013` 权限表含知识库「资料与测试问答」一行；`TC-CONV-010` 对照项加草稿「依据」；§2 范围与不测项、§3 检索替身、AI 替身「资料不足」、知识库测试文件、补扫场景与 curl 函数 | 实现会话 |
 | 2026-10-11 | 初稿：15 个功能域共 223 条用例（冒烟 10、回归 172、边缘 41），覆盖 DESIGN v1.0 §5 全部 76 条 REQ 与 §19 全部 88 个 Gherkin 场景；§3 按约定起草，标「未验证」 | 实现会话 |
@@ -30,7 +31,8 @@
 
 ## 2. 测试范围 / 不测什么
 
-- 覆盖：DESIGN v1.12 全部 REQ 的黑盒功能验收，层面是浏览器界面（Playwright + Edge 或人工）、HTTP 接口（curl）、模拟器买家视图、发件箱 `/dev/outbox`。§19 的每个 Gherkin 场景至少由一条用例可操作化，用例标题行的「对应」列出 REQ。界面文案以 `docs/ui-interactions.md` 为准；助手、飞书的按钮不在本期范围，知识库只测一期（资料上传与入库、分类、站点与开关、测试问答、出稿检索与依据），经验卡、更新审核、AI 核验、产品目录的按钮不在本期范围。
+- 覆盖：DESIGN v1.13 全部 REQ 的黑盒功能验收，层面是浏览器界面（Playwright + Edge 或人工）、HTTP 接口（curl）、模拟器买家视图、发件箱 `/dev/outbox`。§19 的每个 Gherkin 场景至少由一条用例可操作化，用例标题行的「对应」列出 REQ。界面文案以 `docs/ui-interactions.md` 为准；助手的按钮与飞书登录、私聊、卡片回调不在本期范围，飞书只测群推送（设置、待认领卡、超时卡、点卡认领），知识库只测一期（资料上传与入库、分类、站点与开关、测试问答、出稿检索与依据），经验卡、更新审核、AI 核验、产品目录的按钮不在本期范围。
+- 飞书在本地一律用发送替身（`FEISHU_MODE=stub`）：卡片不出网，在开发发件箱查看。真实飞书的发卡、图片上传与卡片显示只由人工用例 `TC-FEISHU-016` 验收。
 - 知识库在本地一律用检索替身（`KNOWLEDGE_MODE=stub`）：替身入库即报完成、不理解语义，按关键词重合打分。真实 Cloudflare AI Search 与真实 DeepSeek 的跨语言检索与回答质量只由人工用例 `TC-KB-036` 验收。
 - 本期验收口径（DESIGN §3）：对应 P0 REQ 的用例全部通过。一条用例同时对应 P0 与 P1 REQ 时按 P0 计。
 - 不测：
@@ -42,7 +44,9 @@
 | 安全渗透：CSRF、会话固定、越权枚举之外的攻击面 | 无归属——已知风险 |
 | 真实 Shopee / TikTok 接口与模拟平台的差异 | 接真实平台时逐接口实测（DESIGN §28 风险行） |
 | 真实发信、真实支付 | 本期不做（DESIGN §2 非目标）；邮件只看发件箱，支付只用模拟卡 |
-| 对话助手、飞书；知识库的经验卡、更新审核与版本回滚、AI 回复核验、产品目录、知识缺口看板 | 本期不做（DESIGN §2 非目标） |
+| 对话助手；飞书登录、成员同步、私聊、@人、卡片回调与状态更新；知识库的经验卡、更新审核与版本回滚、AI 回复核验、产品目录、知识缺口看板 | 本期不做（DESIGN §2 非目标） |
+| 飞书 §16 竞态与发送重试：同一段两次触发同种卡、卡片排队时会话被认领、断开飞书时有卡片在排队；连不上飞书时退避重试 5 次、凭证失效记失败 | 代码仓测试套件 `src/server/feishu/feishu.test.ts`、`client.test.ts`；发送替身不出网、本地造不出精确交错 |
+| 处理人被停用时退回待认领也推卡、提醒时长为「不提醒」时不推超时卡、AI 总结失败时不显示总结 | 无归属——已知风险：前两条只在 DESIGN §28 记现状，第三条 AI 替身的总结不会失败 |
 | 知识库 §16 竞态：并发上传越过 500 份、入库途中资料被删除 | 代码仓测试套件 `src/server/knowledge/knowledge.test.ts` |
 | 知识库 §16 其余竞态：同一内容同时上传两次、同商户并发建检索实例、资料解析中再点重新解析（并发那一刻）、两人同时删除同一份资料、删除分类时有资料正上传到它、停用与出稿检索交错 | 无归属——已知风险：本地没有让两个请求精确交错的手段，代码靠唯一索引、咨询锁与条件更新兜底（DESIGN §16） |
 | 索引条目长时间停在「处理中」、按分块数连续两次不变判完成；检索服务删除后约 30 秒内仍查得到条目 | 人工用例 `TC-KB-036`（真实检索服务上观察）；检索替身上传即报完成、同步删除，本地走不到这两条 |
@@ -73,11 +77,11 @@
 | 线上 | 无——本期只在本机运行 | — | — | 禁跑 | — |
 
 - 启动（本地）：
-  1. 没有 `.env` 时从 `.env.example` 复制生成，逐行按注释里的「获取」填值；密钥按 AGENTS.md「密钥纪律」处理，值不进文档、对话、日志。`DEEPSEEK_API_KEY` 取自 Bitwarden 条目 `DEEPSEEK_API_KEY`，vault 解锁由人执行，只有 `TC-AI-002` 需要它。设 `AI_MODE=stub`、`MOCK_PLATFORM=1`、`KNOWLEDGE_MODE=stub`。
+  1. 没有 `.env` 时从 `.env.example` 复制生成，逐行按注释里的「获取」填值；密钥按 AGENTS.md「密钥纪律」处理，值不进文档、对话、日志。`DEEPSEEK_API_KEY` 取自 Bitwarden 条目 `DEEPSEEK_API_KEY`，vault 解锁由人执行，只有 `TC-AI-002` 需要它。设 `AI_MODE=stub`、`MOCK_PLATFORM=1`、`KNOWLEDGE_MODE=stub`、`FEISHU_MODE=stub`。
   2. `docker compose up -d`（PostgreSQL 17，`127.0.0.1:5460`），`docker compose ps` 显示 postgres 为 healthy。
   3. `pnpm install`，然后 `pnpm db:reset && pnpm db:seed`。
   4. `pnpm dev`（同时起 Web `http://127.0.0.1:3360` 与 Worker），按上表就绪判定检查。端口 3360 被别的进程占用时，`/api/health` 返回的 `service` 不是 `shopilot`，先停掉占用进程。
-- 基线：执行完上面第 3 步并按第 4 步启动、`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`、AI 替身为默认「正常回复」、检索替身为默认 `normal` 的状态；种子不含知识库资料，两个商户各只有内置分类「未分类」。用例前置写「基线」时，若本轮前面的用例改过数据或配置，先重跑 `pnpm db:reset && pnpm db:seed`。
+- 基线：执行完上面第 3 步并按第 4 步启动、`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`、AI 替身为默认「正常回复」、检索替身为默认 `normal` 的状态；种子不含知识库资料，两个商户各只有内置分类「未分类」；两个商户都没有连接飞书。用例前置写「基线」时，若本轮前面的用例改过数据或配置，先重跑 `pnpm db:reset && pnpm db:seed`。
 - 测试账号（本地，均由 `pnpm db:seed` 创建；密码一律 `Shopilot-Demo-2026`，本地演示值，非密钥）：
 
 | 商户 | 账号 | 姓名 | 角色 | 负责店铺 |
@@ -114,6 +118,7 @@
 - 模拟器 `/mock/simulator`：扮演买家与平台。选店铺与买家（可「新建买家」，得到一个在该店没有会话的买家），以买家身份发文字、图片、订单卡、商品卡；下单、推进订单状态（按各平台枚举）、申请取消、申请退货、买家寄回、平台仲裁、取消授权、授权到期。页面显示每个买家的会话（含卖家发出的消息与卡片）、订单与售后单的平台原始状态、TikTok 店的坐席接单（`can_accept_chat`）、TikTok 会话 session 是否已结束、推送日志（目标 URL、HTTP 状态、载荷）。
 - AI 替身（`AI_MODE=stub`）：模拟器页「AI 替身」面板设定下一次出稿的回复，可选「正常回复」（默认，confidence 0.85）、「低置信 0.4」、「要求转人工」、「非 JSON 文本」、「超时」；设定只作用于下一次出稿，之后回到默认；面板显示所选回复的 JSON（含 `reason`）。面板同时显示最近一次出稿请求（接口 `GET /api/dev/ai-stub` 的 `lastRequest`），用例写「最近一次请求」即指它。翻译与开票字段抽取在 stub 下返回非空的替身文本。另有「资料不足」（`insufficient = true`、confidence 0.9、`used_sources` 为空）：面板没有这一项，用接口设 `curl -s -X PUT $B/api/dev/ai-stub -H 'Content-Type: application/json' -d '{"next":"insufficient"}'`，同样只作用于下一次；其他选项也可以这样设，加 `"sticky":true` 则一直生效，用完设回 `{"next":"normal"}`。出稿请求带资料片段时，「正常回复」在 `used_sources` 里引用第 1 段；检索前的改写请求一律返回买家原话，不受设定影响，也不记入「最近一次请求」。测试问答（`API-KB-012`）与出稿共用同一个替身。
 - 检索替身（`KNOWLEDGE_MODE=stub`，DESIGN `API-MOCK-010`）：入库时文本类资料（md、txt、csv、html）按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，上传即报索引完成；检索读该商户已解析的分块，按关键词重合打分（中文按相邻两字），每段都带向量分。下一次表现用接口设：`curl -s -X PUT $B/api/dev/knowledge-stub -H 'Content-Type: application/json' -d '{"next":"<值>"}'`，值为 `normal`（默认）、`no_vector`（混合检索结果没有向量分）、`timeout`（检索超时）、`error`（检索返回 HTTP 500）、`ingest_error`（入库时条目索引报 `workers_ai_timeout_error（替身）`）；默认只作用于下一次检索或下一次条目上传，加 `"sticky":true` 一直生效，用完设回 `{"next":"normal"}`。`curl -s $B/api/dev/knowledge-stub` 返回当前设定与 `lastQuery`（最近 6 次检索请求，旧的在前，每条有 `query` 与 `retrievalType`：`hybrid` 混合、`vector` 纯向量），用例写「最近检索请求」即指它。`AI_MODE=deepseek` 时调真实 DeepSeek，改 `.env` 后重启 `pnpm dev`。
+- 飞书发送替身（`FEISHU_MODE=stub`，DESIGN `API-MOCK-011`）：不连飞书，「发出」的卡片记进投递记录，在 `/dev/outbox?tab=feishu` 查看（标题、颜色、正文、图片、按钮链接与卡片 JSON），接口 `GET /api/dev/feishu`。约定：App Secret 含 `bad` 时校验失败（飞书 10014）；Webhook 地址末段含 `bad` 时签名失败（19021）；机器人所在的群固定为「Shopilot 客服群（替身）」`oc_stub_service`、「售后处理群（替身）」`oc_stub_aftersale`、「泰国站客服（替身）」`oc_stub_th`。卡片里的 AI 总结在 `AI_MODE=stub` 下固定为「AI 替身总结：买家发来新消息，正在等待客服认领。」
 - 故障注入：模拟器页「故障注入」面板（接口 `GET` / `PUT /api/mock/sim/faults`）对指定店铺设定「卖家发送消息」「订单读取」「售后写操作」下一次或持续失败：返回平台错误，或 12 秒后超时。用例写「故障注入」即指它；设了「持续」的用例在后置里清除。
 - 来源 IP：`MOCK_PLATFORM=1` 时服务端把请求头 `X-Forwarded-For` 当作来源 IP，用于 IP 白名单用例（生产不信任该头）。
 
@@ -149,6 +154,7 @@
   - 「固定为工作时间外」：同页把今天的「周X 工作」开关关掉，点「保存」。
   - 「新注册商户」：在未登录的浏览器按 `TC-AUTH-001` 第 1–2 步注册，邮箱用一个未注册的 `<名字>@demo.test`，密码 `Signup-Test-01`，商户名自拟。用例写「新注册一个商户」即指这一步。
   - 「模拟器发消息」：打开模拟器，选指定店铺与买家（用例写「新买家」时点「新建买家」），在买家输入框发出文字；推送日志新增一条，HTTP 状态 200。
+  - 「连上飞书替身」：先执行「curl 会话」，再 `login owner@demo.test`，`api owner@demo.test -X PUT $B/api/v1/feishu -d '{"method":"app","appId":"cli_demo12345678","appSecret":"good-secret-123"}'`，`api owner@demo.test -X POST $B/api/v1/feishu/targets -d '{"shopId":null,"chatId":"oc_stub_service"}'`，两次都 `HTTP 200`；之后 Demo Store 用飞书应用接法，默认群「Shopilot 客服群（替身）」，两个推送开关都开。
   - 清除故障注入：`PUT /api/mock/sim/faults` 同一组 `{ platform, shopId, category }` 带 `mode: "off"`（`DELETE` 不生效）。
   - 「curl 会话」：在终端先执行下面的函数定义，`login <邮箱> [密码]` 返回 200 即取到 cookie（不给密码时用种子密码）；之后 `api <邮箱> <curl 参数>` 发请求，输出末行为 `HTTP <状态码>`。本轮结束删除临时目录。
 
@@ -411,7 +417,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 1 | A：`/settings/security` 打开「管理员两步验证」，点「保存」 | 提示已保存；A 自己（未开两步验证的管理员，含所有者）随后也被带到 `/account/security` |
 | 2 | 浏览器 B 以 admin2@demo.test 登录 | 进入 `/account/security`；点侧栏「工作台」仍停在该页 |
 | 3 | `login admin2@demo.test`，`api admin2@demo.test $B/api/v1/conversations` | 403，`type` 为 `/errors/two-factor-required` |
-| 4 | B：在该页输入密码开启，用验证器扫码后输入当前验证码 | 显示备用码并提示已开启；之后点侧栏「工作台」进入 `/wb` 并显示会话列表 |
+| 4 | B：在该页输入密码开启，用验证器扫码后输入当前验证码 | 开启前页面列出备用码；验证后提示已开启，随即回到登录前要去的 `/wb` 并显示会话列表 |
 | 5 | B：退出后重新登录，输完密码后填一个错误验证码 | 提示验证码错误；接口 401，`type` 为 `/errors/invalid-login` |
 | 6 | B：填正确验证码 | 进入 `/wb` |
 | 7 | A：先在 `/account/security` 开启两步验证，再到 `/settings/security` 打开「全员两步验证」并保存；浏览器 C 以 agent@demo.test 登录 | C 进入 `/account/security`，其他页面不可用 |
@@ -1112,7 +1118,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | 逐屏对照 `/shops/connect`、Shopee 的 guide / 凭证 / 授权 / 检查四屏、TikTok 对应四屏、`/shops` 与其三个弹层 | 布局、配色、文案、按钮位置与原型一致；差异逐条截图记入证据目录 |
-| 2 | 检查页面 | 没有飞书相关的入口与文案 |
+| 2 | 检查接入向导与店铺页 | 没有飞书相关的入口与文案（飞书推送只在商户设置的通知页） |
 
 后置：无。
 
@@ -3264,7 +3270,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | owner 打开 `/settings/security` | 有管理员两步验证、全员两步验证、会话时长（8 小时 / 12 小时 / 24 小时 / 7 天）、IP 限制与白名单；没有本人设备列表（在 `/account/security`）；没有飞书登录开关 |
+| 1 | owner 打开 `/settings/security` | 有管理员两步验证、全员两步验证、会话时长（8 小时 / 12 小时 / 24 小时 / 7 天）、IP 限制与白名单；没有本人设备列表（在 `/account/security`）；没有飞书登录开关（一期飞书只做群推送） |
 | 2 | lead@demo.test 打开 `/settings/security` | 显示「这个页面只对管理员开放」 |
 
 后置：无。
@@ -3436,6 +3442,221 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：无。
 
+### 飞书推送
+
+本节用例都在发送替身下执行（`FEISHU_MODE=stub`，§3「飞书发送替身」）：卡片不出网，记进投递记录，在 `/dev/outbox?tab=feishu` 查看；「最上面一张」指该页卡片列表的第一行。`TC-FEISHU-016` 是唯一连真实飞书的用例，执行者为人工。
+
+#### `TC-FEISHU-001` 用飞书应用连接，选默认群与店铺群 — 对应 `REQ-FEISHU-001`、`REQ-FEISHU-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；以 owner@demo.test 登录；终端已按 §3「curl 会话」定义 `B` 与函数。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/settings/notify`，看通知规则下方 | 有「飞书群推送」一节：两个接法单选（「飞书应用（推荐）」已选中、「群自定义机器人」）、App ID 与 App Secret 输入框、「校验并保存」；本节顶部写明本机替身模式，「开发发件箱」是链接 |
+| 2 | App ID 填 `cli_demo12345678`，App Secret 填 `bad-secret`，点「校验并保存」 | App Secret 下标红「飞书没有通过这组 App ID 与 App Secret」，焦点在 App Secret 输入框；表单下方写原因（含 `10014`）与请求编号；接口 422，`type` 为 `/errors/platform-credentials` |
+| 3 | App Secret 改填 `good-secret-123`，点「校验并保存」 | 提示校验通过；本节显示「飞书应用 cli_demo12345678」与「校验通过 · <时间>」、两个开关（都开）、「推送到哪个群」：默认群一行加 4 家店各一行；店铺行的下拉框为「跟随默认群」，下方写「不推送（还没设默认群）」 |
+| 4 | 默认群一行的下拉框选「Shopilot 客服群（替身）」 | 提示已保存；4 个店铺行下方都写「推到默认群「Shopilot 客服群（替身）」」；默认群一行出现「发测试卡片」 |
+| 5 | Demo TikTok TH 一行的下拉框选「泰国站客服（替身）」 | 提示已保存；该行下方不再写「推到默认群」，行尾出现「发测试卡片」 |
+| 6 | `login owner@demo.test`，`api owner@demo.test $B/api/v1/feishu` | 200；`connection.method` 为 `app`、`connection.status` 为 `verified`，`defaultTarget.name` 为「Shopilot 客服群（替身）」，Demo TikTok TH 的 `target.chatId` 为 `oc_stub_th`；响应里没有 `good-secret-123` |
+| 7 | `q "select app_secret_enc like 'v1.%', position('good-secret' in app_secret_enc) from feishu_integration"` | `t\|0`（存的是密文，不含明文） |
+
+后置：无。
+
+#### `TC-FEISHU-002` 发测试卡片与两个推送开关 — 对应 `REQ-FEISHU-002`、`REQ-MOCK-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；以 owner@demo.test 打开 `/settings/notify`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 默认群一行点「发测试卡片」 | 提示「测试卡片已发出（替身，已记进开发发件箱），去飞书群里看看」 |
+| 2 | 打开 `/dev/outbox?tab=feishu`，点最上面一张 | 标题「测试卡片 · Demo Store」；说明行写发往「Shopilot 客服群（替身）」、测试卡片、标题颜色蓝色、已发出（替身）；正文有「下面这张图片用来确认买家图片能显示在卡片里」与一张图片；按钮「打开通知设置」链到 `$B/settings/notify`；「卡片 JSON」展开后 `schema` 为 `2.0` |
+| 3 | 回到通知页，关掉「待认领超时推送」 | 提示「待认领超时推送已关闭」；刷新后仍为关，「待认领时推送」仍为开 |
+| 4 | `api owner@demo.test $B/api/v1/feishu` | `notifyOverdue` 为 `false`，`notifyUnclaimed` 为 `true` |
+| 5 | 打开 `/settings/audit`，模块选「商户设置」 | 有「飞书推送：连接飞书应用 cli_demo12345678」「飞书推送：默认群设为「Shopilot 客服群（替身）」」「飞书推送：测试卡片已发往「Shopilot 客服群（替身）」」「飞书推送：待认领超时推送关」四条 |
+
+后置：无。
+
+#### `TC-FEISHU-003` 群自定义机器人：地址校验、签名失败与断开 — 对应 `REQ-FEISHU-001`、`REQ-FEISHU-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；以 owner@demo.test 打开 `/settings/notify`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 点「更换」，选「群自定义机器人」，点「使用群自定义机器人」 | 弹出确认框「换接法会清除已设置的群」，焦点在框内 |
+| 2 | 点「清除并保存」 | 提示「已改用群自定义机器人；下一步设置默认群」；本节显示「群自定义机器人」；默认群一行写「未设置：没有单独指定群的店不推」，每行有「设置」 |
+| 3 | 默认群一行点「设置」，群名「售后处理群」、Webhook 地址 `https://example.com/hook/abcdefgh`、签名密钥 `sign-secret`，点「保存」 | 弹窗不关；地址框标红「应为 https://open.feishu.cn/open-apis/bot/v2/hook/… 开头的地址」，焦点在地址框；接口 422，`type` 为 `/errors/validation` |
+| 4 | 地址改为 `https://open.feishu.cn/open-apis/bot/v2/hook/e2e0f1e2d3c4`，点「保存」 | 弹窗关闭，提示已保存；默认群一行写「售后处理群 · …d3c4」，有「修改」「清除」「发测试卡片」 |
+| 5 | 默认群一行点「发测试卡片」 | 提示测试卡片已发出（替身，已记进开发发件箱） |
+| 6 | Demo TikTok TH 一行点「设置」，群名「泰国群」、地址 `https://open.feishu.cn/open-apis/bot/v2/hook/badbadbad123`、签名密钥 `x`，保存后点该行「发测试卡片」 | 提示「测试卡片没有发出」，说明含「签名校验没有通过，请核对签名密钥（飞书返回 19021」；本节底部出现「最近一次推送失败（<时间> · 泰国群）：签名校验没有通过…」；接口 502，`type` 为 `/errors/platform` |
+| 7 | `api owner@demo.test $B/api/v1/feishu`；`q "select position('e2e0f1e2d3c4' in webhook_enc), position('sign-secret' in secret_enc) from feishu_target where name='售后处理群'"` | 响应里 `defaultTarget.webhookHint` 为 `d3c4`，没有完整地址与签名密钥；SQL 为 `0\|0` |
+| 8 | 点「断开」，确认框点「断开」 | 提示「已断开飞书，之后不再推送卡片」；本节回到未连接的表单；接口返回的 `connection` 与 `defaultTarget` 都为 `null` |
+
+后置：无。
+
+#### `TC-FEISHU-004` 飞书设置只对管理员开放 — 对应 `REQ-FEISHU-001`、`REQ-PERM-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；终端已定义 §3「curl 会话」。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `login lead@demo.test`，`api lead@demo.test $B/api/v1/feishu` | 403，`type` 为 `/errors/forbidden`，`code` 为 `settings.manage` |
+| 2 | `api lead@demo.test -X PUT $B/api/v1/feishu -d '{"method":"webhook"}'`；`login agent@demo.test`，`api agent@demo.test -X POST $B/api/v1/feishu/targets -d '{"shopId":null,"chatId":"oc_stub_service"}'` | 都是 403，`type` 为 `/errors/forbidden` |
+| 3 | 以 lead@demo.test 在浏览器打开 `/settings/notify` | 显示「这个页面只对管理员开放」 |
+| 4 | `login owner@demo.test`，`api owner@demo.test $B/api/v1/feishu` | 200 |
+
+后置：无。
+
+#### `TC-FEISHU-005` 新会话直接进待认领时推待认领卡 — 对应 `REQ-FEISHU-003`、`REQ-FEISHU-005`、`REQ-MOCK-004` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器选 Demo TikTok TH（接待模式 off）新买家，发「Halo, kamera ini bisa dipakai di Mac?」 | 推送日志新增一条，HTTP 200 |
+| 2 | 30 秒内打开 `/dev/outbox?tab=feishu` | 最上面一张：标题「待认领 · Demo TikTok TH」，发往「Shopilot 客服群（替身）」，待认领卡 · 已发出（替身），标题颜色橙色 |
+| 3 | 点开看正文 | 第一行「AI 总结　AI 替身总结：买家发来新消息，正在等待客服认领。」；字段行依次「平台 TikTok Shop · 泰国」「买家 <买家名>」「已等 不到 1 分钟」；没有「转人工原因」；「最近对话」下有「买家 <时:分>　Halo, kamera ini bisa dipakai di Mac?」，下一行「译文：[译文] Halo, kamera ini bisa dipakai di Mac?」 |
+| 4 | 看按钮 | 「认领」链到 `$B/wb/<会话 ID>?claim=1&m=<Demo Store 商户 ID>`，「打开会话」链到 `$B/wb/<会话 ID>?m=<Demo Store 商户 ID>`；`<Demo Store 商户 ID>` 与 `api owner@demo.test $B/api/v1/me` 的 `active.merchantId` 相同 |
+| 5 | owner 打开 `/wb` 的待认领 | 有这个买家的会话，地址里的会话 ID 与按钮链接里的相同 |
+
+后置：无。
+
+#### `TC-FEISHU-006` 同一段只推一次，新段再推 — 对应 `REQ-FEISHU-003` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器选 Demo TikTok TH 新买家 X，发「hello 1」 | 30 秒内发件箱最上面多一张「待认领 · Demo TikTok TH」；记会话 ID C |
+| 2 | X 再发「hello 2」，等 30 秒 | 发件箱没有新卡；`q "select count(*) from feishu_delivery where conversation_id='<C>'"` 为 `1` |
+| 3 | owner 打开 `/wb/<C>`，点「认领」，再点结束会话并确认 | 会话变为已结束 |
+| 4 | X 再发「hello 3」 | 会话开新段进入待认领；30 秒内发件箱多一张 C 的待认领卡；SQL 计数为 `2`，`q "select count(distinct segment_id) from feishu_delivery where conversation_id='<C>'"` 为 `2` |
+
+后置：无。
+
+#### `TC-FEISHU-007` AI 转人工时推卡并写原因 — 对应 `REQ-FEISHU-003`、`REQ-FEISHU-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；按 §3「固定为工作时间内」（Demo Shopee MY 为 assist）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器选 Demo Shopee MY 新买家，发「我要人工客服」 | 30 秒内工作台待认领里有这个会话，状态「待认领 · 命中转人工关键词」 |
+| 2 | 打开 `/dev/outbox?tab=feishu` 最上面一张 | 标题「待认领 · Demo Shopee MY」；字段行「平台 Shopee · 马来西亚」，下一行「转人工原因 命中转人工关键词」 |
+| 3 | 看「最近对话」 | 只有「买家 <时:分>　我要人工客服」一条，没有「转人工：命中转人工关键词」这类系统事件；这条是中文，下方没有译文行 |
+
+后置：无。
+
+#### `TC-FEISHU-008` 店铺群优先，没有群或开关关着时不推 — 对应 `REQ-FEISHU-002`、`REQ-FEISHU-003` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；`api owner@demo.test $B/api/v1/feishu` 记默认群 ID `D` 与 Demo TikTok TH 的店铺 ID `TH`；`api owner@demo.test -X POST $B/api/v1/feishu/targets -d '{"shopId":"<TH>","chatId":"oc_stub_th"}'` 返回 200。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器选 Demo TikTok TH 新买家，发「to th group」 | 30 秒内发件箱最上面一张发往「泰国站客服（替身）」 |
+| 2 | `api owner@demo.test -X DELETE $B/api/v1/feishu/targets/<D>`；模拟器选 Demo Shopee SG（shadow）新买家，发「no group」 | 会话进入待认领；30 秒后发件箱没有 Demo Shopee SG 的新卡 |
+| 3 | `api owner@demo.test -X POST $B/api/v1/feishu/targets -d '{"shopId":null,"chatId":"oc_stub_service"}'`；owner 在 `/settings/notify` 关掉「待认领时推送」；模拟器选 Demo Shopee SG 新买家，发「toggle off」 | 提示「待认领时推送已关闭」；30 秒后发件箱没有新卡 |
+
+后置：无。
+
+#### `TC-FEISHU-009` 待认领超时推超时卡，每段一次 — 对应 `REQ-FEISHU-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；终端 `pnpm scenario unclaimed-11m`，记输出的会话 ID C。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `pnpm job unclaimed.remind` | 30 秒内发件箱最上面一张：标题「待认领超时 · Demo Shopee MY」，标题颜色红色；字段行「已等 11 分钟」，另一行「提醒时长 待认领超过 10 分钟」；「认领」链接含 C |
+| 2 | 再执行 `pnpm job unclaimed.remind`，等 30 秒 | 没有第二张；`q "select count(*) from feishu_delivery where conversation_id='<C>' and kind='overdue'"` 为 `1` |
+
+后置：无。
+
+#### `TC-FEISHU-010` 卡片里的图片、商品卡、订单卡与译文 — 对应 `REQ-FEISHU-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；owner 在 `/settings/notify` 关掉「待认领时推送」（超时推送保持开）；在 `/reception/hours` 把待认领提醒改为 5 分钟并保存。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器选 Demo TikTok TH 新买家 X：发文字「Saya mau tanya」，发一张图片，发一张商品卡，为 X 下单后发这张订单的订单卡 | 会话进入待认领；发件箱没有 X 的卡 |
+| 2 | 等到 X 的第一条消息满 5 分钟，执行 `pnpm job unclaimed.remind` | 30 秒内发件箱最上面一张「待认领超时 · Demo TikTok TH」 |
+| 3 | 看「最近对话」 | 依次 4 条，都标「买家」：文字与下一行「译文：…」；「[图片]」下方显示一张图片；「[商品] <商品名>」；「[订单] <订单号> · <中文状态>」；没有系统事件行 |
+| 4 | 通知页点「更换」改用群自定义机器人并确认，默认群设为地址 `https://open.feishu.cn/open-apis/bot/v2/hook/e2e0f1e2d3c4`、签名密钥 `sign-secret`，打开「待认领时推送」；模拟器选 Demo TikTok TH 新买家 Y，发一张图片 | 30 秒内发件箱最上面一张「待认领 · Demo TikTok TH」：最近对话里是「[图片] 在 Shopilot 查看」，链接指向 Y 的会话；卡片 JSON 里没有 `"tag": "img"` |
+
+后置：无。
+
+#### `TC-FEISHU-011` 已登录成员点卡片认领 — 对应 `REQ-FEISHU-006` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；模拟器选 Demo TikTok TH 新买家 X 发「claim me」、新买家 Y 发「just open」；在发件箱分别打开两张卡，记 X 的「认领」链接 L1 与会话 ID C，Y 的「打开会话」链接 L2 与会话 ID D；以 owner@demo.test 登录（当前商户 Demo Store）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 浏览器打开 L1 | 工作台打开 C，提示「已认领」；会话头部为「我处理中」，输入框可用；地址变为 `/wb/<C>`，没有 `claim` 与 `m` |
+| 2 | 刷新页面 | 不再提示已认领；`q "select count(*) from audit_log where action='conversation_claimed' and target_id='<C>'"` 为 `1` |
+| 3 | 再打开一次 L1 | 直接打开 C，没有「已认领」提示；审计计数仍为 `1` |
+| 4 | 打开 L2 | 打开 D，地址变为 `/wb/<D>`；D 仍是待认领，头部有「认领」按钮，没有「已认领」提示 |
+
+后置：无。
+
+#### `TC-FEISHU-012` 点卡片时已被同事认领、会话不在范围或已结束 — 对应 `REQ-FEISHU-006`、`REQ-CONV-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；按 §3「固定为工作时间内」；模拟器选 Demo Shopee MY 新买家 P1、P3 各发「我要人工客服」，Demo TikTok TH 新买家 P2 发「hi」；从发件箱记三张卡的「认领」链接 L1、L2、L3 与会话 ID C1、C2、C3；`login agent2@demo.test`，`api agent2@demo.test -X POST $B/api/v1/conversations/<C1>/claim -d '{}'` 返回 200（Mei Lin 认领 C1）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 以 owner@demo.test 登录后打开 L1 | 提示「已由 Mei Lin 认领」；会话照常显示，头部「Mei Lin 处理中」；没有发出认领请求；地址去掉 `claim` 与 `m` |
+| 2 | 以 agent@demo.test（Nur，负责 Demo Shopee MY）登录后打开 L1 | 提示「已由 Mei Lin 认领」；对话栏「Mei Lin 已认领这个会话」与「回到会话列表」；认领请求 409，`type` 为 `/errors/conflict` |
+| 3 | Nur 打开 L2（Demo TikTok TH 不在她的范围） | 对话栏「找不到或已删除」，没有「已认领」提示 |
+| 4 | owner 打开 `/wb/<C3>`，点「认领」，再结束会话并确认；然后打开 L3 | 提示「会话已经结束」；会话为已结束，不能发送 |
+
+后置：无。
+
+#### `TC-FEISHU-013` 未登录时先登录再回来认领 — 对应 `REQ-FEISHU-006`、`REQ-AUTH-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；模拟器选 Demo TikTok TH 新买家发「login first」，从发件箱记「认领」链接 L 与会话 ID C；浏览器没登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 L | 到登录页，地址带 `next=/wb/<C>?claim=1&m=…` |
+| 2 | 以 agent2@demo.test（Mei，负责 Demo TikTok TH）登录 | 回到 `/wb/<C>`，提示「已认领」，会话头部「我处理中」；地址里没有 `claim` 与 `m` |
+
+后置：无。
+
+#### `TC-FEISHU-014` 两步验证后回到卡片链接认领 — 对应 `REQ-FEISHU-006`、`REQ-AUTH-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；`login owner@demo.test`，`api owner@demo.test -X PUT $B/api/v1/security-policy -d '{"requireTwoFactorAdmins":true,"requireTwoFactorAll":false,"sessionMaxHours":168,"ipAllowlist":[],"ipRestrictionOn":false}'` 返回 200；模拟器选 Demo TikTok TH 新买家 X、Y 各发一条，从发件箱记两张卡的「认领」链接 L1、L2 与会话 ID C1、C2；浏览器没登录；准备一个验证器（或按开启时显示的密钥算出当前 6 位验证码）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 L1，以 admin2@demo.test 登录 | 到 `/account/security`，地址带 `next=/wb/<C1>?claim=1&m=…`；顶部「「Demo Store」要求开启两步验证」 |
+| 2 | 输入密码点「开启两步验证」，扫码或手动输入密钥后填当前验证码，点「验证并开启」 | 提示两步验证已开启，随即回到 `/wb/<C1>`，提示「已认领」，会话头部「我处理中」 |
+| 3 | 退出；打开 L2，以 admin2@demo.test 输入密码 | 出现「两步验证」输入验证码的步骤 |
+| 4 | 填当前验证码，点「验证并登录」 | 回到 `/wb/<C2>`，提示「已认领」 |
+
+后置：`pnpm db:reset && pnpm db:seed`。
+
+#### `TC-FEISHU-015` 卡片属于另一个商户 — 对应 `REQ-FEISHU-006`、`REQ-AUTH-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；模拟器选 Other TikTok VN（Other Store，assist）新买家发「我要人工客服」，会话进入待认领，记会话 ID F；`q "select id from merchant where name='Other Store'"` 记 O；拼出 `L = $B/wb/<F>?claim=1&m=<O>`；以 agent@demo.test（Nur，同属 Demo Store 与 Other Store）登录，账号卡显示 Demo Store。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 L | 提示「已切换到「Other Store」」与「已认领」；账号卡显示 Other Store；会话 F 头部「我处理中」 |
+| 2 | 同一浏览器打开 `/api/v1/me` | JSON 里 `active.merchantName` 为 Other Store |
+| 3 | 以 lead@demo.test（Arif，只属 Demo Store）登录后打开 L | 对话栏「看不到这个会话」与「回到会话列表」；账号卡仍是 Demo Store |
+
+后置：无。
+
+#### `TC-FEISHU-016` 真实飞书：连接、测试卡片、待认领卡与点卡认领 — 对应 `REQ-FEISHU-001`、`REQ-FEISHU-002`、`REQ-FEISHU-003`、`REQ-FEISHU-005`、`REQ-FEISHU-006` · 级别: 回归 · 执行者: 人工
+
+前置：服务器或本机以 `FEISHU_MODE=live` 运行；有一个飞书企业自建应用：开了机器人能力与「以应用的身份发消息」「获取群组信息」「获取与上传图片或文件资源」三项权限并已发布，机器人已在一个测试群里；另在该群加一个开启签名校验的自定义机器人。不要用有真实买家沟通的群。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 管理员在 `/settings/notify` 用该应用的 App ID 与 App Secret「校验并保存」 | 显示已连接与校验时间；默认群下拉里有测试群 |
+| 2 | 默认群选测试群，点「发测试卡片」 | 测试群收到蓝色「测试卡片 · <商户名>」，卡里显示一张橙色测试图片；页面没有「图片上传没有成功」 |
+| 3 | 让一个会话进入待认领（模拟器或测试买家） | 测试群收到橙色待认领卡，内容与 `TC-FEISHU-005` 第 3 步同构；买家发过图片时显示缩略图 |
+| 4 | 在飞书里点卡片上的「认领」 | 浏览器打开 Shopilot（没登录先登录），会话被本人认领 |
+| 5 | 改用群自定义机器人，填该机器人的地址与签名密钥，发测试卡片 | 测试群收到测试卡片 |
+
+后置：断开飞书，或换回替身环境。
+
 ### 搜索
 
 #### `TC-SEARCH-001` 员工搜不到非负责店铺的订单 — 对应 `REQ-SEARCH-001` · 级别: 回归 · 执行者: 皆可
@@ -3504,7 +3725,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | `.env` 改 `MOCK_PLATFORM=0`，重启 `pnpm dev`，`/api/health` 含 `"service":"shopilot"` | 服务就绪 |
-| 2 | 依次请求 `/mock/simulator`、`/api/mock/sim/state`、`/mock/shopee/sg/api/v2/public/get_shops_by_partner`、`/dev/outbox`、`/api/dev/outbox` | 都是 404 |
+| 2 | 依次请求 `/mock/simulator`、`/api/mock/sim/state`、`/mock/shopee/sg/api/v2/public/get_shops_by_partner`、`/dev/outbox`、`/api/dev/outbox`、`/api/dev/feishu` | 都是 404 |
 | 3 | 改回 `MOCK_PLATFORM=1` 并重启 | `/mock/simulator` 标题含「Shopilot 模拟器」 |
 
 后置：确认 `.env` 为 `MOCK_PLATFORM=1`。
@@ -3546,7 +3767,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 ## 5. 回归策略
 
-冒烟级共 12 条，每轮必跑，合起来证明主链路：
+冒烟级共 14 条，每轮必跑，合起来证明主链路：
 
 | 主链路环节 | 冒烟用例 |
 | --- | --- |
@@ -3559,13 +3780,14 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 跨商户访问 404 | `TC-PERM-005` |
 | 上传资料 → 解析为可用 | `TC-KB-001` |
 | 买家提问 → 出稿检索资料 → 草稿显示依据 → 发送时不带依据 | `TC-KB-024` |
+| 会话进入待认领 → 飞书群收到卡片 → 成员点卡认领 | `TC-FEISHU-005` → `TC-FEISHU-011` |
 
 本期没有线上环境，冒烟用例都不标「线上可跑」，不设线上冒烟轮；上线前由 deploy-pipeline 补 §3 线上行后再按 TEMPLATE 头部判据逐条判定。
 
 - **全量轮**（全部用例）：首次成稿后的第一轮、DESIGN §26 里程碑第 6 步的交付轮、跨功能域改动、地基变更（环境、鉴权、数据模型、模拟平台）。本期验收以对应 P0 REQ 的用例全部通过为准（§2）。
 - **局部轮**（受影响用例 + 全部冒烟级）：单一功能改动。受影响用例的判定：先列出本次 DESIGN 改动触及的 `REQ-*`；改的是 §8 接口，取该接口「实现」列的 REQ；改的是 §11 状态机，取该节标题与迁移表里的接口所对应的 REQ；然后在仓库根执行 `grep -n '<REQ ID>' docs/TEST.md`，命中的 `####` 标题行即受影响用例。例：只改工单状态机 11.4 → `REQ-TKT-001`、`REQ-TKT-003`、`REQ-TKT-004` → `grep` 得到 `TC-TKT-*`、`TC-ORD-007`、`TC-RCP-*` 中引用这些 REQ 的用例。无 REQ 变更的改动（重构、依赖升级、纯 bug 修）按改动触及的功能域取 §4 对应 `###` 小节的全部用例；影响面拿不准时升级为全量轮。
 - **复测轮**（上轮失败用例 + 全部冒烟级）：修复失败项之后。
-- **人工收口轮**（仅上轮「待人工」用例）：AI 轮之后由人工补测收口，不要求冒烟级。当前执行者为人工的用例：`TC-SHOP-024`、`TC-CONV-009`、`TC-CONV-010`、`TC-TKT-020`、`TC-DASH-004`、`TC-ORD-020`、`TC-KB-036`。
+- **人工收口轮**（仅上轮「待人工」用例）：AI 轮之后由人工补测收口，不要求冒烟级。当前执行者为人工的用例：`TC-SHOP-024`、`TC-CONV-009`、`TC-CONV-010`、`TC-TKT-020`、`TC-DASH-004`、`TC-ORD-020`、`TC-KB-036`、`TC-FEISHU-016`。
 
 ## 6. 执行记录
 

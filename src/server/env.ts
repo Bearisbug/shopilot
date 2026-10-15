@@ -25,6 +25,8 @@ const schema = z.object({
   KNOWLEDGE_MODE: z.enum(["stub", "cloudflare"]).default("stub"),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   CLOUDFLARE_API_TOKEN: z.string().optional(),
+  // 飞书推送：stub 不出网，卡片只记进投递记录（开发发件箱可看）；live 调飞书开放平台与群自定义机器人
+  FEISHU_MODE: z.enum(["stub", "live"]).default("stub"),
   // 真实发信（SMTP）；三项都配了才发，否则邮件只写发件箱
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().default(465),

@@ -57,6 +57,13 @@
       "when": 1792069230716,
       "tag": "0007_slippery_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792075732819,
+      "tag": "0008_fast_microchip",
+      "breakpoints": true
     }
   ]
 }

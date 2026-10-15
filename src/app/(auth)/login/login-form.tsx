@@ -70,7 +70,9 @@ export function LoginForm() {
     // 身份变了：清掉登录前缓存的数据（如邀请页「请先登录」的预览），回跳后的页面重新取数
     qc.clear();
     const me = await api.get<Me>("/api/v1/me");
-    router.replace(me.twoFactorRequired ? "/account/security" : safeNext(params.get("next")));
+    const next = safeNext(params.get("next"));
+    // 商户要求先开两步验证：带上原目标，开好后回到那里（如飞书卡片的认领链接）
+    router.replace(me.twoFactorRequired ? `/account/security?next=${encodeURIComponent(next)}` : next);
   }
 
   async function onSubmit(values: Values) {

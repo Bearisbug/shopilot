@@ -10,6 +10,7 @@ import { shopMetricsJob, tokenRefreshJob } from "@/server/shops/jobs";
 import { handoverScan, ticketAutoClose, ticketScan } from "@/server/tickets/jobs";
 import { expireDrafts, expireInvitations, idleClose, remindUnclaimed } from "@/server/conversations/jobs";
 import { deliverEmail } from "@/server/core/mailer";
+import { deliverFeishuCard } from "@/server/feishu/deliver";
 import { backfillOrderImages } from "@/server/orders/images";
 import { fetchProduct, prefetchAllProducts } from "@/server/products/info";
 import { ingestDocument } from "@/server/knowledge/ingest";
@@ -23,6 +24,7 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "data.export": runExport,
   "order.images": backfillOrderImages,
   "email.send": deliverEmail,
+  "feishu.send": deliverFeishuCard,
   "product.fetch": fetchProduct,
   "product.prefetch": prefetchAllProducts,
   "data.retention_purge": retentionPurge,

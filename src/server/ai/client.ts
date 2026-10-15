@@ -4,7 +4,7 @@ import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-export type AiKind = "draft" | "translate" | "extract" | "rewrite";
+export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary";
 
 export class AiError extends Error {
   constructor(public kind: "timeout" | "model_error" | "invalid_json", message: string) {
@@ -14,7 +14,7 @@ export class AiError extends Error {
 
 export type AiResult = { content: string; model: string; latencyMs: number };
 
-const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000 };
+const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000 };
 
 export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?: boolean; maxTokens?: number; stubHint?: string } = {}): Promise<AiResult> {
   const e = env();
@@ -89,6 +89,9 @@ export const STUB_REPLIES: Record<string, StubReply | string | null> = {
   insufficient: { reply: "关于「{ask}」，我请同事核实后回复您。", confidence: 0.9, handoff: false, reason: "none", insufficient: true, used_sources: [] },
 };
 
+/** 替身模式下飞书卡片的一句话总结（固定文案） */
+export const STUB_SUMMARY = "AI 替身总结：买家发来新消息，正在等待客服认领。";
+
 /** 出稿请求 user 载荷里有没有资料片段 */
 function stubHasKnowledge(rest: Array<{ role: string; content: string }>): boolean {
   try {
@@ -117,6 +120,7 @@ async function stubChat(kind: AiKind, messages: ChatMessage[], hint: string | un
   // 改写一律返回买家原话，不受 next 影响，也不记入 lastRequest（API-MOCK-008）
   if (kind === "rewrite") return done(JSON.stringify({ query: hint ?? "" }));
   if (kind === "translate") return done(`[译文] ${hint ?? ""}`.trim());
+  if (kind === "summary") return done(STUB_SUMMARY);
   if (kind === "extract") return done(JSON.stringify({ buyerName: "PT Contoh Sdn Bhd", address: "12 Jalan Contoh, 50000 Kuala Lumpur", email: "finance@contoh.example", taxId: "C1234567890" }));
   const reply = STUB_REPLIES[next];
   if (!reply) throw new AiError("timeout", "替身：超时");

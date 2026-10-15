@@ -16,6 +16,8 @@ export const QUEUES = {
   "order.images": { policy: "stately" as const, expireInSeconds: 3600, retryLimit: 0 },
   "product.prefetch": { policy: "stately" as const, expireInSeconds: 3600, retryLimit: 0 },
   "email.send": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 5, retryDelay: 30, retryBackoff: true },
+  // 飞书卡片：构卡含 AI 总结 6 秒、译文与图片上传，发送 10 秒；重试 5 次指数退避
+  "feishu.send": { policy: "standard" as const, expireInSeconds: 90, retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "product.fetch": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 2, retryDelay: 60, retryBackoff: true },
   // 定时任务（cron 驱动，每个都是单例）
   "inbound.sweep": { policy: "stately" as const, expireInSeconds: 60, retryLimit: 0 },
