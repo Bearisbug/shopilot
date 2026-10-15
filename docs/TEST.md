@@ -6,14 +6,15 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.9，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.12，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
-| 最后更新 | 2026-10-12 |
+| 最后更新 | 2026-10-15 |
 
 变更记录（登用例增改，不登执行轮次）：
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-15 | 按 DESIGN v1.11–v1.12 补知识库：新增功能域「知识库」`TC-KB-001` 至 `TC-KB-036`（冒烟 2、回归 26、边缘 7，人工 1），用例共 265 条；`TC-AI-003` 改为「没有可用资料时不检索」；`TC-PERM-001` 组长看到接待设置且只有知识库标签；`TC-TEAM-013` 权限表含知识库「资料与测试问答」一行；`TC-CONV-010` 对照项加草稿「依据」；§2 范围与不测项、§3 检索替身、AI 替身「资料不足」、知识库测试文件、补扫场景与 curl 函数 | 实现会话 |
 | 2026-10-11 | 初稿：15 个功能域共 223 条用例（冒烟 10、回归 172、边缘 41），覆盖 DESIGN v1.0 §5 全部 76 条 REQ 与 §19 全部 88 个 Gherkin 场景；§3 按约定起草，标「未验证」 | 实现会话 |
 | 2026-10-11 | 按 DESIGN v1.2 同步（尚无执行轮次，受影响用例原位修改），用例共 225 条：新增 `TC-SHOP-025`（接入后超套餐店铺上限）、`TC-CONV-039`（员工不能结束待认领会话）；授权失败回授权页及 `denied` 原因（`TC-SHOP-008` 至 `TC-SHOP-011`）；沙箱凭证不能继续授权（`TC-SHOP-005`）；两步验证、本人设备、个人偏好改在 `/account/security`（`TC-AUTH-014` 至 `TC-AUTH-017`、`TC-SET-005`、`TC-SET-006`）；阶段判定规则 5、6（`TC-CONV-032`、`TC-CONV-033`）；物流异常工单手动推进（`TC-TKT-004`）；授权失效发送的 `code`（`TC-SHOP-017`）、模型给出的转人工原因（`TC-AI-019`）、AI 草稿分组含 auto 会话（`TC-AI-007`）、员工指定负责人被拒（`TC-TKT-007`）、重复邀请与邀请失效的 `code`（`TC-TEAM-004`、`TC-TEAM-005`、`TC-TEAM-006`、`TC-TEAM-008`）、删除不存在买家返回 0（`TC-SET-008`）、账单开票资料快照（`TC-BILL-012`）、权限表不含知识库与助手（`TC-TEAM-013`）；§3 写入模拟器故障注入、最近一次请求、来源 IP 与场景 `shop-limit-full` | 实现会话 |
 | 2026-10-14 | 按 DESIGN v1.10 同步（去掉侧栏出稿用量卡，原位修改）：`TC-PERM-001` 第 1 步改为导航下方没有用量卡、收起后只有「展开侧栏」按钮，第 2 步删去「没有用量卡」，第 4 步改为三个角色的 `nav-summary` 都没有 `usage` 键 | 实现会话 |
@@ -28,7 +29,8 @@
 
 ## 2. 测试范围 / 不测什么
 
-- 覆盖：DESIGN v1.2 全部 REQ 的黑盒功能验收，层面是浏览器界面（Playwright + Edge 或人工）、HTTP 接口（curl）、模拟器买家视图、发件箱 `/dev/outbox`。§19 的每个 Gherkin 场景至少由一条用例可操作化，用例标题行的「对应」列出 REQ。界面文案以 `docs/ui-interactions.md` 为准，知识库、助手、飞书的按钮不在本期范围。
+- 覆盖：DESIGN v1.12 全部 REQ 的黑盒功能验收，层面是浏览器界面（Playwright + Edge 或人工）、HTTP 接口（curl）、模拟器买家视图、发件箱 `/dev/outbox`。§19 的每个 Gherkin 场景至少由一条用例可操作化，用例标题行的「对应」列出 REQ。界面文案以 `docs/ui-interactions.md` 为准；助手、飞书的按钮不在本期范围，知识库只测一期（资料上传与入库、分类、站点与开关、测试问答、出稿检索与依据），经验卡、更新审核、AI 核验、产品目录的按钮不在本期范围。
+- 知识库在本地一律用检索替身（`KNOWLEDGE_MODE=stub`）：替身入库即报完成、不理解语义，按关键词重合打分。真实 Cloudflare AI Search 与真实 DeepSeek 的跨语言检索与回答质量只由人工用例 `TC-KB-036` 验收。
 - 本期验收口径（DESIGN §3）：对应 P0 REQ 的用例全部通过。一条用例同时对应 P0 与 P1 REQ 时按 P0 计。
 - 不测：
 
@@ -39,7 +41,11 @@
 | 安全渗透：CSRF、会话固定、越权枚举之外的攻击面 | 无归属——已知风险 |
 | 真实 Shopee / TikTok 接口与模拟平台的差异 | 接真实平台时逐接口实测（DESIGN §28 风险行） |
 | 真实发信、真实支付 | 本期不做（DESIGN §2 非目标）；邮件只看发件箱，支付只用模拟卡 |
-| 知识库、对话助手、飞书 | 本期不做（DESIGN §2 非目标） |
+| 对话助手、飞书；知识库的经验卡、更新审核与版本回滚、AI 回复核验、产品目录、知识缺口看板 | 本期不做（DESIGN §2 非目标） |
+| 知识库 §16 竞态：并发上传越过 500 份、入库途中资料被删除 | 代码仓测试套件 `src/server/knowledge/knowledge.test.ts` |
+| 知识库 §16 其余竞态：同一内容同时上传两次、同商户并发建检索实例、资料解析中再点重新解析（并发那一刻）、两人同时删除同一份资料、删除分类时有资料正上传到它、停用与出稿检索交错 | 无归属——已知风险：本地没有让两个请求精确交错的手段，代码靠唯一索引、咨询锁与条件更新兜底（DESIGN §16） |
+| 索引条目长时间停在「处理中」、按分块数连续两次不变判完成；检索服务删除后约 30 秒内仍查得到条目 | 人工用例 `TC-KB-036`（真实检索服务上观察）；检索替身上传即报完成、同步删除，本地走不到这两条 |
+| 测试问答限流在多实例部署时按实例数放大 | 无归属——已知限制（DESIGN §28），本期单实例 |
 | 定时任务的调度周期（每分钟、每 5 分钟等） | 无归属——已知风险；本文档用 `pnpm job <任务名>` 手动触发，只验证任务效果 |
 | 入站处理失败与重试（11.3 `fail`、`lease_expire`、`retry`，`pnpm inbound:replay`） | 无归属——已知风险：§3 没有让入站处理抛错的手段 |
 | 达人会话只记录不出稿（11.1 `record_only` 的达人分支） | 无归属——已知风险：模拟器没有达人买家 |
@@ -61,16 +67,16 @@
 
 | 环境 | 入口 | 就绪判定 | 测试账号 | 种子与重置 | 外部副作用 |
 | --- | --- | --- | --- | --- | --- |
-| 本地 | Web `http://127.0.0.1:3360`；API `http://127.0.0.1:3360/api/v1`（curl 带登录 cookie）；模拟器 `http://127.0.0.1:3360/mock/simulator`；发件箱 `http://127.0.0.1:3360/dev/outbox` | `curl -s http://127.0.0.1:3360/api/health` 返回 JSON，含 `"service":"shopilot"` 与 `"db":"ok"`；且 `http://127.0.0.1:3360/mock/simulator` 页面标题含「Shopilot 模拟器」 | 见下方测试账号表 | 可跑：数据库是本机 docker 卷 `shopilot_pgdata`，本期没有线上，不与任何线上数据共用 | 邮件只写发件箱；支付为模拟支付；平台为模拟平台；`AI_MODE=stub` 时出稿不出进程；`AI_MODE=deepseek` 时真实调用 DeepSeek，只有 `TC-AI-002` 这样跑，费用记在项目自己的 DeepSeek 账号，不触达任何真实买家 |
+| 本地 | Web `http://127.0.0.1:3360`；API `http://127.0.0.1:3360/api/v1`（curl 带登录 cookie）；模拟器 `http://127.0.0.1:3360/mock/simulator`；发件箱 `http://127.0.0.1:3360/dev/outbox` | `curl -s http://127.0.0.1:3360/api/health` 返回 JSON，含 `"service":"shopilot"` 与 `"db":"ok"`；且 `http://127.0.0.1:3360/mock/simulator` 页面标题含「Shopilot 模拟器」 | 见下方测试账号表 | 可跑：数据库是本机 docker 卷 `shopilot_pgdata`，本期没有线上，不与任何线上数据共用 | 邮件只写发件箱；支付为模拟支付；平台为模拟平台；`AI_MODE=stub` 时出稿不出进程；`AI_MODE=deepseek` 时真实调用 DeepSeek，只有 `TC-AI-002` 这样跑，费用记在项目自己的 DeepSeek 账号，不触达任何真实买家；`KNOWLEDGE_MODE=stub` 时知识库检索走进程内替身，不调 Cloudflare（只有人工用例 `TC-KB-036` 改成 `cloudflare`） |
 | 预发 | 无——本期只在本机运行 | — | — | — | — |
 | 线上 | 无——本期只在本机运行 | — | — | 禁跑 | — |
 
 - 启动（本地）：
-  1. 没有 `.env` 时从 `.env.example` 复制生成，逐行按注释里的「获取」填值；密钥按 AGENTS.md「密钥纪律」处理，值不进文档、对话、日志。`DEEPSEEK_API_KEY` 取自 Bitwarden 条目 `DEEPSEEK_API_KEY`，vault 解锁由人执行，只有 `TC-AI-002` 需要它。设 `AI_MODE=stub`、`MOCK_PLATFORM=1`。
+  1. 没有 `.env` 时从 `.env.example` 复制生成，逐行按注释里的「获取」填值；密钥按 AGENTS.md「密钥纪律」处理，值不进文档、对话、日志。`DEEPSEEK_API_KEY` 取自 Bitwarden 条目 `DEEPSEEK_API_KEY`，vault 解锁由人执行，只有 `TC-AI-002` 需要它。设 `AI_MODE=stub`、`MOCK_PLATFORM=1`、`KNOWLEDGE_MODE=stub`。
   2. `docker compose up -d`（PostgreSQL 17，`127.0.0.1:5460`），`docker compose ps` 显示 postgres 为 healthy。
   3. `pnpm install`，然后 `pnpm db:reset && pnpm db:seed`。
   4. `pnpm dev`（同时起 Web `http://127.0.0.1:3360` 与 Worker），按上表就绪判定检查。端口 3360 被别的进程占用时，`/api/health` 返回的 `service` 不是 `shopilot`，先停掉占用进程。
-- 基线：执行完上面第 3 步并按第 4 步启动、`AI_MODE=stub`、AI 替身为默认「正常回复」的状态。用例前置写「基线」时，若本轮前面的用例改过数据或配置，先重跑 `pnpm db:reset && pnpm db:seed`。
+- 基线：执行完上面第 3 步并按第 4 步启动、`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`、AI 替身为默认「正常回复」、检索替身为默认 `normal` 的状态；种子不含知识库资料，两个商户各只有内置分类「未分类」。用例前置写「基线」时，若本轮前面的用例改过数据或配置，先重跑 `pnpm db:reset && pnpm db:seed`。
 - 测试账号（本地，均由 `pnpm db:seed` 创建；密码一律 `Shopilot-Demo-2026`，本地演示值，非密钥）：
 
 | 商户 | 账号 | 姓名 | 角色 | 负责店铺 |
@@ -105,7 +111,8 @@
 | TikTok | App Key `mockttwiz01`，App Secret `mock-secret-wiz01` | MY、TH 各一店 | Wizard TikTok MY、Wizard TikTok TH | 按站点授权 |
 
 - 模拟器 `/mock/simulator`：扮演买家与平台。选店铺与买家（可「新建买家」，得到一个在该店没有会话的买家），以买家身份发文字、图片、订单卡、商品卡；下单、推进订单状态（按各平台枚举）、申请取消、申请退货、买家寄回、平台仲裁、取消授权、授权到期。页面显示每个买家的会话（含卖家发出的消息与卡片）、订单与售后单的平台原始状态、TikTok 店的坐席接单（`can_accept_chat`）、TikTok 会话 session 是否已结束、推送日志（目标 URL、HTTP 状态、载荷）。
-- AI 替身（`AI_MODE=stub`）：模拟器页「AI 替身」面板设定下一次出稿的回复，可选「正常回复」（默认，confidence 0.85）、「低置信 0.4」、「要求转人工」、「非 JSON 文本」、「超时」；设定只作用于下一次出稿，之后回到默认；面板显示所选回复的 JSON（含 `reason`）。面板同时显示最近一次出稿请求（接口 `GET /api/dev/ai-stub` 的 `lastRequest`），用例写「最近一次请求」即指它。翻译与开票字段抽取在 stub 下返回非空的替身文本。`AI_MODE=deepseek` 时调真实 DeepSeek，改 `.env` 后重启 `pnpm dev`。
+- AI 替身（`AI_MODE=stub`）：模拟器页「AI 替身」面板设定下一次出稿的回复，可选「正常回复」（默认，confidence 0.85）、「低置信 0.4」、「要求转人工」、「非 JSON 文本」、「超时」；设定只作用于下一次出稿，之后回到默认；面板显示所选回复的 JSON（含 `reason`）。面板同时显示最近一次出稿请求（接口 `GET /api/dev/ai-stub` 的 `lastRequest`），用例写「最近一次请求」即指它。翻译与开票字段抽取在 stub 下返回非空的替身文本。另有「资料不足」（`insufficient = true`、confidence 0.9、`used_sources` 为空）：面板没有这一项，用接口设 `curl -s -X PUT $B/api/dev/ai-stub -H 'Content-Type: application/json' -d '{"next":"insufficient"}'`，同样只作用于下一次；其他选项也可以这样设，加 `"sticky":true` 则一直生效，用完设回 `{"next":"normal"}`。出稿请求带资料片段时，「正常回复」在 `used_sources` 里引用第 1 段；检索前的改写请求一律返回买家原话，不受设定影响，也不记入「最近一次请求」。测试问答（`API-KB-012`）与出稿共用同一个替身。
+- 检索替身（`KNOWLEDGE_MODE=stub`，DESIGN `API-MOCK-010`）：入库时文本类资料（md、txt、csv、html）按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，上传即报索引完成；检索读该商户已解析的分块，按关键词重合打分（中文按相邻两字），每段都带向量分。下一次表现用接口设：`curl -s -X PUT $B/api/dev/knowledge-stub -H 'Content-Type: application/json' -d '{"next":"<值>"}'`，值为 `normal`（默认）、`no_vector`（混合检索结果没有向量分）、`timeout`（检索超时）、`error`（检索返回 HTTP 500）、`ingest_error`（入库时条目索引报 `workers_ai_timeout_error（替身）`）；默认只作用于下一次检索或下一次条目上传，加 `"sticky":true` 一直生效，用完设回 `{"next":"normal"}`。`curl -s $B/api/dev/knowledge-stub` 返回当前设定与 `lastQuery`（最近 6 次检索请求，旧的在前，每条有 `query` 与 `retrievalType`：`hybrid` 混合、`vector` 纯向量），用例写「最近检索请求」即指它。`AI_MODE=deepseek` 时调真实 DeepSeek，改 `.env` 后重启 `pnpm dev`。
 - 故障注入：模拟器页「故障注入」面板（接口 `GET` / `PUT /api/mock/sim/faults`）对指定店铺设定「卖家发送消息」「订单读取」「售后写操作」下一次或持续失败：返回平台错误，或 12 秒后超时。用例写「故障注入」即指它；设了「持续」的用例在后置里清除。
 - 来源 IP：`MOCK_PLATFORM=1` 时服务端把请求头 `X-Forwarded-For` 当作来源 IP，用于 IP 白名单用例（生产不信任该头）。
 
@@ -133,6 +140,8 @@
 | `shop-no-inbound-8d` | Demo TikTok TH 最近入站时间改为 8 天前 |
 | `plan-over-shop-limit` | Demo Store 套餐改为高于基础版的套餐，并新增 4 家已连接的种子店（共 8 家），店铺数超过基础版上限 |
 | `shop-limit-full` | Demo Store 套餐改为基础版，已接入店铺补到基础版店铺上限；Demo Store 的 Shopee 主账号下另有一家未接入的模拟店 Demo Shopee PH |
+| `knowledge-queued-11m` | 一份「排队中」的资料（txt，未分类，全部站点），最近更新在 11 分钟前，没有排入库任务；输出资料 ID |
+| `knowledge-processing-26m` | 一份「解析中」的资料（txt），最近更新在 26 分钟前，模拟入库任务中断；输出资料 ID |
 
 - 通用操作（用例里写「按 §3 某某」即指这里）：
   - 「固定为工作时间内」：以 owner@demo.test 打开 `/reception/hours`，把今天（商户时区的星期几）设为「工作」、时段 00:00–23:59，删掉包含今天的节假日，点「保存」，页面提示已保存。
@@ -177,8 +186,39 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
   - 以上三个配方换应用时，把 `2001001` 与 `mock-key-2001001` 换成对应的 Partner ID 与 Key，主机区域段换成该应用登记的区域（`1000101`、`2001001` 为 `sg`，`2001003` 为 `cn`，`2001002` 为 `sandbox`）。
 - 测试图片（放 `$SP_TMP/img/`，执行前准备）：约 2 MB 的 PNG、恰好 10,485,760 字节的 PNG、约 11 MB 的 JPG、一张 GIF。
+- 知识库测试文件（放 `$KB`，执行前在仓库根运行下面的命令生成）：PDF 每页挂一段随机字节，页大小可控；xlsx、docx 是只存不压的 zip，文件头与 Office 文件相同。
 
-- 工具：浏览器自动化用 Playwright + 本机 Microsoft Edge（`channel: 'msedge'`），人工执行同样用 Edge；接口用 curl（见「curl 会话」）；两步验证码用验证器 App，或 `oathtool --totp -b <密钥>`（密钥取自开启时显示的 `totpURI` 里的 `secret`）；定时任务用 `pnpm job`，时间敏感数据用 `pnpm scenario`；邮件看 `/dev/outbox`。
+```bash
+KB=$SP_TMP/kb; mkdir -p "$KB"
+node --input-type=module -e '
+import { PDFDocument, PDFName } from "pdf-lib"; import { randomBytes } from "node:crypto"; import { writeFileSync } from "node:fs";
+const MB = 1024 * 1024, dir = process.argv[1];
+const pdf = async (sizes) => { const d = await PDFDocument.create(); for (const s of sizes) { const p = d.addPage([200, 200]); p.node.set(PDFName.of("Junk"), d.context.register(d.context.stream(randomBytes(Math.round(s))))); } return d.save({ useObjectStreams: true }); };
+writeFileSync(`${dir}/保修政策.pdf`, await pdf([1.5 * MB, 1.5 * MB]));
+writeFileSync(`${dir}/大文件.pdf`, await pdf(Array(25).fill(MB)));
+writeFileSync(`${dir}/拆分.pdf`, await pdf(Array(30).fill(0.6 * MB)));
+writeFileSync(`${dir}/单页超限.pdf`, await pdf(Array.from({ length: 15 }, (_, i) => (i === 11 ? 11 * MB : 0.2 * MB))));
+' "$KB"
+(cd "$KB" && head -c 1048576 /dev/urandom > _1m && head -c 5242880 /dev/urandom > _5m && zip -q -0 型号对照.xlsx _1m && zip -q -0 说明书.docx _5m && rm _1m _5m)
+printf '# 保修政策\n\n所有相机保修 12 个月，自签收之日起计算。\n退货需在签收后 7 天内申请。\n' > "$KB/保修政策.md"
+printf '运费说明：马来西亚境内订单满 100 令吉包邮。\n' > "$KB/运费说明.txt"
+printf 'not really a ppt' > "$KB/产品介绍.pptx"; printf 'plain text, not a pdf\n' > "$KB/伪装.pdf"; printf 'MZ binary' > "$KB/工具.exe"
+```
+
+  得到：保修政策.pdf 约 3 MB（2 页）、大文件.pdf 约 25 MB、拆分.pdf 约 18 MB（30 页，每页约 0.6 MB）、单页超限.pdf 约 14 MB（15 页，第 12 页 11 MB）、型号对照.xlsx 约 1 MB、说明书.docx 约 5 MB、保修政策.md、运费说明.txt、产品介绍.pptx、伪装.pdf（扩展名是 pdf、内容是文本）、工具.exe。
+- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类；`q` 在本机库执行一条只读 SQL，库名默认 `shopilot`）：
+
+```bash
+kbup() { who=$1; f=$2; shift 2; curl -s -b "$SP_TMP/$who" -H "Origin: $B" -F "file=@$f" "$@" -w '\nHTTP %{http_code}\n' "$B/api/v1/knowledge/documents"; }
+kbclear() { login owner@demo.test >/dev/null
+  while ids=$(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowledge/documents?limit=100" | jq -r '.items[].id') && [ -n "$ids" ]; do
+    for id in $ids; do curl -s -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -X DELETE "$B/api/v1/knowledge/documents/$id"; done; done
+  for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowledge/categories" | jq -r '.items[] | select(.builtin | not) | .id'); do
+    curl -s -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -X DELETE "$B/api/v1/knowledge/categories/$id"; done; }
+q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -Atc "$1"; }
+```
+
+- 工具：浏览器自动化用 Playwright + 本机 Microsoft Edge（`channel: 'msedge'`），人工执行同样用 Edge；接口用 curl（见「curl 会话」）与 jq；两步验证码用验证器 App，或 `oathtool --totp -b <密钥>`（密钥取自开启时显示的 `totpURI` 里的 `secret`）；定时任务用 `pnpm job`，时间敏感数据用 `pnpm scenario`；邮件看 `/dev/outbox`。
 - 证据目录：`docs/test-runs/`。截图与响应体按 `run-NNN-<TC ID>-<步骤号>.png` / `.json` 命名，文中引用一律写以项目根为基准的相对路径。cookie 文件不放证据目录。
 
 ## 4. 用例库
@@ -634,7 +674,7 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | 打开 `/team` | 每行显示姓名、邮箱、角色、负责店铺（管理员显示全部店铺）、状态、本周处理会话段数；林晓行有账号所有者标记 |
-| 2 | 点「权限表」 | 弹层的模块、操作与管理员 / 组长 / 员工三列，和 `docs/roles.md`「权限表」中工作台、订单与开票、工单、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置各行逐行一致，取值用词（✓、—、负责店铺内、仅所有者）相同；没有知识库、助手两组 |
+| 2 | 点「权限表」 | 弹层的模块、操作与管理员 / 组长 / 员工三列，和 `docs/roles.md`「权限表」中工作台、订单与开票、工单、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置各行，以及知识库「上传、查看、分类、停用、删除资料，测试问答」一行（管理员 ✓、组长 ✓、员工 —）逐行一致，取值用词（✓、—、负责店铺内、仅所有者）相同；没有知识库的「核验 AI 回复」「维护产品目录与商品归类」两行，没有助手组 |
 
 后置：无。
 
@@ -685,9 +725,11 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | 以 owner@demo.test 登录看侧栏与顶栏，再点「收起侧栏」 | 侧栏：工作台（子项待认领、AI 草稿、我处理中、已结束、同事处理中）、工单、订单与开票、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置；导航下方没有出稿用量卡，收起后底部只有「展开侧栏」按钮；没有「知识库」；顶栏没有「助手」 |
-| 2 | 以 lead@demo.test 登录看侧栏 | 工作台（含同事处理中）、工单、订单与开票、看板；没有接待设置、店铺与连接、团队与权限、用量与套餐、商户设置 |
-| 3 | 以 agent@demo.test 登录看侧栏 | 工作台（待认领、AI 草稿、我处理中、已结束，没有同事处理中）、工单、订单与开票；没有看板 |
+| 2 | 以 lead@demo.test 登录看侧栏 | 工作台（含同事处理中）、工单、订单与开票、看板、接待设置；没有店铺与连接、团队与权限、用量与套餐、商户设置 |
+| 3 | 以 agent@demo.test 登录看侧栏 | 工作台（待认领、AI 草稿、我处理中、已结束，没有同事处理中）、工单、订单与开票；没有看板、接待设置 |
 | 4 | 三个账号分别请求 `GET /api/v1/nav-summary` | 三个响应都是 200，都没有 `usage` 键 |
+| 5 | owner 点侧栏「接待设置」 | 进入 `/reception`；左侧子导航依次为店铺模式、工作时间与转人工、语气与提示词、工单类型与时限、知识库 |
+| 6 | lead 点侧栏「接待设置」 | 进入 `/reception/knowledge`；子导航只有「知识库」 |
 
 后置：无。
 
@@ -1193,7 +1235,7 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
 后置：无。
 
-#### `TC-CONV-010` 工作台视觉与键盘操作对照原型 — 对应 `REQ-CONV-003`、`REQ-CONV-004` · 级别: 回归 · 执行者: 人工
+#### `TC-CONV-010` 工作台视觉与键盘操作对照原型 — 对应 `REQ-CONV-003`、`REQ-CONV-004`、`REQ-KB-006` · 级别: 回归 · 执行者: 人工
 
 前置：基线；按 `docs/implementation-handoff.md` 的方法导出 Quilt 原型；以 owner@demo.test 登录。
 
@@ -1203,6 +1245,7 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 | 2 | 只用键盘 Tab 遍历工作台 | 每个可交互元素都能聚焦，焦点框可见，顺序从左到右、从上到下 |
 | 3 | 打开「转交给其他客服」对话框后按 Tab 与 Esc | 焦点停留在对话框内；Esc 关闭对话框，焦点回到触发按钮 |
 | 4 | 悬停或用读屏读图标按钮 | 图标按钮有可读名称（如「发送输入框里的内容」） |
+| 5 | 先按 `TC-KB-024` 前置与第 1 步造一份带依据的草稿，看草稿区与影子回复 | 草稿正文下方一行小字「依据：《保修政策.md》」，与草稿区其余文字层级一致，不挤压草稿按钮；Demo Shopee SG（影子模式）的影子回复展开后同样有依据行 |
 
 后置：无。
 
@@ -1596,14 +1639,15 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
 后置：`.env` 改回 `AI_MODE=stub`，重启 `pnpm dev`。
 
-#### `TC-AI-003` 出稿请求带阶段提示词、品牌语气、订单事实与护栏，不带检索 — 对应 `REQ-AI-002`、`REQ-RCP-003` · 级别: 回归 · 执行者: 皆可
+#### `TC-AI-003` 出稿请求带阶段提示词、品牌语气、订单事实与护栏；没有可用资料时不检索 — 对应 `REQ-AI-002`、`REQ-RCP-003`、`REQ-KB-006` · 规则 `RULE-KB-001` · 级别: 回归 · 执行者: 皆可
 
-前置：基线；owner 在 `/reception/prompts` 把售中提示词改为以「【售中测试标记】」开头、品牌语气改为以「【语气标记】」开头，点「保存」；`login owner@demo.test`，`GET /api/v1/reception` 记下 `prompts.guardrails` 正文 G；模拟器为 Demo Shopee MY 新买家 B 下单（订单 O）并推进到 SHIPPED。
+前置：基线（Demo Store 没有知识库资料）；owner 在 `/reception/prompts` 把售中提示词改为以「【售中测试标记】」开头、品牌语气改为以「【语气标记】」开头，点「保存」；`login owner@demo.test`，`GET /api/v1/reception` 记下 `prompts.guardrails` 正文 G；`curl -s $B/api/dev/knowledge-stub` 记下 `lastQuery` 的条数 N；模拟器为 Demo Shopee MY 新买家 B 下单（订单 O）并推进到 SHIPPED。
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 模拟器以 B 发「我的包裹到哪了」 | 20 秒内出现草稿 |
-| 2 | 看「AI 替身」面板「最近一次请求」 | 含「【售中测试标记】」「【语气标记】」、订单号 O 与 SHIPPED、B 的消息原文；G 位于提示部分的最后；没有知识检索或资料引用段 |
+| 1 | 模拟器以 B 发「我的包裹到哪了」 | 20 秒内出现草稿，草稿下方没有「依据」 |
+| 2 | 看「AI 替身」面板「最近一次请求」 | 含「【售中测试标记】」「【语气标记】」、订单号 O 与 SHIPPED、B 的消息原文；G 位于提示部分的最后；user 载荷没有 `knowledge` 字段 |
+| 3 | `curl -s $B/api/dev/knowledge-stub` | `lastQuery` 仍为 N 条：这次出稿没有改写、没有检索 |
 
 后置：无。
 
@@ -2486,6 +2530,477 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
 后置：无。
 
+### 知识库
+
+约定：本节用例在 Demo Store 里操作；「资料 ID」取自 `kbup` 响应的 `document.id` 或资料抽屉地址 `?doc=<ID>`；「等可用」= 每 2 秒请求一次 `api owner@demo.test "$B/api/v1/knowledge/documents/<ID>"`，30 秒内 `document.status` 变为 `ready`；「AI 替身设为 X」「检索替身设为 X」用 §3 的接口写法。本节用例的后置执行 `kbclear`，并把两个替身设回 `normal`。
+
+#### `TC-KB-001` 批量上传两份资料，解析后可用，抽屉看原文件与解析内容 — 对应 `REQ-KB-001`、`REQ-KB-002` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；按 §3 备好 `$KB`；`login owner@demo.test`，`api owner@demo.test -X POST $B/api/v1/knowledge/categories -d '{"name":"售后政策"}'` 返回 201；浏览器以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/reception/knowledge` | 接待设置子导航选中「知识库」；左栏标题「资料 0 / 500」，空态写「还没有资料。把产品手册、保修与退换政策拖到这里」；右栏「测试问答」面板有问题框、店铺下拉与「提问」 |
+| 2 | 点「上传资料」，在弹窗里选择 `$KB/保修政策.pdf` 与 `$KB/型号对照.xlsx` | 弹窗列出两个文件与大小（3.0 MB、1.0 MB），都写「等待上传」；弹窗写明支持的格式，以及「单个文件不超过 20 MB，PDF 以外的文件不超过 4 MB；PPT 请先导出为 PDF 再上传」；按钮为「上传 2 个文件」 |
+| 3 | 分类选「售后政策」，适用站点保持「全部站点」，点「上传 2 个文件」 | 两个文件依次显示进度，最后都显示「已上传，排队解析」；弹窗底部写「已上传 2 个」，按钮变为「完成」 |
+| 4 | 点「完成」，看资料列表，最多等 30 秒 | 列表两行，分类「售后政策」、站点「全部站点」；状态从「排队中」或「解析中」变为「可用」，「AI 可用」开关为开；标题旁资料数为「2 / 500」 |
+| 5 | 点「保修政策.pdf」一行 | 地址带 `?doc=<ID>`；抽屉「资料详情」显示文件名、状态「可用」、「1 段分块」、分类、适用站点「全部站点」、上传人林晓；「原文件」标签内嵌 PDF 预览 |
+| 6 | 点「解析内容（1 段）」标签，再刷新页面 | 地址多了 `docTab=parsed`；列出 #1「替身解析：保修政策.pdf」；刷新后抽屉仍打开并停在「解析内容」 |
+| 7 | 关掉抽屉，点「型号对照.xlsx」一行 | 「原文件」标签没有内嵌预览，写「这种格式不能在页面里预览，点上方「下载原文件」查看」；有「下载原文件」按钮 |
+| 8 | `api owner@demo.test "$B/api/v1/knowledge/documents"` | 200；`items` 2 条，`status` 都是 `ready`、`aiEnabled` 为 true、`markets` 为 `["ALL"]`、`partsCount` 与 `chunksCount` 都为 1（不超过 10 MB 的 PDF 不拆）；`counts` 为 `{"total":2,"limit":500}` |
+
+后置：`kbclear`。
+
+#### `TC-KB-002` 服务端拒收不支持、超限或内容不符的文件 — 对应 `REQ-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/产品介绍.pptx"` | 415，`type` 为 `/errors/unsupported-type`，`code` 为 `ppt_export_pdf`，`detail` 为「请先把 PPT 导出为 PDF 再上传。」 |
+| 2 | `kbup owner@demo.test "$KB/大文件.pdf"` | 413，`type` 为 `/errors/too-large`，`code` 为 `file_limit`，`detail` 为「单个文件不能超过 20 MB。」 |
+| 3 | `kbup owner@demo.test "$KB/说明书.docx"` | 413，`type` 为 `/errors/too-large`，`code` 为 `retrieval_limit`，`detail` 为「PDF 以外的文件不能超过 4 MB。」 |
+| 4 | `kbup owner@demo.test "$KB/工具.exe"` | 415，`code` 为 `unsupported`，`detail` 以「这种格式暂不支持」开头并列出支持的格式 |
+| 5 | `kbup owner@demo.test "$KB/伪装.pdf"` | 415，`code` 为 `content_mismatch`，`detail` 含「文件内容与扩展名 .pdf 不符」 |
+| 6 | `kbup owner@demo.test "$KB/保修政策.md" -F markets=ALL -F markets=MY` | 422，`type` 为 `/errors/validation`（全部站点不能与具体站点同选） |
+| 7 | `api owner@demo.test "$B/api/v1/knowledge/documents"` | `items` 为空，`counts.total` 为 0 |
+
+后置：`kbclear`。
+
+#### `TC-KB-003` 上传弹窗：选文件时先挡一遍，上传中不能关闭 — 对应 `REQ-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 点「上传资料」，在文件选择框里选 `产品介绍.pptx`、`大文件.pdf`、`说明书.docx`、`工具.exe`、`型号对照.xlsx` | 文件选择框能选中 pptx；弹窗五行：产品介绍.pptx「请先把 PPT 导出为 PDF 再上传」、大文件.pdf「单个文件不能超过 20 MB」、说明书.docx「PDF 以外的文件不能超过 4 MB」、工具.exe「这种格式暂不支持」，型号对照.xlsx「等待上传」；底部「1 个可上传，4 个不能上传」，按钮「上传 1 个文件」 |
+| 2 | 让上传持续数秒（开发者工具 Network 限速，或自动化脚本拦住上传请求 5 秒再放行），点「上传 1 个文件」，在上传进行中按 Esc，再点弹窗外的遮罩 | 上传进行中弹窗右上角没有关闭按钮，按钮显示「上传中，请不要关闭」；按 Esc、点遮罩后弹窗仍在 |
+| 3 | 取消限速或放行请求，等上传结束 | 型号对照.xlsx 显示「已上传，排队解析」；底部「已上传 1 个，4 个被拒」，按钮为「完成」，右上角关闭按钮出现 |
+| 4 | `api owner@demo.test "$B/api/v1/knowledge/documents"` | 只有型号对照.xlsx 一份：被前端挡下的四个文件没有发给服务端 |
+
+后置：`kbclear`。
+
+#### `TC-KB-004` 内容与已有资料相同的文件被拒，给出已有资料 — 对应 `REQ-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 返回 201；`cp "$KB/保修政策.md" "$KB/保修政策-副本.md"`；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/保修政策-副本.md"` | 409，`type` 为 `/errors/duplicate`，`code` 为 `document_duplicate`，`extra.existingName` 为「保修政策.md」，`extra.existingId` 为已有资料的 ID |
+| 2 | 浏览器点「上传资料」，选 `保修政策-副本.md`，点「上传 1 个文件」 | 该行显示「已有同样的文件：《保修政策.md》」与「查看」；底部「已上传 0 个，1 个被拒」 |
+| 3 | 点「查看」 | 上传弹窗关闭，打开保修政策.md 的资料抽屉 |
+
+后置：`kbclear`；`rm "$KB/保修政策-副本.md"`。
+
+#### `TC-KB-005` 资料满 500 份时拒绝上传 — 对应 `REQ-KB-001` · 级别: 边缘 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；用 500 个内容各不相同的小文件造满：`for i in $(seq -w 1 500); do printf '资料 %s\n' "$i" > "$SP_TMP/kb-$i.txt"; kbup owner@demo.test "$SP_TMP/kb-$i.txt" >/dev/null; done`；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 看资料区 | 标题旁「500 / 500」为警示色；列表上方提示「资料已满（500 / 500），请先删除不用的资料再上传。」 |
+| 2 | 点「上传资料」 | 不打开上传弹窗，提示「资料已满，请先删除不用的」 |
+| 3 | `kbup owner@demo.test "$KB/保修政策.md"` | 409，`type` 为 `/errors/not-allowed`，`code` 为 `document_quota`，`detail` 为「资料已满 500 份，请先删除不用的。」 |
+| 4 | 打开列表第一份资料的抽屉，点「删除」再点「删除资料」；再执行一次第 3 步的命令 | 资料数变为「499 / 500」；上传返回 201 |
+
+后置：`kbclear`；`rm "$SP_TMP"/kb-*.txt`。
+
+#### `TC-KB-006` 超过 10 MB 的 PDF 按页拆成多个条目 — 对应 `REQ-KB-001`、`REQ-KB-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/拆分.pdf"`，记资料 ID D | 201，`document.status` 为 `queued` |
+| 2 | 最多等 60 秒，`api owner@demo.test "$B/api/v1/knowledge/documents/<D>"` | `document.status` 为 `ready`、`partsCount` 为 2；`parts` 两条，`status` 都是 `indexed`；第一条 `pageFrom` 为 1，第二条 `pageFrom` 等于第一条 `pageTo` 加 1，第二条 `pageTo` 为 30 |
+| 3 | 浏览器打开 D 的抽屉，点「解析内容」 | 抽屉写「2 段分块 · 拆成 2 个条目」；两段分块上方分别标「条目 1 · 第 1–N 页」「条目 2 · 第 N+1–30 页」，N 与第 2 步一致 |
+
+后置：`kbclear`。
+
+#### `TC-KB-007` PDF 有一页超过 10 MB 时入库失败并写明页码 — 对应 `REQ-KB-001`、`REQ-KB-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/单页超限.pdf"`，记资料 ID D | 201 |
+| 2 | 看列表，最多等 60 秒 | 该行状态「失败」，行下写「第 12 页超过 10 MB，请压缩后重传」与「重新解析」 |
+| 3 | `api owner@demo.test "$B/api/v1/knowledge/documents/<D>"` | `document.status` 为 `failed`，`failureReason` 同上；`parts` 为空（检索服务里没有留下它的条目） |
+| 4 | 打开 D 的抽屉，点「解析内容」 | 抽屉顶部「解析失败」与同一原因；解析内容写「解析失败，没有解析内容。重新解析成功后在这里按序号列出分块文字。」 |
+
+后置：`kbclear`。
+
+#### `TC-KB-008` 索引报错一次：删除后同名重传，资料最终可用 — 对应 `REQ-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；检索替身设为 `ingest_error`（只用一次）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/保修政策.md"`，记资料 ID D | 201 |
+| 2 | 等可用后 `api owner@demo.test "$B/api/v1/knowledge/documents/<D>"` | `document.status` 为 `ready`；`parts` 一条，`status` 为 `indexed`、`retries` 为 1 |
+| 3 | `curl -s $B/api/dev/knowledge-stub` | `next` 已回到 `normal` |
+
+后置：`kbclear`。
+
+#### `TC-KB-009` 索引一直报错：重传 2 次后失败，重新解析后可用 — 对应 `REQ-KB-001`、`REQ-KB-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；检索替身设为 `ingest_error` 并保持（`"sticky":true`）；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/保修政策.md"`，记资料 ID D | 201 |
+| 2 | 最多等 30 秒，`api owner@demo.test "$B/api/v1/knowledge/documents/<D>"` | `document.status` 为 `failed`，`failureReason` 为「检索服务索引失败（已重传 2 次）：workers_ai_timeout_error（替身）」；`parts` 一条，`status` 为 `failed`、`retries` 为 2 |
+| 3 | 看列表 | 该行「失败」，行下写同一原因与「重新解析」 |
+| 4 | 检索替身设回 `normal`，点该行「重新解析」 | 状态变为「排队中」或「解析中」，30 秒内变为「可用」 |
+
+后置：`kbclear`；检索替身设回 `normal`。
+
+#### `TC-KB-010` 分类增改删，内置「未分类」不能改名删除 — 对应 `REQ-KB-003` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup` 依次上传 `保修政策.md`、`运费说明.txt`、`型号对照.xlsx` 并等可用；`api owner@demo.test $B/api/v1/knowledge/categories` 记下「未分类」（`builtin` 为 true）的 ID U；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 点「分类管理」，输入「售后政策」点「新增」 | 列表出现「售后政策」「0 份资料」；输入框下写「最多 20 个字；已有 2 / 50 个分类」 |
+| 2 | 再输入「售后政策」点「新增」 | 输入框下提示「已有同名分类」，列表没有多出一行 |
+| 3 | 点「改名「售后政策」」，改为「保修与退换」点「保存」 | 该行变为「保修与退换」；关掉弹窗后，资料列表的分类筛选里有「保修与退换」，没有「售后政策」 |
+| 4 | 再打开「分类管理」，看「未分类」一行 | 写「3 份资料 · 删除分类后资料归到这里」与「内置，不能改名或删除」，没有改名、删除按钮 |
+| 5 | 逐个打开三份资料的抽屉，分类改为「保修与退换」；记下 `api owner@demo.test "$B/api/v1/knowledge/documents"` 里三份的 `readyAt` | 每次提示「分类已改，立即生效」；列表分类列都是「保修与退换」，状态仍为「可用」 |
+| 6 | 分类管理里点「删除「保修与退换」」 | 确认框写「其中 3 份资料会归入「未分类」，资料本身不变，也不重新解析。」 |
+| 7 | 点「删除分类」 | 该分类消失，「未分类」变为「3 份资料」；三份资料仍为「可用」，`readyAt` 与第 5 步记下的相同 |
+| 8 | `api owner@demo.test -X PATCH $B/api/v1/knowledge/categories/<U> -d '{"name":"改名"}'`；`api owner@demo.test -X DELETE $B/api/v1/knowledge/categories/<U>` | 两个都 409，`type` 为 `/errors/not-allowed`，`code` 为 `builtin` |
+| 9 | 对第 7 步删掉的分类 ID 再请求一次 `DELETE` | 404，`type` 为 `/errors/not-found` |
+
+后置：`kbclear`。
+
+#### `TC-KB-011` 分类最多 50 个 — 对应 `REQ-KB-003` · 级别: 边缘 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `for i in $(seq -w 1 49); do api owner@demo.test -X POST $B/api/v1/knowledge/categories -d "{\"name\":\"分类$i\"}" \| tail -1; done` | 49 行都是 `HTTP 201`（连同「未分类」共 50 个） |
+| 2 | `api owner@demo.test -X POST $B/api/v1/knowledge/categories -d '{"name":"分类50"}'` | 409，`type` 为 `/errors/not-allowed`，`code` 为 `category_quota`，`detail` 为「分类最多 50 个。」 |
+| 3 | 浏览器以 owner 打开 `/reception/knowledge`，点「分类管理」 | 输入框占位「分类已满 50 个」且不能输入；下方写「已有 50 / 50 个分类」 |
+
+后置：`kbclear`。
+
+#### `TC-KB-012` 改适用站点立即生效，站点筛选的口径 — 对应 `REQ-KB-003`、`REQ-KB-005` · 规则 `RULE-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"`（全部站点）与 `kbup owner@demo.test "$KB/运费说明.txt" -F markets=TH`，都等可用；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 站点筛选选「MY」 | 只列保修政策.md（适用全部站点的也列出）；地址带 `market=MY` |
+| 2 | 站点筛选改为「TH」 | 两份都列出 |
+| 3 | 站点筛选改为「只看全部站点」 | 只列保修政策.md；地址带 `market=ALL` |
+| 4 | 把地址改成 `/reception/knowledge?market=XX&state=bad` 回车 | 筛选显示「不限站点」「全部状态」，地址里这两个参数被去掉，两份都列出 |
+| 5 | 打开保修政策.md 的抽屉，适用站点点「MY」 | 「全部站点」取消选中、只剩 MY；提示「适用站点已改，下一次出稿起按新站点检索」；状态仍为「可用」 |
+| 6 | 再点一次「MY」，一个站点都不选 | 站点下方提示「至少选一个站点」；`api owner@demo.test "$B/api/v1/knowledge/documents/<ID>"` 的 `markets` 仍为 `["MY"]` |
+| 7 | `api owner@demo.test -X PATCH "$B/api/v1/knowledge/documents/<ID>" -d '{"markets":[]}'`；同一地址 `-d '{"markets":["ALL","MY"]}'` | 两个都 422，`type` 为 `/errors/validation` |
+| 8 | 关掉抽屉，测试问答店铺选「Demo Shopee SG」，问「保修多久」 | 提示「没有对这个范围可用的资料，这次没有检索，回答只依据订单事实与提示词。」；「引用 0」 |
+| 9 | 店铺改选「Demo Shopee MY」，再问「保修多久」 | 引用列出 [1]《保修政策.md》 |
+
+后置：`kbclear`。
+
+#### `TC-KB-013` 停用资料后不再被引用 — 对应 `REQ-KB-004`、`REQ-KB-005` · 规则 `RULE-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup` 上传 `保修政策.md` 与 `运费说明.txt` 并等可用；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 测试问答不选店铺，问「保修多久」 | 引用列出 [1]《保修政策.md》 |
+| 2 | 资料列表里关掉保修政策.md 的「AI 可用」开关 | 该行状态变为「已停用」，开关为关 |
+| 3 | 再问「保修多久」，展开「检索明细」 | 引用里没有《保修政策.md》；两路检索的分块里都没有保修政策.md |
+| 4 | 状态筛选选「已停用」 | 只列保修政策.md；地址带 `state=disabled` |
+| 5 | 打开保修政策.md 的「AI 可用」开关 | 状态回到「可用」 |
+
+后置：`kbclear`。
+
+#### `TC-KB-014` 资料排队或解析中时不能重新解析 — 对应 `REQ-KB-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`pnpm scenario knowledge-queued-11m`，记输出的资料 ID D；浏览器以 owner@demo.test 打开 `/reception/knowledge?doc=<D>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api owner@demo.test -X POST "$B/api/v1/knowledge/documents/<D>/reparse" -d '{}'` | 409，`type` 为 `/errors/conflict`，`code` 为 `processing`，`detail` 为「这份资料正在解析，完成后再试。」 |
+| 2 | 看抽屉 | 写「排队中：完成前 AI 不会引用这份资料，这里每 5 秒刷新一次。」；「重新解析」不可用，旁边写「正在解析，完成后才能重新解析」 |
+
+后置：`kbclear`。
+
+#### `TC-KB-015` 重新解析：完成后重新可用 — 对应 `REQ-KB-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用，记资料 ID D 与 `readyAt` R0；浏览器以 owner@demo.test 打开 `/reception/knowledge?doc=<D>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 抽屉点「重新解析」 | 状态变为「排队中」或「解析中」 |
+| 2 | 最多等 30 秒，`api owner@demo.test "$B/api/v1/knowledge/documents/<D>"` | `document.status` 为 `ready`，`chunksCount` 为 1，`readyAt` 晚于 R0 |
+| 3 | 抽屉点「解析内容」 | 列出 #1，正文是保修政策.md 的全文 |
+
+后置：`kbclear`。
+
+#### `TC-KB-016` 删除资料：立即消失，原文件与检索副本随后删除 — 对应 `REQ-KB-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用，记资料 ID D 与详情里的 `fileUrl` F；浏览器以 owner@demo.test 打开 `/reception/knowledge?doc=<D>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 抽屉点「删除」 | 确认框写「资料会立即从列表消失，检索服务里的副本与原文件随后一并删除，删除后不能恢复。」与「已生成草稿的依据仍显示文件名，但不能再点开。」 |
+| 2 | 点「删除资料」 | 提示「已删除《保修政策.md》」；抽屉关闭，列表里没有它 |
+| 3 | `api owner@demo.test "$B/api/v1/knowledge/documents/<D>"`；`api owner@demo.test "$B<F>"` | 两个都 404 |
+| 4 | `api owner@demo.test -X DELETE "$B/api/v1/knowledge/documents/<D>"` | 204（重复删除不报错） |
+| 5 | 30 秒后 `q "select count(*) from knowledge_document where id='<D>'"` 与 `q "select count(*) from knowledge_part where document_id='<D>'"` | 都是 0 |
+
+后置：无。
+
+#### `TC-KB-017` 测试问答：同链路回答，给出引用与检索明细，不计用量 — 对应 `REQ-KB-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup` 上传 `保修政策.md` 与 `运费说明.txt` 并等可用；浏览器 A 以 owner@demo.test 打开 `/billing`，记下本期已用 U；浏览器 B 以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | B：问题框输入「保修多久」，店铺选「Demo Shopee MY」，点「提问」 | 提问中按钮显示「正在回答」并有加载占位；完成后显示回答（替身回答含「保修多久」）、「置信度 0.85」、「按当前阈值会出草稿」与耗时 |
+| 2 | B：看「引用」 | 「引用 1」：[1]《保修政策.md》，片段以「# 保修政策」开头、含「保修 12 个月」 |
+| 3 | B：点这条引用 | 打开保修政策.md 的资料抽屉 |
+| 4 | B：关掉抽屉，展开「检索明细」 | 「改写后的问题」为「保修多久」（替身改写返回原话）；「改写路」「原话路」各一组「混合检索」，各自列出同样两段分块（保修政策.md #1、运费说明.txt #1）与分数（向量、关键词、重排）；「合并后给 AI 的 2 段」：[1] 保修政策.md、[2] 运费说明.txt，两路重复的分块只出现一次 |
+| 5 | A：刷新 `/billing` | 本期已用仍为 U |
+| 6 | B：清空问题框点「提问」；再输入 501 个字点「提问」 | 依次提示「请输入问题」「问题最多 500 个字」，计数「501 / 500」标红；两次都不出新回答 |
+
+后置：`kbclear`。
+
+#### `TC-KB-018` 测试问答：模型判定资料不足时标出，并显示会转人工 — 对应 `REQ-KB-005` · 规则 `RULE-KB-003` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；AI 替身设为 `insufficient`；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 测试问答不选店铺，问「这款相机防水吗」 | 回答标「资料不足」；「置信度 0.90」，但显示「按当前阈值会转人工（AI 置信度低）」；下方写「AI 判定资料不足以回答：真实出稿时这类问题一律转人工。」 |
+
+后置：`kbclear`。
+
+#### `TC-KB-019` 测试问答：没有可用资料时不检索 — 对应 `REQ-KB-005` · 规则 `RULE-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线（没有资料）；`curl -s $B/api/dev/knowledge-stub` 记下 `lastQuery` 的条数 N；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 测试问答问「保修多久」 | 出回答；提示「没有对这个范围可用的资料，这次没有检索，回答只依据订单事实与提示词。」；「引用 0」「回答没有引用资料。」；没有「检索明细」 |
+| 2 | `curl -s $B/api/dev/knowledge-stub` | `lastQuery` 仍为 N 条 |
+
+后置：无。
+
+#### `TC-KB-020` 测试问答：两路检索都失败时降级，回答不带引用 — 对应 `REQ-KB-005` · 规则 `RULE-KB-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；检索替身设为 `timeout` 并保持；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 测试问答问「保修多久」 | 结果区顶部「这次没查到资料，回答没有引用」与「原因：检索失败（改写路：timeout；原话路：timeout）」；回答照常显示；「引用 0」 |
+| 2 | 展开「检索明细」 | 改写路、原话路各有「混合检索」与「纯向量重试」两组，都写「失败：超时」；「合并后给 AI 的 0 段」「两路都没有结果。」 |
+
+后置：`kbclear`；检索替身设回 `normal`。
+
+#### `TC-KB-021` 测试问答：AI 不可用时保留问题，可再试 — 对应 `REQ-KB-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；AI 替身设为 `timeout`（只用一次）；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 测试问答问「保修多久」 | 提示「AI 暂时不可用」「问题已保留，稍后再点「提问」重试。」；问题框仍是「保修多久」 |
+| 2 | 再点「提问」 | 出回答（替身已回到正常） |
+
+后置：无。
+
+#### `TC-KB-022` 测试问答每商户每分钟最多 20 次 — 对应 `REQ-KB-005` · 级别: 边缘 · 执行者: 皆可
+
+前置：基线；过去 1 分钟内 Demo Store 没有测试问答；`login owner@demo.test`；浏览器以 owner@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 一分钟内连续 20 次 `api owner@demo.test -X POST $B/api/v1/knowledge/test -d '{"question":"保修多久"}' \| tail -1` | 20 行都是 `HTTP 200` |
+| 2 | 立即 `curl -s -D - -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -H 'Content-Type: application/json' -X POST $B/api/v1/knowledge/test -d '{"question":"保修多久"}'` | `HTTP/1.1 429`，响应头 `Retry-After` 为 1 到 60 之间的秒数 |
+| 3 | 浏览器测试问答问「保修多久」 | 提示「提问太频繁」与「测试问答每分钟最多 20 次」 |
+| 4 | 等 `Retry-After` 秒后再点「提问」 | 出回答 |
+
+后置：无。
+
+#### `TC-KB-023` 测试问答的店铺按本人可见范围 — 对应 `REQ-KB-005`、`REQ-PERM-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；过去 1 分钟内 Demo Store 没有测试问答；`login owner@demo.test`、`login lead@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；`api owner@demo.test $B/api/v1/shops` 记下 Demo TikTok TH 的店铺 ID T 与 Demo Shopee MY 的店铺 ID M；浏览器以 lead@demo.test 打开 `/reception/knowledge`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 展开测试问答的「店铺」下拉 | 只有「不选店铺：不按站点过滤」、Demo Shopee MY、Demo TikTok MY |
+| 2 | `api lead@demo.test -X POST $B/api/v1/knowledge/test -d '{"question":"保修多久","shopId":"<T>"}'` | 404，`type` 为 `/errors/not-found`，`detail` 为「店铺不存在或不在你负责的范围内。」 |
+| 3 | 紧接着连续 20 次 `api lead@demo.test -X POST $B/api/v1/knowledge/test -d '{"question":"保修多久","shopId":"<M>"}' \| tail -1` | 20 行都是 `HTTP 200`：第 2 步的 404 没有计入限流 |
+
+后置：`kbclear`。
+
+#### `TC-KB-024` 出稿检索资料，草稿下方显示依据 — 对应 `REQ-AI-002`、`REQ-KB-006` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup` 上传 `保修政策.md` 与 `运费说明.txt` 并等可用；浏览器 A 以 agent@demo.test（Nur）停在 `/wb`；浏览器 B 打开模拟器；浏览器 C 以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | B：选 Demo Shopee MY、新建买家，发「保修多久」 | 推送日志新增一条，HTTP 200 |
+| 2 | A：20 秒内打开「AI 草稿」里该买家的会话 | 草稿正文下方一行「依据：《保修政策.md》」；文件名是普通文字，点了不跳转 |
+| 3 | 看「AI 替身」面板「最近一次请求」 | user 载荷有 `knowledge` 数组，第一项 `n` 为 1、`title` 为「保修政策.md」、`text` 含「保修 12 个月」；system 末尾护栏写「产品参数、兼容性、保修与政策只能依据 knowledge 与 order_facts」 |
+| 4 | `curl -s $B/api/dev/knowledge-stub` | `lastQuery` 最后两条是这次出稿的两路检索：`query` 都是「保修多久」（替身改写返回原话），`retrievalType` 都是 `hybrid` |
+| 5 | C：打开同一会话，点依据里的《保修政策.md》 | 新开一个标签，地址为 `/reception/knowledge?doc=<保修政策.md 的 ID>`，资料抽屉显示保修政策.md |
+| 6 | A：点「认领并发送」；B：看该买家的买家视图 | 买家收到 1 条卖家消息，正文与草稿正文相同，不含「依据」、文件名或片段编号 |
+
+后置：`kbclear`。
+
+#### `TC-KB-025` 依据的资料删除后只显示文件名 — 对应 `REQ-KB-006` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用，记资料 ID D；按 §3「模拟器发消息」向 Demo Shopee MY 新买家发「保修多久」，20 秒内出草稿，记会话 ID C；浏览器以 owner@demo.test 打开 `/wb/<C>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 看草稿下方 | 「依据：《保修政策.md》」，文件名是链接 |
+| 2 | `api owner@demo.test -X DELETE "$B/api/v1/knowledge/documents/<D>"` | 204 |
+| 3 | 刷新 `/wb/<C>` | 依据仍写「依据：《保修政策.md》」，文件名不再是链接 |
+| 4 | `api owner@demo.test "$B/api/v1/conversations/<C>"` | `draft.citations` 一条：`name` 为「保修政策.md」、`available` 为 false |
+
+后置：`kbclear`。
+
+#### `TC-KB-026` 出稿只引用解析完成、AI 可用开着且站点相符的资料 — 对应 `REQ-KB-006` · 规则 `RULE-KB-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；准备四份都写到「保修」的资料：A `kbup owner@demo.test "$KB/保修政策.md"`（全部站点）；B `printf '泰国站保修 6 个月\n' > "$SP_TMP/保修-TH.txt"; kbup owner@demo.test "$SP_TMP/保修-TH.txt" -F markets=TH`；C `printf '旧版保修 3 个月\n' > "$SP_TMP/保修-旧版.txt"; kbup owner@demo.test "$SP_TMP/保修-旧版.txt"`，等可用后 `api owner@demo.test -X PATCH "$B/api/v1/knowledge/documents/<C>" -d '{"aiEnabled":false}'`；D 检索替身设为 `ingest_error` 并保持，`printf '保修草稿 1 个月\n' > "$SP_TMP/保修-草稿.txt"; kbup owner@demo.test "$SP_TMP/保修-草稿.txt"`，等它变为 `failed` 后检索替身设回 `normal`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「模拟器发消息」向 Demo Shopee MY 新买家发「保修多久」 | 20 秒内出草稿，草稿下方「依据：《保修政策.md》」 |
+| 2 | 看「最近一次请求」的 `knowledge` | 只有保修政策.md 的片段；没有「泰国站保修」「旧版保修」「保修草稿」 |
+
+后置：`kbclear`；`rm "$SP_TMP"/保修-*.txt`。
+
+#### `TC-KB-027` 模型判定资料不足时一律转人工 — 对应 `REQ-KB-006`、`REQ-AI-004` · 规则 `RULE-KB-003` · 级别: 回归 · 执行者: 皆可
+
+前置：基线（置信度阈值 0.60）；`$KB` 已备；`login owner@demo.test`、`login agent@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；AI 替身设为 `insufficient`（confidence 0.9，高于阈值）；浏览器以 Nur 登录停在 `/wb`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「模拟器发消息」向 Demo Shopee MY 新买家发「这款相机防水吗」 | 推送 HTTP 200 |
+| 2 | Nur：20 秒内看「待认领」 | 该会话在待认领，打开后没有草稿区 |
+| 3 | `api agent@demo.test "$B/api/v1/conversations/<该会话 ID>"` | `conversation.handoffReason` 为 `low_confidence`，`draft` 为 null |
+| 4 | `q "select data->>'reason', data->>'insufficient' from audit_log where action='handoff' order by created_at desc limit 1"` | `low_confidence\|true` |
+
+后置：`kbclear`。
+
+#### `TC-KB-028` 混合检索没有向量分时改用纯向量重试 — 对应 `REQ-KB-006` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；`curl -s $B/api/dev/knowledge-stub` 记下 `lastQuery` 最后一条的时间 T0；检索替身设为 `no_vector`（只用一次）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「模拟器发消息」向 Demo Shopee MY 新买家发「保修多久」 | 20 秒内出草稿，草稿下方「依据：《保修政策.md》」 |
+| 2 | `curl -s $B/api/dev/knowledge-stub` | 晚于 T0 的检索请求共 3 条：2 条 `hybrid`、1 条 `vector` |
+| 3 | `q "select retrieval from draft order by created_at desc limit 1"` | `routes` 里有一组 `mode` 为 `hybrid`、`error` 为 `no_vector`，同一路紧接着一组 `mode` 为 `vector_only`、没有 `error`；`degraded` 为 false |
+
+后置：`kbclear`。
+
+#### `TC-KB-029` 检索返回错误时同样改用纯向量重试 — 对应 `REQ-KB-006` · 级别: 边缘 · 执行者: 皆可
+
+前置：同 `TC-KB-028`，检索替身改设为 `error`（只用一次）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「模拟器发消息」向 Demo Shopee MY 新买家发「保修多久」 | 20 秒内出草稿，草稿下方「依据：《保修政策.md》」 |
+| 2 | `q "select retrieval from draft order by created_at desc limit 1"` | `routes` 里有一组 `mode` 为 `hybrid`、`error` 为「500 检索服务错误（替身）」，同一路紧接着一组 `mode` 为 `vector_only`、没有 `error`；`degraded` 为 false |
+
+后置：`kbclear`。
+
+#### `TC-KB-030` 两路检索都失败时不带资料出稿，不转人工 — 对应 `REQ-KB-006` · 规则 `RULE-KB-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；检索替身设为 `timeout` 并保持；浏览器以 Nur 登录停在 `/wb`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「模拟器发消息」向 Demo Shopee MY 新买家发「保修多久」 | 推送 HTTP 200 |
+| 2 | Nur：20 秒内看「AI 草稿」 | 该会话在「AI 草稿」，不在待认领；草稿下方没有「依据」 |
+| 3 | 看「最近一次请求」 | user 载荷没有 `knowledge` 字段 |
+| 4 | `q "select retrieval->>'degraded', retrieval->>'degradedReason' from draft order by created_at desc limit 1"` | `true\|检索失败（改写路：timeout；原话路：timeout）` |
+
+后置：`kbclear`；检索替身设回 `normal`。
+
+#### `TC-KB-031` 影子模式：依据给管理员看，资料不足照常存影子回复 — 对应 `REQ-AI-001`、`REQ-KB-006` · 级别: 边缘 · 执行者: 皆可
+
+前置：基线（Demo Shopee SG 为影子模式）；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；浏览器以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「模拟器发消息」向 Demo Shopee SG 新买家 B1 发「保修多久」；owner 在待认领打开该会话，展开「AI 影子回复（未发送）」 | 影子回复下方「依据：《保修政策.md》」 |
+| 2 | AI 替身设为 `insufficient`；向 Demo Shopee SG 新买家 B2 发「这款相机防水吗」；owner 打开该会话，展开影子回复 | 有影子回复正文与「置信度 0.90」；页面上没有「资料不足」字样；会话在待认领 |
+
+后置：`kbclear`。
+
+#### `TC-KB-032` 知识库按角色开放 — 对应 `REQ-KB-002`、`REQ-PERM-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`、`login agent@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用，记详情里的 `fileUrl` F。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 浏览器以 lead@demo.test 登录，打开 `/reception` | 自动跳到 `/reception/knowledge`；子导航只有「知识库」；能看到保修政策.md |
+| 2 | lead 打开 `/reception/hours` | 显示「这个页面只对管理员开放」 |
+| 3 | 浏览器以 agent@demo.test 登录，打开 `/reception/knowledge` | 显示「这个页面只对管理员、组长开放」 |
+| 4 | `api agent@demo.test $B/api/v1/knowledge/documents`；`api agent@demo.test -X POST $B/api/v1/knowledge/test -d '{"question":"保修多久"}'` | 两个都 403，`type` 为 `/errors/forbidden` |
+| 5 | `api agent@demo.test "$B<F>"` | 403，`detail` 为「知识库资料只对管理员与组长开放。」 |
+
+后置：`kbclear`。
+
+#### `TC-KB-033` 别的商户的资料与分类一律看不到、改不了 — 对应 `REQ-PERM-002`、`REQ-KB-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`、`login other@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用，记资料 ID D 与 `fileUrl` F；`api owner@demo.test $B/api/v1/knowledge/categories` 记下 Demo Store「未分类」的 ID U。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | other 依次请求 `GET /api/v1/knowledge/documents/<D>`、`GET /api/v1/knowledge/documents/<D>/chunks`、`PATCH /api/v1/knowledge/documents/<D>`（体 `{"aiEnabled":false}`）、`POST /api/v1/knowledge/documents/<D>/reparse`（体 `{}`） | 4 个都 404，`type` 为 `/errors/not-found` |
+| 2 | `api other@demo.test -X DELETE "$B/api/v1/knowledge/documents/<D>"` | 204（与已删除不可区分，不做任何改动） |
+| 3 | `api owner@demo.test "$B/api/v1/knowledge/documents/<D>"` | 200，`status` 为 `ready`、`aiEnabled` 为 true |
+| 4 | `api other@demo.test "$B<F>"`；`api other@demo.test -X PATCH $B/api/v1/knowledge/categories/<U> -d '{"name":"x"}'`；`api other@demo.test -X DELETE $B/api/v1/knowledge/categories/<U>` | 3 个都 404 |
+| 5 | `api other@demo.test $B/api/v1/knowledge/documents` | `items` 为空 |
+
+后置：`kbclear`。
+
+#### `TC-KB-034` 知识库的写操作记审计 — 对应 `REQ-SET-005`、`REQ-KB-001`、`REQ-KB-003`、`REQ-KB-004` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/保修政策.md"` 等可用，记资料 ID D；`api owner@demo.test -X PATCH "$B/api/v1/knowledge/documents/<D>" -d '{"aiEnabled":false}'`；`api owner@demo.test -X POST "$B/api/v1/knowledge/documents/<D>/reparse" -d '{}'` 后等可用；`api owner@demo.test -X DELETE "$B/api/v1/knowledge/documents/<D>"` | 依次 201、200、202、204 |
+| 2 | 新增分类「审计测试」，改名为「审计测试 2」，再删除（`POST`、`PATCH`、`DELETE /api/v1/knowledge/categories`） | 依次 201、200、200 |
+| 3 | 浏览器以 owner 打开 `/settings/audit`，模块选「接待设置」 | 有林晓的「上传资料「保修政策.md」」「修改资料「保修政策.md」」「重新解析资料「保修政策.md」」「删除资料「保修政策.md」」「新增资料分类「审计测试」」「资料分类「审计测试」改名为「审计测试 2」」「删除资料分类「审计测试 2」，0 份资料归入「未分类」」，以及系统的「资料「保修政策.md」解析完成」 |
+
+后置：无。
+
+#### `TC-KB-035` 补扫：排队过久的重新入库，解析中断的标失败 — 对应 `REQ-KB-001` · 级别: 边缘 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`pnpm scenario knowledge-queued-11m` 记资料 ID D1；`pnpm scenario knowledge-processing-26m` 记资料 ID D2；`api owner@demo.test -X PATCH "$B/api/v1/knowledge/documents/<D1>" -d '{"aiEnabled":false}'` 返回 200（入库前就关掉 AI 可用）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `pnpm job knowledge.purge` | 输出 `"ok":true` |
+| 2 | 最多等 30 秒，`api owner@demo.test "$B/api/v1/knowledge/documents/<D1>"` | `document.status` 为 `ready`、`aiEnabled` 仍为 false；浏览器以 owner 打开 `/reception/knowledge`，D1 一行状态为「已停用」 |
+| 3 | `api owner@demo.test "$B/api/v1/knowledge/documents/<D2>"` | `document.status` 为 `failed`，`failureReason` 为「入库任务中断，请重新解析」 |
+
+后置：`kbclear`。
+
+#### `TC-KB-036` 真实检索服务与真实模型验收（跨语言检索、入库判完成、异步删除） — 对应 `REQ-KB-001`、`REQ-KB-005`、`REQ-KB-006` · 级别: 回归 · 执行者: 人工
+
+前置：本机 `.env` 改为 `KNOWLEDGE_MODE=cloudflare`、`AI_MODE=deepseek`，填 `CLOUDFLARE_ACCOUNT_ID` 与 `CLOUDFLARE_API_TOKEN`（Bitwarden 条目 `SHOPILOT_AI_SEARCH_TOKEN`，vault 解锁由人执行）；本机走代理时 Web 与 Worker 都带 `NODE_USE_ENV_PROXY=1` 启动，通过就绪判定；基线；准备一份写明「所有相机保修 12 个月，自签收之日起计算」的文字版 PDF「保修政策.pdf」；以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 在 `/reception/knowledge` 上传保修政策.pdf，看列表 | 一般 1 分钟内变为「可用」（条目在检索服务里还显示处理中时，分块数连续两次不变即算完成），最长不超过 20 分钟 |
+| 2 | 打开抽屉看「解析内容」 | 分块正文是 PDF 里的真实文字，含「保修 12 个月」 |
+| 3 | 测试问答问马来语「Berapa lama waranti?」，店铺选 Demo Shopee MY | 回答说明保修 12 个月；引用《保修政策.pdf》；检索明细里改写后的问题是中文 |
+| 4 | 删除这份资料，在 Cloudflare 控制台该商户实例（`sp-` 开头）的条目列表里观察 | 列表里资料立即消失；控制台里条目在约 30 秒内消失 |
+
+后置：`.env` 改回 `KNOWLEDGE_MODE=stub`、`AI_MODE=stub`，删掉两个 Cloudflare 键的值，重启 `pnpm dev`；`pnpm job knowledge.purge '{"instance":"<sp- 开头的实例名>"}'` 删掉本次建的检索实例。
+
 ### 看板
 
 #### `TC-DASH-001` 组长的看板只含负责店铺 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
@@ -3030,7 +3545,7 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
 ## 5. 回归策略
 
-冒烟级共 10 条，每轮必跑，合起来证明主链路：
+冒烟级共 12 条，每轮必跑，合起来证明主链路：
 
 | 主链路环节 | 冒烟用例 |
 | --- | --- |
@@ -3041,13 +3556,15 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 | 开票，经聊天与邮件两路发出 | `TC-ORD-015` |
 | 三种角色的侧栏、员工调管理员接口 403 | `TC-PERM-001`、`TC-PERM-002` |
 | 跨商户访问 404 | `TC-PERM-005` |
+| 上传资料 → 解析为可用 | `TC-KB-001` |
+| 买家提问 → 出稿检索资料 → 草稿显示依据 → 发送时不带依据 | `TC-KB-024` |
 
 本期没有线上环境，冒烟用例都不标「线上可跑」，不设线上冒烟轮；上线前由 deploy-pipeline 补 §3 线上行后再按 TEMPLATE 头部判据逐条判定。
 
 - **全量轮**（全部用例）：首次成稿后的第一轮、DESIGN §26 里程碑第 6 步的交付轮、跨功能域改动、地基变更（环境、鉴权、数据模型、模拟平台）。本期验收以对应 P0 REQ 的用例全部通过为准（§2）。
 - **局部轮**（受影响用例 + 全部冒烟级）：单一功能改动。受影响用例的判定：先列出本次 DESIGN 改动触及的 `REQ-*`；改的是 §8 接口，取该接口「实现」列的 REQ；改的是 §11 状态机，取该节标题与迁移表里的接口所对应的 REQ；然后在仓库根执行 `grep -n '<REQ ID>' docs/TEST.md`，命中的 `####` 标题行即受影响用例。例：只改工单状态机 11.4 → `REQ-TKT-001`、`REQ-TKT-003`、`REQ-TKT-004` → `grep` 得到 `TC-TKT-*`、`TC-ORD-007`、`TC-RCP-*` 中引用这些 REQ 的用例。无 REQ 变更的改动（重构、依赖升级、纯 bug 修）按改动触及的功能域取 §4 对应 `###` 小节的全部用例；影响面拿不准时升级为全量轮。
 - **复测轮**（上轮失败用例 + 全部冒烟级）：修复失败项之后。
-- **人工收口轮**（仅上轮「待人工」用例）：AI 轮之后由人工补测收口，不要求冒烟级。当前执行者为人工的用例：`TC-SHOP-024`、`TC-CONV-009`、`TC-CONV-010`、`TC-TKT-020`、`TC-DASH-004`、`TC-ORD-020`。
+- **人工收口轮**（仅上轮「待人工」用例）：AI 轮之后由人工补测收口，不要求冒烟级。当前执行者为人工的用例：`TC-SHOP-024`、`TC-CONV-009`、`TC-CONV-010`、`TC-TKT-020`、`TC-DASH-004`、`TC-ORD-020`、`TC-KB-036`。
 
 ## 6. 执行记录
 
