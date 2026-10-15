@@ -3806,6 +3806,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-009 | 2026-10-14 | 本地 | 工作区 src 指纹 `2e62fc541350`（未提交） | AI（Claude Code 执行子会话 + 主会话；Playwright + Edge、curl） | 局部轮（DESIGN v1.10 去掉侧栏出稿用量卡），共 25 条：受影响 `TC-PERM-001`、`TC-PERM-002`、`TC-PERM-003`、`TC-PERM-004`、`TC-PERM-006`、`TC-PERM-007`、`TC-BILL-001`、`TC-CONV-004`、`TC-CONV-005`、`TC-CONV-006`、`TC-CONV-007`、`TC-TKT-016`、`TC-TKT-017`、`TC-TKT-018`、`TC-NOTIF-001`、`TC-NOTIF-002`、`TC-NOTIF-003` + 其余冒烟 `TC-AUTH-001`、`TC-SHOP-001`、`TC-AUTH-004`、`TC-AI-001`、`TC-AI-002`（主会话执行）、`TC-TKT-001`、`TC-ORD-015`、`TC-PERM-005`（`docs/test-runs/run-009-local.md`） | 通过 25/25 |
 | RUN-010 | 2026-10-15 | 本地 | `e4a7034` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-KB-001、TC-KB-002、TC-KB-003、TC-KB-004、TC-KB-005、TC-KB-006、TC-KB-007、TC-KB-008、TC-KB-009、TC-KB-010、TC-KB-011、TC-KB-012、TC-KB-013、TC-KB-014、TC-KB-015、TC-KB-016、TC-KB-017、TC-KB-018、TC-KB-019、TC-KB-020、TC-KB-021、TC-KB-022、TC-KB-023、TC-KB-024、TC-KB-025、TC-KB-026、TC-KB-027、TC-KB-028、TC-KB-029、TC-KB-030、TC-KB-031、TC-KB-032、TC-KB-033、TC-KB-034、TC-KB-035、TC-KB-036、TC-AI-003、TC-AI-005、TC-PERM-003、TC-TEAM-013、TC-CONV-010、TC-AUTH-001、TC-SHOP-001、TC-AUTH-004、TC-AI-001、TC-AI-002、TC-TKT-001、TC-ORD-015、TC-PERM-001、TC-PERM-002、TC-PERM-005） | 通过 48/51 · 失败 1 · 待人工 2 |
 | RUN-011 | 2026-10-16 | 本地 | `adfc875` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-010：TC-KB-035、TC-AUTH-001、TC-SHOP-001、TC-AUTH-004、TC-AI-001、TC-AI-002、TC-TKT-001、TC-ORD-015、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-KB-001、TC-KB-024） | 通过 13/13 |
+| RUN-012 | 2026-10-16 | 本地 | `a246bfc` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-PERM-002、TC-PERM-001、TC-PERM-005、TC-AUTH-004、TC-AUTH-001、TC-SHOP-001、TC-AI-001、TC-TKT-001、TC-ORD-015、TC-KB-001、TC-KB-024、TC-AUTH-011、TC-AUTH-013、TC-AUTH-015、TC-AUTH-021、TC-CONV-012、TC-CONV-013、TC-CONV-029、TC-CONV-036、TC-AI-015、TC-SET-004、TC-SET-006、TC-MOCK-004、TC-TEAM-012、TC-FEISHU-004、TC-FEISHU-001、TC-FEISHU-002、TC-FEISHU-003、TC-FEISHU-005、TC-FEISHU-006、TC-FEISHU-007、TC-FEISHU-008、TC-FEISHU-009、TC-FEISHU-013、TC-FEISHU-011、TC-FEISHU-012、TC-FEISHU-015、TC-FEISHU-010、TC-CONV-037、TC-AUTH-014、TC-FEISHU-014、TC-MOCK-002、TC-AI-002、TC-SHOP-024、TC-FEISHU-016） | 通过 40/45 · 失败 3 · 待人工 2 |
+| RUN-013 | 2026-10-16 | 本地 | `c248a6e` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-012：TC-SHOP-001、TC-FEISHU-002、TC-FEISHU-007、TC-FEISHU-010、TC-PERM-002、TC-PERM-001、TC-PERM-005、TC-AUTH-004、TC-AUTH-001、TC-AI-001、TC-KB-001、TC-KB-024、TC-FEISHU-005、TC-FEISHU-011、TC-TKT-001、TC-ORD-015、TC-AI-002） | 通过 16/17 · 失败 1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -3896,6 +3898,12 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-010 | TC-KB-035 | 失败 | 第 2 步预期补扫后 D1 重新入库变为 `ready`；实际 30 秒后仍 `queued`，没有新的入库任务：前置里关掉 AI 可用把资料的更新时间刷成了当前，补扫按资料最近一次更新判断「排队超过 10 分钟」；第 3 步未执行；证据 `docs/test-runs/run-010-TC-KB-035-2.json`、`docs/test-runs/run-010-TC-KB-035-2.png` | 设计裁定：补扫按资料最近一次更新计时（DESIGN §17 写明，改分类、站点、AI 可用都重新计时），用例前置去掉关 AI 可用一步；RUN-011 复测 |
 | RUN-010 | TC-CONV-010 | 待人工 | 执行者为人工，AI 未执行 | 人工收口轮 |
 | RUN-010 | TC-KB-036 | 待人工 | 执行者为人工（真实 Cloudflare AI Search 与 DeepSeek，token 由人解锁 Bitwarden 取），AI 未执行 | 人工收口轮 |
+| RUN-012 | TC-SHOP-001 | 失败 | 第 9 步先发消息再打开 signup1 的 `/wb`，发出后 10.3 秒待认领里仍没有该会话：首次取列表时会话还没进入待认领，下一次要等 10 秒轮询；DESIGN §16 的口径是下一次轮询（≤ 10 秒）可见，从发出算起最长约 11 秒；另做一次先开页面再发为 8.9 秒；证据：`run-012-local.md` 记的入库时间与等待超时（无截图） | 用例口径待裁定（「10 秒内」从发出算起还是从进入待认领算起），RUN-013 照原用例复测 |
+| RUN-012 | TC-FEISHU-002 | 失败 | 第 2 步测试卡片正文有图片说明，图片位置只显示文字「图片 img_stub_bytes_301」：替身把上传的图片字节记成只带大小的 key，开发发件箱解不出原图；证据 `run-012-TC-FEISHU-002-2.png` | 实现修复，RUN-013 复测 |
+| RUN-012 | TC-FEISHU-007 | 失败 | 第 3 步中文消息「我要人工客服」下方多了「译文：[Shopee 机翻] 我要人工客服」：模拟 Shopee 推送带的平台机翻被原样放进卡片；证据 `run-012-TC-FEISHU-007-3.png` | 实现修复（原文是中文时不放译文），DESIGN §12.9 构卡规则写明，RUN-013 复测 |
+| RUN-012 | TC-SHOP-024 | 待人工 | 执行者为人工，AI 未执行 | 人工收口轮 |
+| RUN-012 | TC-FEISHU-016 | 待人工 | 执行者为人工（真实飞书），AI 未执行；开发期间不向真实飞书群发消息 | 人工收口轮 |
+| RUN-013 | TC-SHOP-001 | 失败 | 第 9 步照用例先发消息再打开 `/wb`，发出后 10.0 秒待认领里仍没有该会话，与 RUN-012 相同：会话入库后约 2 秒影子草稿生成，页面首次取列表时还不可见，下一次要等 10 秒轮询；证据 `run-013-TC-SHOP-001-9.png` | 用例口径待裁定（「10 秒内」从发出算起，还是改为下一次列表刷新后可见），裁定前不改用例 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -3918,6 +3926,10 @@ RUN-009 备注：`TC-PERM-001` 展开态导航下方没有用量卡、收起后�
 RUN-010 证据：知识库一期的局部轮，范围是全部知识库用例、受影响的旧用例（`TC-AI-003`、`TC-AI-005`、`TC-PERM-003`、`TC-TEAM-013`、`TC-CONV-010`）与冒烟级 12 条。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_kbrun` 并按 §3 重建基线，Web 跑在 3362、Worker 单独起，`KNOWLEDGE_MODE=stub`、`AI_MODE=stub`；`TC-AI-002` 前重建基线并以 `AI_MODE=deepseek` 重启。逐条结果、执行顺序与手段见 `docs/test-runs/run-010-local.md`。没有跑走查用例，未刷新截图。
 
 RUN-011 证据：复测轮，承接 RUN-010 失败的 `TC-KB-035`（按修正后的用例：前置不再改资料）加冒烟级 12 条。环境与手段同 RUN-010（独立库 `shopilot_kbrun` 起跑重建基线、Web 3362、`KNOWLEDGE_MODE=stub`；`TC-AI-002` 前重建基线并以 `AI_MODE=deepseek` 重启），2026-10-16 00:11–00:14。应用代码与 RUN-010 相同，只改了设计文档与用例。`TC-KB-035`：补扫后 D1 30 秒内变为 `ready`、列表「可用」，D2 为 `failed`、原因「入库任务中断，请重新解析」。
+
+RUN-012 证据：飞书群推送一期的局部轮，范围是新增的飞书用例（`TC-FEISHU-016` 待人工）、受影响的旧用例（认领与并发认领、两步验证回跳、商户切换、停用成员、通知规则、安全页、发件箱、`TC-SHOP-024`）与冒烟级 14 条。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_fsrun` 并按 §3 重建基线，Web 跑在 3363、Worker 单独起，`FEISHU_MODE=stub`；`TC-AUTH-014`、`TC-FEISHU-014` 之后各重建一次基线，`TC-MOCK-002` 用环境变量切换 `MOCK_PLATFORM`，`TC-AI-002` 以 `AI_MODE=deepseek` 重启后改回。17 条用例第一次执行时脚本的选择器或等待写错，中断后修正脚本、从前置起用新数据重跑，登记的是重跑结果；`TC-AUTH-001` 第 6 步与 `TC-SHOP-001` 第 8 步在同一状态上重看。逐条结果、执行顺序与手段见 `docs/test-runs/run-012-local.md`。没有跑走查用例，未刷新截图。
+
+RUN-013 证据：复测轮，承接 RUN-012 的三条失败加冒烟级 13 条，另加修复波及的 `TC-FEISHU-010`。被测版本 `c248a6e` 修了 `TC-FEISHU-002`（替身上传的图片字节在开发发件箱可预览）与 `TC-FEISHU-007`（中文消息不放平台机翻的译文），两条都通过；`TC-SHOP-001` 第 9 步没有改代码也没有改用例，照原用例执行仍失败，等口径裁定。环境与手段同 RUN-012，2026-10-16 01:54–02:07；脚本拼接错误与登录限频导致的中断不计结果，修正后重跑，逐条结果见 `docs/test-runs/run-013-retest.md`。
 
 ## 7. 遗留问题
 

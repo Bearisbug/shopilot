@@ -235,13 +235,14 @@ export const STUB_CHATS: FeishuChat[] = [
   { chatId: "oc_stub_th", name: "泰国站客服（替身）" },
 ];
 
-/** 替身图片 key：带上来源地址，开发发件箱据此显示原图 */
+/** 替身图片 key：带上来源地址（上传的是字节时带 data URL），开发发件箱据此显示原图 */
 export function stubImageKey(image: ImageSource): string {
-  return "url" in image ? `img_stub_${Buffer.from(image.url).toString("base64url")}` : `img_stub_bytes_${image.bytes.length}`;
+  const src = "url" in image ? image.url : `data:${image.mime};base64,${image.bytes.toString("base64")}`;
+  return `img_stub_${Buffer.from(src).toString("base64url")}`;
 }
 
 export function stubImageSource(key: string): string | null {
-  if (!key.startsWith("img_stub_") || key.startsWith("img_stub_bytes_")) return null;
+  if (!key.startsWith("img_stub_")) return null;
   try {
     return Buffer.from(key.slice("img_stub_".length), "base64url").toString("utf8");
   } catch {

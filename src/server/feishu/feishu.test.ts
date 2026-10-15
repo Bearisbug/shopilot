@@ -102,7 +102,7 @@ describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", 
     return ctxFor(merchant, m.id, userId, role, role === "admin" ? null : shopIds, name);
   }
 
-  function buyerMsg(convExt: string, over: Partial<{ type: "text" | "image"; text: string | null; payload: Record<string, unknown>; sentAt: Date }> = {}) {
+  function buyerMsg(convExt: string, over: Partial<{ type: "text" | "image"; text: string | null; translation: string; payload: Record<string, unknown>; sentAt: Date }> = {}) {
     return {
       externalMessageId: `m-${randomUUID()}`,
       externalConversationId: convExt,
@@ -112,7 +112,7 @@ describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", 
       senderRole: "buyer" as const,
       type: over.type ?? ("text" as const),
       text: over.text === undefined ? "Can it work with Mac?" : over.text,
-      translation: null,
+      translation: over.translation ?? null,
       payload: over.payload ?? {},
       sentAt: over.sentAt ?? new Date(),
       affiliate: false,
@@ -256,7 +256,7 @@ describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", 
       const ext = `c-${randomUUID()}`;
       const convId = await ingestBuyer(A.shopVn, ext, { sentAt: new Date(Date.now() - 3 * 60_000) });
       await ingestBuyer(A.shopVn, ext, { type: "image", text: null, payload: { url: "https://cf.shopee.sg/file/abc" } });
-      await ingestBuyer(A.shopVn, ext, { text: "这个能退货吗" });
+      await ingestBuyer(A.shopVn, ext, { text: "这个能退货吗", translation: "[Shopee 机翻] 这个能退货吗" });
       const [row] = await deliveries(convId);
       await deliverFeishuCard({ id: row.id });
       const [sent] = await deliveries(convId);
@@ -270,6 +270,7 @@ describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", 
       expect(md).toContain("Can it work with Mac?\n<font color='grey'>译文：&#91;译文&#93; Can it work with Mac?</font>");
       expect(md).toContain("这个能退货吗");
       expect(md).not.toContain("译文：这个能退货吗");
+      expect(md).not.toContain("Shopee 机翻");
       const img = card.body.elements.find((e) => e.tag === "img");
       expect(stubImageSource(img!.img_key!)).toBe("https://cf.shopee.sg/file/abc");
       expect(JSON.stringify(card)).toContain(`/wb/${convId}?claim=1&m=${A.merchant.id}`);
