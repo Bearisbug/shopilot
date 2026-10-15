@@ -1,0 +1,43 @@
+/* 聊天图片灯箱（yet-another-react-lightbox）：颜色只取 brand/ tokens（THEME-006）；遮罩带轻度景深（MOTION-003） */
+.yarl__root {
+  --yarl__color_backdrop: color-mix(in srgb, var(--semantic-color-surface-inverse) 88%, transparent);
+  --yarl__color_button: color-mix(in srgb, var(--semantic-color-text-on-inverse) 80%, transparent);
+  --yarl__color_button_active: var(--semantic-color-text-on-inverse);
+  --yarl__color_button_disabled: color-mix(in srgb, var(--semantic-color-text-on-inverse) 35%, transparent);
+  --yarl__button_filter: none;
+  /* 放大后图片会铺到按钮底下：按钮自带半透明深底，压在浅色图片上也看得清 */
+  --yarl__button_background_color: color-mix(in srgb, var(--semantic-color-surface-inverse) 60%, transparent);
+  --yarl__button_margin: 4px;
+  --yarl__slide_icon_loading_color: var(--semantic-color-text-on-inverse);
+  --yarl__slide_icon_error_color: var(--semantic-color-text-on-inverse);
+}
+
+.yarl__container {
+  backdrop-filter: blur(6px);
+}
+
+/* 默认只在聚焦时变色，补上看得见的焦点环（A11Y-008） */
+.yarl__button {
+  border-radius: var(--semantic-radius-md);
+}
+.yarl__button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--semantic-color-text-on-inverse);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.viewer-caption {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 16px;
+  margin: 0 auto;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  padding: 4px 12px;
+  border-radius: var(--semantic-radius-md);
+  background: color-mix(in srgb, var(--semantic-color-surface-inverse) 70%, transparent);
+  color: var(--semantic-color-text-on-inverse);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+}

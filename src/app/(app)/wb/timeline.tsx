@@ -6,16 +6,23 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BuyerOrder, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { inTz, money, PLATFORM_LABEL } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ImageViewer, type ViewerImage } from "./image-viewer";
 import { AiTag, latestEvent } from "./wb-shared";
 
 const STATUS_TEXT = { sending: "发送中", sent: "已发送", failed: "发送失败" } as const;
 /** 卡片类消息不套聊天气泡：卡片自身就是带边框的块，按发送方左右对齐 */
 const CARD_TYPES = new Set<MessageItem["type"]>(["order_card", "product_card", "return_card", "logistics_card", "coupon_card"]);
 
-type Ctx = { ordersById: Map<string, BuyerOrder>; products: Record<string, ProductCardInfo>; platform: "shopee" | "tiktok"; tz: string };
+type Ctx = {
+  ordersById: Map<string, BuyerOrder>;
+  products: Record<string, ProductCardInfo>;
+  platform: "shopee" | "tiktok";
+  tz: string;
+  /** 点开某条图片消息：在灯箱里从这张开始看本会话已加载的全部图片 */
+  openImage: (messageId: string, trigger: HTMLElement) => void;
+};
 const NEAR_BOTTOM = 80;
 
 /**
@@ -108,7 +115,18 @@ export function Timeline({
   }
 
   const days = messages.map((m) => inTz(m.sentAt, tz, "M 月 d 日"));
-  const ctx: Ctx = { ordersById, products, platform, tz };
+  const images: ViewerImage[] = messages.flatMap((m) => {
+    const url = m.type === "image" && typeof m.payload.url === "string" ? m.payload.url : null;
+    if (!url) return [];
+    const who = m.direction === "in" ? "买家" : m.senderRole === "ai" ? "AI" : (m.senderName ?? "我方");
+    return [{ id: m.id, src: url, caption: `${who} · ${inTz(m.sentAt, tz, "MM-dd HH:mm")}` }];
+  });
+  const [viewer, setViewer] = useState<{ index: number; trigger: HTMLElement; open: boolean } | null>(null);
+  const openImage = (messageId: string, trigger: HTMLElement) => {
+    const index = images.findIndex((i) => i.id === messageId);
+    if (index >= 0) setViewer({ index, trigger, open: true });
+  };
+  const ctx: Ctx = { ordersById, products, platform, tz, openImage };
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* 滚动位置由上面的逻辑自己还原，关掉浏览器的滚动锚定免得两边一起调；长串在气泡里折行，overflow-x 只是兜底 */}
@@ -147,6 +165,16 @@ export function Timeline({
           <ArrowDownIcon />
           有新消息
         </Button>
+      )}
+      {viewer && (
+        <ImageViewer
+          open={viewer.open}
+          images={images}
+          index={viewer.index}
+          trigger={viewer.trigger}
+          onClose={() => setViewer((v) => v && { ...v, open: false })}
+          onExited={() => setViewer(null)}
+        />
       )}
     </div>
   );
@@ -306,36 +334,21 @@ function trackingLines(o: BuyerOrder | undefined, tz: string): string[] {
 const THUMB_W = 240;
 const THUMB_H = 256;
 
-/** 缩略图点开看原图；按 payload 的宽高先占好位置，图片加载完不再撑高时间线 */
-function ChatImage({ url, width, height }: { url: string; width: number; height: number }) {
+/** 缩略图点开在灯箱里看原图；按 payload 的宽高先占好位置，图片加载完不再撑高时间线 */
+function ChatImage({ id, url, width, height, onOpen }: { id: string; url: string; width: number; height: number; onOpen: Ctx["openImage"] }) {
   const scale = Math.min(1, THUMB_W / width, THUMB_H / height);
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button type="button" aria-label="查看大图" className="focus-ring block max-w-full cursor-zoom-in rounded-lg">
-          <Image
-            src={url}
-            alt="聊天图片"
-            width={width}
-            height={height}
-            unoptimized
-            className="h-auto max-w-full rounded-lg border border-border object-cover"
-            style={{ width: Math.round(width * scale), aspectRatio: `${width} / ${height}` }}
-          />
-        </button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>聊天图片</DialogTitle>
-          <DialogDescription>
-            <a href={url} target="_blank" rel="noreferrer" className="focus-ring rounded-sm text-(--semantic-color-text-link) underline-offset-4 hover:underline">
-              在新标签页打开原图
-            </a>
-          </DialogDescription>
-        </DialogHeader>
-        <Image src={url} alt="聊天图片原图" width={width} height={height} unoptimized className="mx-auto h-auto max-h-[70dvh] w-auto max-w-full rounded-md object-contain" />
-      </DialogContent>
-    </Dialog>
+    <button type="button" aria-label="查看大图" aria-haspopup="dialog" onClick={(e) => onOpen(id, e.currentTarget)} className="focus-ring block max-w-full cursor-zoom-in rounded-lg">
+      <Image
+        src={url}
+        alt="聊天图片"
+        width={width}
+        height={height}
+        unoptimized
+        className="h-auto max-w-full rounded-lg border border-border object-cover"
+        style={{ width: Math.round(width * scale), aspectRatio: `${width} / ${height}` }}
+      />
+    </button>
   );
 }
 
@@ -351,7 +364,7 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
       const w = Number(p.width) || 240;
       const h = Number(p.height) || 240;
       return url ? (
-        <ChatImage url={url} width={w} height={h} />
+        <ChatImage id={m.id} url={url} width={w} height={h} onOpen={ctx.openImage} />
       ) : (
         <CardBox icon={ImageIcon} title="图片" />
       );
