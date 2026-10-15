@@ -98,7 +98,7 @@ export function AppShell({ children, initialCollapsed }: { children: React.React
       >
         跳到主内容
       </a>
-      <div className="flex h-dvh overflow-hidden bg-background">
+      <div className="relative flex h-dvh overflow-hidden bg-background">
         <Sidebar
           className="hidden lg:flex"
           collapsed={collapsed}

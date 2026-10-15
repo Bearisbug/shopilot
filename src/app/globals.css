@@ -31,8 +31,11 @@
   }
 }
 
-/* 滚动条（RESP-015）：只用标准属性，颜色走 tokens；声明落在真正滚动的元素上 */
+/* 滚动条（RESP-015）：只用标准属性，颜色走 tokens；声明落在真正滚动的元素上。
+   滚动容器必须是定位元素：里面的 absolute 子元素（如 sr-only 文字）才以它为包含块、随内容滚动并被它裁掉；
+   否则它们按页面定位，停在视口外面把整页撑出滚动条，滚动条一出一收页面就左右抖 */
 .scroll-y {
+  position: relative;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -41,6 +44,7 @@
 }
 /* 导航类容器（RESP-016）：隐藏滚动条视觉、保留滚动 */
 .scroll-nav {
+  position: relative;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
