@@ -39,8 +39,8 @@ import { notAllowed, notFound, validation } from "../http/problem";
 import { DEFAULT_HANDOFF_KEYWORDS, DEFAULT_SCHEDULE, DEFAULT_TICKET_TYPES } from "../merchants/defaults";
 import { setTikTokAcceptChat } from "../shops/agent-settings";
 
-/** 只读接入的店不能从 Shopilot 发送，只能 off 或 shadow */
-const READ_ONLY_MODE_REASON = "是只读接入，消息从平台拉取、不能从 Shopilot 发送，只能设为 off 或 shadow";
+/** 只读接入的店发不到平台：auto 会让 AI 直接发送，不开放；assist 的草稿可以试发（发送显示失败） */
+const READ_ONLY_MODE_REASON = "是只读接入，消息不会发到平台，不能设为 auto";
 
 const sr = schema.shopReception;
 const rs = schema.receptionSettings;
@@ -148,7 +148,7 @@ export async function saveModes(ctx: MemberContext, body: ModesBody): Promise<Mo
   if (byId.size !== ids.length) throw notFound("有店铺不存在或已断开，刷新页面后重试。");
   for (const s of body.shops) {
     const shop = byId.get(s.shopId)!;
-    if (shop.readOnly && [s.modeInHours, s.modeOffHours].some((m) => m === "assist" || m === "auto")) {
+    if (shop.readOnly && [s.modeInHours, s.modeOffHours].some((m) => m === "auto")) {
       await deniedByRule(ctx, "API-RCP-002", "read_only", `「${shop.name}」${READ_ONLY_MODE_REASON}。`);
     }
     if (shop.platform === "shopee" && (s.modeInHours === "auto" || s.modeOffHours === "auto")) {

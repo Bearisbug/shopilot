@@ -125,6 +125,8 @@ export type ConversationDetail = {
     canReply: boolean;
     replyBlockedReason: string | null;
   };
+  /** 只读接入的店：输入框上方的常驻提示（可以输入和试发，发送会显示失败）；普通店为 null */
+  readOnlyNotice: string | null;
   segment: { id: string; stage: Stage; stageSource: "auto" | "manual" | "keyword"; stageBasis: string | null; startedAt: string } | null;
   messages: MessageItem[];
   /** 本页商品卡片涉及的商品，键为平台商品 ID；信息还没取到时 name 等为 null，链接照常给 */
