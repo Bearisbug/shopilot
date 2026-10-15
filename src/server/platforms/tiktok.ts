@@ -201,7 +201,7 @@ export function normalizeTiktokMessage(m: Record<string, unknown>): NormalizedMe
       break;
     case "VIDEO":
       type = "video";
-      payload.url = c.url ?? c.vid;
+      Object.assign(payload, { url: c.url ?? c.vid, cover: c.cover, width: c.width, height: c.height, duration: c.duration });
       break;
     case "PRODUCT_CARD":
       type = "product_card";

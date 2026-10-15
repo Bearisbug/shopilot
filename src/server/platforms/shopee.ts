@@ -279,7 +279,7 @@ export function normalizeShopeeMessage(m: Record<string, unknown>, shopId: strin
       break;
     case "video":
       type = "video";
-      payload.url = c.video_url;
+      Object.assign(payload, { url: c.video_url, width: c.thumb_width, height: c.thumb_height, duration: c.duration_seconds });
       break;
     default:
       text = typeof c.text === "string" ? c.text : null;

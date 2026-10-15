@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownIcon, ExternalLinkIcon, ImageIcon, PackageIcon, ShoppingBagIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon } from "lucide-react";
+import { ArrowDownIcon, ExternalLinkIcon, ImageIcon, PackageIcon, ShoppingBagIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BuyerOrder, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
@@ -204,8 +204,8 @@ function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; o
     );
   }
   const ours = m.direction === "out";
-  // 卡片与图片自带边框，不再套聊天气泡
-  const bubble = CARD_TYPES.has(m.type) || m.type === "image" ? (
+  // 卡片、图片、视频自带边框，不再套聊天气泡
+  const bubble = CARD_TYPES.has(m.type) || m.type === "image" || m.type === "video" ? (
     <Content m={m} ctx={ctx} />
   ) : (
     <div className={cn("max-w-full min-w-0 rounded-lg px-3 py-2 text-sm leading-relaxed [overflow-wrap:anywhere]", ours ? "rounded-tr-sm bg-accent" : "rounded-tl-sm bg-muted")}>
@@ -461,6 +461,26 @@ function ChatImage({ id, url, width, height, onOpen }: { id: string; url: string
   );
 }
 
+/** 聊天视频：就地播放；没有封面时取第 0.1 秒那一帧当封面。平台视频链接会过期（TikTok 带签名），加载失败时提示到平台后台查看 */
+function ChatVideo({ url, cover, width, height, duration }: { url: string; cover: string | null; width: number; height: number; duration: number | null }) {
+  const [failed, setFailed] = useState(false);
+  const scale = Math.min(1, THUMB_W / width, THUMB_H / height);
+  if (failed) return <CardBox icon={VideoIcon} title="视频" sub={["视频加载不出来，链接可能已过期，请到平台后台查看"]} />;
+  return (
+    <video
+      src={cover ? url : `${url}#t=0.1`}
+      poster={cover ?? undefined}
+      controls
+      preload="metadata"
+      playsInline
+      aria-label={duration ? `聊天视频，时长 ${Math.round(duration)} 秒` : "聊天视频"}
+      onError={() => setFailed(true)}
+      className="block h-auto max-w-full rounded-lg border border-border bg-muted object-contain"
+      style={{ width: Math.round(width * scale), aspectRatio: `${width} / ${height}` }}
+    />
+  );
+}
+
 function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
   const { ordersById, tz } = ctx;
   const p = m.payload;
@@ -492,8 +512,17 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
     }
     case "sticker":
       return <span className="text-muted-foreground">[表情]</span>;
-    case "video":
-      return <span className="text-muted-foreground">[视频] 请到平台后台查看</span>;
+    case "video": {
+      const url = typeof p.url === "string" ? p.url : null;
+      // 早先入库的视频没有尺寸，按手机竖屏 9:16 摆
+      const w = Number(p.width) || 270;
+      const h = Number(p.height) || 480;
+      return url ? (
+        <ChatVideo url={url} cover={typeof p.cover === "string" ? p.cover : null} width={w} height={h} duration={Number(p.duration) || null} />
+      ) : (
+        <CardBox icon={VideoIcon} title="视频" sub={["请到平台后台查看"]} />
+      );
+    }
     default:
       return <span className="text-muted-foreground">{m.text ?? "[这类消息请到平台后台查看]"}</span>;
   }
