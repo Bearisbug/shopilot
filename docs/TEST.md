@@ -206,11 +206,11 @@ printf 'not really a ppt' > "$KB/产品介绍.pptx"; printf 'plain text, not a p
 ```
 
   得到：保修政策.pdf 约 3 MB（2 页）、大文件.pdf 约 25 MB、拆分.pdf 约 18 MB（30 页，每页约 0.6 MB）、单页超限.pdf 约 14 MB（15 页，第 12 页 11 MB）、型号对照.xlsx 约 1 MB、说明书.docx 约 5 MB、保修政策.md、运费说明.txt、产品介绍.pptx、伪装.pdf（扩展名是 pdf、内容是文本）、工具.exe。
-- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类；`q` 在本机库执行一条只读 SQL，库名默认 `shopilot`）：
+- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类（先 `login owner@demo.test` 一次；登录每 IP 每分钟限 30 次，函数里不重复登录）；`q` 在本机库执行一条只读 SQL，库名默认 `shopilot`）：
 
 ```bash
 kbup() { who=$1; f=$2; shift 2; curl -s -b "$SP_TMP/$who" -H "Origin: $B" -F "file=@$f" "$@" -w '\nHTTP %{http_code}\n' "$B/api/v1/knowledge/documents"; }
-kbclear() { login owner@demo.test >/dev/null
+kbclear() {
   while ids=$(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowledge/documents?limit=100" | jq -r '.items[].id') && [ -n "$ids" ]; do
     for id in $ids; do curl -s -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -X DELETE "$B/api/v1/knowledge/documents/$id"; done; done
   for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowledge/categories" | jq -r '.items[] | select(.builtin | not) | .id'); do
@@ -2691,8 +2691,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 站点筛选选「MY」 | 只列保修政策.md（适用全部站点的也列出）；地址带 `market=MY` |
-| 2 | 站点筛选改为「TH」 | 两份都列出 |
+| 1 | 站点筛选选「MY 可用」 | 只列保修政策.md（适用全部站点的也列出）；地址带 `market=MY` |
+| 2 | 站点筛选改为「TH 可用」 | 两份都列出 |
 | 3 | 站点筛选改为「只看全部站点」 | 只列保修政策.md；地址带 `market=ALL` |
 | 4 | 把地址改成 `/reception/knowledge?market=XX&state=bad` 回车 | 筛选显示「不限站点」「全部状态」，地址里这两个参数被去掉，两份都列出 |
 | 5 | 打开保修政策.md 的抽屉，适用站点点「MY」 | 「全部站点」取消选中、只剩 MY；提示「适用站点已改，下一次出稿起按新站点检索」；状态仍为「可用」 |
