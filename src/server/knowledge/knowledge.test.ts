@@ -49,7 +49,7 @@ describe.skipIf(!process.env.DATABASE_URL)("知识库（需要数据库）", asy
   const { purgeDocument } = await import("./purge");
   const { retrieveForDraft } = await import("./retrieve");
   const { stubSearchService, STUB_INGEST_ERROR } = await import("./stub");
-  const { instanceName } = await import("./types");
+  const { instanceName, KnowledgeServiceError } = await import("./types");
   const { askKnowledge } = await import("./ask");
   const { generateDraft } = await import("@/server/ai/draft");
   const { getConversation } = await import("@/server/conversations/queries");
@@ -410,6 +410,24 @@ describe.skipIf(!process.env.DATABASE_URL)("知识库（需要数据库）", asy
       expect(failed).toMatchObject({ degraded: true, merged: [] });
       expect(failed?.degradedReason).toContain("timeout");
       await setKbStub("normal");
+    });
+
+    it("买家原话没有文字、改写也为空时不调检索，按没检索到资料处理、不标降级", async () => {
+      // 仿 Cloudflare：空查询返回 400 7001
+      const queries: string[] = [];
+      const strict = {
+        ...svc,
+        async search(instance: string, req: Parameters<typeof svc.search>[1]) {
+          queries.push(req.query);
+          if (!req.query.trim()) throw new KnowledgeServiceError("http", "400 7001 All user messages must have non-empty content", 400);
+          return svc.search(instance, req);
+        },
+      };
+      for (const original of ["", "  "]) {
+        const r = await retrieveForDraft({ merchantId: ctx.merchant.id, market: "MY", original, conversation: [], orderFacts: [], svc: strict });
+        expect(r).toMatchObject({ rewrittenQuery: null, routes: [], merged: [], degraded: false, degradedReason: null, vectorRetry: false });
+      }
+      expect(queries).toEqual([]);
     });
 
     async function buyerSays(conversationId: string, textMsg: string) {

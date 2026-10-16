@@ -6,7 +6,7 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.19，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.20，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
 | 最后更新 | 2026-10-16 |
 
@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | 按 DESIGN v1.17 新增四条源自缺陷的用例：`TC-KB-042`（买家只发图片或商品卡时知识库检索报错）、`TC-SHOP-031`（Shopee 推送订阅缺失时店铺页仍显示正常）、`TC-SHOP-032`（手机宽度下回复率图表横轴文字重叠）、`TC-ORD-027`（已结束的售后单请求拒绝原因返回 502） | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-048`（源自缺陷：Shopee 卖家后台的回复没有进 Shopilot）、`TC-CONV-049`（本方回复的回声不算平台后台回复）、`TC-CONV-050`（店铺自动回复不算平台后台回复）；§3 加模拟器接口「卖家后台回复」 | 实现会话 |
 | 2026-10-16 | 按 DESIGN v1.18 新增 `TC-CONV-054`（源自缺陷：平台后台处理过的会话在工作台列表里找不到）、`TC-CONV-055`（源自缺陷：平台英文系统提示原样显示英文）；「同事处理中」分组改名「他人处理中」、员工也有这一组，原位修改 `TC-PERM-001` 第 1–3 步、`TC-CONV-004` 第 1 步、`TC-CONV-017` 第 1 步、`TC-TEAM-009` 第 3 步（员工本来就有这一组，去掉「出现同事处理中」）；§3 场景加 `tiktok-system-notices` | 实现会话 |
 | 2026-10-16 | RUN-019 之后修正 `TC-FEISHU-017`（原位修改）：前置记下 Mei Lin 原有的处理中会话数 K，第 5 步停用返回的 `releasedConversations` 改为 K + 1（原写 1，种子里 Mei 本来就有处理中的会话） | 实现会话 |
@@ -1144,6 +1145,36 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 1 | 打开 `/shops/connect/shopee/auth`，点「打开授权页」 | 模拟授权页列出 Demo Shopee MY、Demo Shopee SG 与未接入的 Demo Shopee PH |
 | 2 | 勾全部三家，点授权 | 回到 `/shops/connect/shopee/auth`，地址带 `result=error&reason=shop_limit`，页面提示店铺数超过套餐上限并给出升级套餐的入口 |
 | 3 | 刷新 `/shops` | 店铺数仍为 N，没有 Demo Shopee PH |
+
+后置：`pnpm db:reset && pnpm db:seed`。
+
+#### `TC-SHOP-031` Shopee 推送没订阅到 Shopilot 时店铺页标需处理并给重新校验入口 — 对应 `REQ-SHOP-006` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 Shopee 推送订阅缺失时店铺页仍显示正常
+
+前置：基线；`login owner@demo.test`；终端执行 `docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -c "update platform_app set callback_state = 'unset' where app_key = '1000101'"`（Demo Store 的 Shopee 应用从没设过推送回调，同线上导入的应用）；浏览器以 owner@demo.test 登录，视口 1440×900。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/shops` | Demo Shopee MY、Demo Shopee SG 两行「连接」列为「需处理 · 推送未订阅」；右侧「平台应用」的 Shopee 应用卡写「推送没有订阅到 Shopilot」，带「重新校验」链接；TikTok 应用卡没有这一句 |
+| 2 | `api owner@demo.test $B/api/v1/shops` | 两家 Shopee 店的 `issues` 含 `key` 为 `push_unsubscribed` 的一项，文案写「订单、物流、售后状态要等每小时同步才更新」；`apps` 里 Shopee 应用 `pushSubscribed` 为 false，TikTok 应用为 true；`summary.attention` ≥ 2 |
+| 3 | 点 Demo Shopee MY 打开详情抽屉 | 顶部提示同一句文案，下面有「重新校验 Shopee 应用」链接 |
+| 4 | 打开 `/orders` | 提示「Demo Shopee MY、Demo Shopee SG 的平台推送没有订阅到 Shopilot…」，带链接「重新校验 Shopee 应用」，指向 `/shops/connect/shopee` |
+| 5 | 点该链接 | 进入 Shopee「应用凭证」页，Live Partner ID 已填 1000101 |
+| 6 | Live Partner Key 填 `mock-key-1000101`，点「验证并保存」 | 提示「校验通过，推送回调已设置」 |
+| 7 | 按 §3「Shopee 签名调用」读应用 1000101 的推送配置（Key 换成 `mock-key-1000101`） | `push_config_on_list` 含 1、2、3、4、10、12、28、29、30 九个 code |
+| 8 | 刷新 `/shops` | 两家 Shopee 店的「连接」列不再有「推送未订阅」；Shopee 应用卡没有「重新校验」 |
+| 9 | 刷新 `/orders` | 没有「平台推送没有订阅到 Shopilot」提示 |
+
+后置：无。
+
+#### `TC-SHOP-032` 手机宽度下回复率图表横轴文字不重叠 — 对应 `REQ-SHOP-006` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 手机宽度下店铺页回复率图表横轴文字重叠
+
+前置：基线；终端执行 `pnpm scenario plan-over-shop-limit`（Demo Store 共 8 家已连接店）与 `pnpm job shop.metrics`；浏览器以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 视口 390×844 打开 `/shops`，看回复率图表横轴 | 8 根柱子各有一组文字，相邻两组之间留有空隙、不重叠；每组只写站点代码（MY、SG、TH 等），图例仍写「Shopee」「TikTok Shop」区分平台 |
+| 2 | 点任一根柱子 | 提示框显示该店全名与回复率 |
+| 3 | 视口 1440×900 刷新 `/shops` | 横轴写「Shopee MY」这类平台加站点（一行放不下时拆成两行），相邻两组之间留有空隙 |
 
 后置：`pnpm db:reset && pnpm db:seed`。
 
@@ -2301,6 +2332,18 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：无。
 
+#### `TC-ORD-027` 已结束的 TikTok 售后单取拒绝原因直接 409 — 对应 `REQ-ORD-005` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 已结束的售后单请求拒绝原因返回 502
+
+前置：基线；模拟器为 Demo TikTok MY 新买家下单（订单 O，停 AWAITING_SHIPMENT），对 O 点「申请取消」；lead@demo.test 在 `/orders` 对 O 点「处理」，选同意，点「提交」（模拟器里该取消单为 CANCELLATION_REQUEST_SUCCESS）；`login lead@demo.test`；`q "select id from after_sale where external_order_id = '<O>' and kind = 'cancel'"` 记为 A。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api lead@demo.test $B/api/v1/after-sales/<A>` | `platformStatus` 为 `CANCELLATION_REQUEST_SUCCESS`；`actions` 里 `reject` 的 `allowed` 为 false |
+| 2 | `api lead@demo.test $B/api/v1/after-sales/<A>/reject-reasons` | `HTTP 409`，`type` 为 `/errors/not-allowed`，`code` 为 `aftersale_state`，`detail` 写明这张售后单已结束 |
+| 3 | 看 `pnpm dev` 终端里第 2 步那次请求前后的输出 | 没有 `reject_reasons` 的 `platform call` 行；该请求的日志行 `level` 为 `info`、`status` 为 409 |
+
+后置：无。
+
 ### 工单
 
 #### `TC-TKT-001` TikTok 退货：自动建单、同意退货、按平台事件推进到解决 — 对应 `REQ-TKT-001`、`REQ-ORD-005` · 级别: 冒烟 · 执行者: 皆可
@@ -3161,6 +3204,18 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：`.env` 改回 `KNOWLEDGE_MODE=stub`、`AI_MODE=stub`，删掉两个 Cloudflare 键的值，重启 `pnpm dev`；`pnpm job knowledge.purge '{"instance":"<sp- 开头的实例名>"}'` 删掉本次建的检索实例。
 
+#### `TC-KB-042` 买家只发图片时不用空查询检索 — 对应 `REQ-KB-006` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 买家只发图片或商品卡时知识库检索报错
+
+前置：基线（Demo Shopee SG 为影子模式）；`$KB` 已备；`login owner@demo.test`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；`curl -s $B/api/dev/knowledge-stub | jq '.lastQuery'` 为 `null` 或 `[]`（上传不检索）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器向 Demo Shopee SG 新买家只发一张图片（页面「发图片」不选文件即发示例图；或 `POST /api/mock/sim/create_buyer` 后 `POST /api/mock/sim/buyer_image`，multipart 只带 `conversationId`） | 推送 HTTP 200 |
+| 2 | 20 秒内 `q "select status, retrieval->'routes', retrieval->>'degraded' from draft order by created_at desc limit 1"` | `shadow\|[]\|false`：影子回复已生成，检索快照没有检索记录、不标降级 |
+| 3 | `curl -s $B/api/dev/knowledge-stub \| jq '.lastQuery'` | 仍为 `null` 或 `[]`：检索服务没有收到请求，没有 `query` 为空串的条目 |
+
+后置：`kbclear`。
+
 ### 看板
 
 #### `TC-DASH-001` 组长的看板只含负责店铺 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
@@ -3996,6 +4051,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-020 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（取消认领、影子回复译文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-019：TC-FEISHU-017） | 通过 1/1 |
 | RUN-025 | 2026-10-16 | 本地 | `1eaa7ec` + 模拟器动作 `seller_backend_reply`（未修复） | AI（Claude Code 执行子会话；curl） | 局部（TC-CONV-048） | 通过 0/1 · 失败 1 |
 | RUN-026 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（Shopee 卖家后台回复补拉） | AI（Claude Code 执行子会话；curl、Playwright + Edge） | 复测（RUN-025：TC-CONV-048、TC-CONV-049、TC-CONV-050、TC-AI-001） | 通过 4/4 |
+| RUN-030 | 2026-10-16 | 本地 | `1eaa7ec`（未修复） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-KB-042、TC-SHOP-031、TC-SHOP-032、TC-ORD-027） | 通过 0/4 · 失败 4 |
+| RUN-031 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（空查询不检索、推送未订阅入口、窄屏横轴、已结束售后单不取原因） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-030：TC-KB-042、TC-SHOP-031、TC-SHOP-032、TC-ORD-027、TC-KB-024） | 通过 5/5 |
 | RUN-040 | 2026-10-16 | 本地 | `aa34591` + 场景 `tiktok-system-notices`（未修复） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-CONV-054、TC-CONV-055） | 通过 0/2 · 失败 2 |
 | RUN-041 | 2026-10-16 | 本地 | `aa34591` + 工作区改动（他人处理中含平台后台会话、系统提示显示中文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-040：TC-CONV-054、TC-CONV-055、TC-PERM-001、TC-CONV-004） | 通过 4/4 |
 
@@ -4098,6 +4155,10 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-017 | TC-CONV-044 | 失败 | 第 3 步预期 T1 后 5 秒内列表出现 X 的会话，实际 10.1 秒才出现（列表每 10 秒刷新一次）；第 5 步时间线 4.4 秒（预期 3 秒内）；第 7 步侧栏计数 30.1 秒（预期 12 秒内）；证据 `docs/test-runs/run-017-TC-CONV-044-3.png`（列表头已是「待认领 7」，侧栏仍是 6） | 实现修复（轮询改为列表 3 秒、详情 2 秒、导航摘要 10 秒，DESIGN v1.13 §15、ADR-007），RUN-018 复测 |
 | RUN-019 | TC-FEISHU-017 | 失败 | 第 5 步预期停用返回 `releasedConversations` 为 1，实际 3（另退回 2 张工单）：种子里 Mei Lin 原本就有 2 个处理中的会话，用例前置没记下来。第 1–4、6 步通过：取消认领后 C 的第二张卡序号为 1，正文有「转人工原因 人工转交」、卡尾「处理人取消认领后再推」；停用退回后 C 没有新卡；证据 `docs/test-runs/run-019-TC-FEISHU-017-5.json` | 用例修正（前置记 Mei 原有处理中会话数 K，预期 K + 1），RUN-020 复测通过 |
 | RUN-025 | TC-CONV-048 | 失败 | 第 4 步预期会话转 `human`、时间线出现「Yes, in stock. Ships today.」（平台后台），实际 `handlingState` 仍为 `bot`、时间线只有买家消息、草稿仍在；这条 `mark_as_replied` 通知被记为 ignored「聊天通知 mark_as_replied，不是消息」；证据 `docs/test-runs/run-025-TC-CONV-048-4.json` | 实现修复（收到通知后补拉，DESIGN v1.16 §11.1），RUN-026 复测 |
+| RUN-030 | TC-KB-042 | 失败 | 第 2 步预期检索快照 `routes` 为 `[]`，实际有一条原话路的混合检索；第 3 步 `lastQuery` 有一条 `query` 为空串的请求（检索替身不拒空查询，线上 Cloudflare 对它返回 400 7001）；证据 `docs/test-runs/run-030-TC-KB-042-2.json` | 实现修复，RUN-031 复测 |
+| RUN-030 | TC-SHOP-031 | 失败 | 第 1 步两家 Shopee 店「连接」列都是「正常」，Shopee 应用卡没有「重新校验」；订单页提示的链接仍是「去检查连接」指向 `/shops`；证据 `docs/test-runs/run-030-TC-SHOP-031-1.png` | 实现修复，RUN-031 复测 |
+| RUN-030 | TC-SHOP-032 | 失败 | 第 1 步 390 宽下 8 组横轴文字都写成「Shopee / MY」两行，相邻 7 处重叠，最小间距 -7.6 像素；证据 `docs/test-runs/run-030-TC-SHOP-032-1.png` | 实现修复，RUN-031 复测 |
+| RUN-030 | TC-ORD-027 | 失败 | 第 2 步预期 409，实际 HTTP 200 并返回 3 条原因，日志有一次 `reject_reasons` 平台调用（模拟平台对已结束的取消单照样给原因；线上真实 TikTok 报错，接口返回 502）；证据 `docs/test-runs/run-030-TC-ORD-027-2.json` | 实现修复，RUN-031 复测 |
 | RUN-040 | TC-CONV-054 | 失败 | 第 1 步 Nur 的侧栏工作台只有待认领、AI 草稿、我处理中、已结束，没有「他人处理中」，C 在五个分组的接口结果里都没有；第 2 步 `counts.team` 为 0，预期 T0 + 1 = 1；第 3 步 owner 的 `view=team` 里也没有 C；证据 `docs/test-runs/run-040-TC-CONV-054-1.png` | 实现修复（他人处理中含平台后台处理、没有处理人的会话，员工也有这一组），RUN-041 复测 |
 | RUN-040 | TC-CONV-055 | 失败 | 第 1 步 6 条系统提示都原样显示英文，如「Chat ended by customer service agent.」；第 2 步没有「客服已结束对话」可点；证据 `docs/test-runs/run-040-TC-CONV-055-1.png` | 实现修复（时间线按对照表显示中文，可点开看原文），RUN-041 复测 |
 
@@ -4142,6 +4203,10 @@ RUN-020 证据：复测轮，承接 RUN-019 的 `TC-FEISHU-017`，按修正后�
 RUN-025 证据：修复前那一轮，只跑源自缺陷的 `TC-CONV-048`。环境是 §3 本地行的独立副本：分支 `fix/shopee-refetch` 的独立 git 工作区，同一 PostgreSQL 实例里另建库 `shopilot_ingest` 并按 §3 重建基线，Web 跑在 3365、Worker 单独起，`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`、`FEISHU_MODE=stub`；被测版本 `1eaa7ec` 只加了模拟器动作 `seller_backend_reply`（测试手段，不改入站处理），2026-10-16 14:12–14:14（UTC+8）。第 1–3 步通过，第 4 步失败，现象与线上一致：卖家后台回复只来一条通知，Shopilot 不处理。
 
 RUN-026 证据：复测轮，承接 RUN-025，环境同 RUN-025，起跑前重建基线，2026-10-16 14:21–14:27。第一次起跑时发现之前起的两个未修复版本 Worker 仍连着本库、抢走了通知事件（RUN-025 时它们同为未修复版本，不影响该轮结果），停掉全部旧进程、重建基线后整轮重跑，下列结果都来自重跑。`TC-CONV-048` 第 4 步会话 `human`、`platform_human`，回复由「平台后台」发出，草稿为 null（`docs/test-runs/run-026-TC-CONV-048-4.json`），第 5 步再推通知后回复仍 1 条（`run-026-TC-CONV-048-5.json`）；`TC-CONV-049` 本方回复 1 条、仍由 Nur 处理（`run-026-TC-CONV-049-5.json`）；`TC-CONV-050` 自动回复记「平台自动回复」，会话仍为 `bot`、草稿保留（`run-026-TC-CONV-050-4.json`）；冒烟 `TC-AI-001` 用 Playwright 1.64 + 本机 Edge（headless）跑完 7 步，已用 3 → 4、assist 3 → 4，截图 `docs/test-runs/run-026-TC-AI-001-{1..5}.png`。其余 13 条冒烟级未跑：本次只改 Shopee 聊天通知的处理与入库时间，按 2026-10-14 起的快速开发约定小修不跑整轮，同 RUN-014；冒烟级里经过入站与回声判定的 `TC-AI-001` 已跑。服务端用例 `src/server/inbound/refetch.test.ts` 8 条、`process.test.ts` 3 条通过；其中「最近消息时间不往回退」在去掉 `ingest.ts` 的改动后失败。
+
+RUN-030 证据：修复前那一轮，只跑四条源自缺陷的用例。环境是 §3 本地行的独立副本：分支 `fix/smoke-batch` 的独立 git 工作区（被测版本 `1eaa7ec`），同一 PostgreSQL 实例里另建库 `shopilot_smokefix` 并按 §3 重建基线，Web 跑在 3371、Worker 单独起，`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`；工作区目录名不是项目名，`q` 与前置里的改库命令改用 `docker exec shopilot-postgres-1 psql -U shopilot -d shopilot_smokefix`；模拟器动作用 `POST /api/mock/sim/*`；Playwright 1.64 + 本机 Edge（headless），2026-10-16 14:12–14:17（UTC+8），每条用例前重建基线。四条都在描述现象的那一步失败。`TC-ORD-027` 的实际与线上不同：线上返回 502，本机返回 200，因为模拟平台对已结束的售后单仍给原因列表；两者都源于接口去问了平台，本轮按第 2 步没有返回 409 判失败。`TC-SHOP-032` 的重叠由 Chart.js 横轴标签位置加 canvas 实测文字宽度算出。
+
+RUN-031 证据：复测轮，承接 RUN-030，环境与手段同 RUN-030，2026-10-16 14:19–14:28，每条用例前重建基线。被测版本为 `1eaa7ec` 加本次改动：空查询不检索（`src/server/knowledge/retrieve.ts`）；店铺页「推送未订阅」判定与「重新校验」入口（`src/server/shops/service.ts`、`src/app/(app)/shops/`、`src/app/(app)/orders/orders-client.tsx`）；窄屏横轴逐级收短（`shops-client.tsx`）；已结束的售后单不取原因（`src/server/orders/after-sales.ts`）。实测：`TC-KB-042` 检索快照 `routes` 为 `[]`、`lastQuery` 为空；`TC-SHOP-031` 九步都通过，重新校验后应用回调状态为 `already_ours`，模拟平台订阅 9 类推送；`TC-SHOP-032` 390 宽只写站点，相邻最小间距 16.3 像素，另在 360、768、1024、1280 宽各量一次都没有重叠；`TC-ORD-027` 返回 409 `aftersale_state`，没有平台调用，日志 `level` 为 `info`。冒烟级只跑了与检索主链路相关的 `TC-KB-024`，其余冒烟按 2026-10-14 起的快速开发约定（小修不跑整轮）未跑。vitest 全部 29 个文件 198 条通过，其中新增的 `knowledge.test.ts`「买家原话没有文字、改写也为空时不调检索」在修复前失败。
 
 RUN-040 证据：修复前那一轮，只跑两条源自缺陷的用例。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_wbfix` 并按 §3 重建基线，`pnpm dev` 起 Web 与 Worker（3360，`DATABASE_URL` 指向该库），`AI_MODE=stub`、`FEISHU_MODE=stub`。被测版本 `aa34591`，工作区只多了文档与场景 `tiktok-system-notices`，实现代码未改。前置 Q0 = 1、T0 = 0。`TC-CONV-054` 在第 1 步失败，与线上现象一致：会话不在员工的任何分组里，owner 的「同事处理中」也没有它，该分组只取 `claimed_by` 不等于本人的行，`claimed_by` 为空的比不出来。`TC-CONV-055` 在第 1 步失败，时间线显示英文原文。
 

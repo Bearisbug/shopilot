@@ -62,7 +62,7 @@ export function StatusText({ row }: { row: Pick<ShopRow, "status" | "issues" | "
     );
   if (row.issues.length > 0) {
     const first = row.issues[0];
-    const reason = first.key === "zero_inbound" ? "7 天零入站" : first.key === "chat_unavailable" ? "聊天不可用" : first.key === "metric_low" ? "指标不达标" : first.key === "auth_expiring" ? "授权快到期" : null;
+    const reason = first.key === "zero_inbound" ? "7 天零入站" : first.key === "chat_unavailable" ? "聊天不可用" : first.key === "push_unsubscribed" ? "推送未订阅" : first.key === "metric_low" ? "指标不达标" : first.key === "auth_expiring" ? "授权快到期" : null;
     return (
       <span className="inline-flex items-center gap-1.5 text-sm text-(--semantic-color-feedback-warning)">
         <AlertTriangleIcon className="size-3.5 shrink-0" aria-hidden />

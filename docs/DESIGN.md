@@ -16,6 +16,10 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.20 | FLOW-AI-DRAFT、REQ-KB-006 | 买家只发图片或商品卡时不再用空查询检索知识库；改写也没给出问题时不检索，按没检索到资料出稿 | 缺陷修复 |
+| 2026-10-16 | v1.20 | REQ-SHOP-006、API-SHOP-008、PAGE-SHOPS、PAGE-ORDERS | Shopee 推送没订阅到 Shopilot 时店铺页标需处理并给「重新校验」入口，订单页提示直接链过去 | 缺陷修复 |
+| 2026-10-16 | v1.20 | REQ-SHOP-006、PAGE-SHOPS | 店铺页回复率图表在窄屏上横轴文字不再重叠：放不下时只写站点，平台看图例 | 缺陷修复 |
+| 2026-10-16 | v1.20 | API-ORD-008 | 已结束的售后单取拒绝原因直接返回 409，不再去问平台 | 缺陷修复 |
 | 2026-10-16 | v1.19 | REQ-CONV-001、ENT-Conversation、ENT-InboundEvent、API-MOCK-004 | Shopee 卖家后台的回复补拉进会话：收到「会话已回复」通知后补拉，后台回复转平台后台处理；店铺自动回复与本方回复不算 | 缺陷修复 |
 | 2026-10-16 | v1.18 | REQ-CONV-002、API-CONV-001、API-NAV-001、PAGE-WB、ENT-Conversation | 平台后台处理、没有处理人的会话列进「他人处理中」并标「平台后台」，员工也能看到 | 缺陷修复 |
 | 2026-10-16 | v1.18 | PAGE-WB | TikTok 常见的英文系统提示在时间线显示中文，可点开看平台原文 | 缺陷修复 |
@@ -370,6 +374,7 @@
 | --- | --- | --- | --- | --- |
 | 失败 | 某路结果没有向量分、超过 8 秒或返回错误 | 这一路改用纯向量检索重试一次 | 场景「混合检索降级时改用纯向量重试」；§15 改写 6 秒、检索每路 8 秒加纯向量重试 5 秒 | TC-KB-028、TC-KB-029 |
 | 失败 | 两路重试后都失败 | 不带资料出稿，不转人工，记降级 | RULE-KB-002；场景「检索失败时不带资料出稿」；§15 出稿超时转人工，检索超时只降级 | TC-KB-030 |
+| 边界 | 买家这条消息没有文字，如只发图片或商品卡 | 原话一路不检索；改写也没给出问题时两路都不检索，按没检索到资料出稿，不记降级 | 场景「买家消息没有文字时不用空查询检索」 | TC-KB-042 |
 | 边界 | 命中已停用、站点不符或已删除的资料 | 从结果里丢掉这些分块 | RULE-KB-001；字段 knowledge_document.ai_enabled | TC-KB-026 |
 
 ##### S6 合并结果
@@ -733,7 +738,7 @@
 | REQ-SHOP-003 | TikTok 凭证：录入 App Key / App Secret，生成带 `shop_region` 的授权链接；Secret 在第一次换 token 时校验 | G1 | P0 |
 | REQ-SHOP-004 | 授权店铺：Shopee 主账号授权一次接入多店（回调只带 `shop_id` 时提示用了子账号或单店授权）；TikTok 按站点授权，换 token 后取已授权店铺与 cipher；授权链接 5 分钟有效；接入后店铺数超过套餐上限时拒绝并提示升级 | G1 | P0 |
 | REQ-SHOP-005 | 检查并完成：逐店检查能否收发聊天、查订单、收件人是否打码，不可用时写原因与处理入口；选 AI 初始方式（shadow 默认 / off）；完成后开始接收推送并后台回补 | G1 | P0 |
-| REQ-SHOP-006 | 店铺列表与详情抽屉：平台、站点、授权到期、平台口径客服指标（不跨平台合并）、接待模式、最近入站、7 天零入站、需处理项 | G1 | P0 |
+| REQ-SHOP-006 | 店铺列表与详情抽屉：连接状态、平台指标、接待模式与需处理项 | G1 | P0 |
 | REQ-SHOP-007 | 检查连接：按店调店铺信息、会话列表、订单列表，核对推送配置，逐项给原因与处理入口 | G1 | P1 |
 | REQ-SHOP-008 | 更新应用密钥：先用新密钥调验证接口，通过才替换，失败保留旧密钥 | G1 | P1 |
 | REQ-SHOP-009 | 续期授权：生成授权链接，回调换 token 覆盖该店旧 token | G1 | P0 |
@@ -824,6 +829,11 @@
 - REQ-AI-007：「复制」复制的是原文，即要发给买家的那段；译文经 `API-CONV-002` 返回
 - REQ-CONV-012：只有当前处理人能取消；组长、管理员要换人用改派（`API-CONV-005`）
 - REQ-CONV-012：未处置的草稿保留，关联工单的负责人不变，见 11.1 `unclaim`
+- REQ-SHOP-006：每店显示平台、站点、授权到期、平台口径客服指标（不跨平台合并）、接待模式、最近入站、7 天零入站
+- REQ-SHOP-006：Shopee 应用回调状态不是 `set` 或 `already_ours` 时，该应用下的店标「需处理 · 推送未订阅」
+- REQ-SHOP-006：「推送未订阅」与订单页 `API-ORD-001` 的 `pushOk` 是同一判定
+- REQ-SHOP-006：处理入口是应用卡与店铺详情的「重新校验」，进应用凭证页重新保存（`API-SHOP-003`），补订 9 类推送
+- REQ-SHOP-006：回复率图表横轴标「平台 站点」，一行放不下拆两行，还放不下只写站点，平台看图例
 - REQ-AUTH-005：用验证器 App 的 6 位验证码（TOTP），登录时也可改用开启时保存的备用码
 - REQ-AUTH-005：商户策略要求管理员或全员开启时，未开启者登录后只能先去开启，开好回到原来要去的页面
 - REQ-FEISHU-003：不论接待模式，进入待认领都推，含 AI 转人工、不出稿或影子模式的新会话段、处理人被停用或取消认领
@@ -1653,7 +1663,7 @@ erDiagram
 | `API-SHOP-005` | `GET /api/v1/oauth/{platform}/callback` | REQ-SHOP-004、REQ-SHOP-009 | 平台重定向：Shopee `?code&shop_id\|main_account_id&state`；TikTok `?code&state` | 成功 302 到 `/shops/connect/{platform}/probe`；失败 302 回 `/shops/connect/{platform}/auth?result=error&reason=` | 以 302 + `reason` 表达：`state_invalid`（含过期）、`secret_or_redirect_mismatch`、`sub_account`、`denied`、`shop_limit`、`platform_error` | `state` 一次性；同 code 重放返回首次结果 |
 | `API-SHOP-006` | `GET /api/v1/connect/{platform}/probe` | REQ-SHOP-005 | — | `{ shops[{ shopId, name, market, chat{ ok, reason? }, orders{ ok, reason? }, pii{ masked }, backfill{ state, conversations, orders } }] }` | — | no-store；首次调用触发检查，其后读缓存结果 60 秒 |
 | `API-SHOP-007` | `POST /api/v1/connect/{platform}/complete` | REQ-SHOP-005 | `{ initialMode: shadow\|off }` | 200 `{ shops }`；本次接入店铺写入接待模式、开始接收推送、排回补任务 | 409 `/errors/not-allowed`（没有已授权店铺） | 幂等 |
-| `API-SHOP-008` | `GET /api/v1/shops` | REQ-SHOP-006 | `?platform=&status=attention\|ok&period=7d\|30d\|this_month\|last_month` | `{ items[{ id, platform, name, market, status, authExpiresAt, modes, lastInboundAt, zeroInbound7d, metrics{ platformLabel, responseRate, target?, ... }, issues[] }], summary }` | — | no-store |
+| `API-SHOP-008` | `GET /api/v1/shops` | REQ-SHOP-006 | `?platform=&status=attention\|ok&period=7d\|30d\|this_month\|last_month` | `{ items[{ id, platform, name, market, status, authExpiresAt, modes, lastInboundAt, zeroInbound7d, metrics{ platformLabel, responseRate, target?, ... }, issues[{ key, text }] }], apps[{ id, platform, appKey, status, pushSubscribed, ... }], summary }`；`pushSubscribed` 只对 Shopee 应用有意义，回调状态为 `set` 或 `already_ours` 时为 true，TikTok 应用恒为 true；推送未订阅的店 `issues` 含 `push_unsubscribed` | — | no-store |
 | `API-SHOP-009` | `GET /api/v1/shops/{id}` | REQ-SHOP-006 | — | 店铺详情 + 能力表 + 连接事件（最近 20 条） | — | no-store |
 | `API-SHOP-010` | `POST /api/v1/shops/diagnose` | REQ-SHOP-007 | `{ shopIds? }`（空 = 全部可见店铺） | 200 `{ results[{ shopId, checks[{ key, ok, reason?, fixLink? }] }] }` | — | 只读，可重试 |
 | `API-SHOP-011` | `POST /api/v1/platform-apps/{platform}/rotate` | REQ-SHOP-008 | Shopee `{ partnerKey, pushKey? }`；TikTok `{ appSecret }` | 200；验证通过才替换 | 422 `/errors/platform-credentials`（旧密钥保留） | 幂等键 |
@@ -1702,7 +1712,7 @@ erDiagram
 | `API-ORD-005` | `GET /api/v1/after-sales/{id}` | REQ-ORD-004、REQ-ORD-005 | — | `{ kind, platformStatus, nextAction, sellerDueAt, dueField, reason, amount, evidence[], ticket? }` | — | no-store |
 | `API-ORD-006` | `POST /api/v1/after-sales/{id}/cancellation-decision` | REQ-ORD-004 | `{ decision: accept\|reject, reason? }` | 200 售后单 + 工单；审计 `EVT:aftersale_decided` | 409 `/errors/not-allowed`（不在可处理状态）；502 / 504 | 幂等键（必填） |
 | `API-ORD-007` | `POST /api/v1/after-sales/{id}/return-decision` | REQ-ORD-005 | `{ decision: approve_return\|reject_return\|approve_received\|reject_received\|confirm_refund\|dispute, reasonCode?, comment? }` | 200 售后单 + 工单 | 409 `/errors/not-allowed`（平台与状态不支持该动作）；502 / 504 | 幂等键（必填），同时作为 TikTok `idempotency_key` |
-| `API-ORD-008` | `GET /api/v1/after-sales/{id}/reject-reasons` | REQ-ORD-005 | — | `{ items[{ code, text }] }`（TikTok Get Reject Reasons） | 409（Shopee） | no-store |
+| `API-ORD-008` | `GET /api/v1/after-sales/{id}/reject-reasons` | REQ-ORD-005 | — | `{ items[{ code, text }] }`（TikTok Get Reject Reasons） | 409 `/errors/not-allowed`：Shopee 店 `platform_unsupported`；售后单已结束 `aftersale_state`，不调平台 | no-store |
 | `API-INV-001` | `POST /api/v1/invoices/extract` | REQ-AI-006 | `{ conversationId, orderId? }` | 200 `{ fields{ buyerName?, address?, email?, taxId? }, confidence }`；不计出稿 | 502 / 504 `/errors/ai-unavailable` | 可重试 |
 | `API-INV-002` | `POST /api/v1/invoices` | REQ-ORD-006 | `{ kind, conversationId?, orderId, fields{ buyerName, address, email?, taxId?, items[{ name, qty, unitPrice }], currency, notes? }, sendToChat, sendEmail }` | 201 `{ invoice{ id, number, chatStatus, emailStatus, pdfUrl, imageUrl } }` | 409 `/errors/not-allowed`（没有会话却要求发聊天）；409 `/errors/conflict`（带 `conversationId` 时订单不属于该会话的买家：同店且 `order.buyer_external_id = conversation.buyer_external_id` 才算） | 幂等键（必填） |
 | `API-INV-003` | `GET /api/v1/invoices` | REQ-ORD-006 | `?kind=&cursor=` | `{ items[{ id, number, kind, buyerName, orderId, amount, currency, chatStatus, emailStatus, createdAt, ticket? }] }` | — | no-store |
@@ -2939,6 +2949,8 @@ sequenceDiagram
 - 改写规则：政策类问题（退换货、保修、运费、发票）不加品牌名与型号，产品类问题带上对话里出现的型号
 - 改写失败时只用买家原话检索一路
 - 两路检索：改写后的问题与买家最近一条文字消息原文并行检索，每路要 20 条
+- 空查询不检索：买家这条消息没有文字时不跑原话一路，改写也为空时两路都不跑；检索快照不标降级
+- 检索服务不接受空查询：Cloudflare AI Search 对空查询返回 400「7001 All user messages must have non-empty content」
 - 每次检索请求都传 `reranking.match_threshold: 0` 与向量门槛 0：默认门槛 0.4 会让约 70% 的原话查询返回空
 - 纯向量重试：某一路结果里没有任何向量分、8 秒内没返回或返回 HTTP 错误，这一路改用纯向量检索重试一次，5 秒超时
 - 重试仍失败的那一路记失败；只有一路失败时用另一路的结果
@@ -3078,7 +3090,7 @@ sequenceDiagram
 | `PAGE-TICKETS` | `/tickets` | 管理员、组长、员工 | `API-TKT-001` | 空；员工默认「我的」且不可切「全部」 |
 | `PAGE-TICKETS-BOARD` | `/tickets/board` | 管理员、组长、员工 | `API-TKT-001`、`API-TKT-004` | 平台驱动卡片显示锁图标，无改状态菜单 |
 | `PAGE-TICKET` | `/tickets/<id>` | 管理员、组长、员工（员工只看自己的） | `API-TKT-002`、`API-TKT-004`、`API-TKT-005`、`API-TKT-006`、`API-TKT-007`、`API-TKT-008`、`API-ORD-005`、`API-ORD-006`、`API-ORD-007` | 平台类「关闭工单」置灰附原因；平台类工单有「处理申请」，打开与订单页相同的售后处理弹层；时间线的平台事件来源一律标「平台」（成员处理后回读到的平台状态也算平台事件，成员动作另记一条） |
-| `PAGE-ORDERS` | `/orders` | 管理员、组长、员工 | `API-ORD-001`、`API-ORD-002`、`API-ORD-003` | 推送未订阅提示；同步中 |
+| `PAGE-ORDERS` | `/orders` | 管理员、组长、员工 | `API-ORD-001`、`API-ORD-002`、`API-ORD-003` | 推送未订阅提示（管理员看到的 Shopee 店链接直达应用凭证页重新校验）；同步中 |
 | `PAGE-ORDERS-CANCEL` | `/orders?dialog=cancel-request` | 同上 | `API-ORD-005`、`API-ORD-006` | 订单已不在 IN_CANCEL |
 | `PAGE-INVOICES` | `/orders/invoices` | 管理员、组长、员工 | `API-INV-003`、`API-INV-004`、`API-INV-005` | 退信已建工单 |
 | `PAGE-DASHBOARD` | `/dashboard` | 管理员、组长 | `API-DASH-001` | 数据不足（比率的分母小于 10 时不显示比率，写出样本数） |
@@ -3087,7 +3099,7 @@ sequenceDiagram
 | `PAGE-RECEPTION-PROMPTS` | `/reception/prompts` | 管理员 | `API-RCP-001`、`API-RCP-004`、`API-RCP-005`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | 护栏只读 |
 | `PAGE-RECEPTION-TICKETS` | `/reception/tickets` | 管理员 | `API-RCP-006`、`API-RCP-007` | 平台类时限只读 |
 | `PAGE-RECEPTION-KB` | `/reception/knowledge`（含 `?doc=<id>` 资料抽屉、`?docTab=parsed` 抽屉停在「解析内容」标签、`?dialog=upload \| categories`，筛选 `?category=&market=&state=&q=`） | 管理员、组长 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
-| `PAGE-SHOPS` | `/shops`（含详情抽屉、`?dialog=rotate-key \| reauth \| disconnect`） | 管理员 | `API-SHOP-008`、`API-SHOP-009`、`API-SHOP-010`、`API-SHOP-011`、`API-SHOP-004`、`API-SHOP-012`、`API-SHOP-013` | 无店铺时引导去接入；授权失效 |
+| `PAGE-SHOPS` | `/shops`（含详情抽屉、`?dialog=rotate-key \| reauth \| disconnect`） | 管理员 | `API-SHOP-008`、`API-SHOP-009`、`API-SHOP-010`、`API-SHOP-011`、`API-SHOP-004`、`API-SHOP-012`、`API-SHOP-013` | 无店铺时引导去接入；授权失效；Shopee 推送未订阅（应用卡与详情抽屉给「重新校验」）；窄屏回复率图表横轴只写站点 |
 | `PAGE-CONNECT` | `/shops/connect`（含 `?dialog=assist`） | 管理员 | `API-SHOP-001`、`API-SHOP-002`、`API-SHOP-014` | — |
 | `PAGE-CONNECT-GUIDE` | `/shops/connect/<platform>/guide` | 管理员 | `API-SHOP-001`、`API-SHOP-002` | — |
 | `PAGE-CONNECT-CREDS` | `/shops/connect/<platform>` | 管理员 | `API-SHOP-003`、`API-SHOP-002` | 校验失败逐区域原因；沙箱提示；回调占用确认 |
@@ -3233,6 +3245,8 @@ flowchart LR
     PAGE_CONNECT_AUTH -->|打开授权页| PAGE_MOCK_AUTHORIZE[平台授权页 模拟]
     PAGE_MOCK_AUTHORIZE -->|回调 API-SHOP-005| PAGE_CONNECT_PROBE[检查并完成]
     PAGE_CONNECT_PROBE -->|完成接入 API-SHOP-007| PAGE_SHOPS
+    PAGE_SHOPS -->|推送未订阅 重新校验| PAGE_CONNECT_CREDS
+    PAGE_ORDERS -->|Shopee 推送未订阅 重新校验| PAGE_CONNECT_CREDS
     PAGE_RECEPTION[接待设置 店铺模式] --> PAGE_RECEPTION_HOURS[工作时间与转人工]
     PAGE_RECEPTION --> PAGE_RECEPTION_PROMPTS[语气与提示词]
     PAGE_RECEPTION --> PAGE_RECEPTION_TICKETS[工单类型与时限]
@@ -3751,6 +3765,20 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Then 每店显示平台、站点、授权到期、平台口径回复率（Shopee 与 TikTok 分开写口径）、接待模式、最近入站
   And 7 天没有入站的店标「需处理」
 
+场景: Shopee 推送没有订阅到 Shopilot (REQ-SHOP-006)
+  Given 商户的 Shopee 应用还没把推送回调设成 Shopilot
+  When 管理员打开 /shops
+  Then 该应用下的店标「需处理 · 推送未订阅」，写明订单、物流、售后状态要等每小时同步才更新
+  And 应用卡与店铺详情给「重新校验」，点了进应用凭证页
+  When 管理员在应用凭证页重新验证并保存
+  Then Shopilot 订阅 9 类推送，这些店不再标需处理
+  And 订单页的「推送未订阅」提示给管理员同一个入口
+
+场景: 窄屏回复率图表 (REQ-SHOP-006)
+  Given 8 家店都有平台回复率
+  When 管理员在 390 像素宽的手机上打开 /shops
+  Then 图表横轴每根柱子的文字互不重叠，放不下「平台 站点」时只写站点，平台看图例
+
 场景: 检查连接 (REQ-SHOP-007)
   Given 模拟平台把某店回调改到别处
   When 管理员点「检查连接」
@@ -4088,6 +4116,11 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 买家发消息
   Then 草稿照常生成且没有依据，会话不转人工，检索快照标记降级与原因
 
+场景: 买家消息没有文字时不用空查询检索 (REQ-KB-006)
+  Given 商户有对该店站点可用的资料，店铺是影子模式
+  When 买家只发一张图片，改写也没给出问题
+  Then 检索服务没有收到请求，影子回复照常生成，检索快照没有检索记录、不标降级
+
 功能: 订单、售后、开票
 
 场景: 订单镜像与会话右栏 (REQ-ORD-001)
@@ -4126,6 +4159,11 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Then 模拟平台退货单变为 JUDGING，工单为「等待中 · 等平台」
   Given Shopee 退货单 ACCEPTED
   Then 「发起争议」不可用
+
+场景: 已结束的售后单不取拒绝原因 (REQ-ORD-005)
+  Given TikTok 取消申请已处理完，或退货单已到终态
+  When 请求这张售后单的拒绝原因
+  Then 返回 409 aftersale_state，Shopilot 不调平台，日志不记错误
 
 场景: 开票并两路发送 (REQ-ORD-006)
   Given 处理人在会话里选择订单开 Invoice

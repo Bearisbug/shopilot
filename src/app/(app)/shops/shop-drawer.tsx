@@ -114,7 +114,14 @@ function DrawerBody({ me, shopId, period }: { me: Me; shopId: string; period: st
             {s.issues.map((i) => (
               <p key={i.key} className="flex items-start gap-2 text-sm">
                 <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-(--semantic-color-feedback-warning)" aria-hidden />
-                {i.text}
+                <span>
+                  {i.text}
+                  {i.key === "push_unsubscribed" && (
+                    <Link href={`/shops/connect/${s.platform}`} className="focus-ring mt-0.5 block w-fit rounded-sm font-medium text-(--semantic-color-text-link)">
+                      重新校验 Shopee 应用
+                    </Link>
+                  )}
+                </span>
               </p>
             ))}
           </div>

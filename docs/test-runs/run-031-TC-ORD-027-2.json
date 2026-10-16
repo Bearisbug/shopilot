@@ -1,0 +1,24 @@
+{
+  "step2_http": 409,
+  "step2_body": {
+    "type": "/errors/not-allowed",
+    "title": "当前不能这样操作",
+    "status": 409,
+    "detail": "这张取消申请已结束（当前 CANCELLATION_REQUEST_SUCCESS），不需要再选拒绝原因。",
+    "instance": "/api/v1/after-sales/01a14362-9ff1-72ba-92be-9b0b2d2acf39/reject-reasons",
+    "requestId": "req_01a14362b37f738b9b1feee3fd85d1b9",
+    "code": "aftersale_state"
+  },
+  "step3_log_after_step2": [
+    {
+      "t": "2026-10-16T06:25:04.393Z",
+      "level": "info",
+      "requestId": "req_01a14362b37f738b9b1feee3fd85d1b9",
+      "merchantId": "01a14362-68be-7033-a0c9-fe54b6760cf6",
+      "method": "GET",
+      "route": "/api/v1/after-sales/01a14362-9ff1-72ba-92be-9b0b2d2acf39/reject-reasons",
+      "status": 409,
+      "durationMs": 10
+    }
+  ]
+}

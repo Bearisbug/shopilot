@@ -65,10 +65,20 @@ export function ShopsClient({ me }: { me: Me }) {
   // 图表与上方最低回复率同一口径：筛选后、未断开、有回复率的店
   const rated = items.filter((s) => s.status !== "disconnected" && typeof s.metrics?.responseRate === "number");
   const lowest = rated.reduce<(typeof rated)[number] | null>((lo, s) => (!lo || Number(s.metrics!.responseRate) < Number(lo.metrics!.responseRate) ? s : lo), null);
-  const shortName = (s: (typeof rated)[number]) => {
-    const base = `${PLATFORM_SHORT[s.platform]} ${s.market}`;
+  // 横轴短名：站点（同平台同站点多家店时带序号），前面加平台
+  const marketName = (s: (typeof rated)[number]) => {
     const same = rated.filter((x) => x.platform === s.platform && x.market === s.market);
-    return same.length > 1 ? `${base} ${same.indexOf(s) + 1}` : base;
+    return same.length > 1 ? `${s.market} ${same.indexOf(s) + 1}` : s.market;
+  };
+  // 窄屏柱子窄：依次试「平台 站点」一行、拆两行、只写站点（平台看图例）、站点拆两行，取每根柱子都放得下的第一种（宽度由 canvas 实测）
+  const axisLabels = (fits: (text: string) => boolean): Array<string | string[]> => {
+    const tiers = [
+      rated.map((s) => `${PLATFORM_SHORT[s.platform]} ${marketName(s)}`),
+      rated.map((s) => [PLATFORM_SHORT[s.platform], ...marketName(s).split(" ")]),
+      rated.map((s) => marketName(s)),
+      rated.map((s) => marketName(s).split(" ")),
+    ];
+    return tiers.find((t) => t.every((l) => (Array.isArray(l) ? l : [l]).every(fits))) ?? tiers[tiers.length - 1];
   };
   const needShopee = d?.items.filter((s) => s.platform === "shopee" && s.status !== "disconnected" && s.caps.piiMasked) ?? [];
   const needTiktok = d?.items.filter((s) => s.platform === "tiktok" && s.status !== "disconnected" && !s.caps.productScope) ?? [];
@@ -168,18 +178,21 @@ export function ShopsClient({ me }: { me: Me }) {
                             x: {
                               grid: { display: false },
                               border: { display: false },
-                              // 每根柱子都标短名（平台 + 站点），一行放不下时拆成两行；tooltip 仍是店铺全名
+                              // 每根柱子都标短名，放不下时逐级收短（见 axisLabels）；tooltip 仍是店铺全名
                               ticks: {
                                 color: colors.muted,
                                 font: { size: 12 },
                                 autoSkip: false,
                                 maxRotation: 0,
                                 callback(_v, i) {
-                                  const s = rated[i];
-                                  if (!s) return "";
-                                  const label = shortName(s);
-                                  const room = (this.chart.chartArea?.width ?? this.chart.width) / rated.length;
-                                  return label.length * 7 + 8 <= room ? label : label.split(" ");
+                                  if (!rated[i]) return "";
+                                  const room = (this.chart.chartArea?.width ?? this.chart.width) / rated.length - 6;
+                                  const ctx = this.chart.ctx;
+                                  ctx.save();
+                                  ctx.font = `12px ${this.chart.options.font?.family ?? "sans-serif"}`;
+                                  const labels = axisLabels((t) => ctx.measureText(t).width <= room);
+                                  ctx.restore();
+                                  return labels[i];
                                 },
                               },
                             },
@@ -346,6 +359,17 @@ export function ShopsClient({ me }: { me: Me }) {
                         {a.keyExpiresAt ? ` · 应用密钥至 ${a.keyExpiresAt}` : ""}
                         {a.status !== "verified" ? " · 凭证未校验" : ""}
                       </p>
+                      {!a.pushSubscribed && (
+                        <p className="mt-1 flex items-start gap-1 text-xs text-(--semantic-color-feedback-warning)">
+                          <AlertTriangleIcon className="mt-0.5 size-3 shrink-0" aria-hidden />
+                          <span>
+                            推送没有订阅到 Shopilot，订单、物流、售后状态要等每小时同步才更新。
+                            <Link href={`/shops/connect/${a.platform}`} className="focus-ring ml-1 rounded-sm font-medium text-(--semantic-color-text-link)">
+                              重新校验
+                            </Link>
+                          </span>
+                        </p>
+                      )}
                       <CopyValue label="推送地址（本商户专属）" value={a.webhookUrl} />
                     </li>
                   ))}

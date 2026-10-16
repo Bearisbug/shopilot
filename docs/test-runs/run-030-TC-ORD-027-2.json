@@ -1,0 +1,41 @@
+{
+  "step2_http": 200,
+  "step2_body": {
+    "items": [
+      {
+        "code": "seller_reject_apply_product_has_been_packed",
+        "text": "Product has been packed"
+      },
+      {
+        "code": "ecom_reverse_reject_cancel_reason_product_packed",
+        "text": "Product has been packed and is ready to ship"
+      },
+      {
+        "code": "seller_reject_apply_you_have_reached_an_agreement_with_the_buyer",
+        "text": "You have reached an agreement with the buyer"
+      }
+    ]
+  },
+  "step3_log": [
+    {
+      "t": "2026-10-16T06:14:10.538Z",
+      "level": "info",
+      "msg": "platform call",
+      "platform": "tiktok",
+      "method": "GET",
+      "path": "http://127.0.0.1:3371/mock/tiktok/open-api/return_refund/202309/reject_reasons",
+      "status": 200,
+      "ms": 15
+    },
+    {
+      "t": "2026-10-16T06:14:10.538Z",
+      "level": "info",
+      "requestId": "req_01a14358b94c76da9faeccb84915bdc5",
+      "merchantId": "01a14350-e8a9-74f7-acdb-f6fc46d6814f",
+      "method": "GET",
+      "route": "/api/v1/after-sales/01a14358-7c44-727d-b54d-4f2fec436b86/reject-reasons",
+      "status": 200,
+      "durationMs": 29
+    }
+  ]
+}

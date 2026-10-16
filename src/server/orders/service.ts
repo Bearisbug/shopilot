@@ -17,6 +17,7 @@ import { isReadOnlyShop, shopAppRegion, withShop, type ShopRow } from "@/server/
 import { READ_ONLY_ACTION_REASON } from "@/server/platforms/readonly";
 import { shopeeCancelOrder } from "@/server/platforms/shopee";
 import { tiktokSellerCancel } from "@/server/platforms/tiktok";
+import { shopeePushSubscribed } from "@/server/shops/shared";
 import { syncAfterSaleTicket } from "@/server/tickets/platform";
 import { syncAfterSale, syncOrders, type AfterSaleRow, type OrderRow } from "./mirror";
 import { onPlatform } from "./platform-errors";
@@ -154,7 +155,7 @@ async function syncStates(ctx: MemberContext): Promise<SyncState[]> {
     .orderBy(desc(schema.shopEvent.createdAt));
   return shops.map(({ s, callbackState }) => {
     const latest = events.find((e) => e.shopId === s.id);
-    const pushOk = s.platform === "shopee" ? callbackState === "set" || callbackState === "already_ours" : latest?.kind !== "setup_failed";
+    const pushOk = s.platform === "shopee" ? shopeePushSubscribed(callbackState) : latest?.kind !== "setup_failed";
     return { shopId: s.id, name: s.name, platform: s.platform, market: s.market, lastSyncAt: iso(last.find((l) => l.shopId === s.id)?.at ?? null), pushOk };
   });
 }

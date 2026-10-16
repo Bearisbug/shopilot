@@ -1,0 +1,29 @@
+{
+  "step2_draft": {
+    "status": "shadow",
+    "routes": [
+      {
+        "hits": [
+          {
+            "score": 0.05,
+            "chunkId": "01a14357-d0e0-7516-ba8e-6ada550ffe1b",
+            "documentId": "01a14357-ce7e-70c8-a29f-0ef44537cd3d"
+          }
+        ],
+        "kind": "original",
+        "mode": "hybrid",
+        "latencyMs": 4
+      }
+    ],
+    "degraded": "false"
+  },
+  "step3_lastQuery": [
+    {
+      "at": "2026-10-16T06:13:18.946Z",
+      "query": "",
+      "instance": "sp-f6fc46d6814f",
+      "maxResults": 20,
+      "retrievalType": "hybrid"
+    }
+  ]
+}
