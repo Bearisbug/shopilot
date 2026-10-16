@@ -3,7 +3,7 @@
 # 与本机兜底（deploy/release.sh）共用。源码须已同步到 /srv/shopilot/build/。
 #   remote.sh switch <TAG>   构建镜像 → 备份 → 迁移 → 切到新版本（先 web 后 worker，web 重建时几秒不可用）
 #   remote.sh health <TAG>   直连 127.0.0.1:3001 断言本项目标识与版本
-#   remote.sh confirm <TAG>  记为最后一次验证健康的版本，清理旧镜像与构建缓存
+#   remote.sh confirm <TAG>  记为最后一次验证健康的版本，清理旧镜像与构建缓存，确保每日备份的 crontab 在
 #   remote.sh rollback       切回 .last_good
 # docker 命令一律接 </dev/null：脚本经 ssh 标准输入传来时，不接会把余下的脚本当输入吞掉。
 # web 与 worker 必须分开重建：同一条 up 里 Compose 要等两个旧容器都停完才启动新容器，
@@ -19,6 +19,10 @@ case "$cmd" in
     ./backup.sh </dev/null
     sed -i "s/^TAG=.*/TAG=$TAG/" .env
     docker compose run --rm migrate </dev/null
+    # 容器重建后旧日志就没了：切换前把 web、worker 的日志压缩存进 logs/，留最近 30 份
+    mkdir -p logs
+    docker compose logs --no-color -t web worker </dev/null 2>/dev/null | gzip > "logs/until-$(date +%Y%m%d-%H%M)-$TAG.log.gz" || true
+    ls -1t logs/until-* 2>/dev/null | tail -n +31 | xargs -r rm --
     docker compose up -d --wait --wait-timeout 180 web </dev/null
     docker compose up -d --wait --wait-timeout 300 worker </dev/null
     ;;
@@ -33,9 +37,13 @@ case "$cmd" in
   confirm)
     TAG=${2:?缺 TAG}
     echo "$TAG" > .last_good
-    # 镜像只留最新 5 个（含当前与上一个健康版本），构建缓存只留 7 天
+    # 镜像只留最新 5 个（含当前与上一个健康版本）；构建缓存总量压到 10 GB（每次发布新增 2–4 GB，按天数清会撑满 96 GB 系统盘）
     docker images shopilot --format '{{.Tag}}' </dev/null | tail -n +6 | xargs -r -I{} docker rmi "shopilot:{}" >/dev/null || true
-    docker builder prune -f --filter until=168h </dev/null >/dev/null
+    docker builder prune -f --max-used-space 10GB </dev/null >/dev/null
+    # 每日 03:30（服务器时区 Asia/Kuala_Lumpur）备份；幂等写入 deploy 用户的 crontab
+    mkdir -p backups
+    line="30 3 * * * /srv/shopilot/backup.sh >> /srv/shopilot/backups/backup.log 2>&1"
+    { crontab -l 2>/dev/null | grep -vF "/srv/shopilot/backup.sh" || true; echo "$line"; } | crontab -
     ;;
   rollback)
     [ -s .last_good ] || { echo "没有健康版本记录，跳过回滚"; exit 0; }

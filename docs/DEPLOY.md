@@ -34,6 +34,7 @@ push 到 `main` 即发布（只改 `docs/` 或 Markdown 文件的推送不触发
 ## 3. 查日志 / 排障
 
 - 应用日志：`ssh -i ~/.ssh/shopilot-hk.pem deploy@shopilot.live` → `cd /srv/shopilot && docker compose logs -f --tail 200 web worker`。
+- 往期日志：容器每次发布都会重建，当前容器只有本次发布之后的日志；发布脚本在切换前把上一版的 web、worker 日志存成 `/srv/shopilot/logs/until-<时间>-<版本>.log.gz`，留最近 30 份，用 `zcat` 查看。
 - 容器状态：`docker compose ps`，web 要 healthy；`worker` 没有健康检查，看日志里有 `"msg":"worker ready"`。
 - 当前版本：`curl -sS https://shopilot.live/api/health` 看 `version`；`cat /srv/shopilot/.last_good` 是最后一次验证健康的版本。
 - 邮件没发出：`docker compose exec db psql -U shopilot -d shopilot -c "select to_email, template, status, created_at from email_outbox order by created_at desc limit 10"`，`queued` 长时间不变时看 worker 日志里 `email.send` 的报错。
@@ -70,7 +71,7 @@ ssh -i ~/.ssh/shopilot-hk.pem deploy@shopilot.live 'cd /srv/shopilot && GOOD=$(c
 
 ## 6. 数据库备份与恢复
 
-- 备份方式与频率：deploy 用户的 crontab 每天 03:30（服务器时区 Asia/Kuala_Lumpur）执行 `/srv/shopilot/backup.sh`，`pg_dump` 压缩成 `backups/db-<时间>.sql.gz`，上传文件卷打包成 `backups/files-<时间>.tar.gz`，各保留 14 份，日志在 `backups/backup.log`。备份与数据在同一块盘上，机器丢失时备份一起丢失（见 LAUNCH.md 遗留登记）。
+- 备份方式与频率：deploy 用户的 crontab 每天 03:30（服务器时区 Asia/Kuala_Lumpur）执行 `/srv/shopilot/backup.sh`（这条 crontab 由发布脚本 `remote.sh confirm` 每次幂等写入，`crontab -l` 可核对），`pg_dump` 压缩成 `backups/db-<时间>.sql.gz`，上传文件卷打包成 `backups/files-<时间>.tar.gz`，各保留 14 份，日志在 `backups/backup.log`。备份与数据在同一块盘上，机器丢失时备份一起丢失（见 LAUNCH.md 遗留登记）。
 - 手动立即备份：`ssh ... deploy@shopilot.live /srv/shopilot/backup.sh`；发布脚本在迁移前也会先备份一次。
 - 恢复步骤：先停应用写入 `docker compose stop web worker`；`docker compose exec -T db psql -U shopilot -d postgres -c "drop database shopilot" -c "create database shopilot"`；`gunzip -c backups/db-<时间>.sql.gz | docker compose exec -T db psql -U shopilot -d shopilot -v ON_ERROR_STOP=1`；上传文件用 `docker run --rm -v shopilot_appdata:/data -v /srv/shopilot/backups:/in alpine sh -c "rm -rf /data/* && tar xzf /in/files-<时间>.tar.gz -C /data"`；最后 `docker compose up -d --wait web worker` 并检查健康端点。
 - 迁移执行点：发布脚本在切版本前执行 `docker compose run --rm migrate`（`scripts/db-migrate.ts`，按 `drizzle/` 迁移文件），之前已先备份。
