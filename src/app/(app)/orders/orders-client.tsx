@@ -175,9 +175,19 @@ export function OrdersClient({ me }: { me: Me }) {
               <p>
                 {pushBad.map((s) => s.name).join("、")} 的平台推送没有订阅到 Shopilot，订单状态与售后工单会延迟到每小时同步时才更新。
                 {me.active.permissions.includes("shops.manage") ? (
-                  <Link href="/shops" className="ml-1 font-semibold text-(--semantic-color-text-link) underline-offset-4 hover:underline">
-                    去检查连接
-                  </Link>
+                  <>
+                    {/* Shopee 推送订阅在应用级，重新校验应用即补订；TikTok 按店登记，到店铺页处理 */}
+                    {pushBad.some((s) => s.platform === "shopee") && (
+                      <Link href="/shops/connect/shopee" className="ml-1 font-semibold text-(--semantic-color-text-link) underline-offset-4 hover:underline">
+                        重新校验 Shopee 应用
+                      </Link>
+                    )}
+                    {pushBad.some((s) => s.platform === "tiktok") && (
+                      <Link href="/shops" className="ml-1 font-semibold text-(--semantic-color-text-link) underline-offset-4 hover:underline">
+                        去检查连接
+                      </Link>
+                    )}
+                  </>
                 ) : (
                   "请联系管理员在「店铺与连接」检查。"
                 )}

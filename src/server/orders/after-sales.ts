@@ -283,6 +283,10 @@ export async function decideReturn(ctx: MemberContext, id: string, body: { decis
 export async function rejectReasons(ctx: MemberContext, id: string): Promise<RejectReasons> {
   const { a, shop } = await loadAfterSale(ctx, id);
   if (shop.platform !== "tiktok") throw new Problem("not-allowed", { detail: "Shopee 不提供拒绝原因列表：取消申请直接拒绝，退货请用「发起争议」。", code: "platform_unsupported" });
+  // 已结束的售后单平台不再给原因列表（调了会报错），不去问平台
+  if (!afterSaleOpen(a.platform, a.kind, a.platformStatus)) {
+    throw new Problem("not-allowed", { detail: `这张${a.kind === "cancel" ? "取消申请" : "退货单"}已结束（当前 ${a.platformStatus}），不需要再选拒绝原因。`, code: "aftersale_state" });
+  }
   const items = await onPlatform(() => withShop(shop.id, async (c) => (c.platform === "tiktok" ? tiktokRejectReasons(c.app, c.auth, a.externalId) : [])));
   return { items: items.map((r) => ({ code: r.name, text: r.text })) };
 }

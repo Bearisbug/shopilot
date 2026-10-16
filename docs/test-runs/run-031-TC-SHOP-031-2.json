@@ -1,0 +1,53 @@
+{
+  "step2": {
+    "items": [
+      {
+        "name": "Demo Shopee MY",
+        "issues": [
+          {
+            "key": "push_unsubscribed",
+            "text": "平台推送没有订阅到 Shopilot：订单、物流、售后状态要等每小时同步才更新，重新校验 Shopee 应用后恢复"
+          }
+        ]
+      },
+      {
+        "name": "Demo Shopee SG",
+        "issues": [
+          {
+            "key": "push_unsubscribed",
+            "text": "平台推送没有订阅到 Shopilot：订单、物流、售后状态要等每小时同步才更新，重新校验 Shopee 应用后恢复"
+          }
+        ]
+      }
+    ],
+    "apps": [
+      {
+        "platform": "shopee",
+        "pushSubscribed": false
+      },
+      {
+        "platform": "tiktok",
+        "pushSubscribed": true
+      }
+    ],
+    "attention": 2,
+    "attentionText": [
+      "Demo Shopee MY 平台推送没有订阅到 Shopilot",
+      "Demo Shopee SG 平台推送没有订阅到 Shopilot"
+    ]
+  },
+  "step7": {
+    "callback_url": "http://127.0.0.1:3371/api/webhooks/shopee/55d6b3ed8a7a4aca913a901d45f4fc5e",
+    "push_config_on_list": [
+      1,
+      2,
+      3,
+      4,
+      10,
+      12,
+      28,
+      29,
+      30
+    ]
+  }
+}

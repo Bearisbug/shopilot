@@ -6,6 +6,7 @@ import { and, count, desc, eq, gte, inArray, ne } from "drizzle-orm";
 import {
   ASSIST_STEPS,
   type AssistBody,
+  type CallbackState,
   type DiagnoseCheck,
   type DiagnoseResult,
   type DisconnectResult,
@@ -32,7 +33,7 @@ import { PlatformError, platformErrorText } from "@/server/platforms/types";
 import { setTikTokAcceptChat } from "./agent-settings";
 import { forgetProbe } from "./capabilities";
 import type { StoredMetrics } from "./jobs";
-import { PLATFORM_NAME, type Platform } from "./shared";
+import { PLATFORM_NAME, shopeePushSubscribed, type Platform } from "./shared";
 
 const DAY = 86400_000;
 type ShopDb = typeof schema.shop.$inferSelect;
@@ -55,15 +56,21 @@ function zeroInbound(s: ShopDb, now = Date.now()): boolean {
   return now - (s.connectedAt ?? s.createdAt).getTime() >= 7 * DAY;
 }
 
-function issuesOf(s: ShopDb, metric: ShopRow["metrics"], readOnly: boolean): ShopIssue[] {
+/** 店铺所属应用里与「需处理」有关的两项 */
+type AppFlags = { readOnly: boolean; callbackState: CallbackState };
+
+function issuesOf(s: ShopDb, metric: ShopRow["metrics"], app: AppFlags): ShopIssue[] {
   if (s.status === "disconnected") return [];
   const out: ShopIssue[] = [];
   // 只读接入不刷新 token：借用的 token 过期后拉取停止，等重新同步（店铺状态保持已连接）
-  if (readOnly && s.status === "connected" && (!s.accessExpiresAt || s.accessExpiresAt.getTime() <= Date.now())) {
+  if (app.readOnly && s.status === "connected" && (!s.accessExpiresAt || s.accessExpiresAt.getTime() <= Date.now())) {
     out.push({ key: "borrowed_token_expired", text: "借用的 token 已过期：拉取已停止，等待重新同步" });
   }
   if (s.status === "auth_expired") out.push({ key: "auth_expired", text: "授权失效：停止收发消息，续期授权后恢复" });
   if (s.status === "connected" && !s.capabilities.chat) out.push({ key: "chat_unavailable", text: `收发聊天不可用：${s.capabilities.chatReason ?? "平台没有给聊天权限"}` });
+  if (s.platform === "shopee" && !shopeePushSubscribed(app.callbackState)) {
+    out.push({ key: "push_unsubscribed", text: "平台推送没有订阅到 Shopilot：订单、物流、售后状态要等每小时同步才更新，重新校验 Shopee 应用后恢复" });
+  }
   if (zeroInbound(s)) out.push({ key: "zero_inbound", text: "7 天没有收到买家消息：授权正常时先到平台卖家中心确认这家店有没有买家聊天" });
   if (metric?.responseRate !== null && metric?.responseRate !== undefined && typeof metric.target === "number" && metric.responseRate < metric.target) {
     out.push({ key: "metric_low", text: `平台回复率 ${metric.responseRate}% 低于目标 ${metric.target}%` });
@@ -80,14 +87,14 @@ const metricsOf = (s: ShopDb, period: ShopPeriod): ShopRow["metrics"] => ((s.met
 /** 需处理的店数：与 /shops 的「需处理」同一判定（未断开且 issuesOf 非空），侧栏徽标（API-NAV-001）复用 */
 export async function countShopsNeedingAttention(merchantId: string, period: ShopPeriod = "7d"): Promise<number> {
   const rows = await db()
-    .select({ shop: schema.shop, readOnly: schema.platformApp.readOnly })
+    .select({ shop: schema.shop, readOnly: schema.platformApp.readOnly, callbackState: schema.platformApp.callbackState })
     .from(schema.shop)
     .innerJoin(schema.platformApp, eq(schema.platformApp.id, schema.shop.platformAppId))
     .where(and(eq(schema.shop.merchantId, merchantId), ne(schema.shop.status, "disconnected")));
-  return rows.filter((r) => issuesOf(r.shop, metricsOf(r.shop, period), r.readOnly).length > 0).length;
+  return rows.filter((r) => issuesOf(r.shop, metricsOf(r.shop, period), r).length > 0).length;
 }
 
-function toRow(s: ShopDb, modes: { in: string | null; off: string | null }, period: ShopPeriod, readOnly: boolean): ShopRow {
+function toRow(s: ShopDb, modes: { in: string | null; off: string | null }, period: ShopPeriod, app: AppFlags): ShopRow {
   const metrics = metricsOf(s, period);
   return {
     id: s.id,
@@ -95,14 +102,14 @@ function toRow(s: ShopDb, modes: { in: string | null; off: string | null }, peri
     name: s.name,
     market: s.market,
     status: s.status,
-    readOnly,
+    readOnly: app.readOnly,
     authExpiresAt: s.authExpiresAt?.toISOString() ?? null,
     modes: { inHours: modes.in ?? "off", offHours: modes.off ?? "off" },
     lastInboundAt: s.lastInboundAt?.toISOString() ?? null,
     zeroInbound7d: zeroInbound(s),
     metrics,
     metricsAt: s.metricsAt?.toISOString() ?? null,
-    issues: issuesOf(s, metrics, readOnly),
+    issues: issuesOf(s, metrics, app),
     backfill: s.backfill,
     caps: { chat: s.capabilities.chat, piiMasked: s.capabilities.piiMasked, productScope: s.capabilities.productScope },
   };
@@ -110,7 +117,7 @@ function toRow(s: ShopDb, modes: { in: string | null; off: string | null }, peri
 
 async function shopsWithModes(merchantId: string) {
   return db()
-    .select({ shop: schema.shop, modeIn: schema.shopReception.modeInHours, modeOff: schema.shopReception.modeOffHours, readOnly: schema.platformApp.readOnly })
+    .select({ shop: schema.shop, modeIn: schema.shopReception.modeInHours, modeOff: schema.shopReception.modeOffHours, readOnly: schema.platformApp.readOnly, callbackState: schema.platformApp.callbackState })
     .from(schema.shop)
     .innerJoin(schema.platformApp, eq(schema.platformApp.id, schema.shop.platformAppId))
     .leftJoin(schema.shopReception, eq(schema.shopReception.shopId, schema.shop.id))
@@ -122,7 +129,7 @@ async function shopsWithModes(merchantId: string) {
 
 export async function listShops(ctx: MemberContext, q: { platform: "all" | Platform; status: "all" | "attention" | "ok"; period: ShopPeriod }): Promise<ShopsResponse> {
   const rows = await shopsWithModes(ctx.merchant.id);
-  const all = rows.map((r) => ({ db: r.shop, row: toRow(r.shop, { in: r.modeIn, off: r.modeOff }, q.period, r.readOnly) }));
+  const all = rows.map((r) => ({ db: r.shop, row: toRow(r.shop, { in: r.modeIn, off: r.modeOff }, q.period, r) }));
   const active = all.filter((x) => x.db.status !== "disconnected");
 
   const items = all
@@ -148,6 +155,7 @@ export async function listShops(ctx: MemberContext, q: { platform: "all" | Platf
       authExpiresAt: expiries.length ? new Date(Math.min(...expiries)).toISOString() : null,
       keyExpiresAt: a.keyExpiresAt,
       webhookUrl: webhookUrl(a.platform, ctx.merchant.webhookKey),
+      pushSubscribed: a.platform !== "shopee" || shopeePushSubscribed(a.callbackState),
     };
   });
 
@@ -193,12 +201,16 @@ export async function shopDetail(ctx: MemberContext, id: string, period: ShopPer
   const s = await ownShop(ctx, id);
   const [[rec], [app], events] = await Promise.all([
     db().select().from(schema.shopReception).where(eq(schema.shopReception.shopId, s.id)).limit(1),
-    db().select({ appKey: schema.platformApp.appKey, readOnly: schema.platformApp.readOnly }).from(schema.platformApp).where(eq(schema.platformApp.id, s.platformAppId)).limit(1),
+    db()
+      .select({ appKey: schema.platformApp.appKey, readOnly: schema.platformApp.readOnly, callbackState: schema.platformApp.callbackState })
+      .from(schema.platformApp)
+      .where(eq(schema.platformApp.id, s.platformAppId))
+      .limit(1),
     db().select().from(schema.shopEvent).where(eq(schema.shopEvent.shopId, s.id)).orderBy(desc(schema.shopEvent.createdAt)).limit(20),
   ]);
   const c = s.capabilities;
   return {
-    ...toRow(s, { in: rec?.modeInHours ?? null, off: rec?.modeOffHours ?? null }, period, Boolean(app?.readOnly)),
+    ...toRow(s, { in: rec?.modeInHours ?? null, off: rec?.modeOffHours ?? null }, period, { readOnly: Boolean(app?.readOnly), callbackState: app?.callbackState ?? "unset" }),
     appKey: app?.appKey ?? "",
     externalShopId: s.externalShopId,
     mainAccountId: s.mainAccountId,

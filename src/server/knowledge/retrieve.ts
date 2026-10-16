@@ -159,19 +159,21 @@ export async function retrieveForDraft(input: {
   const svc = input.svc ?? searchService();
   const started = Date.now();
   const rewrittenQuery = await rewriteQuestion({ conversation: input.conversation, orderFacts: input.orderFacts, original: input.original });
+  // 检索服务不接受空查询（Cloudflare 400 7001）：买家只发图片、商品卡时原话为空，这一路不跑；改写也为空时两路都不跑，按没检索到资料处理
+  const original = input.original.trim();
   const [rw, og] = await Promise.all([
     rewrittenQuery ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "rewritten", rewrittenQuery) : Promise.resolve(null),
-    runRoute(svc, idx.instanceName, input.merchantId, input.market, "original", input.original),
+    original ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "original", original) : Promise.resolve(null),
   ]);
-  const attempts = [...(rw?.attempts ?? []), ...og.attempts];
+  const attempts = [...(rw?.attempts ?? []), ...(og?.attempts ?? [])];
   const failed = [rw, og].filter((r) => r && r.chunks === null).length;
-  const ran = rw ? 2 : 1;
-  const degraded = failed === ran;
+  const ran = [rw, og].filter(Boolean).length;
+  const degraded = ran > 0 && failed === ran;
   const errors = attempts.filter((a) => a.mode === "vector_only" && a.error).map((a) => `${a.kind === "rewritten" ? "改写路" : "原话路"}：${a.error}`);
   return {
     rewrittenQuery,
     routes: attempts,
-    merged: degraded ? [] : mergeRoutes(rw?.chunks ?? null, og.chunks),
+    merged: degraded ? [] : mergeRoutes(rw?.chunks ?? null, og?.chunks ?? null),
     degraded,
     degradedReason: degraded ? `检索失败（${errors.join("；")}）` : null,
     vectorRetry: attempts.some((a) => a.mode === "vector_only"),

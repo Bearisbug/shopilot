@@ -142,7 +142,7 @@ export type ShopMetric = {
   currentOnly?: boolean;
 };
 
-export type ShopIssue = { key: "auth_expired" | "zero_inbound" | "chat_unavailable" | "metric_low" | "auth_expiring" | "backfill_failed" | "borrowed_token_expired"; text: string };
+export type ShopIssue = { key: "auth_expired" | "zero_inbound" | "chat_unavailable" | "push_unsubscribed" | "metric_low" | "auth_expiring" | "backfill_failed" | "borrowed_token_expired"; text: string };
 
 export type ShopRow = {
   id: string;
@@ -177,6 +177,8 @@ export type PlatformAppCard = {
   keyExpiresAt: string | null;
   /** 本商户专属的推送地址（Shopee 推送回调、TikTok Webhook）；Shopee 校验凭证、TikTok 授权时也会自动设置到平台 */
   webhookUrl: string;
+  /** Shopee 推送已订阅到 Shopilot；为 false 时应用卡给「重新校验」。TikTok 应用恒为 true */
+  pushSubscribed: boolean;
 };
 
 export type ShopsResponse = {
