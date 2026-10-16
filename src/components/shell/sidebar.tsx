@@ -162,7 +162,7 @@ export function Sidebar({
     { view: "queue", label: "待认领", n: summary?.counts.queue },
     { view: "ai", label: "AI 草稿", n: summary?.counts.ai },
     { view: "mine", label: "我处理中", n: summary?.counts.mine },
-    ...(can("wb.team") ? [{ view: "team", label: "同事处理中", n: summary?.counts.team }] : []),
+    { view: "team", label: "他人处理中", n: summary?.counts.team },
     { view: "done", label: "已结束", n: summary?.counts.done },
   ];
   const wbBadge = (summary?.counts.queue ?? 0) + (summary?.counts.ai ?? 0);

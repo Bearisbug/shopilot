@@ -6,7 +6,7 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.15，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.18，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
 | 最后更新 | 2026-10-16 |
 
@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | 按 DESIGN v1.18 新增 `TC-CONV-054`（源自缺陷：平台后台处理过的会话在工作台列表里找不到）、`TC-CONV-055`（源自缺陷：平台英文系统提示原样显示英文）；「同事处理中」分组改名「他人处理中」、员工也有这一组，原位修改 `TC-PERM-001` 第 1–3 步、`TC-CONV-004` 第 1 步、`TC-CONV-017` 第 1 步、`TC-TEAM-009` 第 3 步（员工本来就有这一组，去掉「出现同事处理中」）；§3 场景加 `tiktok-system-notices` | 实现会话 |
 | 2026-10-16 | RUN-019 之后修正 `TC-FEISHU-017`（原位修改）：前置记下 Mei Lin 原有的处理中会话数 K，第 5 步停用返回的 `releasedConversations` 改为 K + 1（原写 1，种子里 Mei 本来就有处理中的会话） | 实现会话 |
 | 2026-10-16 | 按 DESIGN v1.15 新增 `TC-CONV-042`、`TC-CONV-043`（处理人取消认领、非处理人与过期版本 409）、`TC-FEISHU-017`（取消认领后再推待认领卡，之后停用退回不再推）、`TC-AI-024`（影子回复的译文与复制原文），用例共 288 条；§3 场景加 `shadow-foreign` | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-044`（源自缺陷：消息拉取不及时，新消息最长 10 秒才进工作台列表）；按 DESIGN v1.13 的新轮询间隔原位修改 `TC-AI-001` 第 2 步（侧栏计数 10 秒）与 `TC-SHOP-001` 第 9 步引用的 §16 口径（工作台会话列表 ≤ 3 秒） | 实现会话 |
@@ -149,6 +150,7 @@
 | `platform-human` | Demo Shopee MY 一个处理中、`claimed_by` 为空的会话（`handoff_reason = platform_human`，即卖家在平台后台直接回复过），买家消息在 6 分钟前；输出会话 ID |
 | `first-reply-off-hours` | Demo Shopee MY 一个已结束的会话段：林晓首个认领，买家消息在 30 分钟前，林晓 10 分钟前回复，段记为工作时间外开始（`first_reply_in_hours = false`）；输出会话 ID |
 | `shadow-foreign` | Demo Shopee MY 一个影子模式的待认领会话（`handoff_reason = shadow`），带一份英文影子回复、还没有译文（AI 替身的出稿是中文，用场景造）；输出会话 ID 与草稿 ID（`draftId`） |
+| `tiktok-system-notices` | Demo TikTok MY 一个待认领会话：一条买家消息之后，依次 7 条 TikTok 英文系统提示（分配客服、开始接待、`[Other]` 卖家中心提示、要求转人工、客服结束、买家超时，最后一条「Your chat was rated 5 stars」不在 DESIGN 对照表里）；模拟器不能发系统提示，用场景造；输出会话 ID |
 | `auth-link-6min` | Demo Store 的 Shopee 应用一条授权链接：链接本身是新签名，其中的 `state` 签发于 6 分钟前、已过期（模拟授权页本身拒绝时间戳超过 5 分钟的链接）；输出链接 |
 | `session-aged-9h` | `agent@demo.test` 最近一个登录会话的创建时间改为 9 小时前 |
 | `export-expired` | 一个已完成的数据导出，`expires_at` 已过；输出下载链接 |
@@ -639,7 +641,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | --- | --- | --- |
 | 1 | A：Mei Lin 行的角色下拉选「组长」 | 行内角色显示组长 |
 | 2 | A：Mei Lin「更多操作」→「分配店铺」，勾 Demo Shopee MY、Demo TikTok MY，取消 Demo TikTok TH，点「保存」 | 行内负责店铺显示 Demo Shopee MY、Demo TikTok MY |
-| 3 | B：刷新页面 | 侧栏出现「看板」，工作台子项出现「同事处理中」；会话列表里没有 Demo TikTok TH 的会话 |
+| 3 | B：刷新页面 | 侧栏出现「看板」；会话列表里没有 Demo TikTok TH 的会话 |
 | 4 | B：打开 `/dashboard` | 显示看板卡片与图表，没有无权提示；平台指标与按店数据只出现 Demo Shopee MY、Demo TikTok MY |
 
 后置：无。
@@ -740,9 +742,9 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 以 owner@demo.test 登录看侧栏与顶栏，再点「收起侧栏」 | 侧栏：工作台（子项待认领、AI 草稿、我处理中、已结束、同事处理中）、工单、订单与开票、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置；导航下方没有出稿用量卡，收起后底部只有「展开侧栏」按钮；没有「知识库」；顶栏没有「助手」 |
-| 2 | 以 lead@demo.test 登录看侧栏 | 工作台（含同事处理中）、工单、订单与开票、看板、接待设置；没有店铺与连接、团队与权限、用量与套餐、商户设置 |
-| 3 | 以 agent@demo.test 登录看侧栏 | 工作台（待认领、AI 草稿、我处理中、已结束，没有同事处理中）、工单、订单与开票；没有看板、接待设置 |
+| 1 | 以 owner@demo.test 登录看侧栏与顶栏，再点「收起侧栏」 | 侧栏：工作台（子项待认领、AI 草稿、我处理中、他人处理中、已结束）、工单、订单与开票、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置；导航下方没有出稿用量卡，收起后底部只有「展开侧栏」按钮；没有「知识库」；顶栏没有「助手」 |
+| 2 | 以 lead@demo.test 登录看侧栏 | 工作台（含他人处理中）、工单、订单与开票、看板、接待设置；没有店铺与连接、团队与权限、用量与套餐、商户设置 |
+| 3 | 以 agent@demo.test 登录看侧栏 | 工作台（待认领、AI 草稿、我处理中、他人处理中、已结束）、工单、订单与开票；没有看板、接待设置 |
 | 4 | 三个账号分别请求 `GET /api/v1/nav-summary` | 三个响应都是 200，都没有 `usage` 键 |
 | 5 | owner 点侧栏「接待设置」 | 进入 `/reception`；左侧子导航依次为店铺模式、工作时间与转人工、语气与提示词、工单类型与时限、知识库 |
 | 6 | lead 点侧栏「接待设置」 | 进入 `/reception/knowledge`；子导航只有「知识库」 |
@@ -1185,7 +1187,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 打开 `/wb` | 分组为待认领、AI 草稿、我处理中、已结束、同事处理中，计数大于 0 的分组带数字、为 0 的不显示数字；侧栏工作台子项的数字与之相同 |
+| 1 | 打开 `/wb` | 分组为待认领、AI 草稿、我处理中、他人处理中、已结束，计数大于 0 的分组带数字、为 0 的不显示数字；侧栏工作台子项的数字与之相同 |
 | 2 | `api owner@demo.test "$B/api/v1/conversations?view=queue"` | `counts` 中 queue、ai、mine、team、done 与页面数字一致 |
 | 3 | 平台筛选选 TikTok | 列表每行平台为 TikTok |
 | 4 | 再按店铺选 Demo TikTok MY | 列表每行店铺为 Demo TikTok MY |
@@ -1341,7 +1343,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | Arif 打开「同事处理中」 | 列表有 C，处理人 Nur Aisyah |
+| 1 | Arif 打开「他人处理中」 | 列表有 C，处理人 Nur Aisyah |
 | 2 | 打开 C，点「改派给其他同事」，选 Mei Lin，点「改派」 | 处理人变为 Mei Lin |
 | 3 | Mei 与 Nur 分别打开「我处理中」 | Mei 的列表有 C；Nur 的列表没有 C |
 
@@ -1681,6 +1683,31 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 5 | A：看对话栏时间线 | T2 后 3 秒内出现「poll check 2」 |
 | 6 | B：新建买家 Y；A 的网络面板出现一次 `GET /api/v1/nav-summary` 返回后，B 立即以 Y 发「poll check 3」，记 T3，记该响应里的 `counts.queue` 为 Q | 推送日志新增一条，HTTP 200 |
 | 7 | A：看侧栏「工作台」下「待认领」的计数 | T3 后 12 秒内变为 Q + 1 |
+
+后置：无。
+
+#### `TC-CONV-054` 平台后台处理的会话列在他人处理中 — 对应 `REQ-CONV-002` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 平台后台处理过的会话在工作台列表里找不到
+
+前置：基线；执行「curl 会话」，`login agent@demo.test`、`login owner@demo.test`；`api agent@demo.test "$B/api/v1/nav-summary"`，记 `counts.queue` 为 Q0、`counts.team` 为 T0；然后 `pnpm scenario platform-human`，记会话 C 与买家名 X；浏览器以 agent@demo.test（Nur，员工，负责 Demo Shopee MY）登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/wb`，点侧栏工作台下的「他人处理中」 | 有「他人处理中」子项；列表里有买家 X 的会话，行上标「平台后台」 |
+| 2 | `api agent@demo.test "$B/api/v1/nav-summary"`，再看侧栏「工作台」的徽标 | `counts.queue` 等于 Q0，`counts.team` 等于 T0 + 1；徽标数字等于 `counts.queue + counts.ai` |
+| 3 | `api owner@demo.test "$B/api/v1/conversations?view=team"` | `items` 里有 C，`claimedBy` 为 null；`api owner@demo.test "$B/api/v1/conversations?view=queue"` 的 `items` 里没有 C |
+| 4 | 浏览器里点买家 X 这一行 | 对话栏打开这个会话，顶部有「认领」按钮 |
+
+后置：无。
+
+#### `TC-CONV-055` 平台英文系统提示显示中文 — 对应 `REQ-CONV-003` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 平台英文系统提示在会话里原样显示英文
+
+前置：基线；`pnpm scenario tiktok-system-notices`，记会话 C；浏览器以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/wb/<C>`，看时间线里买家消息之后的系统提示 | 从上到下依次为「对话已分配给 Yuiki」「Yuiki 开始接待」「一条开放接口取不到的消息，请到 TikTok 卖家中心查看」「买家要求转人工客服，请尽快回复」「客服已结束对话」「买家长时间未回复，对话超时结束」，最后一条是表外提示，照原文显示「Your chat was rated 5 stars」 |
+| 2 | 点「客服已结束对话」这一行 | 下方展开平台原文「Chat ended by customer service agent.」；表外提示那一行不能展开 |
+| 3 | `q "select text from message where conversation_id = '<C>' and sender_role = 'system' order by sent_at"` | 7 行都是英文原文，第 5 行为「Chat ended by customer service agent.」 |
 
 后置：无。
 
@@ -3924,6 +3951,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-018 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（工作台轮询改为 3 / 2 / 10 秒） | AI（Claude Code 执行子会话；Playwright + Edge） | 复测（RUN-017：TC-CONV-044） | 通过 1/1 |
 | RUN-019 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（取消认领、影子回复译文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-CONV-042、TC-CONV-043、TC-AI-024、TC-FEISHU-017、TC-FEISHU-005、TC-FEISHU-006、TC-FEISHU-011、TC-AI-005） | 通过 7/8 · 失败 1 |
 | RUN-020 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（取消认领、影子回复译文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-019：TC-FEISHU-017） | 通过 1/1 |
+| RUN-040 | 2026-10-16 | 本地 | `aa34591` + 场景 `tiktok-system-notices`（未修复） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-CONV-054、TC-CONV-055） | 通过 0/2 · 失败 2 |
+| RUN-041 | 2026-10-16 | 本地 | `aa34591` + 工作区改动（他人处理中含平台后台会话、系统提示显示中文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-040：TC-CONV-054、TC-CONV-055、TC-PERM-001、TC-CONV-004） | 通过 4/4 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -4023,6 +4052,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-015 | TC-DASH-005 | 失败 | 第 2 步林晓的 `handled.firstReplyMedianSec` 为 1200，预期 null（第 1 步看板为 null）：团队页的首响中位没排除工作时间外开始的会话段；证据 `docs/test-runs/run-015-TC-DASH-005-2.json` | 实现修复（团队页改用看板的首响样本），RUN-016 复测 |
 | RUN-017 | TC-CONV-044 | 失败 | 第 3 步预期 T1 后 5 秒内列表出现 X 的会话，实际 10.1 秒才出现（列表每 10 秒刷新一次）；第 5 步时间线 4.4 秒（预期 3 秒内）；第 7 步侧栏计数 30.1 秒（预期 12 秒内）；证据 `docs/test-runs/run-017-TC-CONV-044-3.png`（列表头已是「待认领 7」，侧栏仍是 6） | 实现修复（轮询改为列表 3 秒、详情 2 秒、导航摘要 10 秒，DESIGN v1.13 §15、ADR-007），RUN-018 复测 |
 | RUN-019 | TC-FEISHU-017 | 失败 | 第 5 步预期停用返回 `releasedConversations` 为 1，实际 3（另退回 2 张工单）：种子里 Mei Lin 原本就有 2 个处理中的会话，用例前置没记下来。第 1–4、6 步通过：取消认领后 C 的第二张卡序号为 1，正文有「转人工原因 人工转交」、卡尾「处理人取消认领后再推」；停用退回后 C 没有新卡；证据 `docs/test-runs/run-019-TC-FEISHU-017-5.json` | 用例修正（前置记 Mei 原有处理中会话数 K，预期 K + 1），RUN-020 复测通过 |
+| RUN-040 | TC-CONV-054 | 失败 | 第 1 步 Nur 的侧栏工作台只有待认领、AI 草稿、我处理中、已结束，没有「他人处理中」，C 在五个分组的接口结果里都没有；第 2 步 `counts.team` 为 0，预期 T0 + 1 = 1；第 3 步 owner 的 `view=team` 里也没有 C；证据 `docs/test-runs/run-040-TC-CONV-054-1.png` | 实现修复（他人处理中含平台后台处理、没有处理人的会话，员工也有这一组），RUN-041 复测 |
+| RUN-040 | TC-CONV-055 | 失败 | 第 1 步 6 条系统提示都原样显示英文，如「Chat ended by customer service agent.」；第 2 步没有「客服已结束对话」可点；证据 `docs/test-runs/run-040-TC-CONV-055-1.png` | 实现修复（时间线按对照表显示中文，可点开看原文），RUN-041 复测 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -4061,6 +4092,10 @@ RUN-018 证据：复测轮，承接 RUN-017。被测版本为 `c6fc3a3` 加本�
 RUN-019 证据：取消认领与影子回复译文（DESIGN v1.15）的局部轮：4 条新用例，加受影响的飞书待认领卡（`TC-FEISHU-005`、`TC-FEISHU-006`、`TC-FEISHU-011`，投递去重与卡尾文字改了）与影子回复显示（`TC-AI-005`）。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_ucrun` 并按 §3 重建基线，Web 跑在 3360、Worker 用 `pnpm worker` 单独起，`AI_MODE=stub`、`FEISHU_MODE=stub`、`KNOWLEDGE_MODE=stub`，2026-10-16 13:47–13:55。8 条按 `TC-CONV-042`、`TC-CONV-043`、`TC-AI-024`、`TC-FEISHU-005`、`TC-FEISHU-006`、`TC-FEISHU-011`、`TC-FEISHU-017`、`TC-AI-005` 的顺序跑，中间不重建基线：每条都新建买家，只有 `TC-AI-005` 改店铺配置，放在最后。`TC-AI-005` 前置的改接待模式与记影子次数用接口（`API-RCP-002`、`API-BILL-001`）代替页面操作，第 6 步查模拟平台该会话的卖家消息条数（0）。脚本出错不计结果：`TC-CONV-042` 第 4 步在确认框淡出时就查头部按钮，`TC-FEISHU-005` 第 3 步拿转义过方括号的卡片 JSON 比对译文，`TC-AI-005` 第 1 步的选择器命中了侧栏「AI 草稿」，三条都修正脚本后从前置起用新买家重跑，登记的是重跑结果。截图：确认框 `docs/test-runs/run-019-TC-CONV-042-2.png`、取消后的会话页 `docs/test-runs/run-019-TC-CONV-042-4.png`、组长看别人的会话没有取消认领 `docs/test-runs/run-019-TC-CONV-043-1.png`、影子回复的译文 `docs/test-runs/run-019-TC-AI-024-2.png`、复制原文 `docs/test-runs/run-019-TC-AI-024-3.png`、中文影子回复不带译文 `docs/test-runs/run-019-TC-AI-024-6.png`、飞书发件箱 `docs/test-runs/run-019-TC-FEISHU-005-2.png`。冒烟级未跑：按 2026-10-14 起的快速开发约定，冒烟里与本次改动相交的只有 `TC-FEISHU-005`、`TC-FEISHU-011`，已在本轮范围内；代码仓 vitest 另覆盖取消认领的状态、权限、重推与停用不重推（`src/server/feishu/feishu.test.ts`），影子回复译文入库与翻译失败（`src/server/ai/translate.test.ts`）。
 
 RUN-020 证据：复测轮，承接 RUN-019 的 `TC-FEISHU-017`，按修正后的用例执行。被测版本与 RUN-019 相同，只改了用例；起跑前停 Worker、重建基线再起 Worker，前置 K 为 2，停用返回 `releasedConversations` 3，C 只有两张待认领卡（序号 0、1）。取消认领后那张卡：`docs/test-runs/run-020-TC-FEISHU-017-3.png`。
+
+RUN-040 证据：修复前那一轮，只跑两条源自缺陷的用例。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_wbfix` 并按 §3 重建基线，`pnpm dev` 起 Web 与 Worker（3360，`DATABASE_URL` 指向该库），`AI_MODE=stub`、`FEISHU_MODE=stub`。被测版本 `aa34591`，工作区只多了文档与场景 `tiktok-system-notices`，实现代码未改。前置 Q0 = 1、T0 = 0。`TC-CONV-054` 在第 1 步失败，与线上现象一致：会话不在员工的任何分组里，owner 的「同事处理中」也没有它，该分组只取 `claimed_by` 不等于本人的行，`claimed_by` 为空的比不出来。`TC-CONV-055` 在第 1 步失败，时间线显示英文原文。
+
+RUN-041 证据：复测轮，承接 RUN-040，另加分组改名与员工可见「他人处理中」波及的 `TC-PERM-001`（冒烟）与 `TC-CONV-004`。环境同 RUN-040，起跑前停服务、重建基线再起。`TC-CONV-054`：前置 Q0 = 1、T0 = 0；Nur 的侧栏子项为待认领 1、AI 草稿 1、我处理中 1、他人处理中 1、已结束，列表行显示「平台后台」与「买家再回复 · 等 6 分钟」（场景只有一条买家消息，按置顶显示等待）；之后 `counts` 为 queue 1、team 1，徽标「工作台 2」= 1 + 1；owner 的 `view=team` 有 C、`claimedBy` 为 null，`view=queue` 没有 C；点开后顶部有「认领」（`docs/test-runs/run-041-TC-CONV-054-1.png`、`docs/test-runs/run-041-TC-CONV-054-4.png`）。`TC-CONV-055`：7 条依次符合，点开「客服已结束对话」显示「原文 Chat ended by customer service agent.」，表外那一行不能展开，库里 7 行仍是英文（`docs/test-runs/run-041-TC-CONV-055-1.png`、`docs/test-runs/run-041-TC-CONV-055-2.png`）。`TC-PERM-001`：三个角色的工作台子项都有「他人处理中」，员工侧栏见 `docs/test-runs/run-041-TC-PERM-001-3.png`。另在 390 px 宽度看了时间线与列表，没有横向溢出。本轮之后把「要求转人工」一条改为按开头匹配（DESIGN 对照表同步），重新打开本轮的会话 C 确认仍显示中文。冒烟级其余 13 条未跑：按 10-14 起的快速开发约定，小改动只跑源自缺陷与受影响的用例。
 
 ## 7. 遗留问题
 

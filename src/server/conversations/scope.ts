@@ -47,7 +47,8 @@ export function viewCondition(ctx: MemberContext, view: ConvView): SQL {
     case "mine":
       return and(eq(c.handlingState, "human"), eq(c.claimedBy, ctx.membership.id))!;
     case "team":
-      return and(eq(c.handlingState, "human"), ne(c.claimedBy, ctx.membership.id))!;
+      // 他人处理中：同事处理中的，加平台后台处理、没有 Shopilot 处理人的（claimed_by 为空，ne 比不出来要单列）
+      return and(eq(c.handlingState, "human"), or(isNull(c.claimedBy), ne(c.claimedBy, ctx.membership.id)))!;
     case "done":
       return eq(c.handlingState, "closed");
   }

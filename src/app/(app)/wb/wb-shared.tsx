@@ -12,7 +12,7 @@ import { useCan } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export const VIEW_LABEL: Record<ConvView, string> = { queue: "待认领", ai: "AI 草稿", mine: "我处理中", team: "同事处理中", done: "已结束" };
+export const VIEW_LABEL: Record<ConvView, string> = { queue: "待认领", ai: "AI 草稿", mine: "我处理中", team: "他人处理中", done: "已结束" };
 export const STAGE_LABEL: Record<Stage, string> = { presale: "售前", insale: "售中", aftersale: "售后", unknown: "未确认" };
 export const STATE_LABEL: Record<HandlingState, string> = { bot: "AI 接待中", awaiting_human: "待认领", human: "处理中", closed: "已结束" };
 export const HANDOFF_LABEL: Record<string, string> = {

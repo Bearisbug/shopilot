@@ -50,7 +50,6 @@ function decodeCursor(cur?: string): ListCursor | null {
 export async function viewCounts(ctx: MemberContext, extra?: SQL): Promise<Record<ConvView, number>> {
   const counts: Record<ConvView, number> = { queue: 0, ai: 0, mine: 0, team: 0, done: 0 };
   for (const v of Object.keys(counts) as ConvView[]) {
-    if (v === "team" && !ctx.can("wb.team")) continue;
     const [r] = await db().select({ n: count() }).from(c).where(and(visibleConversations(ctx), viewCondition(ctx, v), extra));
     counts[v] = r.n;
   }
@@ -101,7 +100,6 @@ export async function listConversations(ctx: MemberContext, q: ConversationsQuer
   if (q.shopId) filters.push(eq(c.shopId, q.shopId));
   const extra = filters.length ? and(...filters) : undefined;
   const counts = await viewCounts(ctx, extra);
-  if (q.view === "team" && !ctx.can("wb.team")) return { items: [], counts, nextCursor: null };
 
   // 键集分页：按当前排序取上一页最后一行之后的行，顶部插入新会话不会让下一页重复
   const done = q.view === "done";

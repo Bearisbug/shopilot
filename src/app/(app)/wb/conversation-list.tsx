@@ -22,7 +22,7 @@ const EMPTY: Record<ConvView, string> = {
   queue: "没有待认领的会话。买家新消息在店铺为 off 或影子模式时进这里，转人工的会话也在这里。",
   ai: "AI 正在接待的会话会出现在这里，草稿待审的排在前面。",
   mine: "你认领的会话会出现在这里。",
-  team: "同事处理中的会话会出现在这里。",
+  team: "同事处理中的会话，以及平台后台有人回复过、还没有人接手的会话会出现在这里。",
   done: "结束的会话会出现在这里。",
 };
 
@@ -35,7 +35,7 @@ export function ConversationListPanel({ selectedId, className }: { selectedId: s
   const rawView = params.get("view");
   const rawPlatform = params.get("platform");
   const rawShop = params.get("shop");
-  const view: ConvView = VIEWS.includes(rawView as ConvView) && (rawView !== "team" || canTeam) ? (rawView as ConvView) : "queue";
+  const view: ConvView = VIEWS.includes(rawView as ConvView) ? (rawView as ConvView) : "queue";
   const platform = rawPlatform === "shopee" || rawPlatform === "tiktok" ? rawPlatform : "all";
   const shopId = rawShop && allShops.some((x) => x.id === rawShop && (platform === "all" || x.platform === platform)) ? rawShop : "all";
   const tz = me.data?.active.timezone ?? "Asia/Kuala_Lumpur";
@@ -131,7 +131,7 @@ export function ConversationListPanel({ selectedId, className }: { selectedId: s
             <div className="flex flex-col items-center px-6 py-12 text-center">
               <InboxIcon className="size-8 text-muted-foreground" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium">{VIEW_LABEL[view]}是空的</p>
-              <p className="mt-1 text-xs text-muted-foreground">{EMPTY[view]}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{view === "team" && !canTeam ? "平台后台有人回复过、还没有人接手的会话会出现在这里。" : EMPTY[view]}</p>
             </div>
           )
         ) : (
@@ -199,12 +199,20 @@ function Row({ item, href, selected, tz, view, now }: { item: ConversationListIt
   );
 }
 
+/** 平台后台有人回复过、Shopilot 里没有处理人的会话（DESIGN §13 PAGE-WB 会话列表） */
+function BackendTag() {
+  return <span className="inline-flex h-5 shrink-0 items-center rounded-sm border border-border px-1.5 text-xs whitespace-nowrap text-muted-foreground">平台后台</span>;
+}
+
 function StatusLine({ item, view }: { item: ConversationListItem; view: ConvView }) {
-  // 同事处理中：等待提示前也要标出处理人
+  // 他人处理中：等待提示前也要标出处理人；没有处理人的是平台后台在处理，标「平台后台」
+  const backend = item.handlingState === "human" && !item.claimedBy;
+  const tag = backend ? <BackendTag /> : null;
   const who = view === "team" && item.claimedBy ? `${item.claimedBy.name} · ` : "";
   if (item.overdue && item.waitingSinceSec !== null) {
     return (
       <span className="mt-1 flex items-center gap-1 text-xs text-(--semantic-color-feedback-warning)">
+        {tag}
         <TriangleAlertIcon className="size-3.5 shrink-0" aria-hidden="true" />
         <span className="truncate">
           {who}
@@ -224,11 +232,20 @@ function StatusLine({ item, view }: { item: ConversationListItem; view: ConvView
   if (item.pinned && item.waitingSinceSec !== null) {
     return (
       <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+        {tag}
         <CornerDownLeftIcon className="size-3.5 shrink-0" aria-hidden="true" />
         <span className="truncate">
           {who}
           {item.handlingState === "awaiting_human" ? "待认领" : "买家再回复"} · {waitedText(item.waitingSinceSec)}
         </span>
+      </span>
+    );
+  }
+  if (backend) {
+    return (
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+        {tag}
+        <span className="truncate">有人回复过 · 可认领接手</span>
       </span>
     );
   }

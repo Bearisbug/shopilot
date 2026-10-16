@@ -14,7 +14,6 @@ export const GET = route({
     const views: ConvView[] = ["queue", "ai", "mine", "team", "done"];
     const counts = { queue: 0, ai: 0, mine: 0, team: 0, done: 0 };
     for (const v of views) {
-      if (v === "team" && !ctx.can("wb.team")) continue;
       const [r] = await db().select({ n: count() }).from(schema.conversation).where(and(visibleConversations(ctx), viewCondition(ctx, v)));
       counts[v] = r.n;
     }

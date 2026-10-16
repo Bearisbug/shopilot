@@ -16,6 +16,8 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.18 | REQ-CONV-002、API-CONV-001、API-NAV-001、PAGE-WB、ENT-Conversation | 平台后台处理、没有处理人的会话列进「他人处理中」并标「平台后台」，员工也能看到 | 缺陷修复 |
+| 2026-10-16 | v1.18 | PAGE-WB | TikTok 常见的英文系统提示在时间线显示中文，可点开看平台原文 | 缺陷修复 |
 | 2026-10-16 | v1.15 | REQ-CONV-012、API-CONV-016、PAGE-WB、ENT-Conversation、FLOW-FEISHU-CARD、INV-FEISHU-001、INV-FEISHU-003、ENT-FeishuDelivery | 处理人可以取消认领，把会话放回待认领，飞书群再收到一张待认领卡 | 功能 |
 | 2026-10-16 | v1.15 | REQ-AI-007、FLOW-AI-DRAFT、API-CONV-002、ENT-Draft | 影子回复下方显示中文译文，可一键复制原文 | 功能 |
 | 2026-10-16 | v1.13 | API-TEAM-001 | 团队页的人工首响中位与看板同口径，只算工作时间内开始的会话段 | 缺陷修复 |
@@ -739,7 +741,7 @@
 | REQ-SHOP-012 | 授权维护：token 到期前自动刷新；刷新失败或平台推送取消授权时店铺转「授权失效」并通知管理员；授权 30 天内到期时提醒（见 11.6 `refresh_failed` / `deauthorized`） | G1 | P0 |
 | REQ-SHOP-013 | 历史回补：接入后按店串行回补会话约 90 天、订单 180 天；回补会话以已结束入库、无处理人、不出稿、不计统计（无对外 API，见 12.1 末条、内部任务 `shop.backfill`） | G1 | P1 |
 | REQ-CONV-001 | 入站：校验平台签名，按事件 ID 幂等落库后 2 秒内应答；后台异步建会话与消息；未知店铺、本方出站回声、达人会话按规则忽略或只记录 | G2 | P0 |
-| REQ-CONV-002 | 会话列表：分组待认领 / AI 草稿 / 我处理中 / 已结束，组长以上另有「同事处理中」；按平台、店铺筛选；买家再回复置顶并显示已等时长，超接待时限标警示；行上显示未结工单徽标 | G2 | P0 |
+| REQ-CONV-002 | 会话列表：按接待状态分组，可按平台与店铺筛选 | G2 | P0 |
 | REQ-CONV-003 | 会话详情：时间线（文字、图片、订单卡、商品卡、退货卡、物流卡、优惠券卡、译文与译文来源、系统事件）；右栏买家与订单、工单小节；工作台宽度放不下「会话列表 + 400px 对话栏 + 右栏」时右栏收成抽屉，对话栏最小 400px | G2 | P0 |
 | REQ-CONV-004 | 认领（原子，先到先得）、转交 / 改派（可勾选关联工单一并转交）、结束（TikTok 同步结束会话）；员工只能转交、结束自己的会话 | G2 | P0 |
 | REQ-CONV-005 | 发送：文字、图片（幂等 `client_request_id`）；TikTok 会话另可发订单卡、物流卡、退货退款卡、优惠券卡；商品卡按能力表置灰；文字上限两个平台都按 2,000 字（TikTok 官方文档；Shopee 文档不公开，沿用 Obsbot v2 现网口径） | G2 | P0 |
@@ -1671,7 +1673,7 @@ erDiagram
 
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 3 秒轮询 |
+| `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话，`team` = 他人处理中：同事处理中的会话与平台后台处理、没有处理人的会话，员工只有后一种） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 3 秒轮询 |
 | `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003、REQ-AI-007、REQ-CONV-012 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ documentId, name, available }] }, shadowDrafts?[{ id, text, translation, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`translation` 是商户语言译文，还没译好或不需要译时为 null；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canUnclaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canUnclaim` 只在本人处理中时为 true；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 2 秒轮询 |
 | `API-CONV-003` | `GET /api/v1/conversations/{id}/buyer` | REQ-ORD-001、REQ-CONV-003 | — | `{ buyer{ name, externalId, language }, orders[{ id, externalOrderId, status, statusGroup, total, currency, items, shipByAt, tracking?, recipient?, afterSales[{ kind, platformStatus, sellerDueAt, open }] }], totals{ count180d, amount180d, currency }, piiMasked, syncedAt }`；只读订单镜像，不实时调平台（镜像由推送、每小时 `order.sync` 与 `API-ORD-003` 手动同步保持新鲜） | — | no-store；前端 10 秒轮询（订单推送到达后 10 秒内显示，见 §19） |
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
@@ -1791,7 +1793,7 @@ erDiagram
 | `API-SET-024` | `POST /api/v1/feishu/targets/{id}/test` | REQ-FEISHU-002 | — | 200 `{ ok, stub, imageUpload: ok\|failed\|skipped, imageError? }`：同步发一张测试卡片并记一行投递记录（`kind = test`）；应用接法先上传一张测试图片，失败只写进卡片与 `imageError`；审计 `EVT:feishu_test_sent` | 422 `/errors/platform-credentials`；502 `/errors/platform`（签名不对、机器人不在群里等，`detail` 带飞书的原因）；504 `/errors/platform-timeout`；404 `/errors/not-found` | 不重试；前端超时 40 秒 |
 | `API-NOTIF-001` | `GET /api/v1/notifications` | REQ-NOTIF-001 | `?type=all\|conversation\|ticket\|shop\|usage&cursor=` | `{ items[{ id, type, title, body, link, createdAt, readAt }], unread }` | — | no-store |
 | `API-NOTIF-002` | `POST /api/v1/notifications/read` | REQ-NOTIF-001 | `{ ids[] }` 或 `{ all: true }` | 200 `{ unread }` | — | 幂等 |
-| `API-NAV-001` | `GET /api/v1/nav-summary` | REQ-CONV-002、REQ-TKT-004、REQ-NOTIF-001 | — | `{ counts{ queue, ai, mine, team, done }（team 只对能看同事处理中的角色计数，其余为 0）, ticketsBadge(6 小时内到期 + 已超时), shopsAttention（需处理的店数，仅管理员，与 `/shops` 的「需处理」同一判定）, unreadNotifications }` | — | no-store；前端 10 秒轮询 |
+| `API-NAV-001` | `GET /api/v1/nav-summary` | REQ-CONV-002、REQ-TKT-004、REQ-NOTIF-001 | — | `{ counts{ queue, ai, mine, team, done }（与 `API-CONV-001` 同口径，员工的 team 只计平台后台处理的会话）, ticketsBadge(6 小时内到期 + 已超时), shopsAttention（需处理的店数，仅管理员，与 `/shops` 的「需处理」同一判定）, unreadNotifications }` | — | no-store；前端 10 秒轮询 |
 | `API-SEARCH-001` | `GET /api/v1/search` | REQ-SEARCH-001 | `?q=(≥2 字)&type=all\|buyer\|message\|order\|ticket` | `{ conversations[{ ..., match: buyer\|message }], orders[], tickets[], counts{ buyers, messages, orders, tickets } }`；买家、消息、订单、工单每组最多 20 条，按可见范围过滤；消息正文按 ILIKE 匹配，靠 `message.text` 的 pg_trgm GIN 索引 | 422 `/errors/validation`（去空格后不足 2 字） | no-store |
 
 ### 8.11 模拟平台接口（只在 `MOCK_PLATFORM=1` 时挂载）
@@ -2148,7 +2150,7 @@ erDiagram
 | 影子回复（`shadowDrafts`） | 可见 | 负责店铺内可见 | 不返回 |
 | 草稿依据（`citations`） | 随草稿与影子回复返回 | 同左 | 随草稿返回 |
 | 知识库资料与测试问答 | 全部 | 全部（测试问答的店铺只列负责店铺） | — |
-| 会话列表视图 | queue、ai、mine、team、done | queue、ai、mine、team、done（范围内） | queue、ai、mine、done |
+| 会话列表视图 | queue、ai、mine、team、done | queue、ai、mine、team、done（范围内） | queue、ai、mine、team（只有平台后台处理、没有处理人的会话）、done |
 | 订单、售后单、发票 | 全部店铺 | 负责店铺 | 负责店铺 |
 | 工单 | 全部店铺 | 负责店铺 | `assignee = 本人` |
 | 看板数据 | 全部店铺 | 负责店铺 | — |
@@ -2228,7 +2230,7 @@ stateDiagram-v2
 | bot → bot | ai_reply | 当前模式 = auto 且 草稿 `status = generated` 且 `handoff = false` 且 `confidence ≥ 阈值` | 发送草稿（11.2 `send`），更新 `last_agent_at` | 内部任务 `draft.generate` | 内部任务 `draft.generate` |
 | bot → awaiting_human | handoff | `handoff_reason ∈ {keyword, low_confidence, non_text, model_error, timeout, send_failed, human_request, policy, quota, shop_off, shadow}` | 写 `handoff_reason`、审计 `EVT:handoff`；auto 模式先发安抚句（不更新 `last_agent_at`，等待计时与待认领提醒照常）；通知负责该店的启用成员（规则 `handoff`）；推飞书待认领卡（12.9） | 内部任务 `inbound.process` / `draft.generate` | 内部任务 `draft.generate` |
 | bot → human | claim | 操作人是启用成员 且 店铺在其范围内 且 请求带 `version` 时版本一致 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；未处置草稿保留可用；审计 `EVT:conversation_claimed` | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
-| bot → human | platform_human | 入站 `sender_role = platform_human`（卖家在平台后台直接回复）且 不是本方出站回声 | `claimed_by = null`，作废未处置草稿，写系统事件「平台侧已有人处理」 | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| bot → human | platform_human | 入站 `sender_role = platform_human`（卖家在平台后台直接回复）且 不是本方出站回声 | `claimed_by = null`，作废未处置草稿，写系统事件「平台侧已有人处理」；会话列进「他人处理中」、标「平台后台」，不进待认领 | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
 | awaiting_human → human | claim | 同 bot → human claim | 同上 | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
 | awaiting_human → human | platform_human | 同 bot → human platform_human | 同上 | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
 | human → human | take_over | `claimed_by` 为空（平台后台有人回复过，Shopilot 里没有处理人）且 操作人是启用成员、店铺在其范围内 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；审计 `EVT:conversation_claimed`；负责该店的员工也能打开这类会话 | 成员（会话页「认领」、飞书卡片认领链接、认领并发送） | `API-CONV-004` / `API-CONV-007` |
@@ -3103,7 +3105,40 @@ sequenceDiagram
 - 会话已结束：提示「会话已经结束」；会话不在本人范围内：沿用「找不到或已删除」
 - 处理完立即用替换方式去掉地址里的 `claim` 与 `m`，刷新不会再认领
 
-侧栏（按 [roles.md](roles.md)）：工作台（子项：待认领、AI 草稿、我处理中、已结束，组长以上加「同事处理中」）、工单（徽标 = 6 小时内到期 + 已超时）、订单与开票对全部角色显示；看板对管理员、组长显示；接待设置对管理员、组长显示（组长只有知识库标签）；店铺与连接、团队与权限、用量与套餐、商户设置只对管理员显示。登录后默认进 `/wb`；新注册商户进 `/shops/connect`。
+会话列表（`PAGE-WB` 左栏，`API-CONV-001`）：
+
+- 分组依次为待认领、AI 草稿、我处理中、他人处理中、已结束，三种角色都有这五组
+- 他人处理中：管理员、组长看到范围内同事处理中的会话；三种角色都看到负责店铺内平台后台处理、没有处理人的会话
+- 平台后台处理的会话行上标「平台后台」，打开后点「认领」接手（见 §11 take_over）
+- 这类会话买家没在等回复时，状态写「有人回复过 · 可认领接手」；在等时照常显示已等时长
+- 平台后台处理的会话不计入待认领计数，也不计入侧栏工作台徽标（徽标 = 待认领 + AI 草稿）
+- 可按平台、店铺筛选；买家再回复的会话置顶并显示已等时长，超过接待时限标警示
+- 行上显示未结工单号与剩余时限
+
+时间线里的平台系统提示（`PAGE-WB` 对话栏，`API-CONV-002` 返回的系统消息）：
+
+- 系统提示居中一行显示；下表里的 TikTok 英文提示显示中文，库里存的仍是平台原文
+- 显示中文的提示可以点开看平台原文；表外的提示照原文显示，没有文字的显示「平台通知」
+- 飞书待认领卡只取买家、客服、AI 的消息，不带系统提示，不用这张表
+- 下表覆盖 2026-10-16 线上两个平台出现过的全部系统提示文本，Shopee 的系统提示没有文字
+- X、Y、Z 是平台给的客服名，原样带出
+
+| 平台原文 | 工作台显示 |
+| --- | --- |
+| `[Other] Please check this message in seller center of TikTok shop.` | 一条开放接口取不到的消息，请到 TikTok 卖家中心查看 |
+| `The chat has been assigned to X` | 对话已分配给 X |
+| `Chat ended by customer service agent.` | 客服已结束对话 |
+| `The chat timed out due to customer inactivity` | 买家长时间未回复，对话超时结束 |
+| `X started the chat` | X 开始接待 |
+| `X transferred the conversation from Y to Z` | X 把对话从 Y 转给 Z |
+| `X transferred the chat to Y` | X 把对话转给 Y |
+| `The customer has requested manual customer service.` 开头的提示 | 买家要求转人工客服，请尽快回复 |
+| `The chat timed out due to customer service agent inactivity` | 客服长时间未回复，对话超时结束 |
+| `There is no proper answer in the FAQ database, please reply manually.` 开头的提示 | FAQ 里没有合适的答案，请人工回复 |
+| `Because no proper answer was found, the chat assistant has stopped` 开头的提示 | 没找到合适的答案，TikTok 聊天助手已停止回复，请人工回复 |
+| `X assigned the chat to Y` | X 把对话分配给 Y |
+
+侧栏（按 [roles.md](roles.md)）：工作台（子项：待认领、AI 草稿、我处理中、他人处理中、已结束）、工单（徽标 = 6 小时内到期 + 已超时）、订单与开票对全部角色显示；看板对管理员、组长显示；接待设置对管理员、组长显示（组长只有知识库标签）；店铺与连接、团队与权限、用量与套餐、商户设置只对管理员显示。登录后默认进 `/wb`；新注册商户进 `/shops/connect`。
 
 ```mermaid
 flowchart LR
@@ -3575,7 +3610,7 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 场景: 改角色立即生效 (REQ-TEAM-003)
   Given 成员 Arif 是员工
   When 管理员把他改为组长、负责 MY 站 2 家店
-  Then Arif 的下一次请求就能看到「看板」与「同事处理中」，看板只含这 2 家店
+  Then Arif 的下一次请求就能看到「看板」，「他人处理中」里出现这 2 家店里同事处理中的会话，看板只含这 2 家店
 
 场景: 所有者不能被降级或停用 (REQ-TEAM-003, REQ-TEAM-004)
   When 另一位管理员把所有者改为员工或停用
@@ -3728,12 +3763,23 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 员工打开这个会话，买家再发一条
   Then 下一次详情刷新（≤ 2 秒）后时间线出现这条消息
 
+场景: 平台后台处理的会话列在他人处理中 (REQ-CONV-002)
+  Given 员工负责的店里有一个会话，卖家在平台后台回复过，Shopilot 里没有处理人
+  When 员工打开 /wb 的「他人处理中」
+  Then 列表有这个会话，行上标「平台后台」
+  And 待认领计数与侧栏工作台徽标不含这个会话
+
 场景: 会话详情与窄屏 (REQ-CONV-003)
   Given TikTok 会话里有文字、图片、订单卡、退货卡
   When 打开会话
   Then 时间线按时间显示每种消息，Shopee 消息显示「译 · Shopee」，TikTok 买家消息显示「译 · Shopilot」
   When 浏览器宽度为 1200 px（侧栏展开）
   Then 右栏收成抽屉，对话栏宽度不小于 400 px 且没有横向滚动
+
+场景: 平台英文系统提示显示中文 (REQ-CONV-003)
+  Given TikTok 会话里有系统提示「Chat ended by customer service agent.」
+  When 打开会话
+  Then 时间线这一行显示「客服已结束对话」，点开看到平台原文
 
 场景: 并发认领 (REQ-CONV-004)
   Given 一个待认领会话

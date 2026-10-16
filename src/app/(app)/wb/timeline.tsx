@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OrderItems, Thumb, useClamped } from "@/components/orders/order-items";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { inTz, money, PLATFORM_LABEL } from "@/lib/format";
+import { platformNoticeText } from "@/lib/platform-notice";
 import { cn } from "@/lib/utils";
 import { MediaViewer, type ViewerItem } from "./media-viewer";
 import { AiTag, Citations, latestEvent } from "./wb-shared";
@@ -211,6 +212,23 @@ export function Timeline({
 function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; onRetry: (id: string) => void; retrying: boolean }) {
   const time = inTz(m.sentAt, ctx.tz, "HH:mm");
   if (m.senderRole === "system") {
+    // 平台英文系统提示按对照表显示中文，点开看平台原文；表外的照原文显示
+    const zh = platformNoticeText(m.text);
+    if (zh) {
+      return (
+        <details className="self-center px-6 text-center text-xs text-muted-foreground [overflow-wrap:anywhere]">
+          <summary className="focus-ring cursor-pointer rounded-sm">
+            {zh} · <span className="tabular-nums">{time}</span>
+          </summary>
+          <p lang="en" className="mt-1">
+            <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
+              原文
+            </Badge>
+            {m.text}
+          </p>
+        </details>
+      );
+    }
     return (
       <p className="self-center px-6 text-center text-xs text-muted-foreground [overflow-wrap:anywhere]">
         {m.text || "平台通知"} · <span className="tabular-nums">{time}</span>

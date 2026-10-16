@@ -52,7 +52,8 @@ async function conversation(input: {
   state: "bot" | "awaiting_human" | "human" | "closed";
   claimedBy?: string | null;
   handoffReason?: string | null;
-  messages: Array<{ from: "buyer" | "agent"; text: string; minutesAgo: number }>;
+  /** system = 平台推来的系统提示，platformType 记平台原始类型（同 TikTok 归一后的 payload.platformType） */
+  messages: Array<{ from: "buyer" | "agent" | "system"; text: string; minutesAgo: number; platformType?: string }>;
   draft?: { minutesAgo: number; text: string; shadow?: boolean };
   ended?: boolean;
 }) {
@@ -111,11 +112,12 @@ async function conversation(input: {
           conversationId: conv.id,
           segmentId: seg.id,
           externalMessageId: `scenario-${randomUUID()}`,
-          direction: x.from === "buyer" ? "in" : "out",
-          senderRole: x.from === "buyer" ? "buyer" : "agent",
+          direction: x.from === "agent" ? "out" : "in",
+          senderRole: x.from,
           sentBy: x.from === "agent" ? (input.claimedBy ?? null) : null,
-          type: "text",
+          type: x.from === "system" ? "other" : "text",
           text: x.text,
+          ...(x.platformType ? { payload: { platformType: x.platformType } } : {}),
           sendStatus: x.from === "agent" ? "sent" : null,
           clientRequestId: x.from === "agent" ? `scenario-${randomUUID()}` : null,
           sentAt: at(x),
@@ -362,6 +364,25 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
         handoffReason: "shadow",
         messages: [{ from: "buyer", text: "Does this webcam work with a Mac?", minutesAgo: 3 }],
         draft: { minutesAgo: 2, text: "Hi! Yes, it works with macOS 12 or later. Just plug it in via USB-C, no driver needed.", shadow: true },
+      }),
+    ),
+  // TikTok 推来的英文系统提示（模拟器不能发系统提示，用场景造）：前 6 条在 DESIGN 的对照表里，最后一条不在
+  "tiktok-system-notices": async () =>
+    out(
+      await conversation({
+        shopName: "Demo TikTok MY",
+        state: "awaiting_human",
+        handoffReason: "shop_off",
+        messages: [
+          { from: "buyer", text: "Hi, is this camera still available?", minutesAgo: 9 },
+          { from: "system", platformType: "ALLOCATED_SERVICE", text: "The chat has been assigned to Yuiki", minutesAgo: 8 },
+          { from: "system", platformType: "NOTIFICATION", text: "Yuiki started the chat", minutesAgo: 7 },
+          { from: "system", platformType: "OTHER", text: "[Other] Please check this message in seller center of TikTok shop.", minutesAgo: 6 },
+          { from: "system", platformType: "NOTIFICATION", text: "The customer has requested manual customer service. Please reply as soon as possible.", minutesAgo: 5 },
+          { from: "system", platformType: "NOTIFICATION", text: "Chat ended by customer service agent.", minutesAgo: 4 },
+          { from: "system", platformType: "NOTIFICATION", text: "The chat timed out due to customer inactivity", minutesAgo: 3 },
+          { from: "system", platformType: "NOTIFICATION", text: "Your chat was rated 5 stars", minutesAgo: 2 },
+        ],
       }),
     ),
   // 卖家在平台后台直接回复过：处理中、没有 Shopilot 处理人（模拟器没有「平台后台回复」动作，用场景造）
