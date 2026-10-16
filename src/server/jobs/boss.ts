@@ -10,6 +10,7 @@ export const QUEUES = {
   "knowledge.ingest": { policy: "stately" as const, expireInSeconds: 1320, retryLimit: 0 },
   "knowledge.purge": { policy: "standard" as const, expireInSeconds: 300, retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "message.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
+  "draft.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
   "order.sync": { policy: "stately" as const, expireInSeconds: 300, retryLimit: 2, retryDelay: 30 },
   "shop.backfill": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 3, retryDelay: 60 },
   "data.export": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },

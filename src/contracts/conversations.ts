@@ -17,6 +17,8 @@ export type ConversationsQuery = z.infer<typeof conversationsQuery>;
 export const conversationQuery = z.object({ before: zUuid.optional() });
 /** 认领：带 version 时只在会话版本未变时认领；不带时不比对版本（飞书卡片「认领」落地时会话可能看不到，靠认领接口的 409 得知处理人） */
 export const claimBody = z.object({ version: z.number().int().min(1).optional() });
+/** 取消认领：只有当前处理人，版本一致才放回待认领 */
+export const unclaimBody = z.object({ version: z.number().int().min(1) });
 export const assignBody = z.object({ toMembershipId: zUuid, withTickets: z.boolean().default(false), version: z.number().int().min(1) });
 export const closeBody = z.object({ reason: z.string().trim().max(200).optional(), version: z.number().int().min(1) });
 export const stageBody = z.object({ stage: z.enum(["presale", "insale", "aftersale", "unknown"]) });
@@ -127,6 +129,8 @@ export type DraftItem = {
   /** 模型判定资料不足（RULE-KB-003）；这样的出稿一律转人工，只会出现在影子回复里 */
   insufficient: boolean;
   citations: DraftCitationItem[];
+  /** 影子回复的商户语言译文（REQ-AI-007）；不需要译、还没译好或翻译失败时为 null */
+  translation: string | null;
 };
 
 export type ConversationDetail = {
@@ -167,7 +171,7 @@ export type ConversationDetail = {
   events: Array<{ at: string; text: string; actorName: string }>;
   openTickets: TicketChip[];
   history: Array<{ id: string; stage: Stage; startedAt: string; endedAt: string | null; endReason: string | null; claimedBy: string | null; messages: number }>;
-  permissions: { canClaim: boolean; canSend: boolean; canTransfer: boolean; canClose: boolean; canChangeStage: boolean; canIgnoreDraft: boolean };
+  permissions: { canClaim: boolean; canUnclaim: boolean; canSend: boolean; canTransfer: boolean; canClose: boolean; canChangeStage: boolean; canIgnoreDraft: boolean };
 };
 
 export type BuyerOrder = {

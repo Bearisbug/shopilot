@@ -1,6 +1,6 @@
-// 飞书卡片投递（发件箱）：会话进入待认领、待认领超时时先写一行投递记录（同一会话段同一卡种只一行），再入队 feishu.send；
+// 飞书卡片投递（发件箱）：会话进入待认领、待认领超时时先写一行投递记录（同一会话段同一卡种只一行，处理人取消认领另起一行），再入队 feishu.send；
 // 任务里按当时的状态构卡并发出。会话已被认领、已结束、换了新段，或商户断开飞书、店铺没有群时记为跳过。
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { receptionContext } from "@/server/conversations/hours";
 import { decrypt } from "@/server/core/crypto";
 import { db, schema } from "@/server/db/client";
@@ -49,9 +49,10 @@ export async function sendCard(integration: IntegrationRow, target: TargetRow, c
 
 /**
  * 会话进入待认领 / 待认领超时：没接飞书、开关关着、店铺没有群、本段已推过同种卡时什么都不做。
+ * again = 处理人取消认领：序号取本段同种卡最大值 + 1，本段推过也再推（INV-FEISHU-003）。
  * 飞书是旁路通知，这里出错只记日志，不影响调用方的主流程。
  */
-export async function queueFeishuCard(conversationId: string, kind: CardKind): Promise<string | null> {
+export async function queueFeishuCard(conversationId: string, kind: CardKind, opts: { again?: boolean } = {}): Promise<string | null> {
   try {
     const [conv] = await db().select().from(schema.conversation).where(eq(schema.conversation.id, conversationId)).limit(1);
     if (!conv || !conv.currentSegmentId || conv.buyerKind !== "buyer") return null;
@@ -59,9 +60,10 @@ export async function queueFeishuCard(conversationId: string, kind: CardKind): P
     if (!integration || !(kind === "unclaimed" ? integration.notifyUnclaimed : integration.notifyOverdue)) return null;
     const target = await resolveTarget(conv.merchantId, conv.shopId, integration.method);
     if (!target) return null;
+    const seq = opts.again ? sql<number>`(select coalesce(max(${d.seq}), -1) + 1 from ${d} where ${d.segmentId} = ${conv.currentSegmentId} and ${d.kind} = ${kind})` : 0;
     const [row] = await db()
       .insert(d)
-      .values({ merchantId: conv.merchantId, conversationId: conv.id, segmentId: conv.currentSegmentId, kind, targetId: target.id, targetName: target.name })
+      .values({ merchantId: conv.merchantId, conversationId: conv.id, segmentId: conv.currentSegmentId, kind, seq, targetId: target.id, targetName: target.name })
       .onConflictDoNothing()
       .returning({ id: d.id });
     if (!row) return null;

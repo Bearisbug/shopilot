@@ -164,7 +164,7 @@ export function conversationCard(input: ConversationCardInput): FeishuCard {
       { tag: "column", width: "auto", elements: [button("打开会话", "default", input.openUrl)] },
     ],
   });
-  elements.push(md(grey(overdue ? "Shopilot · 待认领超时提醒，同一段会话只推一次" : "Shopilot · 会话进入待认领，同一段会话只推一次")));
+  elements.push(md(grey(overdue ? "Shopilot · 待认领超时提醒，同一段会话只推一次" : "Shopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推")));
   return card(title, overdue ? "red" : "orange", `${title} · ${truncate(input.buyerName, 20)}`, elements);
 }
 

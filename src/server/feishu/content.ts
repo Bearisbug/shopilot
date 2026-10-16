@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
 import { chat } from "@/server/ai/client";
-import { translateText } from "@/server/ai/translate";
+import { isChinese, translateText } from "@/server/ai/translate";
 import { db, schema } from "@/server/db/client";
 import type { CardLine } from "./card";
 import type { ImageSource } from "./client";
@@ -28,14 +28,6 @@ export function meaningful(m: Pick<MessageRow, "senderRole" | "type" | "text" | 
   if (m.sendStatus === "failed") return false;
   if (m.type === "text" || m.type === "other") return Boolean(m.text?.trim());
   return true;
-}
-
-/** 汉字占非空白字符三成以上算中文，不再翻译 */
-export function isChinese(text: string): boolean {
-  const chars = text.replace(/\s+/g, "");
-  if (!chars) return true;
-  const han = chars.match(/[㐀-鿿豈-﫿]/g)?.length ?? 0;
-  return han / chars.length >= 0.3;
 }
 
 /** 到时或出错都得 null */

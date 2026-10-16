@@ -13,7 +13,7 @@ import { ApiError } from "@/lib/api";
 import { OrderSheet } from "../orders/order-drawer";
 import { BuyerColumn } from "./buyer-panel";
 import { ConversationPane } from "./conversation-pane";
-import { EndDialog, TransferDialog } from "./wb-dialogs";
+import { EndDialog, TransferDialog, UnclaimDialog } from "./wb-dialogs";
 import { useBuyer, useConversation, useWbParams } from "./wb-shared";
 
 export function ConversationScreen({ id }: { id: string }) {
@@ -55,6 +55,7 @@ export function ConversationScreen({ id }: { id: string }) {
       />
       {q.data && <TransferDialog detail={q.data} />}
       {q.data && <EndDialog detail={q.data} />}
+      {q.data && <UnclaimDialog detail={q.data} />}
       {q.data && ready && (
         <NewTicketDialog
           shopId={q.data.conversation.shop.id}

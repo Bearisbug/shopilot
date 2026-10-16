@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowDownIcon, ExternalLinkIcon, ImageIcon, PackageIcon, PlayIcon, ShoppingBagIcon, SmileIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
+import { ArrowDownIcon, CopyIcon, ExternalLinkIcon, ImageIcon, PackageIcon, PlayIcon, ShoppingBagIcon, SmileIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { BuyerOrder, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
 import { Badge } from "@/components/ui/badge";
@@ -596,7 +597,7 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
   }
 }
 
-/** 影子回复：只给管理员、组长，折叠只读（REQ-AI-001） */
+/** 影子回复：只给管理员、组长，折叠只读（REQ-AI-001）；不是商户语言时原文下方带译文，「复制」复制原文（REQ-AI-007） */
 function ShadowDraft({ d, tz }: { d: DraftItem; tz: string }) {
   return (
     <details className="max-w-[85%] self-end rounded-lg border border-dashed border-border bg-(--semantic-color-surface-warm) px-3 py-2 text-sm [overflow-wrap:anywhere]">
@@ -605,7 +606,29 @@ function ShadowDraft({ d, tz }: { d: DraftItem; tz: string }) {
         AI 影子回复（未发送）· 置信度 <span className="tabular-nums">{d.confidence.toFixed(2)}</span> · <span className="tabular-nums">{inTz(d.createdAt, tz, "HH:mm")}</span>
       </summary>
       <p className="mt-2 leading-relaxed whitespace-pre-wrap">{d.text}</p>
+      {d.translation && (
+        <p className="mt-1.5 border-t border-border pt-1.5 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
+          <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
+            译 · Shopilot
+          </Badge>
+          {d.translation}
+        </p>
+      )}
       <Citations items={d.citations} className="mt-2" />
+      <Button
+        size="xs"
+        variant="outline"
+        className="mt-2"
+        onClick={() =>
+          navigator.clipboard
+            .writeText(d.text)
+            .then(() => toast.success("已复制"))
+            .catch(() => toast.error("复制没有成功，请手动选中文字复制"))
+        }
+      >
+        <CopyIcon />
+        {d.translation ? "复制原文" : "复制"}
+      </Button>
     </details>
   );
 }

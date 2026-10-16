@@ -1,4 +1,4 @@
-// 会话写操作（DESIGN §11.1、§11.2、§11.7）：认领、转交 / 改派、结束、发送、忽略草稿、改阶段、重试。
+// 会话写操作（DESIGN §11.1、§11.2、§11.7）：认领、取消认领、转交 / 改派、结束、发送、忽略草稿、改阶段、重试。
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import type { MessageItem, SendBody } from "@/contracts/conversations";
 import { handoff } from "@/server/ai/draft";
@@ -7,6 +7,7 @@ import type { MemberContext } from "@/server/auth/context";
 import { audit } from "@/server/core/audit";
 import { notify } from "@/server/core/notify";
 import { db, schema } from "@/server/db/client";
+import { queueFeishuCard } from "@/server/feishu/deliver";
 import { conflict, notAllowed, Problem } from "@/server/http/problem";
 import { isReadOnlyShopId, withShop } from "@/server/platforms/clients";
 import { tiktokEndSession, tiktokFindConversation } from "@/server/platforms/tiktok";
@@ -68,6 +69,35 @@ export async function claim(ctx: MemberContext, id: string, version: number | nu
     await db().update(schema.segment).set({ firstClaimedBy: sql`coalesce(${schema.segment.firstClaimedBy}, ${ctx.membership.id}::uuid)` }).where(eq(schema.segment.id, updated.currentSegmentId));
   }
   await audit(ctx.actor, { module: "workbench", action: "conversation_claimed", summary: `${ctx.user.name} 认领了会话`, targetType: "conversation", targetId: conv.id });
+  return updated;
+}
+
+/**
+ * 11.1 unclaim：只有当前处理人、版本一致时放回待认领；未处置草稿与关联工单不动。
+ * 提交后推飞书待认领卡，本段推过也再推一张（INV-FEISHU-003）。
+ */
+export async function unclaim(ctx: MemberContext, id: string, version: number): Promise<ConversationRow> {
+  const conv = await loadForHandling(ctx, id);
+  const now = new Date();
+  const [updated] = await db()
+    .update(c)
+    .set({ handlingState: "awaiting_human", claimedBy: null, handoffReason: "manual", version: sql`${c.version} + 1`, updatedAt: now })
+    .where(and(eq(c.id, conv.id), eq(c.version, version), eq(c.handlingState, "human"), eq(c.claimedBy, ctx.membership.id)))
+    .returning();
+  if (!updated) {
+    const [cur] = await db().select().from(c).where(eq(c.id, conv.id)).limit(1);
+    const by = await memberName(cur.claimedBy);
+    const detail =
+      cur.handlingState === "human" && cur.claimedBy && cur.claimedBy !== ctx.membership.id
+        ? `${by} 正在处理这个会话，只有处理人能取消认领。`
+        : cur.handlingState === "closed"
+          ? "会话已经结束。"
+          : "会话状态已变化，请刷新后再试。";
+    throw conflict(detail, { claimedBy: cur.claimedBy ? { id: cur.claimedBy, name: by } : null, version: cur.version, handlingState: cur.handlingState });
+  }
+  await systemEvent(db(), updated, `${ctx.user.name} 取消认领，会话放回待认领`, { kind: "unclaimed" });
+  await audit(ctx.actor, { module: "workbench", action: "conversation_unclaimed", summary: `${ctx.user.name} 取消认领，会话放回待认领`, targetType: "conversation", targetId: conv.id });
+  await queueFeishuCard(conv.id, "unclaimed", { again: true });
   return updated;
 }
 

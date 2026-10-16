@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeftIcon, CircleCheckIcon, ClipboardListIcon, CopyIcon, HandIcon, PanelRightIcon, TimerIcon, TriangleAlertIcon, UserPlusIcon } from "lucide-react";
+import { ChevronLeftIcon, CircleCheckIcon, ClipboardListIcon, CopyIcon, HandIcon, PanelRightIcon, TimerIcon, TriangleAlertIcon, UserMinusIcon, UserPlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -283,6 +283,11 @@ function Header({ d, tz }: { d: ConversationDetail; tz: string }) {
               <HandIcon />
               认领
             </Button>
+          )}
+          {d.permissions.canUnclaim && (
+            <IconAction label="取消认领（放回待认领）" onClick={() => set({ dialog: "unclaim" }, "push")}>
+              <UserMinusIcon />
+            </IconAction>
           )}
           {d.permissions.canTransfer && (
             <IconAction label={c.claimedBy && !mine ? "改派给其他同事" : "转交给同事"} onClick={() => set({ dialog: "transfer" }, "push")}>

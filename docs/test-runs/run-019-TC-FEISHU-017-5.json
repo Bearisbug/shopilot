@@ -1,0 +1,1 @@
+{"step":5,"request":"POST /api/v1/members/<Mei Lin>/disable","status":200,"body":{"releasedConversations":3,"returnedTickets":2},"expected":"releasedConversations = 1（用例原文）","note":"种子里 Mei Lin 原有 2 个处理中的会话；取自 RUN-019 执行脚本输出"}

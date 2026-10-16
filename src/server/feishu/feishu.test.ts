@@ -1,5 +1,5 @@
 // 需要数据库：DATABASE_URL 未设置时跳过（set -a && . ./.env && set +a && pnpm exec vitest run src/server/feishu）。
-// 飞书推送：设置接口（替身）、两个触发点入队与去重、feishu.send 构卡与跳过、重试与失败、落地认领的服务端部分、接口权限。
+// 飞书推送：设置接口（替身）、两个触发点入队与去重、feishu.send 构卡与跳过、重试与失败、落地认领的服务端部分、取消认领与重推、接口权限。
 // 造的商户、账号在 afterAll 删除；队列投递被替换，不进共用的 pg-boss。
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -30,6 +30,14 @@ describe("飞书设置接口权限（settings.manage）", () => {
   });
 });
 
+describe("取消认领接口权限（wb.handle）", () => {
+  it("API-CONV-016 的处理器要求 wb.handle", async () => {
+    const src = await readFile(path.resolve(import.meta.dirname, "../../app/api/v1/conversations/[id]/unclaim/route.ts"), "utf8");
+    expect(src.match(/export const (GET|POST|PUT|PATCH|DELETE) = route\(/g)).toHaveLength(1);
+    expect(src).toMatch(/auth: "member",\s+perm: "wb\.handle"/);
+  });
+});
+
 describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", async () => {
   process.env.FEISHU_MODE = "stub";
   process.env.AI_MODE = "stub";
@@ -43,7 +51,9 @@ describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", 
   const { ingestMessage, runFollowUp } = await import("@/server/conversations/ingest");
   const { handoff } = await import("@/server/ai/draft");
   const { remindUnclaimed } = await import("@/server/conversations/jobs");
-  const { claim } = await import("@/server/conversations/actions");
+  const { claim, unclaim } = await import("@/server/conversations/actions");
+  const { getConversation } = await import("@/server/conversations/queries");
+  const { disableMember } = await import("@/server/team/service");
   const { STUB_SUMMARY } = await import("@/server/ai/client");
   type MemberContext = import("@/server/auth/context").MemberContext;
   type Merchant = typeof schema.merchant.$inferSelect;
@@ -383,6 +393,100 @@ describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", 
       const a = await addMember(A.merchant, "agent", "员工丁", [A.shopVn.id]);
       const took = await claim(a, convId, null);
       expect(took).toMatchObject({ handlingState: "human", claimedBy: a.membership.id });
+    });
+  });
+
+  describe("取消认领（API-CONV-016）", () => {
+    it("处理人取消认领：回到待认领、原因人工转交，写系统事件与审计；草稿与工单不动；本段推过也再推，之后被停用不再推", async () => {
+      const convId = await ingestBuyer(A.shopVn, `c-${randomUUID()}`);
+      const a = await addMember(A.merchant, "agent", "员工戊", [A.shopVn.id]);
+      const claimed = await claim(a, convId, null);
+      const [draft] = await db()
+        .insert(schema.draft)
+        .values({ merchantId: A.merchant.id, conversationId: convId, segmentId: claimed.currentSegmentId, mode: "assist", text: "Hi, it works with Mac.", confidence: 0.8, status: "generated", model: "test", latencyMs: 1 })
+        .returning();
+      const [ticket] = await db()
+        .insert(schema.ticket)
+        .values({ merchantId: A.merchant.id, number: `T-${randomUUID().slice(0, 8)}`, type: "internal", origin: "manual", dedupeKey: `test:${randomUUID()}`, shopId: A.shopVn.id, platform: "shopee", conversationId: convId, assigneeId: a.membership.id })
+        .returning();
+      expect((await getConversation(a, convId)).permissions.canUnclaim).toBe(true);
+      enqueue.mockClear();
+
+      const out = await unclaim(a, convId, claimed.version);
+      expect(out).toMatchObject({ handlingState: "awaiting_human", claimedBy: null, handoffReason: "manual", version: claimed.version + 1 });
+      const events = await db().select().from(schema.message).where(and(eq(schema.message.conversationId, convId), eq(schema.message.senderRole, "system")));
+      expect(events.map((e) => e.text)).toContain("员工戊 取消认领，会话放回待认领");
+      const logs = await db().select().from(schema.auditLog).where(and(eq(schema.auditLog.targetId, convId), eq(schema.auditLog.action, "conversation_unclaimed")));
+      expect(logs).toHaveLength(1);
+      expect((await db().select().from(schema.draft).where(eq(schema.draft.id, draft.id)))[0].status).toBe("generated");
+      expect((await db().select().from(schema.ticket).where(eq(schema.ticket.id, ticket.id)))[0].assigneeId).toBe(a.membership.id);
+      // 员工按负责店铺仍能打开，能再认领、不能再取消
+      const after = await getConversation(a, convId);
+      expect(after.permissions).toMatchObject({ canClaim: true, canUnclaim: false });
+
+      const rows = (await deliveries(convId)).sort((x, y) => x.seq - y.seq);
+      expect(rows.map((r) => [r.kind, r.seq, r.status])).toEqual([
+        ["unclaimed", 0, "queued"],
+        ["unclaimed", 1, "queued"],
+      ]);
+      expect(sendJobs()).toEqual([["feishu.send", { id: rows[1].id }]]);
+      await deliverFeishuCard({ id: rows[1].id });
+      const [sent] = await db().select().from(schema.feishuDelivery).where(eq(schema.feishuDelivery.id, rows[1].id));
+      expect(sent.status).toBe("sent");
+      expect(JSON.stringify(sent.card)).toContain("人工转交");
+      expect(JSON.stringify(sent.card)).toContain("处理人取消认领后再推");
+
+      // 再认领再取消：每次另推一张
+      const again = await claim(a, convId, null);
+      await unclaim(a, convId, again.version);
+      expect((await deliveries(convId)).map((r) => r.seq).sort()).toEqual([0, 1, 2]);
+
+      // 下一名处理人被停用退回待认领：本段推过，不再推
+      const b = await addMember(A.merchant, "agent", "员工己", [A.shopVn.id]);
+      await claim(b, convId, null);
+      enqueue.mockClear();
+      expect((await disableMember(A.admin, b.membership.id)).releasedConversations).toBe(1);
+      expect(await deliveries(convId)).toHaveLength(3);
+      expect(sendJobs()).toHaveLength(0);
+    });
+
+    it("本段还没推过卡（AI 接待中直接认领）时，取消认领推的是本段第一张，之后停用退回不再推", async () => {
+      const [conv] = await db()
+        .insert(schema.conversation)
+        .values({ merchantId: A.merchant.id, shopId: A.shopVn.id, platform: "shopee", externalConversationId: `c-${randomUUID()}`, buyerExternalId: "b10", buyerName: "Bot Buyer", handlingState: "bot" })
+        .returning();
+      const [seg] = await db().insert(schema.segment).values({ merchantId: A.merchant.id, conversationId: conv.id, stage: "unknown", startedAt: new Date() }).returning();
+      await db().update(schema.conversation).set({ currentSegmentId: seg.id }).where(eq(schema.conversation.id, conv.id));
+      const lead = await addMember(A.merchant, "lead", "组长小周", [A.shopVn.id]);
+      const claimed = await claim(lead, conv.id, null);
+      await unclaim(lead, conv.id, claimed.version);
+      expect((await deliveries(conv.id)).map((r) => [r.kind, r.seq])).toEqual([["unclaimed", 0]]);
+      const c = await addMember(A.merchant, "agent", "员工庚", [A.shopVn.id]);
+      await claim(c, conv.id, null);
+      await disableMember(A.admin, c.membership.id);
+      expect(await deliveries(conv.id)).toHaveLength(1);
+    });
+
+    it("不是本人处理中、版本过期或已放回待认领时 409，会话不变；组长、同事看不到取消认领入口", async () => {
+      const convId = await ingestBuyer(A.shopVn, `c-${randomUUID()}`);
+      const a = await addMember(A.merchant, "agent", "员工辛", [A.shopVn.id]);
+      const peer = await addMember(A.merchant, "agent", "员工壬", [A.shopVn.id]);
+      const lead = await addMember(A.merchant, "lead", "组长小吴", [A.shopVn.id]);
+      const claimed = await claim(a, convId, null);
+      expect((await getConversation(lead, convId)).permissions.canUnclaim).toBe(false);
+
+      const byLead = await problemOf(unclaim(lead, convId, claimed.version));
+      expect(byLead.status).toBe(409);
+      expect(byLead.extra?.claimedBy).toEqual({ id: a.membership.id, name: "员工辛" });
+      expect((await problemOf(unclaim(peer, convId, claimed.version))).status).toBe(409);
+      expect((await problemOf(unclaim(a, convId, claimed.version - 1))).status).toBe(409);
+      const [still] = await db().select().from(schema.conversation).where(eq(schema.conversation.id, convId));
+      expect(still).toMatchObject({ handlingState: "human", claimedBy: a.membership.id, version: claimed.version });
+
+      await unclaim(a, convId, claimed.version);
+      const twice = await problemOf(unclaim(a, convId, claimed.version + 1));
+      expect(twice.status).toBe(409);
+      expect(twice.extra).toMatchObject({ handlingState: "awaiting_human", claimedBy: null });
     });
   });
 });

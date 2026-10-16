@@ -16,8 +16,10 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
-| 2026-10-16 | v1.13 | API-CONV-001、API-CONV-002、API-NAV-001、ADR-007 | 工作台刷新加快：会话列表 3 秒、打开的会话 2 秒、侧栏计数 10 秒刷新一次（原 10、4、30 秒） | 缺陷修复 |
+| 2026-10-16 | v1.15 | REQ-CONV-012、API-CONV-016、PAGE-WB、ENT-Conversation、FLOW-FEISHU-CARD、INV-FEISHU-001、INV-FEISHU-003、ENT-FeishuDelivery | 处理人可以取消认领，把会话放回待认领，飞书群再收到一张待认领卡 | 功能 |
+| 2026-10-16 | v1.15 | REQ-AI-007、FLOW-AI-DRAFT、API-CONV-002、ENT-Draft | 影子回复下方显示中文译文，可一键复制原文 | 功能 |
 | 2026-10-16 | v1.13 | API-TEAM-001 | 团队页的人工首响中位与看板同口径，只算工作时间内开始的会话段 | 缺陷修复 |
+| 2026-10-16 | v1.13 | API-CONV-001、API-CONV-002、API-NAV-001、ADR-007 | 工作台刷新加快：列表 3 秒、打开的会话 2 秒、侧栏计数 10 秒刷新一次（原 10、4、30 秒） | 缺陷修复 |
 | 2026-10-16 | v1.13 | API-CONV-004、PAGE-WB、ENT-Conversation | 平台后台有人回复过的会话可在 Shopilot 认领接手，员工也能打开 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-CARD、REQ-FEISHU-005、API-MOCK-011 | 测试轮发现的两处修复：卡片里的中文消息不再挂平台机翻的译文；开发发件箱能显示测试卡片里上传的图片 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-SETUP、FLOW-FEISHU-CARD、FLOW-AI-DRAFT、FLOW-MOCK、REQ-FEISHU-001、REQ-FEISHU-002、REQ-FEISHU-003、REQ-FEISHU-004、REQ-FEISHU-005、REQ-FEISHU-006、REQ-MOCK-004、API-SET-017、API-SET-018、API-SET-019、API-SET-020、API-SET-021、API-SET-022、API-SET-023、API-SET-024、API-MOCK-011、ENT-FeishuIntegration、ENT-FeishuTarget、ENT-FeishuDelivery、INV-FEISHU-001、INV-FEISHU-002、ADR-015 | 新增飞书群推送：会话待认领或超时时往商户的飞书群发卡片，点卡片上的认领直达工作台 | 功能 |
@@ -77,8 +79,8 @@
 | 链路 | 名称 | 领域 | 状态 | 涉及需求 |
 | --- | --- | --- | --- | --- |
 | FLOW-INBOUND | 接收买家消息 | 接待 | 已实现 | REQ-CONV-001、REQ-CONV-006、REQ-CONV-007、REQ-CONV-010、REQ-CONV-011 |
-| FLOW-AI-DRAFT | AI 出稿 | 接待 | 已实现 | REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、REQ-KB-006 |
-| FLOW-WB-HANDLE | 接待会话 | 接待 | 已实现 | REQ-CONV-002、REQ-CONV-003、REQ-CONV-004、REQ-CONV-005、REQ-CONV-008、REQ-CONV-009、REQ-AI-003 |
+| FLOW-AI-DRAFT | AI 出稿 | 接待 | 已实现 | REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、REQ-KB-006、REQ-AI-007 |
+| FLOW-WB-HANDLE | 接待会话 | 接待 | 已实现 | REQ-CONV-002、REQ-CONV-003、REQ-CONV-004、REQ-CONV-005、REQ-CONV-008、REQ-CONV-009、REQ-AI-003、REQ-CONV-012 |
 | FLOW-FEISHU-CARD | 飞书待认领卡 | 接待 | 已实现 | REQ-FEISHU-003、REQ-FEISHU-004、REQ-FEISHU-005、REQ-FEISHU-006 |
 | FLOW-SEARCH | 全局搜索 | 接待 | 已实现 | REQ-SEARCH-001 |
 | FLOW-ORDER | 订单与售后 | 售后 | 已实现 | REQ-ORD-001、REQ-ORD-002、REQ-ORD-003、REQ-ORD-004、REQ-ORD-005 |
@@ -392,6 +394,8 @@
 | 失败 | 自动模式发送失败 | 草稿记失败，转人工「发送失败」 | 迁移 ENT-Draft generated→failed | TC-AI-020 |
 | 边界 | 影子模式 | 存影子回复不发送，只给管理员和组长看 | 迁移 ENT-Draft [*]→shadow | TC-AI-005 |
 | 边界 | 影子模式下模型判定资料不足 | 照常存影子回复，不显示「资料不足」标记 | 迁移 ENT-Draft [*]→shadow；字段 draft.insufficient | TC-KB-031 |
+| 边界 | 影子回复不是商户语言 | 另排翻译任务，把商户语言译文存进影子回复 | 字段 draft.translation；迁移 ENT-Draft [*]→shadow | TC-AI-024 |
+| 失败 | 影子回复翻译出错或超时 | 重试 1 次仍失败就不存译文，影子回复照常显示原文 | §15 仍失败只显示原文，影子回复不受影响；字段 draft.translation | 不测：AI 替身翻译不会失败，代码仓 translate.test.ts 覆盖 |
 | 边界 | 自动模式且置信度达标 | 直接发给买家，依据不随消息发出 | 迁移 ENT-Conversation bot→bot；INV-AI-001 | TC-AI-007 |
 
 ##### S9 员工看到草稿与依据
@@ -402,6 +406,7 @@
 | 边界 | 员工看依据 | 只显示文件名，不能点开 | API-CONV-011；字段 draft.citations | TC-KB-024 |
 | 边界 | 依据的资料之后被删除 | 所有人只看到文件名，不能点开 | 字段 draft.citations；API-CONV-002 | TC-KB-025 |
 | 边界 | 草稿 24 小时未处置 | 草稿过期，不再显示 | 迁移 ENT-Draft generated→expired | TC-AI-013 |
+| 边界 | 管理员或组长展开有译文的影子回复 | 原文下方显示译文，可一键复制原文 | API-CONV-002；字段 draft.translation | TC-AI-024 |
 
 #### 待决策
 
@@ -421,8 +426,8 @@
 | S1 | `src/server/conversations/ingest.ts#enqueueDraft` |
 | S2–S3 | `src/server/ai/draft.ts#generateDraft`；`src/server/conversations/hours.ts#hitKeyword`；`src/server/billing/usage.ts#reserveDraft` |
 | S4–S6 | `src/server/knowledge/retrieve.ts#retrieveForDraft` |
-| S7–S8 | `src/server/ai/draft.ts#generateDraft`；`src/server/ai/client.ts#chat`；`src/server/ai/draft.ts#handoff` |
-| S9 | `src/app/(app)/wb/composer.tsx#DraftCard`；`src/app/(app)/wb/wb-shared.tsx#Citations` |
+| S7–S8 | `src/server/ai/draft.ts#generateDraft`；`src/server/ai/client.ts#chat`；`src/server/ai/draft.ts#handoff`；`src/server/ai/translate.ts#translateDraft` |
+| S9 | `src/app/(app)/wb/composer.tsx#DraftCard`；`src/app/(app)/wb/wb-shared.tsx#Citations`；`src/app/(app)/wb/timeline.tsx#ShadowDraft` |
 
 ### FLOW-FEISHU-CARD · 飞书待认领卡
 
@@ -436,41 +441,48 @@
 
 #### 主流程
 
-1. S1 会话进入待认领时写投递记录并排推送任务 〔无界面〕
-2. S2 推送任务核对会话仍在本段待认领 〔无界面〕
-3. S3 读本段最近 5 条消息，补中文译文，上传图片 〔无界面〕
-4. S4 请 DeepSeek 写一两句总结 〔无界面〕
-5. S5 按接法把卡片发到店铺对应的群 〔无界面〕
-6. S6 成员在飞书群里点卡片上的「认领」 〔无界面〕
-7. S7 没登录时先登录，登录后回到卡片链接 〔界面：Web 登录页｜src/app/(auth)/login/login-form.tsx〕
-8. S8 当前商户不是卡片所属商户时自动切换（API-AUTH-007） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/card-landing.tsx〕
-9. S9 带版本认领并提示「已认领」（API-CONV-004） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/card-landing.tsx、src/app/(app)/wb/conversation-pane.tsx〕
+1. S1 会话进入待认领，或待认领超过提醒时长 〔无界面〕
+2. S2 写投递记录并排推送任务 〔无界面〕
+3. S3 推送任务核对会话仍在本段待认领 〔无界面〕
+4. S4 读本段最近 5 条消息，补中文译文，上传图片 〔无界面〕
+5. S5 请 DeepSeek 写一两句总结 〔无界面〕
+6. S6 按接法把卡片发到店铺对应的群 〔无界面〕
+7. S7 成员在飞书群里点卡片上的「认领」 〔无界面〕
+8. S8 没登录时先登录，登录后回到卡片链接 〔界面：Web 登录页｜src/app/(auth)/login/login-form.tsx〕
+9. S9 当前商户不是卡片所属商户时自动切换（API-AUTH-007） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/card-landing.tsx〕
+10. S10 带版本认领并提示「已认领」（API-CONV-004） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/card-landing.tsx、src/app/(app)/wb/conversation-pane.tsx〕
 
 #### 分支
 
-> 分支未与用户逐类核对：S1–S9
+> 分支未与用户逐类核对：S1–S10
 
-##### S1 写投递记录
+##### S1 进入待认领
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 边界 | 店铺未开 AI 或影子模式的新会话段 | 推待认领卡，卡上不写转人工原因 | 迁移 ENT-Conversation [*]→awaiting_human；迁移 ENT-FeishuDelivery [*]→queued | TC-FEISHU-005 |
 | 边界 | AI 转人工 | 推待认领卡，卡上写转人工原因 | 迁移 ENT-Conversation bot→awaiting_human；迁移 ENT-FeishuDelivery [*]→queued | TC-FEISHU-007 |
-| 边界 | 处理人被停用，会话退回待认领 | 推待认领卡，本段推过就不再推 | 迁移 ENT-Conversation human→awaiting_human；INV-FEISHU-001 | 无用例 |
-| 边界 | 本段已推过同一种卡 | 不再写记录，不再推 | 竞态「同一段两次触发同种卡」；INV-FEISHU-001 | TC-FEISHU-006 |
-| 边界 | 店铺没指定群，也没有默认群 | 不推 | API-SET-022；字段 feishu_target.shop_id | TC-FEISHU-008 |
-| 边界 | 商户没连飞书，或这类推送关着 | 不推 | API-SET-019；字段 feishu_integration.notify_unclaimed | TC-FEISHU-008 |
+| 边界 | 处理人被停用，会话退回待认领 | 推待认领卡，本段推过就不再推 | 迁移 ENT-Conversation human→awaiting_human「release」；INV-FEISHU-003 | 无用例 |
+| 边界 | 处理人取消认领，会话放回待认领 | 推待认领卡，本段推过也再推一张 | 迁移 ENT-Conversation human→awaiting_human「unclaim」；INV-FEISHU-003 | TC-FEISHU-017 |
 | 边界 | 待认领超过提醒时长 | 再推一张超时卡，每段只推一次 | 场景「待认领超时推超时卡」；迁移 ENT-FeishuDelivery [*]→queued | TC-FEISHU-009 |
 | 边界 | 提醒时长设为不提醒 | 不推超时卡 | 字段 reception_settings.unclaimed_remind_minutes | 无用例 |
 
-##### S2 核对会话
+##### S2 写投递记录
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 本段已推过同一种卡 | 不再写记录，不再推 | 竞态「同一段两次触发同种卡」；INV-FEISHU-003 | TC-FEISHU-006 |
+| 边界 | 店铺没指定群，也没有默认群 | 不推 | API-SET-022；字段 feishu_target.shop_id | TC-FEISHU-008 |
+| 边界 | 商户没连飞书，或这类推送关着 | 不推 | API-SET-019；字段 feishu_integration.notify_unclaimed | TC-FEISHU-008 |
+
+##### S3 核对会话
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 并发 | 发卡前会话已被认领、结束或开了新段 | 记跳过，不发 | 竞态「卡片排队时会话被认领」；迁移 ENT-FeishuDelivery queued→skipped | 不测：本地造不出排队与认领精确交错 |
 | 并发 | 发卡前商户断开了飞书 | 记跳过，不发 | 竞态「断开飞书时有卡片在排队」；迁移 ENT-FeishuDelivery queued→skipped | 不测：本地造不出排队与断开精确交错 |
 
-##### S3 构卡内容
+##### S4 构卡内容
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
@@ -480,14 +492,14 @@
 | 失败 | 图片上传失败，或用群自定义机器人 | 显示图片占位与「在 Shopilot 查看」链接 | 场景「卡片里的图片」；§15 每张图片上传 ≤ 12 秒 | TC-FEISHU-010 |
 | 边界 | 视频、表情、商品卡、订单卡 | 显示中文占位，订单带单号与状态 | 场景「卡片只放有意义的消息」 | TC-FEISHU-010 |
 
-##### S4 写总结
+##### S5 写总结
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 失败 | 总结出错或超过 6 秒 | 不显示总结，照常发卡 | §15 AI 总结与补译文并行，各 ≤ 6 秒 | 不测：AI 替身的总结不会失败 |
 | 边界 | AI 替身模式 | 总结是固定文案 | API-MOCK-008 | TC-FEISHU-005 |
 
-##### S5 发卡片
+##### S6 发卡片
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
@@ -495,21 +507,21 @@
 | 失败 | 应用凭证失效 | 记失败，设置页显示凭证已失效 | 迁移 ENT-FeishuDelivery queued→failed；字段 feishu_integration.status；§15 凭证、权限、机器人不在群里、签名错误直接记失败 | 不测：替身凭证不会失效，代码仓 feishu.test.ts 覆盖 |
 | 失败 | 机器人不在群里或签名不对 | 不重试，记失败，设置页显示原因 | 迁移 ENT-FeishuDelivery queued→failed；§15 凭证、权限、机器人不在群里、签名错误直接记失败 | TC-FEISHU-003 |
 
-##### S7 登录
+##### S8 登录
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 边界 | 商户要求两步验证而本人没开 | 先在账号安全页开启，开好回到卡片链接 | `/errors/two-factor-required`；API-AUTH-008 | TC-FEISHU-014 |
 | 边界 | 本人开了两步验证 | 输验证码后回到卡片链接 | API-AUTH-008 | TC-FEISHU-014 |
 
-##### S8 切换商户
+##### S9 切换商户
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 失败 | 本人不是卡片所属商户的启用成员 | 403 `/errors/forbidden`〔提示：看不到这个会话〕 | `/errors/forbidden`；API-AUTH-007 | TC-FEISHU-015 |
 | 边界 | 本人是该商户的启用成员 | 自动切换并提示已切换，再接着认领 | API-AUTH-007 | TC-FEISHU-015 |
 
-##### S9 认领
+##### S10 认领
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
@@ -529,18 +541,18 @@
 #### 关联
 
 - **契约锚点**：API-SET-017；API-SET-024；API-CONV-004；API-AUTH-007；ENT-FeishuDelivery；ENT-FeishuTarget；迁移 ENT-FeishuDelivery [*]→queued；迁移 ENT-FeishuDelivery queued→sent；ADR-015
-- **上游**：FLOW-INBOUND、FLOW-AI-DRAFT、FLOW-FEISHU-SETUP、FLOW-TEAM
+- **上游**：FLOW-INBOUND、FLOW-AI-DRAFT、FLOW-FEISHU-SETUP、FLOW-TEAM、FLOW-WB-HANDLE
 - **下游**：FLOW-WB-HANDLE
-- **守住的不变量**：INV-FEISHU-001、INV-FEISHU-002
+- **守住的不变量**：INV-FEISHU-003、INV-FEISHU-002
 
 | 步骤 | 位置 |
 | --- | --- |
-| S1 | `src/server/feishu/deliver.ts#queueFeishuCard`；`src/server/conversations/ingest.ts#runFollowUp`；`src/server/ai/draft.ts#handoff`；`src/server/conversations/jobs.ts#remindUnclaimed`；`src/server/team/service.ts#disableMember` |
-| S2 | `src/server/feishu/deliver.ts#deliverFeishuCard` |
-| S3–S4 | `src/server/feishu/content.ts#cardContent`；`src/server/feishu/card.ts#conversationCard` |
-| S5 | `src/server/feishu/deliver.ts#sendCard`；`src/server/feishu/client.ts#liveFeishu` |
-| S7 | `src/app/(auth)/login/login-form.tsx#LoginForm`；`src/app/(app)/account/security/account-security-client.tsx#SetupSteps` |
-| S8–S9 | `src/app/(app)/wb/card-landing.tsx#CardLanding` |
+| S1–S2 | `src/server/feishu/deliver.ts#queueFeishuCard`；`src/server/conversations/ingest.ts#runFollowUp`；`src/server/ai/draft.ts#handoff`；`src/server/conversations/jobs.ts#remindUnclaimed`；`src/server/team/service.ts#disableMember`；`src/server/conversations/actions.ts#unclaim` |
+| S3 | `src/server/feishu/deliver.ts#deliverFeishuCard` |
+| S4–S5 | `src/server/feishu/content.ts#cardContent`；`src/server/feishu/card.ts#conversationCard` |
+| S6 | `src/server/feishu/deliver.ts#sendCard`；`src/server/feishu/client.ts#liveFeishu` |
+| S8 | `src/app/(auth)/login/login-form.tsx#LoginForm`；`src/app/(app)/account/security/account-security-client.tsx#SetupSteps` |
+| S9–S10 | `src/app/(app)/wb/card-landing.tsx#CardLanding` |
 
 ## L3. 业务规则
 
@@ -582,7 +594,8 @@
 | INV-KB-002 | 出稿与测试问答只引用解析完成、AI 可用开着且站点相符的资料 | RULE-KB-001；字段 knowledge_document.ai_enabled | TC-KB-012、TC-KB-013、TC-KB-026 |
 | INV-KB-003 | 资料记录删掉之前，它在检索服务里的条目已全部删除 | 迁移 ENT-KnowledgeDocument deleting→[*] | TC-KB-016 |
 | INV-AI-001 | 依据只存在草稿的引用里，系统不把它拼进发给买家的正文 | 字段 draft.citations；API-CONV-002 | TC-KB-024 |
-| INV-FEISHU-001 | 同一会话段的同一种卡最多一条投递记录，最多推一次 | 竞态「同一段两次触发同种卡」；字段 feishu_delivery.segment_id | TC-FEISHU-006 |
+| INV-FEISHU-001 | 已废弃，被 INV-FEISHU-003 取代 | 竞态「同一段两次触发同种卡」；字段 feishu_delivery.segment_id | 不测：已废弃 |
+| INV-FEISHU-003 | 同一会话段同种卡只推一次，处理人每次取消认领再推一张待认领卡 | 竞态「同一段两次触发同种卡」；字段 feishu_delivery.seq | TC-FEISHU-006、TC-FEISHU-017 |
 | INV-FEISHU-002 | 飞书 App Secret、机器人地址与签名密钥只以密文存库，接口不返回 | 字段 feishu_integration.app_secret_enc；字段 feishu_target.webhook_enc；API-SET-017 | TC-FEISHU-001、TC-FEISHU-003 |
 
 ## 2. 背景 / 目标 / 非目标
@@ -650,6 +663,7 @@
 | 会话段 | 会话里从买家开口到结束的一段，阶段与统计按段计 | `segment` | `ENT-Segment` |
 | 接待状态 | 会话当前由谁接待：AI（`bot`）、待认领（`awaiting_human`）、人工（`human`）、已结束（`closed`） | `conversation.handling_state` | `ENT-Conversation` |
 | 认领 | 成员把待认领会话变成自己处理中 | `claim` | `ENT-Conversation` |
+| 取消认领 | 处理人把自己处理中的会话放回待认领 | `unclaim` | `ENT-Conversation` |
 | 转交 / 改派 | 处理人把自己的会话交给同事叫转交；组长、管理员把别人的会话交给他人叫改派。两者同一个接口 | `assign` | `ENT-Conversation` |
 | 结束 | 处理人把会话段结束 | `resolve` | `ENT-Conversation` |
 | 接待模式 | 店铺在工作时间内 / 外各一个：`off` 不出稿、`shadow` 出稿不显示不发送、`assist` 出草稿由人确认、`auto` AI 直接发送 | `reception_mode` | `ENT-ShopReception` |
@@ -735,12 +749,14 @@
 | REQ-CONV-009 | 快捷回复：弹层按阶段筛选、点选插入输入框；管理员在「语气与提示词」页维护 | G2 | P1 |
 | REQ-CONV-010 | 待认领提醒：待认领超过商户设定分钟数（5 / 10 / 15 / 不提醒），站内通知负责该店的组长一次（无对外 API，见 11.1 文末内部任务 `unclaimed.remind`） | G2 | P1 |
 | REQ-CONV-011 | 空闲结束：会话 72 小时无新消息自动结束本段（无对外 API，见 11.1 `idle_close`） | G2 | P0 |
+| REQ-CONV-012 | 处理人可以取消认领，把会话放回待认领 | G2 | P1 |
 | REQ-AI-001 | 按店铺与工作时间内外的接待模式出稿 | G2 | P0 |
 | REQ-AI-002 | 出稿输入含最近 20 条对话、订单事实、提示词、护栏与检索到的资料 | G2 | P0 |
 | REQ-AI-003 | 草稿处置：原样发送、改后发送、忽略；24 小时未处置过期；新买家消息到达时旧草稿作废并重新出稿；发送失败转人工 | G2 | P0 |
 | REQ-AI-004 | 命中转人工条件时把会话交给人工，auto 模式先发安抚句 | G2 | P0 |
 | REQ-AI-005 | 每份草稿计 1 次出稿用量，额度用尽时按超量策略处理 | G6 | P0 |
 | REQ-AI-006 | 从对话提取开票字段：大模型从当前会话抽取抬头、地址、邮箱、税号 | G3 | P1 |
+| REQ-AI-007 | 影子回复附商户语言译文，可一键复制原文 | G2 | P1 |
 | REQ-ORD-001 | 订单镜像：按店增量同步、手动「立即同步」；会话右栏显示买家近 180 天订单、金额、状态、最晚发货、物流轨迹、售后子状态 | G3 | P0 |
 | REQ-ORD-002 | 取消订单：仅发货前，原因选「买家要求」，结果写回订单与会话时间线 | G3 | P0 |
 | REQ-ORD-003 | 订单与开票页：按平台、状态、店铺筛选；详情抽屉；售后待处理（来自工单）；导出 CSV | G3 | P0 |
@@ -801,10 +817,14 @@
 - REQ-AI-005：超量策略为「停止」时跳过出稿，转人工原因记「用量上限」
 - REQ-AI-005：无对外 API，见 11.2 `create` 守卫与 §16「额度临界时并发出稿」，策略由 `API-BILL-005` 设置
 - REQ-KB-006：无对外 API，见 12.8，依据经 `API-CONV-002` 返回工作台
+- REQ-AI-007：只译影子回复；已是商户语言的不译，翻译失败只显示原文
+- REQ-AI-007：「复制」复制的是原文，即要发给买家的那段；译文经 `API-CONV-002` 返回
+- REQ-CONV-012：只有当前处理人能取消；组长、管理员要换人用改派（`API-CONV-005`）
+- REQ-CONV-012：未处置的草稿保留，关联工单的负责人不变，见 11.1 `unclaim`
 - REQ-AUTH-005：用验证器 App 的 6 位验证码（TOTP），登录时也可改用开启时保存的备用码
 - REQ-AUTH-005：商户策略要求管理员或全员开启时，未开启者登录后只能先去开启，开好回到原来要去的页面
-- REQ-FEISHU-003：不论接待模式，进入待认领都推，含 AI 转人工、不出稿或影子模式的新会话段、处理人被停用
-- REQ-FEISHU-003：同一会话段的同一种卡只推一次（INV-FEISHU-001）
+- REQ-FEISHU-003：不论接待模式，进入待认领都推，含 AI 转人工、不出稿或影子模式的新会话段、处理人被停用或取消认领
+- REQ-FEISHU-003：同一会话段的同一种卡只推一次，处理人每次取消认领再推一张（INV-FEISHU-003）
 - REQ-FEISHU-003：无对外 API，见 11.1、11.15、12.9 与内部任务 `feishu.send`
 - REQ-FEISHU-004：商户把待认领提醒设为「不提醒」时不推超时卡，见 11.1 文末 `unclaimed.remind`
 - REQ-FEISHU-005：构卡规则见 12.9；店铺未开 AI 或影子模式的新会话段，卡上不写转人工原因
@@ -1145,6 +1165,7 @@ erDiagram
     boolean insufficient
     jsonb retrieval
     jsonb citations
+    text translation
     text status
     uuid disposed_by FK
     uuid sent_message_id FK
@@ -1434,7 +1455,7 @@ erDiagram
   SHOP ||--o| FEISHU_TARGET : "店铺群"
   MERCHANT ||--o{ FEISHU_DELIVERY : "投递"
   CONVERSATION ||--o{ FEISHU_DELIVERY : "卡片"
-  SEGMENT ||--o{ FEISHU_DELIVERY : "每段每种一张"
+  SEGMENT ||--o{ FEISHU_DELIVERY : "每段每种一张，取消认领再推"
   FEISHU_TARGET ||--o{ FEISHU_DELIVERY : "发往"
   FEISHU_INTEGRATION {
     uuid merchant_id PK
@@ -1464,6 +1485,7 @@ erDiagram
     uuid conversation_id FK
     uuid segment_id FK
     text kind
+    int seq
     uuid target_id FK
     text target_name
     text status
@@ -1476,7 +1498,7 @@ erDiagram
   }
 ```
 
-- 默认群每商户最多一个（`shop_id` 为空），每家店最多一个店铺群；`(segment_id, kind)` 在 `segment_id` 非空时唯一（INV-FEISHU-001）。
+- 默认群每商户最多一个（`shop_id` 为空），每家店最多一个店铺群；`(segment_id, kind, seq)` 在 `segment_id` 非空时唯一（INV-FEISHU-003）。
 - 投递记录随会话、会话段删除（数据保存期限清理、删除买家数据）；目标群删掉后投递记录保留，`target_id` 置空，群名留在 `target_name`。
 
 模拟平台（`mock_` 前缀，只服务 §8「模拟平台接口」与模拟器；Shopilot 业务代码不得直接读写这些表，只能经 HTTP）：
@@ -1650,7 +1672,7 @@ erDiagram
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 3 秒轮询 |
-| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ documentId, name, available }] }, shadowDrafts?[{ id, text, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 2 秒轮询 |
+| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003、REQ-AI-007、REQ-CONV-012 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ documentId, name, available }] }, shadowDrafts?[{ id, text, translation, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`translation` 是商户语言译文，还没译好或不需要译时为 null；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canUnclaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canUnclaim` 只在本人处理中时为 true；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 2 秒轮询 |
 | `API-CONV-003` | `GET /api/v1/conversations/{id}/buyer` | REQ-ORD-001、REQ-CONV-003 | — | `{ buyer{ name, externalId, language }, orders[{ id, externalOrderId, status, statusGroup, total, currency, items, shipByAt, tracking?, recipient?, afterSales[{ kind, platformStatus, sellerDueAt, open }] }], totals{ count180d, amount180d, currency }, piiMasked, syncedAt }`；只读订单镜像，不实时调平台（镜像由推送、每小时 `order.sync` 与 `API-ORD-003` 手动同步保持新鲜） | — | no-store；前端 10 秒轮询（订单推送到达后 10 秒内显示，见 §19） |
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
@@ -1664,6 +1686,7 @@ erDiagram
 | `API-CONV-013` | `GET /api/v1/shops/{id}/coupons` | REQ-CONV-005 | — | `{ items[{ couponId, title, discount, endsAt }] }`（只返回可在聊天发送的券） | 409 `/errors/not-allowed`（Shopee 店） | no-store |
 | `API-CONV-014` | `GET /api/v1/quick-replies` | REQ-CONV-009 | `?stage=` | `{ items[{ id, title, stage, text }] }` | — | no-store |
 | `API-CONV-015` | `POST /api/v1/conversations/{id}/messages/{messageId}/retry` | REQ-CONV-005、REQ-AI-003 | — | 200 `{ message }` | 409 `/errors/conflict`（不是 failed） | 只对 `send_status=failed` 生效 |
+| `API-CONV-016` | `POST /api/v1/conversations/{id}/unclaim` | REQ-CONV-012、REQ-FEISHU-003 | `{ version }` | 200 `{ id, handlingState, claimedBy, version }`：会话回到待认领、处理人为空，草稿与关联工单不变；提交后推飞书待认领卡 | 409 `/errors/conflict`（会话不是本人处理中，或版本不一致；附 `claimedBy`、`handlingState`、`version`） | 无幂等键；重复提交第二次 409 |
 
 ### 8.6 订单、售后、发票
 
@@ -1903,6 +1926,7 @@ erDiagram
 | 资料不足 | `insufficient` | `draft.insufficient` | boolean | 是 | 默认 false；模型判定订单事实与资料片段都不足以回答时为 true，此时一律转人工（RULE-KB-003） | — | — |
 | 检索快照 | — | `draft.retrieval` | jsonb | 否 | 商户有对该店可用的资料时写入：`{ rewrittenQuery, routes[{ kind, mode, latencyMs, error?, hits[{ chunkId, documentId, score }] }], merged[{ n, chunkId, documentId }], degraded, degradedReason?, latencyMs }`；只存分块 ID 与分数，不存正文 | — | — |
 | 依据 | `citations` | `draft.citations` | jsonb | 否 | 模型声明用到的资料 `[{ n, documentId, name }]`，只收 `merged` 里有的编号；`name` 是出稿时的文件名快照；只返回给成员，不随消息发给买家 | — | — |
+| 影子回复译文 | `translation` | `draft.translation` | text | 否 | 只有影子回复有：正文不是商户语言时由内部任务 `draft.translate` 写入；不需要译、还没译好或翻译失败时为空 | — | 中 |
 | 文件类别 | — | `file.kind` | enum | 是 | `chat_image` / `invoice_pdf` / `invoice_png` / `export_zip` / `knowledge_source`（知识库原文件） | — | — |
 
 ### 9.4 订单、售后、发票、工单
@@ -2052,7 +2076,8 @@ erDiagram
 | 签名密钥 | — | `feishu_target.secret_enc` | text | 否 | 自定义机器人必填，机器人安全设置里「签名校验」的密钥，存密文 | — | — |
 | 地址末 4 位 | `webhookHint` | `feishu_target.webhook_hint` | text | 否 | 界面上区分不同机器人用 | — | — |
 | 卡种 | `kind` | `feishu_delivery.kind` | enum | 是 | `unclaimed` 待认领卡 / `overdue` 超时卡 / `test` 测试卡片（没有会话） | — | — |
-| 投递会话段 | — | `feishu_delivery.segment_id` | uuid | 否 | 与 `kind` 一起唯一（INV-FEISHU-001）；测试卡片为空 | — | — |
+| 投递会话段 | — | `feishu_delivery.segment_id` | uuid | 否 | 与 `kind`、`seq` 一起唯一（INV-FEISHU-003）；测试卡片为空 | — | — |
+| 同段序号 | — | `feishu_delivery.seq` | int | 是 | 默认 0；处理人取消认领时取本段同种卡的最大序号 + 1（本段还没推过时为 0），其余触发都写 0 | — | — |
 | 投递状态 | `status` | `feishu_delivery.status` | enum | 是 | `queued` / `sent` / `failed` / `skipped`，见 11.15 | — | — |
 | 尝试次数 | `attempts` | `feishu_delivery.attempts` | int | 是 | 0..6（首发加重试 5 次） | 次 | — |
 | 飞书消息 ID | `messageId` | `feishu_delivery.message_id` | text | 否 | 应用接法发出后飞书返回；自定义机器人不返回；替身为 `om_stub_` 开头 | — | — |
@@ -2086,6 +2111,7 @@ erDiagram
 | `API-CONV-005` | ✓ | 范围 | 本人 | 员工只能转交自己处理中的会话；组长、管理员可改派范围内任何会话 |
 | `API-CONV-006`、`API-CONV-009` | ✓ | 范围 | 本人 | 员工只能操作自己处理中的会话 |
 | `API-CONV-007`、`API-CONV-015` | 本人 | 本人 | 本人 | 只有处理人能发；待认领会话发送 = 先认领（同 `API-CONV-004` 的范围） |
+| `API-CONV-016` | 本人 | 本人 | 本人 | 只有当前处理人能取消认领，权限 `wb.handle`；组长、管理员换人用 `API-CONV-005` 改派 |
 | `API-CONV-008` | ✓ | 范围 | 范围 + 本人 | 能看到草稿的人能忽略 |
 | `API-CONV-010`、`API-CONV-011`、`API-CONV-012`、`API-CONV-014` | ✓ | ✓ | ✓ | `API-CONV-011` 另按文件所属对象鉴权，知识库原文件只给有 `knowledge.manage` 的管理员与组长 |
 | `API-CONV-013` | ✓ | 范围 | 范围 | — |
@@ -2181,6 +2207,7 @@ stateDiagram-v2
   human --> human : assign
   human --> human : take_over
   human --> awaiting_human : release
+  human --> awaiting_human : unclaim
   bot --> closed : resolve
   awaiting_human --> closed : resolve
   human --> closed : resolve
@@ -2207,6 +2234,7 @@ stateDiagram-v2
 | human → human | take_over | `claimed_by` 为空（平台后台有人回复过，Shopilot 里没有处理人）且 操作人是启用成员、店铺在其范围内 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；审计 `EVT:conversation_claimed`；负责该店的员工也能打开这类会话 | 成员（会话页「认领」、飞书卡片认领链接、认领并发送） | `API-CONV-004` / `API-CONV-007` |
 | human → human | assign | 目标是启用成员 且 负责该店（或为管理员）且 目标 ≠ 当前处理人 且 `version` 一致 | `claimed_by = 目标`；`withTickets` 时关联未结工单负责人改为目标并写工单时间线；通知目标（规则 `ticket_assigned` 只在带工单时） | 处理人（转交）/ 组长、管理员（改派） | `API-CONV-005` |
 | human → awaiting_human | release | 处理人被停用 | `claimed_by = null`、`handoff_reason = manual`，写系统事件；停用提交后推飞书待认领卡（本段推过就不推） | 管理员停用成员时的系统动作 | `API-TEAM-008` |
+| human → awaiting_human | unclaim | 操作人 = `claimed_by` 且 `version` 一致 | `claimed_by = null`、`handoff_reason = manual`；未处置草稿保留，关联工单负责人不变；写系统事件「X 取消认领，会话放回待认领」，审计 `EVT:conversation_unclaimed`；提交后推飞书待认领卡，本段推过也推 | 处理人（会话页「取消认领」） | `API-CONV-016` |
 | bot → closed | resolve | 操作人为组长或管理员且在范围内，或 店铺被断开 | 结束当前段（`end_reason = resolved` 或 `shop_disconnected`），作废未处置草稿 | 组长、管理员 / 系统 | `API-CONV-006` / `API-SHOP-012` |
 | awaiting_human → closed | resolve | 同 bot → closed resolve | 同上 | 成员 / 系统 | `API-CONV-006` / `API-SHOP-012` |
 | human → closed | resolve | 操作人 = `claimed_by`，或 组长、管理员在范围内，或 店铺被断开 | 结束当前段并算 `ai_resolved`；TikTok 店调 End Session，失败只写系统事件；关联工单不变；审计 `EVT:conversation_closed` | 处理人 / 组长、管理员 / 系统 | `API-CONV-006` / `API-SHOP-012` |
@@ -2566,7 +2594,7 @@ stateDiagram-v2
 
 ### 11.15 飞书投递 `ENT-FeishuDelivery.status`
 
-一张飞书卡片的发送状态。同一会话段同一种卡只有一行（INV-FEISHU-001）；测试卡片在同一个请求里写入并发出，不经队列。
+一张飞书卡片的发送状态。同一会话段同一种卡只有一行，处理人每次取消认领另起一行（INV-FEISHU-003）；测试卡片在同一个请求里写入并发出，不经队列。
 
 ```mermaid
 stateDiagram-v2
@@ -2581,7 +2609,7 @@ stateDiagram-v2
 
 | 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
 | --- | --- | --- | --- | --- | --- |
-| [*] → queued | queue | 商户已连飞书 且 这类推送开着 且 店铺有群 且 本段没有同种卡（测试卡片不看后三条） | 写投递记录与目标群名，排 `feishu.send`；测试卡片当场构卡发出 | 系统 / 管理员 | 11.1 open_to_queue、handoff、release、reopen_to_queue；内部任务 `unclaimed.remind`；`API-SET-024` |
+| [*] → queued | queue | 商户已连飞书 且 这类推送开着 且 店铺有群 且 本段没有同种卡（处理人取消认领时不看这条；测试卡片不看后三条） | 写投递记录与目标群名，排 `feishu.send`；测试卡片当场构卡发出 | 系统 / 管理员 | 11.1 open_to_queue、handoff、release、unclaim、reopen_to_queue；内部任务 `unclaimed.remind`；`API-SET-024` |
 | queued → queued | retry | 可重试的失败（连不上、超时、限流、飞书其他错误）且 尝试次数 < 6 | 记失败原因，保留已构好的卡片，交给队列退避重试 | Worker | 内部任务 `feishu.send` |
 | queued → sent | send | 会话仍是本段待认领 且 飞书接受 | 记 `message_id` 与发出时间；接入状态为失效时改回已校验 | Worker / 管理员 | 内部任务 `feishu.send`；`API-SET-024` |
 | queued → failed | fail | 不可重试的失败（凭证、权限、机器人不在群里、签名、请求被拒）或 第 6 次仍失败 | 记失败原因；凭证失效时把接入标为失效 | Worker / 管理员 | 内部任务 `feishu.send`；`API-SET-024` |
@@ -2923,7 +2951,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   autonumber
-  participant T as Worker（inbound.process、draft.generate、unclaimed.remind）
+  participant T as 触发方（Worker 的 inbound.process、draft.generate、unclaimed.remind，取消认领 API-CONV-016）
   participant DB as PostgreSQL
   participant W as Worker（feishu.send）
   participant DS as DeepSeek
@@ -2931,7 +2959,7 @@ sequenceDiagram
   participant U as 成员浏览器
   participant API as Shopilot API
   T->>DB: 会话进入待认领（11.1）或待认领超时
-  T->>DB: 写投递记录，本段已有同种卡则不写（INV-FEISHU-001）
+  T->>DB: 写投递记录，本段已有同种卡则不写，取消认领除外（INV-FEISHU-003）
   T-->>W: 排 feishu.send（async）
   W->>DB: 重读会话，已不是本段待认领就记跳过
   W->>DB: 读本段最近消息、订单状态与商品名
@@ -2974,7 +3002,7 @@ sequenceDiagram
 - 其他占位：视频「视频 0:12」带链接；表情；商品卡带商品名；订单、物流、退货卡带订单号与中文状态
 - 买家与客服写的内容按卡片 markdown 规则转义特殊字符；每条正文与译文各截到 200 字，总结 120 字
 - 按钮：「认领」打开 `<站点>/wb/<会话>?claim=1&m=<商户>`，「打开会话」打开 `<站点>/wb/<会话>?m=<商户>`
-- 卡尾一行灰字说明这是哪种卡、同一段只推一次
+- 卡尾一行灰字说明这是哪种卡、同一段只推一次；待认领卡另注明处理人取消认领后会再推
 - 测试卡片标题「测试卡片 · 商户名」蓝色，说明之后会收到什么；应用接法附一张上传的测试图片
 
 ## 13. 页面与跳转地图
@@ -2991,9 +3019,10 @@ sequenceDiagram
 | `PAGE-INVITE` | `/invite/<token>` | 公开 | `API-TEAM-005`、`API-TEAM-006` | 过期 / 撤销 / 已用；已有账号需先登录 |
 | `PAGE-OWNERSHIP` | `/ownership/<token>` | 受让管理员 | `API-SET-014` | 过期；登录账号不是受让人 |
 | `PAGE-ACCOUNT-SECURITY` | `/account/security` | 全部成员（本人） | `API-AUTH-008`、`API-AUTH-009`、`API-AUTH-010`、`API-AUTH-011` | 两步验证开启（二维码，扫不了时手动输入密钥）/ 关闭、本人登录设备与退出、个人偏好（桌面通知、提示音）；商户策略要求两步验证而未开启时登录后强制进入，开启前其他页面不可用；带 `?next=` 进来时开启后回到 `next` |
-| `PAGE-WB` | `/wb`、`/wb/<id>` | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-NAV-001` | 分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」：有 `knowledge.manage` 的管理员与组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名，资料已删除时所有人只看到文件名；影子回复不显示「资料不足」标记；从飞书卡片带 `?claim=1&m=` 或 `?m=` 进来时按下方「卡片落地」处理 |
+| `PAGE-WB` | `/wb`、`/wb/<id>` | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-016`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-NAV-001` | 分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」：有 `knowledge.manage` 的管理员与组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名，资料已删除时所有人只看到文件名；影子回复不显示「资料不足」标记；影子回复有译文时原文下方显示「译 · Shopilot」译文，展开后可复制原文；从飞书卡片带 `?claim=1&m=` 或 `?m=` 进来时按下方「卡片落地」处理 |
 | `PAGE-WB-TRANSFER` | `/wb/<id>?dialog=transfer` | 同上（员工只对自己的会话） | `API-TEAM-012`、`API-CONV-005` | 无可选同事 |
 | `PAGE-WB-END` | `?dialog=end` | 同上 | `API-CONV-006` | 有未结工单时提示工单不受影响 |
+| `PAGE-WB-UNCLAIM` | `?dialog=unclaim` | 同上（只对本人处理中的会话） | `API-CONV-016` | 确认框说明会话回到待认领、草稿与工单不变；会话已不在本人名下时 409 并刷新 |
 | `PAGE-WB-CANCEL` | `?dialog=cancel` | 同上 | `API-ORD-004` | 已发货不可取消 |
 | `PAGE-WB-INVOICE` | `?dialog=invoice` | 同上 | `API-INV-001`、`API-INV-002` | 只列本买家的订单（没有时说明）；订单没有关联会话时「发送到聊天」置灰并写原因；提取失败；两路发送部分失败 |
 | `PAGE-WB-CARDS` | `?dialog=cards`（仅 TikTok） | 同上 | `API-CONV-007` | 商品卡本期一律置灰附原因（`API-CONV-007` 不含商品卡类型；没授商品权限的店写「未授予商品读取权限」） |
@@ -3215,6 +3244,7 @@ flowchart LR
 | 延迟 | 测试问答（`API-KB-012`） | P95 < 25 秒，同出稿链路但同步返回；前端超时 60 秒 |
 | 延迟 | 飞书卡片（`feishu.send`） | 会话进入待认领到卡片发出 P95 < 30 秒：AI 总结与补译文并行，各 ≤ 6 秒，每张图片上传 ≤ 12 秒，发送 ≤ 10 秒 |
 | 容错 | 飞书卡片发送 | 连不上、超时、限流时退避重试 5 次，起步 30 秒；凭证、权限、机器人不在群里、签名错误直接记失败 |
+| 容错 | 影子回复译文（`draft.translate`） | 出稿后异步翻译，失败重试 1 次，仍失败只显示原文，影子回复不受影响 |
 | 刷新 | 工作台列表 / 会话详情 / 导航摘要轮询 | 3 秒 / 2 秒 / 10 秒；标签页不可见时暂停 |
 | 刷新 | 知识库资料列表 | 有排队或解析中的资料时 5 秒轮询，没有时不轮询 |
 | 容量 | 入站峰值 | 10 条/秒持续 5 分钟不积压：`inbound.process` 并发 10，单条处理 P95 < 500 ms（不含出稿） |
@@ -3264,7 +3294,8 @@ flowchart LR
 | 删除与入库交错 | `API-KB-007` 与 `knowledge.ingest` | 入库停下，已上传的条目由 `knowledge.purge` 删除；资料不会再变回 ready | 入库任务每步前重读状态；写 `ready` 用 `WHERE status = processing`，0 行即放弃 |
 | 两人同时删除同一份资料 | `API-KB-007` × 2 | 都返回 204，只排一次 `knowledge.purge` | `UPDATE … SET status=deleting WHERE status <> deleting`，0 行时直接 204 |
 | 停用与出稿检索交错 | `API-KB-005` 与 `draft.generate` | 已过了过滤那一步的出稿可能仍引用它；之后的出稿与测试问答不再引用；已生成草稿的依据保留 | 过滤时读资料当前值，不加锁、不缓存 |
-| 同一段两次触发同种卡 | 11.1 的迁移、`unclaimed.remind`、停用成员 | 只写一行投递记录，只发一张卡 | 部分唯一索引 `(segment_id, kind) WHERE segment_id IS NOT NULL`，插入 `ON CONFLICT DO NOTHING`，没插进去就不入队 |
+| 同一段两次触发同种卡 | 11.1 的迁移、`unclaimed.remind`、停用成员 | 只写一行投递记录，只发一张卡；处理人取消认领时另写一行再推 | 部分唯一索引 `(segment_id, kind, seq) WHERE segment_id IS NOT NULL`，插入 `ON CONFLICT DO NOTHING`，没插进去就不入队；取消认领在同一条插入语句里取本段同种卡最大 `seq` + 1 |
+| 取消认领与改派交错 | `API-CONV-016` 与 `API-CONV-005` | 先到者成功；后到者 409 `/errors/conflict` | 两者都按 `version` 条件更新；取消认领另要求 `claimed_by` 为操作人、`handling_state = human` |
 | 卡片排队时会话被认领 | `feishu.send` 与 `API-CONV-004` | 发卡前会话已不是本段待认领就记跳过；已发出的卡片不撤回 | 发送前重读会话的接待状态与当前段 |
 | 断开飞书时有卡片在排队 | `API-SET-020` 与 `feishu.send` | 排队的卡片记跳过 | 发送前重读接入与目标群，没有就跳过 |
 | 从卡片认领时同事刚认领 | 卡片落地页与 `API-CONV-004` | 同「两人同时认领同一会话」；员工看不到会话时不带版本认领，靠 409 拿到处理人 | 同「两人同时认领同一会话」的条件更新 |
@@ -3300,6 +3331,7 @@ flowchart LR
 | `knowledge.ingest` | `API-KB-002`、`API-KB-006` | `singletonKey = document_id`；全局并发 4、单商户 2 | 20 分钟 | 条目级删除后同名重传最多 2 次；任务异常或超时把资料标 `failed`，管理员可重新解析 | 同上 |
 | `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库（改分类、站点、AI 可用都会重新计时），`processing` 超过 25 分钟没有更新的标失败，原因「入库任务中断，请重新解析」；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
 | `message.translate` | TikTok 买家消息落库后入队 | 并发 10 | 15 秒 | 重试 1 次，仍失败保留原文 | 同上 |
+| `draft.translate` | 影子回复落库后入队 | 并发 2 | 20 秒 | 重试 1 次，仍失败不存译文 | 同上 |
 | `order.sync` | 每小时每店；`API-ORD-003` 手动 | `singletonKey = shop_id`；每批 50 单；时间窗 ≤ 15 天（平台上限） | 5 分钟 | 重试 2 次，下轮补 | 同上 |
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
 | `token.refresh` | 每 10 分钟 | 批 100 店；单实例 | 2 分钟 | 鉴权失败即 11.6 `refresh_failed`；网络错误下轮重试 | 同上 |
@@ -3721,6 +3753,14 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 处理人结束 TikTok 会话
   Then 会话变为已结束，模拟平台该会话 session 被结束；关联工单状态不变
 
+场景: 处理人取消认领 (REQ-CONV-012)
+  Given 员工处理中的会话有一份未处置的 AI 草稿，关联一张负责人为该员工的未结工单
+  When 员工点「取消认领」并在确认框确认
+  Then 会话回到「待认领」，处理人为空，状态显示「待认领 · 人工转交」，时间线有「<员工> 取消认领，会话放回待认领」
+  And 草稿仍可处置，工单负责人不变；该员工按负责店铺仍能在「待认领」里看到这个会话
+  When 组长对别人处理中的会话调用取消认领，或员工带过期的版本号调用
+  Then 返回 409 /errors/conflict，会话不变
+
 场景: 发送文字与图片且幂等 (REQ-CONV-005)
   When 处理人发送一条文字，网络重试导致同一 clientRequestId 提交两次
   Then 模拟器买家端只收到一条
@@ -3786,6 +3826,14 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 买家发消息
   Then 会话进入待认领，员工看不到草稿；用量页「影子生成」+1
   And 管理员、组长打开该会话时，在触发消息下方看到折叠的「AI 影子回复（未发送）」，没有发送按钮
+
+场景: 影子回复的译文与复制 (REQ-AI-007)
+  Given 店铺模式为 shadow，一份影子回复是英文
+  When 管理员展开这份影子回复
+  Then 原文下方显示「译 · Shopilot」与中文译文
+  When 点「复制原文」
+  Then 剪贴板里是英文原文，页面提示「已复制」
+  And 影子回复本身是中文时不显示译文，按钮写「复制」
 
 场景: off 模式不出稿 (REQ-AI-001)
   Given 店铺模式为 off
@@ -4195,6 +4243,13 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 会话结束后买家再发消息、开了新段并进入待认领
   Then 新段再推一张待认领卡
 
+场景: 取消认领后再推待认领卡 (REQ-FEISHU-003、REQ-CONV-012)
+  Given 一个会话段已推过待认领卡，成员认领了它
+  When 处理人取消认领
+  Then 群里再收到一张这个会话的待认领卡
+  When 另一名成员认领后被管理员停用，会话退回待认领
+  Then 不再推卡
+
 场景: AI 转人工时推卡并写原因 (REQ-FEISHU-003、REQ-FEISHU-005)
   Given 某店接待模式为 assist，买家消息命中转人工关键词
   When 出稿任务把会话转人工
@@ -4301,6 +4356,7 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 | `EVT:invitation_accepted` | 接受邀请 | role, hours_to_accept | 团队运营（诊断） |
 | `EVT:conversation_opened` | 会话开段（11.1 open / open_to_queue / reopen / reopen_to_queue） | shop_id, platform, stage, mode | 人工首响中位时长 |
 | `EVT:conversation_claimed` | 认领（11.1 claim） | wait_sec | 人工首响中位时长（诊断） |
+| `EVT:conversation_unclaimed` | 处理人取消认领（11.1 unclaim） | — | 团队运营（诊断） |
 | `EVT:agent_reply_sent` | 成员发出消息成功 | segment_id, is_first_human_reply, seconds_since_segment_start, in_hours | 人工首响中位时长 |
 | `EVT:draft_generated` | 草稿生成（11.2 create / create_shadow） | mode, confidence, latency_ms, stage, insufficient, retrieval_ms, retrieval_degraded, vector_retry, sources_used | 草稿采纳率（分母诊断）、用量、检索耗时与降级、资料不足率 |
 | `EVT:draft_disposed` | 草稿被发送、改后发送、忽略 | disposition, edit_distance, mode | 草稿采纳率 |
@@ -4354,7 +4410,7 @@ N/A — 场景级原因：本期不部署（用户 10-11 定「这期只本地�
 
 ## 25. 迁移 / 数据回填
 
-N/A — 新库，无存量数据；数据库结构由 drizzle-kit 迁移文件从零建立（`drizzle/`）。知识库的新表与草稿的新字段（可空或带默认值）同样由迁移建立，旧草稿不回填；迁移为每个已有商户补建「未分类」。飞书推送的三张表由迁移 0008 新建，没有存量数据要回填。OBSBOT 从 Obsbot v2 迁入是后续独立工作（§28）。
+N/A — 新库，无存量数据；数据库结构由 drizzle-kit 迁移文件从零建立（`drizzle/`）。知识库的新表与草稿的新字段（可空或带默认值）同样由迁移建立，旧草稿不回填；迁移为每个已有商户补建「未分类」。飞书推送的三张表由迁移 0008 新建，没有存量数据要回填。迁移 0009 给草稿加可空的译文列、给飞书投递加默认 0 的同段序号，唯一索引换成（会话段、卡种、序号）；旧数据不回填，旧版代码写入的序号都是 0，去重照旧。OBSBOT 从 Obsbot v2 迁入是后续独立工作（§28）。
 
 ## 26. 里程碑
 

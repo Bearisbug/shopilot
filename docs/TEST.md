@@ -6,7 +6,7 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.13，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.15，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
 | 最后更新 | 2026-10-16 |
 
@@ -14,6 +14,8 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | RUN-019 之后修正 `TC-FEISHU-017`（原位修改）：前置记下 Mei Lin 原有的处理中会话数 K，第 5 步停用返回的 `releasedConversations` 改为 K + 1（原写 1，种子里 Mei 本来就有处理中的会话） | 实现会话 |
+| 2026-10-16 | 按 DESIGN v1.15 新增 `TC-CONV-042`、`TC-CONV-043`（处理人取消认领、非处理人与过期版本 409）、`TC-FEISHU-017`（取消认领后再推待认领卡，之后停用退回不再推）、`TC-AI-024`（影子回复的译文与复制原文），用例共 288 条；§3 场景加 `shadow-foreign` | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-044`（源自缺陷：消息拉取不及时，新消息最长 10 秒才进工作台列表）；按 DESIGN v1.13 的新轮询间隔原位修改 `TC-AI-001` 第 2 步（侧栏计数 10 秒）与 `TC-SHOP-001` 第 9 步引用的 §16 口径（工作台会话列表 ≤ 3 秒） | 实现会话 |
 | 2026-10-16 | 新增 `TC-DASH-005`（源自缺陷：团队页人工首响中位算进了工作时间外开始的会话段，与看板对不上）；§3 场景加 `first-reply-off-hours` | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-041`（源自缺陷：平台后台有人回复过的会话谁都认领不了）；§3 场景加 `platform-human` | 实现会话 |
@@ -35,7 +37,7 @@
 
 ## 2. 测试范围 / 不测什么
 
-- 覆盖：DESIGN v1.13 全部 REQ 的黑盒功能验收，层面是浏览器界面（Playwright + Edge 或人工）、HTTP 接口（curl）、模拟器买家视图、发件箱 `/dev/outbox`。§19 的每个 Gherkin 场景至少由一条用例可操作化，用例标题行的「对应」列出 REQ。界面文案以 `docs/ui-interactions.md` 为准；助手的按钮与飞书登录、私聊、卡片回调不在本期范围，飞书只测群推送（设置、待认领卡、超时卡、点卡认领），知识库只测一期（资料上传与入库、分类、站点与开关、测试问答、出稿检索与依据），经验卡、更新审核、AI 核验、产品目录的按钮不在本期范围。
+- 覆盖：DESIGN v1.15 全部 REQ 的黑盒功能验收，层面是浏览器界面（Playwright + Edge 或人工）、HTTP 接口（curl）、模拟器买家视图、发件箱 `/dev/outbox`。§19 的每个 Gherkin 场景至少由一条用例可操作化，用例标题行的「对应」列出 REQ。界面文案以 `docs/ui-interactions.md` 为准；助手的按钮与飞书登录、私聊、卡片回调不在本期范围，飞书只测群推送（设置、待认领卡、超时卡、点卡认领），知识库只测一期（资料上传与入库、分类、站点与开关、测试问答、出稿检索与依据），经验卡、更新审核、AI 核验、产品目录的按钮不在本期范围。
 - 飞书在本地一律用发送替身（`FEISHU_MODE=stub`）：卡片不出网，在开发发件箱查看。真实飞书的发卡、图片上传与卡片显示只由人工用例 `TC-FEISHU-016` 验收。
 - 知识库在本地一律用检索替身（`KNOWLEDGE_MODE=stub`）：替身入库即报完成、不理解语义，按关键词重合打分。真实 Cloudflare AI Search 与真实 DeepSeek 的跨语言检索与回答质量只由人工用例 `TC-KB-036` 验收。
 - 本期验收口径（DESIGN §3）：对应 P0 REQ 的用例全部通过。一条用例同时对应 P0 与 P1 REQ 时按 P0 计。
@@ -146,6 +148,7 @@
 | `unclaimed-11m` | Demo Shopee MY 一个待认领会话，买家消息在 11 分钟前，本段未提醒；`unclaimed_remind_minutes = 10`；输出会话 ID |
 | `platform-human` | Demo Shopee MY 一个处理中、`claimed_by` 为空的会话（`handoff_reason = platform_human`，即卖家在平台后台直接回复过），买家消息在 6 分钟前；输出会话 ID |
 | `first-reply-off-hours` | Demo Shopee MY 一个已结束的会话段：林晓首个认领，买家消息在 30 分钟前，林晓 10 分钟前回复，段记为工作时间外开始（`first_reply_in_hours = false`）；输出会话 ID |
+| `shadow-foreign` | Demo Shopee MY 一个影子模式的待认领会话（`handoff_reason = shadow`），带一份英文影子回复、还没有译文（AI 替身的出稿是中文，用场景造）；输出会话 ID 与草稿 ID（`draftId`） |
 | `auth-link-6min` | Demo Store 的 Shopee 应用一条授权链接：链接本身是新签名，其中的 `state` 签发于 6 分钟前、已过期（模拟授权页本身拒绝时间戳超过 5 分钟的链接）；输出链接 |
 | `session-aged-9h` | `agent@demo.test` 最近一个登录会话的创建时间改为 9 小时前 |
 | `export-expired` | 一个已完成的数据导出，`expires_at` 已过；输出下载链接 |
@@ -1633,6 +1636,38 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：无。
 
+#### `TC-CONV-042` 处理人取消认领，会话回到待认领 — 对应 `REQ-CONV-012` · 级别: 回归 · 执行者: 皆可
+
+前置：基线（Demo Shopee MY 工作时间内外都是 assist）；模拟器选 Demo Shopee MY 新买家发「Do you ship to Penang?」，30 秒内会话出现在「AI 草稿」（记会话 ID C）；Nur 打开 C 点「认领」；`login agent@demo.test`，`api agent@demo.test -X POST $B/api/v1/tickets -d '{"type":"internal","shopId":"<Demo Shopee MY 的店铺 ID>","conversationId":"<C>"}'` 返回 201，记响应的 `id` 为 T（`assignee.name` 为 Nur Aisyah）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | Nur 看 C 的会话头部 | 状态「我处理中」；有「取消认领（放回待认领）」图标按钮，没有「认领」 |
+| 2 | 点「取消认领（放回待认领）」 | 弹出确认框「取消认领这个会话？」，说明会话回到待认领、飞书再推一张待认领卡、没处置的 AI 草稿保留、1 张未结工单的负责人不变；按钮「继续处理」「取消认领」 |
+| 3 | 点「继续处理」 | 确认框关闭，会话仍是「我处理中」 |
+| 4 | 再点「取消认领（放回待认领）」，在确认框点「取消认领」 | 提示「已取消认领，会话放回待认领」；头部状态「待认领 · 人工转交」，出现「认领」，没有「取消认领」；时间线新增系统事件「Nur Aisyah 取消认领，会话放回待认领」；AI 草稿区仍在 |
+| 5 | Nur 打开会话列表的「待认领」与「我处理中」 | 「待认领」里有 C，「我处理中」里没有 |
+| 6 | `api agent@demo.test "$B/api/v1/conversations/<C>"` | `conversation.handlingState` 为 `awaiting_human`，`claimedBy` 为 null，`handoffReason` 为 `manual`；`draft` 不为空；`openTickets` 里有 T |
+| 7 | `api agent@demo.test "$B/api/v1/tickets/<T>"` | `ticket.assignee.name` 仍为 Nur Aisyah |
+
+后置：无。
+
+#### `TC-CONV-043` 不是处理人或版本过期时不能取消认领 — 对应 `REQ-CONV-012` · 级别: 边缘 · 执行者: 皆可
+
+前置：基线；模拟器选 Demo Shopee MY 新买家发「我要人工客服」（会话 C 进入待认领）；`login agent@demo.test`、`login agent2@demo.test`、`login lead@demo.test`；`api agent@demo.test -X POST $B/api/v1/conversations/<C>/claim -d '{}'` 返回 200，记响应的 `version` 为 v。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | Arif 打开 C | 头部「Nur Aisyah 处理中」，有「改派给其他同事」，没有「取消认领（放回待认领）」；`api lead@demo.test "$B/api/v1/conversations/<C>"` 的 `permissions.canUnclaim` 为 false |
+| 2 | `api lead@demo.test -X POST $B/api/v1/conversations/<C>/unclaim -d '{"version":<v>}'` | 409，`type` 为 `/errors/conflict`，`extra.claimedBy.name` 为 Nur Aisyah |
+| 3 | 用 agent2@demo.test（Mei）发同一请求 | 409，`type` 为 `/errors/conflict` |
+| 4 | Nur 带 `{"version":<v-1>}` 请求 | 409，`type` 为 `/errors/conflict` |
+| 5 | `api agent@demo.test "$B/api/v1/conversations/<C>"` | `handlingState` 仍为 `human`，处理人 Nur Aisyah，`version` 仍为 v |
+| 6 | Nur 带 `{"version":<v>}` 请求 | 200，`handlingState` 为 `awaiting_human`，`claimedBy` 为 null |
+| 7 | 第 6 步的请求原样再发一次 | 409，`type` 为 `/errors/conflict`，`extra.handlingState` 为 `awaiting_human` |
+
+后置：无。
+
 #### `TC-CONV-044` 新消息及时出现在工作台 — 对应 `REQ-CONV-002`、`REQ-CONV-003` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 消息拉取不及时，新消息最长 10 秒才进工作台列表
 
 前置：基线；浏览器 A 以 owner@demo.test 登录，窗口宽 1440 px（侧栏展开），打开 `/wb?view=queue`，标签页保持在前台，开发者工具网络面板筛 `/api/v1/`；浏览器 B 打开模拟器。计时从模拟器发出消息那一刻起算。阈值 = DESIGN §15 的轮询间隔（列表 3 秒、详情 2 秒、导航摘要 10 秒）加本地入库余量 1–2 秒；第 2、4、6 步等一次对应请求返回后再发，保证要等满一个轮询间隔。
@@ -1921,6 +1956,21 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 1 | Nur 在右栏点「开 Invoice / Receipt」 | 打开开票弹层，订单与商品行已预填 |
 | 2 | 点「从对话提取」 | 抬头、地址、邮箱被填入非空值，三个字段都可编辑 |
 | 3 | 关闭弹层，owner 刷新 `/billing` | 本期已用仍为 U |
+
+后置：无。
+
+#### `TC-AI-024` 影子回复显示中文译文，可复制原文 — 对应 `REQ-AI-007`、`REQ-AI-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；终端执行 `pnpm scenario shadow-foreign`，记会话 C 与草稿 D（Demo Shopee MY 待认领，影子回复是英文、还没有译文）；以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | owner 打开 `/wb/<C>`，展开触发消息下方的「AI 影子回复（未发送）」 | 显示英文原文「Hi! Yes, it works with macOS 12 or later. Just plug it in via USB-C, no driver needed.」，没有译文行；有「复制」按钮，没有发送按钮 |
+| 2 | 终端执行 `pnpm job draft.translate '{"draftId":"<D>"}'`，等 5 秒 | 原文下方出现「译 · Shopilot」标签与 AI 替身的译文「[译文] Hi! Yes, it works with macOS 12 or later. …」；按钮变为「复制原文」 |
+| 3 | 点「复制原文」 | 提示「已复制」；剪贴板内容与英文原文逐字相同，不含译文 |
+| 4 | `api owner@demo.test "$B/api/v1/conversations/<C>"` | `shadowDrafts[0].text` 为英文原文，`shadowDrafts[0].translation` 以「[译文] Hi! Yes」开头 |
+| 5 | `login agent@demo.test`，`api agent@demo.test "$B/api/v1/conversations/<C>"` | `shadowDrafts` 为 null，员工拿不到影子回复与译文 |
+| 6 | 模拟器选 Demo Shopee SG（影子模式）新买家发「Is it waterproof?」，30 秒后 owner 在「待认领」打开该会话并展开影子回复 | 影子回复是 AI 替身的中文回复，没有译文行，按钮写「复制」 |
 
 后置：无。
 
@@ -3701,6 +3751,21 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：断开飞书，或换回替身环境。
 
+#### `TC-FEISHU-017` 取消认领后再推待认领卡，之后停用退回不再推 — 对应 `REQ-FEISHU-003`、`REQ-CONV-012` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；`login agent2@demo.test`；从 `api owner@demo.test "$B/api/v1/members"` 记 Mei Lin 的 `membershipId` 为 M；`q "select count(*) from conversation where claimed_by='<M>' and handling_state='human'"` 记为 K（Mei 原有的处理中会话数）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器选 Demo TikTok TH 新买家 X，发「Can I return it?」 | 30 秒内发件箱 `/dev/outbox?tab=feishu` 最上面多一张「待认领 · Demo TikTok TH」；记会话 ID C |
+| 2 | Mei 登录后打开 `/wb/<C>`，点「认领」 | 头部「我处理中」；发件箱没有新卡 |
+| 3 | Mei 点「取消认领（放回待认领）」，在确认框点「取消认领」 | C 回到待认领；30 秒内发件箱最上面多一张 C 的「待认领 · Demo TikTok TH」，正文有「转人工原因 人工转交」，卡尾灰字「Shopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推」 |
+| 4 | `q "select kind, seq, status from feishu_delivery where conversation_id='<C>' order by seq"` | 两行：`unclaimed\|0\|sent`、`unclaimed\|1\|sent` |
+| 5 | `api agent2@demo.test -X POST $B/api/v1/conversations/<C>/claim -d '{}'` 返回 200 后，`api owner@demo.test -X POST $B/api/v1/members/<M>/disable` | 停用返回 200，`releasedConversations` 为 K + 1；C 回到待认领 |
+| 6 | 等 30 秒，看发件箱并重跑第 4 步的 SQL | 没有 C 的新卡；SQL 仍是两行 |
+
+后置：`api owner@demo.test -X POST $B/api/v1/members/<M>/enable` 恢复 Mei Lin。
+
 ### 搜索
 
 #### `TC-SEARCH-001` 员工搜不到非负责店铺的订单 — 对应 `REQ-SEARCH-001` · 级别: 回归 · 执行者: 皆可
@@ -3857,6 +3922,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-016 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（团队页首响与看板同口径） | AI（Claude Code 执行子会话；curl） | 复测（RUN-015：TC-DASH-005） | 通过 1/1 |
 | RUN-017 | 2026-10-16 | 本地 | `c6fc3a3` | AI（Claude Code 执行子会话；Playwright + Edge） | 局部（TC-CONV-044） | 通过 0/1 · 失败 1 |
 | RUN-018 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（工作台轮询改为 3 / 2 / 10 秒） | AI（Claude Code 执行子会话；Playwright + Edge） | 复测（RUN-017：TC-CONV-044） | 通过 1/1 |
+| RUN-019 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（取消认领、影子回复译文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-CONV-042、TC-CONV-043、TC-AI-024、TC-FEISHU-017、TC-FEISHU-005、TC-FEISHU-006、TC-FEISHU-011、TC-AI-005） | 通过 7/8 · 失败 1 |
+| RUN-020 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（取消认领、影子回复译文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-019：TC-FEISHU-017） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -3955,6 +4022,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-013 | TC-SHOP-001 | 失败 | 第 9 步照用例先发消息再打开 `/wb`，发出后 10.0 秒待认领里仍没有该会话，与 RUN-012 相同：会话入库后约 2 秒影子草稿生成，页面首次取列表时还不可见，下一次要等 10 秒轮询；证据 `run-013-TC-SHOP-001-9.png` | 用例口径待裁定（「10 秒内」从发出算起，还是改为下一次列表刷新后可见），裁定前不改用例 |
 | RUN-015 | TC-DASH-005 | 失败 | 第 2 步林晓的 `handled.firstReplyMedianSec` 为 1200，预期 null（第 1 步看板为 null）：团队页的首响中位没排除工作时间外开始的会话段；证据 `docs/test-runs/run-015-TC-DASH-005-2.json` | 实现修复（团队页改用看板的首响样本），RUN-016 复测 |
 | RUN-017 | TC-CONV-044 | 失败 | 第 3 步预期 T1 后 5 秒内列表出现 X 的会话，实际 10.1 秒才出现（列表每 10 秒刷新一次）；第 5 步时间线 4.4 秒（预期 3 秒内）；第 7 步侧栏计数 30.1 秒（预期 12 秒内）；证据 `docs/test-runs/run-017-TC-CONV-044-3.png`（列表头已是「待认领 7」，侧栏仍是 6） | 实现修复（轮询改为列表 3 秒、详情 2 秒、导航摘要 10 秒，DESIGN v1.13 §15、ADR-007），RUN-018 复测 |
+| RUN-019 | TC-FEISHU-017 | 失败 | 第 5 步预期停用返回 `releasedConversations` 为 1，实际 3（另退回 2 张工单）：种子里 Mei Lin 原本就有 2 个处理中的会话，用例前置没记下来。第 1–4、6 步通过：取消认领后 C 的第二张卡序号为 1，正文有「转人工原因 人工转交」、卡尾「处理人取消认领后再推」；停用退回后 C 没有新卡；证据 `docs/test-runs/run-019-TC-FEISHU-017-5.json` | 用例修正（前置记 Mei 原有处理中会话数 K，预期 K + 1），RUN-020 复测通过 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -3989,6 +4057,10 @@ RUN-016 证据：复测轮，承接 RUN-015，环境同 RUN-015，起跑前重�
 RUN-017 证据：源自缺陷用例在未修复版本上的一轮。环境是 §3 本地行的独立副本：被测版本 `c6fc3a3` 检出到单独的 git 工作区，同一 PostgreSQL 实例里另建库 `shopilot_pollrun` 并按 §3 重建基线，Web 跑在 3363、Worker 单独起，`AI_MODE=stub`、`FEISHU_MODE=stub`；Playwright 1.64 + 本机 Edge（headless），等对应请求返回后立即调 `POST /api/mock/sim/buyer_message` 发消息，从发出时刻计时，2026-10-16 13:39–13:41（UTC+8）。实测：列表 10.1 秒、时间线 4.4 秒、侧栏计数 30.1 秒，三处都超时限，首个失败在第 3 步。
 
 RUN-018 证据：复测轮，承接 RUN-017。被测版本为 `c6fc3a3` 加本次两处前端改动（`src/app/(app)/wb/wb-shared.tsx` 列表 3 秒、详情 2 秒；`src/components/shell/app-shell.tsx` 导航摘要 10 秒），环境与手段同 RUN-017，2026-10-16 13:41–13:42。实测：列表 3.4 秒、时间线 2.3 秒、侧栏计数 10.1 秒。按 2026-10-14 起的快速开发约定（小修不跑整轮）本轮未跑冒烟级；冒烟级里涉及列表刷新的 `TC-AI-001`（20 秒内）与 `TC-SHOP-001` 第 9 步（15 秒内）时限都宽于新的 3 秒间隔。
+
+RUN-019 证据：取消认领与影子回复译文（DESIGN v1.15）的局部轮：4 条新用例，加受影响的飞书待认领卡（`TC-FEISHU-005`、`TC-FEISHU-006`、`TC-FEISHU-011`，投递去重与卡尾文字改了）与影子回复显示（`TC-AI-005`）。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_ucrun` 并按 §3 重建基线，Web 跑在 3360、Worker 用 `pnpm worker` 单独起，`AI_MODE=stub`、`FEISHU_MODE=stub`、`KNOWLEDGE_MODE=stub`，2026-10-16 13:47–13:55。8 条按 `TC-CONV-042`、`TC-CONV-043`、`TC-AI-024`、`TC-FEISHU-005`、`TC-FEISHU-006`、`TC-FEISHU-011`、`TC-FEISHU-017`、`TC-AI-005` 的顺序跑，中间不重建基线：每条都新建买家，只有 `TC-AI-005` 改店铺配置，放在最后。`TC-AI-005` 前置的改接待模式与记影子次数用接口（`API-RCP-002`、`API-BILL-001`）代替页面操作，第 6 步查模拟平台该会话的卖家消息条数（0）。脚本出错不计结果：`TC-CONV-042` 第 4 步在确认框淡出时就查头部按钮，`TC-FEISHU-005` 第 3 步拿转义过方括号的卡片 JSON 比对译文，`TC-AI-005` 第 1 步的选择器命中了侧栏「AI 草稿」，三条都修正脚本后从前置起用新买家重跑，登记的是重跑结果。截图：确认框 `docs/test-runs/run-019-TC-CONV-042-2.png`、取消后的会话页 `docs/test-runs/run-019-TC-CONV-042-4.png`、组长看别人的会话没有取消认领 `docs/test-runs/run-019-TC-CONV-043-1.png`、影子回复的译文 `docs/test-runs/run-019-TC-AI-024-2.png`、复制原文 `docs/test-runs/run-019-TC-AI-024-3.png`、中文影子回复不带译文 `docs/test-runs/run-019-TC-AI-024-6.png`、飞书发件箱 `docs/test-runs/run-019-TC-FEISHU-005-2.png`。冒烟级未跑：按 2026-10-14 起的快速开发约定，冒烟里与本次改动相交的只有 `TC-FEISHU-005`、`TC-FEISHU-011`，已在本轮范围内；代码仓 vitest 另覆盖取消认领的状态、权限、重推与停用不重推（`src/server/feishu/feishu.test.ts`），影子回复译文入库与翻译失败（`src/server/ai/translate.test.ts`）。
+
+RUN-020 证据：复测轮，承接 RUN-019 的 `TC-FEISHU-017`，按修正后的用例执行。被测版本与 RUN-019 相同，只改了用例；起跑前停 Worker、重建基线再起 Worker，前置 K 为 2，停用返回 `releasedConversations` 3，C 只有两张待认领卡（序号 0、1）。取消认领后那张卡：`docs/test-runs/run-020-TC-FEISHU-017-3.png`。
 
 ## 7. 遗留问题
 

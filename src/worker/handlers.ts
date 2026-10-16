@@ -5,7 +5,7 @@ import { backfillShop, scanLogistics, syncRecentOrders } from "@/server/inbound/
 import { pollReadOnlyShops } from "@/server/inbound/poll";
 import { processInbound, sweepInbound } from "@/server/inbound/process";
 import { generateDraft } from "@/server/ai/draft";
-import { translateMessage } from "@/server/ai/translate";
+import { translateDraft, translateMessage } from "@/server/ai/translate";
 import { shopMetricsJob, tokenRefreshJob } from "@/server/shops/jobs";
 import { handoverScan, ticketAutoClose, ticketScan } from "@/server/tickets/jobs";
 import { expireDrafts, expireInvitations, idleClose, remindUnclaimed } from "@/server/conversations/jobs";
@@ -37,6 +37,7 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "logistics.scan": () => scanLogistics(),
   "draft.generate": generateDraft,
   "message.translate": translateMessage,
+  "draft.translate": translateDraft,
   "token.refresh": () => tokenRefreshJob(),
   "shop.metrics": () => shopMetricsJob(),
   "ticket.scan": ticketScan,

@@ -212,6 +212,7 @@ function toDraft(d: typeof schema.draft.$inferSelect, live: Set<string>): DraftI
     createdAt: d.createdAt.toISOString(),
     insufficient: d.insufficient,
     citations: (d.citations ?? []).map((c) => ({ documentId: c.documentId, name: c.name, available: live.has(c.documentId) })),
+    translation: d.translation,
   };
 }
 
@@ -329,6 +330,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     history: segs.map(({ seg: s, messages: n }) => ({ id: s.id, stage: s.stage, startedAt: s.startedAt.toISOString(), endedAt: s.endedAt?.toISOString() ?? null, endReason: s.endReason, claimedBy: s.firstClaimedBy ? (segNames.get(s.firstClaimedBy) ?? null) : null, messages: n })),
     permissions: {
       canClaim: ctx.can("wb.handle") && (conv.handlingState === "bot" || conv.handlingState === "awaiting_human" || (conv.handlingState === "human" && !conv.claimedBy)) && !affiliate,
+      canUnclaim: ctx.can("wb.handle") && conv.handlingState === "human" && conv.claimedBy === me,
       canSend: ctx.can("wb.handle") && ((conv.handlingState === "human" && conv.claimedBy === me) || conv.handlingState === "bot" || conv.handlingState === "awaiting_human") && !affiliate,
       canTransfer: conv.handlingState === "human" && (conv.claimedBy === me || manager),
       canClose: open && (conv.claimedBy === me || manager),

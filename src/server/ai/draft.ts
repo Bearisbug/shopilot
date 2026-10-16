@@ -9,6 +9,7 @@ import { hitKeyword, receptionContext } from "@/server/conversations/hours";
 import { systemEvent, type ConversationRow } from "@/server/conversations/ingest";
 import { sendOutbound } from "@/server/conversations/send";
 import { db, schema } from "@/server/db/client";
+import { enqueue } from "@/server/jobs/boss";
 import { inTzText } from "@/server/settings/data";
 import { queueFeishuCard } from "@/server/feishu/deliver";
 import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
@@ -121,6 +122,8 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
       .values({ merchantId: conv.merchantId, conversationId: conv.id, segmentId: conv.currentSegmentId, triggerMessageId: trigger.id, mode, text: parsed.reply || "（空回复）", confidence: parsed.confidence, handoff: parsed.handoff, reason: parsed.reason, status: "shadow", model, latencyMs, ...knowledgeFields })
       .returning();
     await audit(systemActor(conv.merchantId), { module: "workbench", action: "draft_generated", summary: `影子回复 ${conv.buyerName}`, targetType: "draft", targetId: d.id, data: evt });
+    // 不是商户语言时由 draft.translate 补一份译文（REQ-AI-007）；翻译失败不影响影子回复
+    await enqueue("draft.translate", { draftId: d.id });
     return;
   }
 

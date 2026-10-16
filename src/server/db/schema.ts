@@ -526,6 +526,8 @@ export const draft = pgTable(
     retrieval: jsonb("retrieval").$type<DraftRetrieval | null>(),
     /** 依据：模型声明用到、且在合并结果里的资料，name 是出稿时的文件名快照 */
     citations: jsonb("citations").$type<DraftCitation[] | null>(),
+    /** 影子回复的商户语言译文（draft.translate 写入）；不需要译或翻译失败时为空 */
+    translation: text("translation"),
     createdAt: createdAt(),
   },
   (t) => [index("draft_conversation_idx").on(t.conversationId, t.createdAt), index("draft_merchant_created_idx").on(t.merchantId, t.createdAt)],
@@ -1103,7 +1105,7 @@ export const feishuTarget = pgTable(
   ],
 );
 
-/** 飞书卡片投递记录（发件箱）：先落库再入队 feishu.send；同一会话段同一卡种只有一行 */
+/** 飞书卡片投递记录（发件箱）：先落库再入队 feishu.send；同一会话段同一卡种只有一行，处理人每次取消认领另起一行 */
 export const feishuDelivery = pgTable(
   "feishu_delivery",
   {
@@ -1113,6 +1115,8 @@ export const feishuDelivery = pgTable(
     segmentId: uuid("segment_id").references(() => segment.id, { onDelete: "cascade" }),
     /** unclaimed 待认领卡，overdue 待认领超时卡，test 设置页的测试卡片 */
     kind: text("kind", { enum: ["unclaimed", "overdue", "test"] }).notNull(),
+    /** 同段同卡种的序号：处理人取消认领时取本段最大值 + 1，其余触发都是 0（INV-FEISHU-003） */
+    seq: integer("seq").notNull().default(0),
     targetId: uuid("target_id").references(() => feishuTarget.id, { onDelete: "set null" }),
     targetName: text("target_name"),
     status: text("status", { enum: ["queued", "sent", "failed", "skipped"] }).notNull().default("queued"),
@@ -1129,7 +1133,7 @@ export const feishuDelivery = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    uniqueIndex("feishu_delivery_segment_kind_uq").on(t.segmentId, t.kind).where(sql`${t.segmentId} is not null`),
+    uniqueIndex("feishu_delivery_segment_kind_seq_uq").on(t.segmentId, t.kind, t.seq).where(sql`${t.segmentId} is not null`),
     index("feishu_delivery_merchant_created_idx").on(t.merchantId, t.createdAt),
   ],
 );

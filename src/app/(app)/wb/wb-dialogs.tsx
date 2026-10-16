@@ -11,6 +11,7 @@ import type { QuickReply, QuickReplyList } from "@/contracts/reception";
 import type { MemberOption } from "@/contracts/team";
 import { useDialogParam } from "@/components/shell/global-dialogs";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/shell/page";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -205,6 +206,43 @@ function EndForm({ detail, onDone }: { detail: ConversationDetail; onDone: () =>
         </Button>
       </DialogFooter>
     </>
+  );
+}
+
+// ── 取消认领（API-CONV-016） ──
+
+export function UnclaimDialog({ detail }: { detail: ConversationDetail }) {
+  const { open, close } = useDialogParam("unclaim");
+  const c = detail.conversation;
+  const after = useAfterChange(c.id);
+  const unclaim = useMutation({
+    mutationFn: () => api.post(`/api/v1/conversations/${c.id}/unclaim`, { version: c.version }),
+    onSuccess: () => {
+      toast.success("已取消认领，会话放回待认领");
+      close();
+    },
+    onError: (e) => toast.error("没有取消成功", { description: errorText(e) }),
+    onSettled: after,
+  });
+  return (
+    <AlertDialog open={open} onOpenChange={(o) => !o && close()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>取消认领这个会话？</AlertDialogTitle>
+          <AlertDialogDescription>
+            会话回到「待认领」，负责这家店的同事都能认领；连了飞书的会往群里再推一张待认领卡。没处置的 AI 草稿保留
+            {detail.openTickets.length > 0 ? `，${detail.openTickets.length} 张未结工单的负责人不变` : ""}。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>继续处理</AlertDialogCancel>
+          <Button disabled={unclaim.isPending} onClick={() => unclaim.mutate()}>
+            {unclaim.isPending && <LoaderCircleIcon className="animate-spin" />}
+            取消认领
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

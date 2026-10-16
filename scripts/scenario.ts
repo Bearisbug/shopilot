@@ -53,7 +53,7 @@ async function conversation(input: {
   claimedBy?: string | null;
   handoffReason?: string | null;
   messages: Array<{ from: "buyer" | "agent"; text: string; minutesAgo: number }>;
-  draft?: { minutesAgo: number; text: string };
+  draft?: { minutesAgo: number; text: string; shadow?: boolean };
   ended?: boolean;
 }) {
   const m = await demo();
@@ -123,22 +123,27 @@ async function conversation(input: {
         .returning();
       if (x.from === "buyer") trigger = row.id;
     }
+    let draftId: string | undefined;
     if (input.draft) {
-      await tx.insert(schema.draft).values({
-        merchantId: m.id,
-        conversationId: conv.id,
-        segmentId: seg.id,
-        triggerMessageId: trigger,
-        mode: "assist",
-        text: input.draft.text,
-        confidence: 0.8,
-        status: "generated",
-        model: "scenario",
-        latencyMs: 1500,
-        createdAt: ago(input.draft.minutesAgo * MIN),
-      });
+      const [d] = await tx
+        .insert(schema.draft)
+        .values({
+          merchantId: m.id,
+          conversationId: conv.id,
+          segmentId: seg.id,
+          triggerMessageId: trigger,
+          mode: input.draft.shadow ? "shadow" : "assist",
+          text: input.draft.text,
+          confidence: 0.8,
+          status: input.draft.shadow ? "shadow" : "generated",
+          model: "scenario",
+          latencyMs: 1500,
+          createdAt: ago(input.draft.minutesAgo * MIN),
+        })
+        .returning({ id: schema.draft.id });
+      draftId = d.id;
     }
-    return { conversationId: conv.id, buyerName, link: `${env().APP_BASE_URL}/wb/${conv.id}` };
+    return { conversationId: conv.id, buyerName, link: `${env().APP_BASE_URL}/wb/${conv.id}`, ...(draftId ? { draftId } : {}) };
   });
 }
 
@@ -348,6 +353,17 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
     await db().update(schema.receptionSettings).set({ unclaimedRemindMinutes: 10 }).where(eq(schema.receptionSettings.merchantId, m.id));
     out(await conversation({ shopName: "Demo Shopee MY", state: "awaiting_human", handoffReason: "low_confidence", messages: [{ from: "buyer", text: "Hello? Anyone there?", minutesAgo: 11 }] }));
   },
+  // 影子模式下 AI 用买家语言（英文）写的影子回复，还没有译文（AI 替身出稿是中文，用场景造）；译文用 pnpm job draft.translate 补
+  "shadow-foreign": async () =>
+    out(
+      await conversation({
+        shopName: "Demo Shopee MY",
+        state: "awaiting_human",
+        handoffReason: "shadow",
+        messages: [{ from: "buyer", text: "Does this webcam work with a Mac?", minutesAgo: 3 }],
+        draft: { minutesAgo: 2, text: "Hi! Yes, it works with macOS 12 or later. Just plug it in via USB-C, no driver needed.", shadow: true },
+      }),
+    ),
   // 卖家在平台后台直接回复过：处理中、没有 Shopilot 处理人（模拟器没有「平台后台回复」动作，用场景造）
   "platform-human": async () =>
     out(await conversation({ shopName: "Demo Shopee MY", state: "human", claimedBy: null, handoffReason: "platform_human", messages: [{ from: "buyer", text: "Can I use it with Android?", minutesAgo: 6 }] })),
