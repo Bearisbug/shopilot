@@ -131,6 +131,46 @@ export async function addShopeeMessage(
   return { message, pushes };
 }
 
+/**
+ * 卖家在 Shopee 卖家中心回复：消息进会话（get_message 读得到），但不推送 code 10 消息——真实 Shopee 不推送卖家侧消息。
+ * auto = 店铺自动回复：发送时刻取该会话最近一条买家消息的时刻（线上实测自动回复与买家消息同一秒）。
+ */
+export async function addShopeeBackendMessage(shop: ShopeeShop, t: Thread, text: string, auto: boolean): Promise<Msg> {
+  let createdAt = new Date();
+  if (auto) {
+    const [b] = await mockDb()
+      .select({ createdAt: mockMessage.createdAt })
+      .from(mockMessage)
+      .where(and(eq(mockMessage.conversationId, t.conversationId), eq(mockMessage.sender, "buyer")))
+      .orderBy(desc(mockMessage.seq))
+      .limit(1);
+    if (b) createdAt = b.createdAt;
+  }
+  const [message] = await mockDb()
+    .insert(mockMessage)
+    .values({ messageId: shopeeMessageId(), conversationId: t.conversationId, platform: "shopee", shopId: shop.shopId, sender: "seller", type: "text", content: { text }, createdAt })
+    .returning();
+  await mockDb().update(mockBuyerThread).set({ lastMessageAt: new Date(), unreadCount: 0 }).where(eq(mockBuyerThread.conversationId, t.conversationId));
+  return message;
+}
+
+/** 推送 code 10 的会话通知 mark_as_replied（会话从「未回复」变为「已回复」时），字段按线上实收的推送 */
+export async function shopeeMarkAsRepliedPush(shop: ShopeeShop, t: Thread): Promise<PendingPush | null> {
+  const app = await loadShopeeApp(shop.appKey);
+  if (!app || shop.authStatus !== "authorized" || !shop.capabilities.chat) return null;
+  const content = {
+    type: "mark_as_replied",
+    msg_id: 0,
+    content: { conversation_id: t.conversationId, conversation_tag: "", conversation_filter_type: "unreplied", unreplied_sub_filter_type: "" },
+    from_id: 0,
+    user_id: shopUserId(shop.shopId),
+    timestamp: nowSec(),
+    business_type: 0,
+    conversation_id: t.conversationId,
+  };
+  return shopeePush(app, shop.shopId, 10, { type: "notification", region: shop.region, content }, "会话通知：mark_as_replied", { msg_id: newRequestId() });
+}
+
 /** 订单详情（get_order_detail）。默认字段 + response_optional_fields 请求的字段。 */
 export function shopeeOrderDetail(o: Order, shop: ShopeeShop, optional: Set<string>): Record<string, unknown> {
   const r: Record<string, unknown> = {

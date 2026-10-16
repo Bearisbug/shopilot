@@ -14,7 +14,7 @@ import { nowSec, toSec } from "../http";
 import { digits, shopeeBuyerId, shopeeConversationId, shopeeReturnSn, shopeeTrackingNo, shopeeOrderSn, tiktokLineItemId, tiktokOrderId, tiktokReturnId, tiktokTrackingNo } from "../ids";
 import { applyOrderStatus, logisticsException, nextStatus, orderTotals, SHOPEE_PRE_SHIP, TIKTOK_PRE_SHIP } from "../orders";
 import { resendPush, runPushes, type PendingPush } from "../push";
-import { shopeePush, addShopeeMessage, insertShopeeReturn, loadShopeeApp, updateShopeeOrder, updateShopeeReturn } from "../shopee/ops";
+import { shopeePush, addShopeeBackendMessage, addShopeeMessage, insertShopeeReturn, loadShopeeApp, shopeeMarkAsRepliedPush, updateShopeeOrder, updateShopeeReturn } from "../shopee/ops";
 import { addTiktokMessage, completeRefund, insertTiktokAfterSale, record, tiktokWebhook, updateTiktokAfterSale, updateTiktokOrder } from "../tiktok/ops";
 import { fileUrl, samplePng, saveUpload } from "../uploads";
 import type { SimActionResult } from "./types";
@@ -94,6 +94,18 @@ async function buyerImage(input: { conversationId: string; file: { name: string;
     { url, width: stored.width, height: stored.height },
   );
   return done("买家图片已发出", pushes);
+}
+
+const BackendReplyInput = z.object({ conversationId: z.string().min(1), text: z.string().trim().max(2000).optional(), auto: z.boolean().optional() });
+
+/** Shopee 卖家在卖家中心回复：消息只进平台会话、不推送；随后推一条 mark_as_replied 通知。不带 text 时只推通知（如本方经接口回复后平台发的那条） */
+async function sellerBackendReply(input: unknown): Promise<SimActionResult> {
+  const { conversationId, text, auto } = BackendReplyInput.parse(input);
+  const { thread, shop } = await getThread(conversationId);
+  if (shop.platform !== "shopee") throw new SimError("只有 Shopee 会话有卖家后台回复");
+  if (text) await addShopeeBackendMessage(shop, thread, text, auto ?? false);
+  const what = !text ? "已推送 mark_as_replied" : auto ? "店铺自动回复已写入，已推送 mark_as_replied" : "卖家后台回复已写入，已推送 mark_as_replied";
+  return done(what, [await shopeeMarkAsRepliedPush(shop, thread)]);
 }
 
 const OrderCardInput = z.object({ conversationId: z.string(), orderId: z.string() });
@@ -462,6 +474,7 @@ export const SIM_ACTIONS = [
   "expire_auth",
   "deauthorize",
   "resend_push",
+  "seller_backend_reply",
 ] as const;
 export type SimAction = (typeof SIM_ACTIONS)[number];
 
@@ -495,6 +508,8 @@ export async function runSimAction(action: SimAction, input: unknown): Promise<S
         return await deauthorize(input);
       case "resend_push":
         return await resend(input);
+      case "seller_backend_reply":
+        return await sellerBackendReply(input);
       case "buyer_image":
         return { ok: false, error: "buyer_image 需要 multipart 请求" };
     }

@@ -43,6 +43,9 @@ export function enqueueDraft(conversationId: string, mode: "shadow" | "assist" |
 
 const OUT_ROLES = new Set(["agent", "platform_human", "platform_bot"]);
 
+/** 会话时间只往后推：补拉到的卖家侧消息可能早于已入库的买家消息（inbound.refetch） */
+const later = (prev: Date | null, next: Date) => (prev && prev > next ? prev : next);
+
 /** 卖家侧消息是不是本方刚发出的回声：同平台消息 ID，或 2 分钟内同类型同文本、还在 sending 的出站消息 */
 async function matchEcho(ex: Executor, conv: ConversationRow, m: NormalizedMessage): Promise<boolean> {
   const [byId] = await ex
@@ -126,7 +129,7 @@ export async function ingestMessage(
       .returning();
     if (!msg) return { status: "ignored", reason: "重复消息", conversationId: existing.id };
     if (role === "platform_human") {
-      const patch: Partial<ConversationRow> = { lastAgentAt: m.sentAt, lastMessageAt: m.sentAt, updatedAt: new Date() };
+      const patch: Partial<ConversationRow> = { lastAgentAt: later(existing.lastAgentAt, m.sentAt), lastMessageAt: later(existing.lastMessageAt, m.sentAt), updatedAt: new Date() };
       if (existing.handlingState === "bot" || existing.handlingState === "awaiting_human") {
         Object.assign(patch, { handlingState: "human", claimedBy: null, claimedAt: null, handoffReason: "platform_human", version: existing.version + 1 });
         await supersedeDrafts(ex, existing.id);
@@ -135,7 +138,7 @@ export async function ingestMessage(
       await ex.update(schema.conversation).set(patch).where(eq(schema.conversation.id, existing.id));
       if (existing.currentSegmentId) await ex.update(schema.segment).set({ humanReplied: true }).where(eq(schema.segment.id, existing.currentSegmentId));
     } else {
-      await ex.update(schema.conversation).set({ lastMessageAt: m.sentAt, updatedAt: new Date() }).where(eq(schema.conversation.id, existing.id));
+      await ex.update(schema.conversation).set({ lastMessageAt: later(existing.lastMessageAt, m.sentAt), updatedAt: new Date() }).where(eq(schema.conversation.id, existing.id));
     }
     return { status: "done", conversationId: existing.id, messageId: msg.id };
   }
