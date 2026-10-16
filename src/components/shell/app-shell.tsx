@@ -28,7 +28,7 @@ export function useNavSummary() {
   return useQuery({
     queryKey: ["nav-summary"],
     queryFn: () => api.get<NavSummary>("/api/v1/nav-summary"),
-    refetchInterval: () => (typeof document !== "undefined" && document.visibilityState === "hidden" ? false : 30_000),
+    refetchInterval: () => (typeof document !== "undefined" && document.visibilityState === "hidden" ? false : 10_000),
   });
 }
 

@@ -37,14 +37,14 @@ const isGone = (e: unknown) => e instanceof ApiError && e.status === 404;
 const POLL = (ms: number) => (query: { state: { error: unknown } }) => ((typeof document !== "undefined" && document.visibilityState === "hidden") || isGone(query.state.error) ? false : ms);
 
 export function useConversation(id: string) {
-  return useQuery({ queryKey: ["conversation", id], queryFn: () => api.get<ConversationDetail>(`/api/v1/conversations/${id}`), refetchInterval: POLL(4_000) });
+  return useQuery({ queryKey: ["conversation", id], queryFn: () => api.get<ConversationDetail>(`/api/v1/conversations/${id}`), refetchInterval: POLL(2_000) });
 }
 
 export function useBuyer(id: string) {
   return useQuery({ queryKey: ["conversation", id, "buyer"], queryFn: () => api.get<BuyerPanel>(`/api/v1/conversations/${id}/buyer`), refetchInterval: POLL(10_000) });
 }
 
-/** 「获取中」的商品卡每 2 秒查一次进度；没有获取中的就停（会话详情的 4 秒轮询照常） */
+/** 「获取中」的商品卡每 2 秒查一次进度；没有获取中的就停（会话详情的 2 秒轮询照常） */
 export function useProductProgress(id: string, ids: string[]) {
   const key = ids.join(",");
   return useQuery({
@@ -55,7 +55,7 @@ export function useProductProgress(id: string, ids: string[]) {
   });
 }
 
-export const listPoll = POLL(10_000);
+export const listPoll = POLL(3_000);
 
 /** 工作台的查询参数（view、platform、shop、dialog、panel）读写；参数微调用 replace（INT-020） */
 export function useWbParams() {

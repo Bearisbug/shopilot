@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | 新增 `TC-CONV-044`（源自缺陷：消息拉取不及时，新消息最长 10 秒才进工作台列表）；按 DESIGN v1.13 的新轮询间隔原位修改 `TC-AI-001` 第 2 步（侧栏计数 10 秒）与 `TC-SHOP-001` 第 9 步引用的 §16 口径（工作台会话列表 ≤ 3 秒） | 实现会话 |
 | 2026-10-16 | 新增 `TC-DASH-005`（源自缺陷：团队页人工首响中位算进了工作时间外开始的会话段，与看板对不上）；§3 场景加 `first-reply-off-hours` | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-041`（源自缺陷：平台后台有人回复过的会话谁都认领不了）；§3 场景加 `platform-human` | 实现会话 |
 | 2026-10-16 | RUN-013 之后修正 `TC-SHOP-001` 第 9 步措辞（原位修改）：原「10 秒内」比 DESIGN §16「下一次轮询（≤ 10 秒）可见」更严，改为下一次列表轮询后出现、从买家发出算起 15 秒内 | 实现会话 |
@@ -839,7 +840,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 6 | 看检查页 | 三家逐行显示：MY、SG 的收发聊天与订单都可用；PH 的收发聊天不可用，写明原因并带「准备清单第 4 项」入口；每家显示收件人是否打码 |
 | 7 | 选「AI 只起草、不发送」，点「完成接入」 | 提示接入完成 |
 | 8 | 打开 `/shops` | 三家 Wizard 店都在列表里，「连接」列为「正常」或「需处理 · …」（不是授权失效、已断开），接待模式 shadow / shadow，回补状态为排队中、进行中或已完成之一 |
-| 9 | 按 §3「模拟器发消息」向 Wizard Shopee MY 新买家发「接入后第一条」 | signup1 的 `/wb` 待认领在下一次列表轮询后出现该会话（DESIGN §16「下一次轮询（≤ 10 秒）可见」，从买家发出算起 15 秒内） |
+| 9 | 按 §3「模拟器发消息」向 Wizard Shopee MY 新买家发「接入后第一条」 | signup1 的 `/wb` 待认领在下一次列表轮询后出现该会话（DESIGN §16 工作台会话列表「≤ 3 秒」，从买家发出算起 15 秒内） |
 
 后置：无（`TC-SHOP-015`、`TC-SHOP-016`、`TC-CONV-002` 等承接）。
 
@@ -1632,6 +1633,22 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：无。
 
+#### `TC-CONV-044` 新消息及时出现在工作台 — 对应 `REQ-CONV-002`、`REQ-CONV-003` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 消息拉取不及时，新消息最长 10 秒才进工作台列表
+
+前置：基线；浏览器 A 以 owner@demo.test 登录，窗口宽 1440 px（侧栏展开），打开 `/wb?view=queue`，标签页保持在前台，开发者工具网络面板筛 `/api/v1/`；浏览器 B 打开模拟器。计时从模拟器发出消息那一刻起算。阈值 = DESIGN §15 的轮询间隔（列表 3 秒、详情 2 秒、导航摘要 10 秒）加本地入库余量 1–2 秒；第 2、4、6 步等一次对应请求返回后再发，保证要等满一个轮询间隔。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | B：选 Demo TikTok TH（接待模式 off），新建买家 X | 模拟器出现买家 X |
+| 2 | A 的网络面板出现一次 `GET /api/v1/conversations?view=queue` 返回后，B 立即以 X 发「poll check 1」，记发出时刻 T1 | 推送日志新增一条，HTTP 200 |
+| 3 | A：看待认领列表 | T1 后 5 秒内列表出现 X 的会话，预览「poll check 1」 |
+| 4 | A：点开 X 的会话；网络面板出现一次 `GET /api/v1/conversations/<该会话 ID>` 返回后，B 立即以 X 发「poll check 2」，记 T2 | 推送日志新增一条，HTTP 200 |
+| 5 | A：看对话栏时间线 | T2 后 3 秒内出现「poll check 2」 |
+| 6 | B：新建买家 Y；A 的网络面板出现一次 `GET /api/v1/nav-summary` 返回后，B 立即以 Y 发「poll check 3」，记 T3，记该响应里的 `counts.queue` 为 Q | 推送日志新增一条，HTTP 200 |
+| 7 | A：看侧栏「工作台」下「待认领」的计数 | T3 后 12 秒内变为 Q + 1 |
+
+后置：无。
+
 ### AI 出稿
 
 #### `TC-AI-001` 主链路：买家消息生成 assist 草稿，员工认领并发送到买家 — 对应 `REQ-AI-001`、`REQ-AI-002`、`REQ-AI-003`、`REQ-CONV-001`、`REQ-CONV-004`、`REQ-CONV-005`、`REQ-MOCK-002` · 级别: 冒烟 · 执行者: 皆可
@@ -1641,7 +1658,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | B：选 Demo Shopee MY、新建买家，发「我的包裹到哪了」 | 推送日志新增一条 Shopee code 10 推送，HTTP 200 |
-| 2 | A：等待最多 20 秒 | 会话列表的「AI 草稿」分组计数加 1，列表出现该买家的会话，行上店铺为 Demo Shopee MY（侧栏计数按 30 秒轮询，可能稍后才变） |
+| 2 | A：等待最多 20 秒 | 会话列表的「AI 草稿」分组计数加 1，列表出现该买家的会话，行上店铺为 Demo Shopee MY（侧栏计数按 10 秒轮询，可能稍后才变） |
 | 3 | A：打开该会话 | 时间线有买家消息；草稿区显示草稿正文 X 与置信度 0.85，有「认领并发送」「改后发送」「忽略」 |
 | 4 | A：点「认领并发送」 | 草稿区消失；时间线新增一条本方消息，正文 X，状态已发送；该会话出现在「我处理中」 |
 | 5 | B：看该买家的买家视图 | 出现 1 条卖家消息，正文与 X 相同 |
@@ -3838,6 +3855,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-014 | 2026-10-16 | 本地 | `c41fff9` + 工作区改动（平台后台回复过的会话可接手） | AI（Claude Code 主会话；Playwright + Edge） | 局部（缺陷修复：TC-CONV-041） | 通过 1/1 |
 | RUN-015 | 2026-10-16 | 本地 | `c6fc3a3` + 场景 `first-reply-off-hours`（未修复） | AI（Claude Code 执行子会话；curl） | 局部（TC-DASH-005） | 通过 0/1 · 失败 1 |
 | RUN-016 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（团队页首响与看板同口径） | AI（Claude Code 执行子会话；curl） | 复测（RUN-015：TC-DASH-005） | 通过 1/1 |
+| RUN-017 | 2026-10-16 | 本地 | `c6fc3a3` | AI（Claude Code 执行子会话；Playwright + Edge） | 局部（TC-CONV-044） | 通过 0/1 · 失败 1 |
+| RUN-018 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（工作台轮询改为 3 / 2 / 10 秒） | AI（Claude Code 执行子会话；Playwright + Edge） | 复测（RUN-017：TC-CONV-044） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -3935,6 +3954,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-012 | TC-FEISHU-016 | 待人工 | 执行者为人工（真实飞书），AI 未执行；开发期间不向真实飞书群发消息 | 人工收口轮 |
 | RUN-013 | TC-SHOP-001 | 失败 | 第 9 步照用例先发消息再打开 `/wb`，发出后 10.0 秒待认领里仍没有该会话，与 RUN-012 相同：会话入库后约 2 秒影子草稿生成，页面首次取列表时还不可见，下一次要等 10 秒轮询；证据 `run-013-TC-SHOP-001-9.png` | 用例口径待裁定（「10 秒内」从发出算起，还是改为下一次列表刷新后可见），裁定前不改用例 |
 | RUN-015 | TC-DASH-005 | 失败 | 第 2 步林晓的 `handled.firstReplyMedianSec` 为 1200，预期 null（第 1 步看板为 null）：团队页的首响中位没排除工作时间外开始的会话段；证据 `docs/test-runs/run-015-TC-DASH-005-2.json` | 实现修复（团队页改用看板的首响样本），RUN-016 复测 |
+| RUN-017 | TC-CONV-044 | 失败 | 第 3 步预期 T1 后 5 秒内列表出现 X 的会话，实际 10.1 秒才出现（列表每 10 秒刷新一次）；第 5 步时间线 4.4 秒（预期 3 秒内）；第 7 步侧栏计数 30.1 秒（预期 12 秒内）；证据 `docs/test-runs/run-017-TC-CONV-044-3.png`（列表头已是「待认领 7」，侧栏仍是 6） | 实现修复（轮询改为列表 3 秒、详情 2 秒、导航摘要 10 秒，DESIGN v1.13 §15、ADR-007），RUN-018 复测 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -3965,6 +3985,10 @@ RUN-013 证据：复测轮，承接 RUN-012 的三条失败加冒烟级 13 条�
 RUN-015 证据：修复前那一轮，只跑源自缺陷的 `TC-DASH-005`。环境是 §3 本地行的独立副本：`c6fc3a3` 的独立工作区，同一 PostgreSQL 实例里另建库 `shopilot_dashrun` 并按 §3 重建基线，Web 与 Worker 跑在 3364；工作区里只加了场景 `first-reply-off-hours`。第 1 步通过（看板林晓 `segments = 1`、首响为 null），第 2 步失败。
 
 RUN-016 证据：复测轮，承接 RUN-015，环境同 RUN-015，起跑前重建基线再执行场景。被测版本只比 RUN-015 多改团队页首响中位的取数（`API-TEAM-001` 改用看板的首响样本），第 1、2 步林晓的首响都是 null（`docs/test-runs/run-016-TC-DASH-005-2.json`）。冒烟级未跑：按 10-14 起的快速开发约定小改动不跑整轮，同 RUN-014。服务端用例 `src/server/dashboard/first-reply.test.ts` 修复前失败（团队页 80 秒、看板 60 秒），修复后通过；全部 vitest 29 个文件 197 条通过。
+
+RUN-017 证据：源自缺陷用例在未修复版本上的一轮。环境是 §3 本地行的独立副本：被测版本 `c6fc3a3` 检出到单独的 git 工作区，同一 PostgreSQL 实例里另建库 `shopilot_pollrun` 并按 §3 重建基线，Web 跑在 3363、Worker 单独起，`AI_MODE=stub`、`FEISHU_MODE=stub`；Playwright 1.64 + 本机 Edge（headless），等对应请求返回后立即调 `POST /api/mock/sim/buyer_message` 发消息，从发出时刻计时，2026-10-16 13:39–13:41（UTC+8）。实测：列表 10.1 秒、时间线 4.4 秒、侧栏计数 30.1 秒，三处都超时限，首个失败在第 3 步。
+
+RUN-018 证据：复测轮，承接 RUN-017。被测版本为 `c6fc3a3` 加本次两处前端改动（`src/app/(app)/wb/wb-shared.tsx` 列表 3 秒、详情 2 秒；`src/components/shell/app-shell.tsx` 导航摘要 10 秒），环境与手段同 RUN-017，2026-10-16 13:41–13:42。实测：列表 3.4 秒、时间线 2.3 秒、侧栏计数 10.1 秒。按 2026-10-14 起的快速开发约定（小修不跑整轮）本轮未跑冒烟级；冒烟级里涉及列表刷新的 `TC-AI-001`（20 秒内）与 `TC-SHOP-001` 第 9 步（15 秒内）时限都宽于新的 3 秒间隔。
 
 ## 7. 遗留问题
 

@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.13 | API-CONV-001、API-CONV-002、API-NAV-001、ADR-007 | 工作台刷新加快：会话列表 3 秒、打开的会话 2 秒、侧栏计数 10 秒刷新一次（原 10、4、30 秒） | 缺陷修复 |
 | 2026-10-16 | v1.13 | API-TEAM-001 | 团队页的人工首响中位与看板同口径，只算工作时间内开始的会话段 | 缺陷修复 |
 | 2026-10-16 | v1.13 | API-CONV-004、PAGE-WB、ENT-Conversation | 平台后台有人回复过的会话可在 Shopilot 认领接手，员工也能打开 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-CARD、REQ-FEISHU-005、API-MOCK-011 | 测试轮发现的两处修复：卡片里的中文消息不再挂平台机翻的译文；开发发件箱能显示测试卡片里上传的图片 | 缺陷修复 |
@@ -613,7 +614,7 @@
 | 维度 | 估算 | 依据 / 假设 |
 | --- | --- | --- |
 | 用户量 | ≤ 50 商户；每商户 ≤ 20 店、≤ 30 成员；全站 ≤ 1,000 店、≤ 1,500 账号；同时在线客服峰值 ≤ 300 | 用户选定；在线峰值按每商户 6 人假设。商户 > 100 或在线 > 300 时重估（改推送式刷新，见 ADR-007） |
-| 请求量 | 入站消息日均 ≤ 2 万条，峰值 10 条/秒；工作台轮询读峰值约 120 次/秒（300 人 ×（列表 1/10 秒 + 详情 1/4 秒 + 导航摘要 1/30 秒））；写操作峰值 ≤ 20 次/秒；知识检索每份草稿 2 次，日均 ≤ 1.1 万次 | OBSBOT 11 店近 90 天约每天 60 个会话、600 条消息，放大约 33 倍；日入站 > 20 万条时重估；检索次数按草稿上限（每年 200 万份）推算 |
+| 请求量 | 入站消息日均 ≤ 2 万条，峰值 10 条/秒；工作台轮询读峰值约 280 次/秒（300 人 ×（列表 1/3 秒 + 详情 1/2 秒 + 导航摘要 1/10 秒））；写操作峰值 ≤ 20 次/秒；知识检索每份草稿 2 次，日均 ≤ 1.1 万次 | OBSBOT 11 店近 90 天约每天 60 个会话、600 条消息，放大约 33 倍；日入站 > 20 万条时重估；检索次数按草稿上限（每年 200 万份）推算 |
 | 数据量 | 12 个月：消息 ≤ 730 万行、会话 ≤ 73 万、草稿 ≤ 200 万、订单镜像 ≤ 730 万、工单 ≤ 20 万、审计日志 ≤ 1,500 万；知识库每商户 ≤ 500 份资料，全站原文件约 10 GB、分块约 50 万行 | 按日入站 2 万条、每会话 10 条消息、每会话 ≤ 3 份草稿、每店每天 ≤ 20 单假设；商户按保存期限（180 天 / 1 年 / 2 年）每日清理；知识库按每商户平均 100 份、每份 2 MB、100 个分块假设，原文件全站 > 50 GB 时重估存放方式 |
 | 分布与形态 | 单区域、单机部署（位置待定）；买家与商户在东南亚，无 CDN 需求 | 页面需登录、资源量小；商户跨大洲后重估 |
 
@@ -1648,8 +1649,8 @@ erDiagram
 
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 10 秒轮询 |
-| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ documentId, name, available }] }, shadowDrafts?[{ id, text, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 4 秒轮询 |
+| `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 3 秒轮询 |
+| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ documentId, name, available }] }, shadowDrafts?[{ id, text, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 2 秒轮询 |
 | `API-CONV-003` | `GET /api/v1/conversations/{id}/buyer` | REQ-ORD-001、REQ-CONV-003 | — | `{ buyer{ name, externalId, language }, orders[{ id, externalOrderId, status, statusGroup, total, currency, items, shipByAt, tracking?, recipient?, afterSales[{ kind, platformStatus, sellerDueAt, open }] }], totals{ count180d, amount180d, currency }, piiMasked, syncedAt }`；只读订单镜像，不实时调平台（镜像由推送、每小时 `order.sync` 与 `API-ORD-003` 手动同步保持新鲜） | — | no-store；前端 10 秒轮询（订单推送到达后 10 秒内显示，见 §19） |
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
@@ -1767,7 +1768,7 @@ erDiagram
 | `API-SET-024` | `POST /api/v1/feishu/targets/{id}/test` | REQ-FEISHU-002 | — | 200 `{ ok, stub, imageUpload: ok\|failed\|skipped, imageError? }`：同步发一张测试卡片并记一行投递记录（`kind = test`）；应用接法先上传一张测试图片，失败只写进卡片与 `imageError`；审计 `EVT:feishu_test_sent` | 422 `/errors/platform-credentials`；502 `/errors/platform`（签名不对、机器人不在群里等，`detail` 带飞书的原因）；504 `/errors/platform-timeout`；404 `/errors/not-found` | 不重试；前端超时 40 秒 |
 | `API-NOTIF-001` | `GET /api/v1/notifications` | REQ-NOTIF-001 | `?type=all\|conversation\|ticket\|shop\|usage&cursor=` | `{ items[{ id, type, title, body, link, createdAt, readAt }], unread }` | — | no-store |
 | `API-NOTIF-002` | `POST /api/v1/notifications/read` | REQ-NOTIF-001 | `{ ids[] }` 或 `{ all: true }` | 200 `{ unread }` | — | 幂等 |
-| `API-NAV-001` | `GET /api/v1/nav-summary` | REQ-CONV-002、REQ-TKT-004、REQ-NOTIF-001 | — | `{ counts{ queue, ai, mine, team, done }（team 只对能看同事处理中的角色计数，其余为 0）, ticketsBadge(6 小时内到期 + 已超时), shopsAttention（需处理的店数，仅管理员，与 `/shops` 的「需处理」同一判定）, unreadNotifications }` | — | no-store；前端 30 秒轮询 |
+| `API-NAV-001` | `GET /api/v1/nav-summary` | REQ-CONV-002、REQ-TKT-004、REQ-NOTIF-001 | — | `{ counts{ queue, ai, mine, team, done }（team 只对能看同事处理中的角色计数，其余为 0）, ticketsBadge(6 小时内到期 + 已超时), shopsAttention（需处理的店数，仅管理员，与 `/shops` 的「需处理」同一判定）, unreadNotifications }` | — | no-store；前端 10 秒轮询 |
 | `API-SEARCH-001` | `GET /api/v1/search` | REQ-SEARCH-001 | `?q=(≥2 字)&type=all\|buyer\|message\|order\|ticket` | `{ conversations[{ ..., match: buyer\|message }], orders[], tickets[], counts{ buyers, messages, orders, tickets } }`；买家、消息、订单、工单每组最多 20 条，按可见范围过滤；消息正文按 ILIKE 匹配，靠 `message.text` 的 pg_trgm GIN 索引 | 422 `/errors/validation`（去空格后不足 2 字） | no-store |
 
 ### 8.11 模拟平台接口（只在 `MOCK_PLATFORM=1` 时挂载）
@@ -2663,7 +2664,7 @@ sequenceDiagram
   else 额度用尽且策略为 stop
     W->>DB: 11.1 handoff(reason=quota)
   end
-  loop 每 10 秒
+  loop 每 3 秒
     FE->>API: 会话列表 (API-CONV-001)
   end
   FE->>API: 打开会话 (API-CONV-002)、买家与订单 (API-CONV-003)
@@ -3207,19 +3208,20 @@ flowchart LR
 | 维度 | 场景 | 目标 |
 | --- | --- | --- |
 | 延迟 | 回调应答（`API-HOOK-001`、`API-HOOK-002`） | P99 < 1 秒（Shopee 聊天推送超时 2 秒） |
-| 延迟 | 会话列表、会话详情、工单列表、订单列表 | 服务端 P95 < 300 ms（120 次/秒读负载下） |
+| 延迟 | 会话列表、会话详情、工单列表、订单列表 | 服务端 P95 < 300 ms（280 次/秒读负载下） |
 | 延迟 | 发送消息（不含平台耗时） | 服务端 P95 < 300 ms；含平台调用的总超时 10 秒 |
 | 延迟 | 买家消息到草稿出现在工作台 | P95 < 20 秒，含知识检索（实测检索 P50 3–4 秒、P95 7–10 秒）；每跳超时：改写 6 秒、检索每路 8 秒加纯向量重试 5 秒、出稿 25 秒，入队与轮询 ≤ 5 秒；出稿超时转人工，检索超时只降级 |
+| 延迟 | 买家消息到出现在工作台 | 会话列表 P95 < 6 秒，已打开会话的时间线 P95 < 4 秒：平台推送到入库实测 P90 1.4–2.3 秒（2026-10-15 至 16 日线上 587 条聊天推送），再加一次轮询间隔 |
 | 延迟 | 测试问答（`API-KB-012`） | P95 < 25 秒，同出稿链路但同步返回；前端超时 60 秒 |
 | 延迟 | 飞书卡片（`feishu.send`） | 会话进入待认领到卡片发出 P95 < 30 秒：AI 总结与补译文并行，各 ≤ 6 秒，每张图片上传 ≤ 12 秒，发送 ≤ 10 秒 |
 | 容错 | 飞书卡片发送 | 连不上、超时、限流时退避重试 5 次，起步 30 秒；凭证、权限、机器人不在群里、签名错误直接记失败 |
-| 刷新 | 工作台列表 / 会话详情 / 导航摘要轮询 | 10 秒 / 4 秒 / 30 秒；标签页不可见时暂停 |
+| 刷新 | 工作台列表 / 会话详情 / 导航摘要轮询 | 3 秒 / 2 秒 / 10 秒；标签页不可见时暂停 |
 | 刷新 | 知识库资料列表 | 有排队或解析中的资料时 5 秒轮询，没有时不轮询 |
 | 容量 | 入站峰值 | 10 条/秒持续 5 分钟不积压：`inbound.process` 并发 10，单条处理 P95 < 500 ms（不含出稿） |
 | 容量 | 出稿并发 | `draft.generate` 全局并发 20，单商户并发 5（防一家商户占满） |
 | 容量 | 知识库 | 每商户 ≤ 500 份资料、≤ 50 个分类；单文件 ≤ 20 MB；`knowledge.ingest` 全局并发 4、单商户 2，单份资料入库 ≤ 20 分钟 |
 | 限流 | 登录 | 同一邮箱 15 分钟内失败 10 次锁 15 分钟（423）；同一 IP 每分钟 30 次（429） |
-| 限流 | `/api/v1` 一般请求 | 每个登录会话每分钟 600 次（约为轮询负载的 30 倍），超出 429 |
+| 限流 | `/api/v1` 一般请求 | 每个登录会话每分钟 600 次（约为轮询负载的 10 倍），超出 429 |
 | 限流 | 发邀请、找回密码、重置成员密码 | 每商户每天 100 封邀请；同一邮箱 60 秒 1 封 |
 | 限流 | 测试问答 | 每商户每分钟 20 次，超出 429；计数在 Web 进程内存里，多实例部署时上限按实例数放大（§28 已知限制） |
 | 限流 | 飞书 | 群自定义机器人每个每分钟 100 次、每秒 5 次（飞书的限制）；被限流时按「容错」行重试 |
@@ -3271,7 +3273,7 @@ flowchart LR
 一致性承诺：
 
 - read-after-write：单主库，写成功后同一用户立即读可见；工作台写操作成功后前端立即失效并重拉对应查询（列表、详情、导航摘要）。
-- 列表与看板：别人的写入在下一次轮询（≤ 10 秒）可见；看板聚合直接查询，无缓存。
+- 列表与看板：别人的写入在下一次轮询可见（工作台会话列表 ≤ 3 秒，其余 ≤ 10 秒）；看板聚合直接查询，无缓存。
 - 异步：平台推送与 webhook 至少一次（平台重试），pg-boss 任务至少一次；消费端按上表的唯一键与条件更新保证幂等。站内通知按 `dedupe_key` 10 分钟内去重。
 - 飞书：投递记录先写库再入队，`feishu.send` 至少一次；已发出（`sent`）的记录不再发，重试沿用已构好的卡片。
 - 知识库：改分类、站点与 AI 可用后，下一次出稿与测试问答立即按新值过滤；入库进度在资料列表下一次轮询（≤ 5 秒）可见。`knowledge.ingest` 重复执行时按条目键覆盖重传，`knowledge.purge` 删除不存在的条目视为成功。
@@ -3388,10 +3390,10 @@ Cloudflare AI Search 的实例配置与限制（ADR-014）：
   - Consequences：单库承载队列，任务量增长 10 倍前无需拆分。
 
 - **`ADR-007` 工作台用轮询刷新** — Status: Accepted（用户 10-11 确认设计文档）
-  - Context：在线客服峰值 ≤ 300（§2）。
-  - Decision：TanStack Query 轮询：列表 10 秒、详情 4 秒、导航摘要 30 秒，标签页隐藏时暂停；写操作后立即失效重拉。
+  - Context：在线客服峰值 ≤ 300（§2）；2026-10-16 用户反馈消息不够及时，线上实测平台推送到入库 P90 1.4–2.3 秒，其余等待来自轮询间隔。
+  - Decision：TanStack Query 轮询：列表 3 秒、详情 2 秒、导航摘要 10 秒，标签页隐藏时暂停；写操作后立即失效重拉。
   - Alternatives：SSE + PostgreSQL LISTEN/NOTIFY——延迟更低、请求更少，但要维护长连接与多实例广播。
-  - Consequences：峰值约 120 次/秒读请求；在线客服 > 300 或用户反馈消息延迟时改 SSE 推送失效通知。
+  - Consequences：峰值约 280 次/秒读请求；按 2026-10-16 线上实测（会话列表服务端 P50 14 ms、会话详情 21 ms），每位在线客服约占 20 ms/秒服务端时间，在线客服超过 50 人（2 核机约占满 1 核）时改 SSE 推送失效通知。
 
 - **`ADR-008` 订单与售后统一走镜像** — Status: Accepted（用户 10-11 确认设计文档）
   - Context：Shopee 没有「按买家查订单」接口，Obsbot v2 用镜像；TikTok 可按买家实时查。
@@ -3686,6 +3688,13 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 打开 /wb 的「我处理中」
   Then 该会话置顶并显示已等时长；超过接待时限 15 分钟时标警示色
   And 有未结工单的会话行显示工单号与剩余时限
+
+场景: 新消息及时出现在工作台 (REQ-CONV-002)
+  Given 员工开着 /wb 的「待认领」，标签页在前台
+  When 买家在未开 AI 的店铺发来新会话的第一条消息
+  Then 下一次列表刷新（≤ 3 秒）后列表出现该会话，下一次导航摘要刷新（≤ 10 秒）后侧栏「待认领」计数加 1
+  When 员工打开这个会话，买家再发一条
+  Then 下一次详情刷新（≤ 2 秒）后时间线出现这条消息
 
 场景: 会话详情与窄屏 (REQ-CONV-003)
   Given TikTok 会话里有文字、图片、订单卡、退货卡
