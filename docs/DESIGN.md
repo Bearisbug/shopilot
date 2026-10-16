@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.13 | API-TEAM-001 | 团队页的人工首响中位与看板同口径，只算工作时间内开始的会话段 | 缺陷修复 |
 | 2026-10-16 | v1.13 | API-CONV-004、PAGE-WB、ENT-Conversation | 平台后台有人回复过的会话可在 Shopilot 认领接手，员工也能打开 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-CARD、REQ-FEISHU-005、API-MOCK-011 | 测试轮发现的两处修复：卡片里的中文消息不再挂平台机翻的译文；开发发件箱能显示测试卡片里上传的图片 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-SETUP、FLOW-FEISHU-CARD、FLOW-AI-DRAFT、FLOW-MOCK、REQ-FEISHU-001、REQ-FEISHU-002、REQ-FEISHU-003、REQ-FEISHU-004、REQ-FEISHU-005、REQ-FEISHU-006、REQ-MOCK-004、API-SET-017、API-SET-018、API-SET-019、API-SET-020、API-SET-021、API-SET-022、API-SET-023、API-SET-024、API-MOCK-011、ENT-FeishuIntegration、ENT-FeishuTarget、ENT-FeishuDelivery、INV-FEISHU-001、INV-FEISHU-002、ADR-015 | 新增飞书群推送：会话待认领或超时时往商户的飞书群发卡片，点卡片上的认领直达工作台 | 功能 |
@@ -1611,6 +1612,9 @@ erDiagram
 | `API-TEAM-010` | `POST /api/v1/members/{id}/reset-password` | REQ-TEAM-006 | — | 202；写发件箱 | — | 60 秒内同成员只发一封 |
 | `API-TEAM-011` | `GET /api/v1/login-events` | REQ-TEAM-006 | `?result=success\|failure&from=&to=&format=csv` | `{ items[{ email, name?, result, reason, ip, userAgent, createdAt }] }` | — | no-store |
 | `API-TEAM-012` | `GET /api/v1/members/options` | REQ-CONV-004、REQ-TKT-002 | `?shopId=` | `{ items[{ membershipId, name, role }] }`：负责该店的启用组长、员工 + 全部启用管理员 | — | no-store |
+
+- `API-TEAM-001` 成员与 `stats` 的 `firstReplyMedianSec` 口径同 §3「人工首响中位时长」。
+- 团队页与看板 `API-DASH-001` 的首响取同一组会话段：工作时间内开始、有人工回复。
 
 ### 8.3 店铺与接入
 

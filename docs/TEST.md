@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | 新增 `TC-DASH-005`（源自缺陷：团队页人工首响中位算进了工作时间外开始的会话段，与看板对不上）；§3 场景加 `first-reply-off-hours` | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-041`（源自缺陷：平台后台有人回复过的会话谁都认领不了）；§3 场景加 `platform-human` | 实现会话 |
 | 2026-10-16 | RUN-013 之后修正 `TC-SHOP-001` 第 9 步措辞（原位修改）：原「10 秒内」比 DESIGN §16「下一次轮询（≤ 10 秒）可见」更严，改为下一次列表轮询后出现、从买家发出算起 15 秒内 | 实现会话 |
 | 2026-10-16 | 按 DESIGN v1.13 补飞书群推送：新增功能域「飞书推送」`TC-FEISHU-001` 至 `TC-FEISHU-016`（冒烟 2、回归 14，其中人工 1），用例共 281 条；原位修改 `TC-AUTH-014` 第 4 步（开启后自动回到登录前要去的页面）、`TC-SHOP-024` 第 2 步（只查接入向导与店铺页没有飞书入口）、`TC-SET-006` 第 1 步（注明一期不做飞书登录）、`TC-MOCK-002` 第 2 步（加飞书投递记录接口）；§2 范围与不测项、§3 飞书发送替身与「连上飞书替身」、§5 冒烟集加两条 | 实现会话 |
@@ -143,6 +144,7 @@
 | `handover-candidate` | Demo Shopee MY 一个 Nur Aisyah 处理中的会话，最后一条是 20 分钟前的买家消息；今天的工作时段改为在 1 分钟前结束；输出会话 ID |
 | `unclaimed-11m` | Demo Shopee MY 一个待认领会话，买家消息在 11 分钟前，本段未提醒；`unclaimed_remind_minutes = 10`；输出会话 ID |
 | `platform-human` | Demo Shopee MY 一个处理中、`claimed_by` 为空的会话（`handoff_reason = platform_human`，即卖家在平台后台直接回复过），买家消息在 6 分钟前；输出会话 ID |
+| `first-reply-off-hours` | Demo Shopee MY 一个已结束的会话段：林晓首个认领，买家消息在 30 分钟前，林晓 10 分钟前回复，段记为工作时间外开始（`first_reply_in_hours = false`）；输出会话 ID |
 | `auth-link-6min` | Demo Store 的 Shopee 应用一条授权链接：链接本身是新签名，其中的 `state` 签发于 6 分钟前、已过期（模拟授权页本身拒绝时间戳超过 5 分钟的链接）；输出链接 |
 | `session-aged-9h` | `agent@demo.test` 最近一个登录会话的创建时间改为 9 小时前 |
 | `export-expired` | 一个已完成的数据导出，`expires_at` 已过；输出下载链接 |
@@ -3070,6 +3072,17 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：无。
 
+#### `TC-DASH-005` 团队页与看板的人工首响中位同口径 — 对应 `REQ-DASH-001`、`REQ-TEAM-005` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 团队页人工首响中位算进了工作时间外开始的会话段
+
+前置：基线；终端执行 `pnpm scenario first-reply-off-hours`，记会话 C（周一 00:30 前执行时这一段落在上周，改到之后执行）；`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api owner@demo.test "$B/api/v1/dashboard?range=7d"` | `HTTP 200`；`people` 里林晓一行 `segments = 1`、`firstReplyMedianSec = null`：这一段在工作时间外开始，不进首响样本 |
+| 2 | `api owner@demo.test "$B/api/v1/members?period=week"` | `HTTP 200`；林晓的 `handled.segments = 1`、`handled.firstReplyMedianSec = null`，与第 1 步一致 |
+
+后置：无。
+
 ### 用量与套餐
 
 #### `TC-BILL-001` 用量页各口径合计一致 — 对应 `REQ-BILL-001` · 级别: 回归 · 执行者: 皆可
@@ -3823,6 +3836,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-012 | 2026-10-16 | 本地 | `a246bfc` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-PERM-002、TC-PERM-001、TC-PERM-005、TC-AUTH-004、TC-AUTH-001、TC-SHOP-001、TC-AI-001、TC-TKT-001、TC-ORD-015、TC-KB-001、TC-KB-024、TC-AUTH-011、TC-AUTH-013、TC-AUTH-015、TC-AUTH-021、TC-CONV-012、TC-CONV-013、TC-CONV-029、TC-CONV-036、TC-AI-015、TC-SET-004、TC-SET-006、TC-MOCK-004、TC-TEAM-012、TC-FEISHU-004、TC-FEISHU-001、TC-FEISHU-002、TC-FEISHU-003、TC-FEISHU-005、TC-FEISHU-006、TC-FEISHU-007、TC-FEISHU-008、TC-FEISHU-009、TC-FEISHU-013、TC-FEISHU-011、TC-FEISHU-012、TC-FEISHU-015、TC-FEISHU-010、TC-CONV-037、TC-AUTH-014、TC-FEISHU-014、TC-MOCK-002、TC-AI-002、TC-SHOP-024、TC-FEISHU-016） | 通过 40/45 · 失败 3 · 待人工 2 |
 | RUN-013 | 2026-10-16 | 本地 | `c248a6e` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-012：TC-SHOP-001、TC-FEISHU-002、TC-FEISHU-007、TC-FEISHU-010、TC-PERM-002、TC-PERM-001、TC-PERM-005、TC-AUTH-004、TC-AUTH-001、TC-AI-001、TC-KB-001、TC-KB-024、TC-FEISHU-005、TC-FEISHU-011、TC-TKT-001、TC-ORD-015、TC-AI-002） | 通过 16/17 · 失败 1 |
 | RUN-014 | 2026-10-16 | 本地 | `c41fff9` + 工作区改动（平台后台回复过的会话可接手） | AI（Claude Code 主会话；Playwright + Edge） | 局部（缺陷修复：TC-CONV-041） | 通过 1/1 |
+| RUN-015 | 2026-10-16 | 本地 | `c6fc3a3` + 场景 `first-reply-off-hours`（未修复） | AI（Claude Code 执行子会话；curl） | 局部（TC-DASH-005） | 通过 0/1 · 失败 1 |
+| RUN-016 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（团队页首响与看板同口径） | AI（Claude Code 执行子会话；curl） | 复测（RUN-015：TC-DASH-005） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -3919,6 +3934,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-012 | TC-SHOP-024 | 待人工 | 执行者为人工，AI 未执行 | 人工收口轮 |
 | RUN-012 | TC-FEISHU-016 | 待人工 | 执行者为人工（真实飞书），AI 未执行；开发期间不向真实飞书群发消息 | 人工收口轮 |
 | RUN-013 | TC-SHOP-001 | 失败 | 第 9 步照用例先发消息再打开 `/wb`，发出后 10.0 秒待认领里仍没有该会话，与 RUN-012 相同：会话入库后约 2 秒影子草稿生成，页面首次取列表时还不可见，下一次要等 10 秒轮询；证据 `run-013-TC-SHOP-001-9.png` | 用例口径待裁定（「10 秒内」从发出算起，还是改为下一次列表刷新后可见），裁定前不改用例 |
+| RUN-015 | TC-DASH-005 | 失败 | 第 2 步林晓的 `handled.firstReplyMedianSec` 为 1200，预期 null（第 1 步看板为 null）：团队页的首响中位没排除工作时间外开始的会话段；证据 `docs/test-runs/run-015-TC-DASH-005-2.json` | 实现修复（团队页改用看板的首响样本），RUN-016 复测 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -3945,6 +3961,10 @@ RUN-011 证据：复测轮，承接 RUN-010 失败的 `TC-KB-035`（按修正后
 RUN-012 证据：飞书群推送一期的局部轮，范围是新增的飞书用例（`TC-FEISHU-016` 待人工）、受影响的旧用例（认领与并发认领、两步验证回跳、商户切换、停用成员、通知规则、安全页、发件箱、`TC-SHOP-024`）与冒烟级 14 条。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_fsrun` 并按 §3 重建基线，Web 跑在 3363、Worker 单独起，`FEISHU_MODE=stub`；`TC-AUTH-014`、`TC-FEISHU-014` 之后各重建一次基线，`TC-MOCK-002` 用环境变量切换 `MOCK_PLATFORM`，`TC-AI-002` 以 `AI_MODE=deepseek` 重启后改回。17 条用例第一次执行时脚本的选择器或等待写错，中断后修正脚本、从前置起用新数据重跑，登记的是重跑结果；`TC-AUTH-001` 第 6 步与 `TC-SHOP-001` 第 8 步在同一状态上重看。逐条结果、执行顺序与手段见 `docs/test-runs/run-012-local.md`。没有跑走查用例，未刷新截图。
 
 RUN-013 证据：复测轮，承接 RUN-012 的三条失败加冒烟级 13 条，另加修复波及的 `TC-FEISHU-010`。被测版本 `c248a6e` 修了 `TC-FEISHU-002`（替身上传的图片字节在开发发件箱可预览）与 `TC-FEISHU-007`（中文消息不放平台机翻的译文），两条都通过；`TC-SHOP-001` 第 9 步没有改代码也没有改用例，照原用例执行仍失败，等口径裁定。环境与手段同 RUN-012，2026-10-16 01:54–02:07；脚本拼接错误与登录限频导致的中断不计结果，修正后重跑，逐条结果见 `docs/test-runs/run-013-retest.md`。
+
+RUN-015 证据：修复前那一轮，只跑源自缺陷的 `TC-DASH-005`。环境是 §3 本地行的独立副本：`c6fc3a3` 的独立工作区，同一 PostgreSQL 实例里另建库 `shopilot_dashrun` 并按 §3 重建基线，Web 与 Worker 跑在 3364；工作区里只加了场景 `first-reply-off-hours`。第 1 步通过（看板林晓 `segments = 1`、首响为 null），第 2 步失败。
+
+RUN-016 证据：复测轮，承接 RUN-015，环境同 RUN-015，起跑前重建基线再执行场景。被测版本只比 RUN-015 多改团队页首响中位的取数（`API-TEAM-001` 改用看板的首响样本），第 1、2 步林晓的首响都是 null（`docs/test-runs/run-016-TC-DASH-005-2.json`）。冒烟级未跑：按 10-14 起的快速开发约定小改动不跑整轮，同 RUN-014。服务端用例 `src/server/dashboard/first-reply.test.ts` 修复前失败（团队页 80 秒、看板 60 秒），修复后通过；全部 vitest 29 个文件 197 条通过。
 
 ## 7. 遗留问题
 

@@ -47,9 +47,9 @@ const dayOf = (col: PgColumn, tz: string) => sql<string>`to_char(${col} at time 
 const AI = sql`${G.aiResolved}`;
 const HANDED = sql`(${G.handedOff} and not ${G.aiResolved})`;
 const HUMAN = sql`(not ${G.handedOff} and not ${G.aiResolved} and ${G.humanReplied})`;
-/** 人工首响样本：有首条买家消息与首条人工回复；只排除明确记为工作时间外的（§3 只算工作时间内） */
+/** 人工首响样本：有首条买家消息与首条人工回复；只排除明确记为工作时间外的（§3 只算工作时间内）。团队页（API-TEAM-001）共用 */
 const REPLY_SAMPLE = sql`(${G.firstHumanReplyAt} is not null and ${G.firstBuyerAt} is not null and ${G.firstReplyInHours} is distinct from false)`;
-const REPLY_MEDIAN = sql<number | null>`percentile_cont(0.5) within group (order by extract(epoch from ${G.firstHumanReplyAt} - ${G.firstBuyerAt})) filter (where ${REPLY_SAMPLE})`;
+export const REPLY_MEDIAN = sql<number | null>`percentile_cont(0.5) within group (order by extract(epoch from ${G.firstHumanReplyAt} - ${G.firstBuyerAt})) filter (where ${REPLY_SAMPLE})`;
 
 function segmentWhere(ctx: MemberContext, b: Bounds): SQL {
   return and(visibleConversations(ctx), eq(C.buyerKind, "buyer"), eq(G.backfilled, false), gte(G.startedAt, b.start), lt(G.startedAt, b.end))!;

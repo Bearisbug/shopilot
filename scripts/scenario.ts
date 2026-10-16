@@ -351,6 +351,23 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
   // 卖家在平台后台直接回复过：处理中、没有 Shopilot 处理人（模拟器没有「平台后台回复」动作，用场景造）
   "platform-human": async () =>
     out(await conversation({ shopName: "Demo Shopee MY", state: "human", claimedBy: null, handoffReason: "platform_human", messages: [{ from: "buyer", text: "Can I use it with Android?", minutesAgo: 6 }] })),
+  // 工作时间外开始、林晓首个认领并回复的已结束会话段：人工首响只算工作时间内开始的段，这一段不进首响样本
+  "first-reply-off-hours": async () => {
+    const m = await demo();
+    const owner = await member(m.id, "owner@demo.test");
+    const r = await conversation({
+      shopName: "Demo Shopee MY",
+      state: "closed",
+      claimedBy: owner.id,
+      ended: true,
+      messages: [
+        { from: "buyer", text: "Is this still in stock?", minutesAgo: 30 },
+        { from: "agent", text: "Yes, it is in stock.", minutesAgo: 10 },
+      ],
+    });
+    await db().update(schema.segment).set({ firstReplyInHours: false }).where(eq(schema.segment.conversationId, r.conversationId));
+    out({ ...r, firstClaimedBy: owner.name, firstReplySec: 20 * 60 });
+  },
   "auth-link-6min": async () => {
     const m = await demo();
     const owner = await member(m.id, "owner@demo.test");

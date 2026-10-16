@@ -1,0 +1,49 @@
+{
+  "request": "GET /api/v1/members?period=week (owner@demo.test)",
+  "http": 200,
+  "members": [
+    {
+      "name": "林晓",
+      "handled": {
+        "segments": 1,
+        "transferred": 0,
+        "firstReplyMedianSec": 1200
+      }
+    },
+    {
+      "name": "陈卓",
+      "handled": {
+        "segments": 2,
+        "transferred": 0,
+        "firstReplyMedianSec": 600
+      }
+    },
+    {
+      "name": "Arif Rahman",
+      "handled": {
+        "segments": 1,
+        "transferred": 0,
+        "firstReplyMedianSec": 3780
+      }
+    },
+    {
+      "name": "Mei Lin",
+      "handled": {
+        "segments": 2,
+        "transferred": 0,
+        "firstReplyMedianSec": 3810
+      }
+    },
+    {
+      "name": "Nur Aisyah",
+      "handled": {
+        "segments": 1,
+        "transferred": 0,
+        "firstReplyMedianSec": null
+      }
+    }
+  ],
+  "stats": {
+    "firstReplyMedianSec": 1800
+  }
+}

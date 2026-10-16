@@ -13,6 +13,7 @@ import { db, schema, type Tx } from "../db/client";
 import { env } from "../env";
 import { conflict, notAllowed, notFound, Problem } from "../http/problem";
 import { plan } from "../billing/plans";
+import { REPLY_MEDIAN } from "../dashboard/service";
 import { systemEvent } from "../conversations/ingest";
 import { queueFeishuCard } from "../feishu/deliver";
 import { ROLE_LABEL } from "@/lib/permissions";
@@ -64,7 +65,7 @@ export async function listMembers(ctx: MemberContext, query: { role: string; sta
     .select({
       membershipId: schema.segment.firstClaimedBy,
       segments: count(),
-      median: sql<number | null>`percentile_cont(0.5) within group (order by extract(epoch from ${schema.segment.firstHumanReplyAt} - ${schema.segment.firstBuyerAt}))`,
+      median: REPLY_MEDIAN,
     })
     .from(schema.segment)
     .where(and(eq(schema.segment.merchantId, ctx.merchant.id), eq(schema.segment.backfilled, false), gte(schema.segment.startedAt, from), lt(schema.segment.startedAt, to), isNotNull(schema.segment.firstClaimedBy)))
@@ -75,7 +76,7 @@ export async function listMembers(ctx: MemberContext, query: { role: string; sta
     .where(and(eq(schema.auditLog.merchantId, ctx.merchant.id), eq(schema.auditLog.action, "conversation_transferred"), gte(schema.auditLog.createdAt, from), lt(schema.auditLog.createdAt, to)))
     .groupBy(schema.auditLog.actorMembershipId);
   const [overall] = await db()
-    .select({ median: sql<number | null>`percentile_cont(0.5) within group (order by extract(epoch from ${schema.segment.firstHumanReplyAt} - ${schema.segment.firstBuyerAt}))` })
+    .select({ median: REPLY_MEDIAN })
     .from(schema.segment)
     .where(and(eq(schema.segment.merchantId, ctx.merchant.id), eq(schema.segment.backfilled, false), gte(schema.segment.startedAt, from), lt(schema.segment.startedAt, to), isNotNull(schema.segment.firstHumanReplyAt)));
   const [waiting] = await db()
