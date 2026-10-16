@@ -1,6 +1,6 @@
 // 需要数据库：DATABASE_URL 未设置时跳过（node --env-file=.env node_modules/vitest/vitest.mjs run 本文件）。
 // 每个用例在事务里造数据、最后回滚，不在库里留痕。
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import type { MemberContext } from "@/server/auth/context";
 import { db, pool, schema, type Tx } from "@/server/db/client";
@@ -26,7 +26,12 @@ describe.skipIf(!process.env.DATABASE_URL)("会话分组（API-CONV-001、API-NA
 
   it("平台后台处理、没有处理人的会话归「他人处理中」，不进待认领；员工只看到这一种他人会话", async () => {
     await inRollback(async (tx) => {
-      const [shop] = await tx.select().from(schema.shop).limit(1);
+      // 要两个成员：取成员数 ≥ 2 的商户下的店，不依赖库里第一家店是谁
+      const [shop] = await tx
+        .select()
+        .from(schema.shop)
+        .where(sql`(select count(*) from ${schema.membership} where ${schema.membership.merchantId} = ${schema.shop.merchantId}) >= 2`)
+        .limit(1);
       const [me, colleague] = await tx.select().from(schema.membership).where(eq(schema.membership.merchantId, shop.merchantId)).limit(2);
       const conv = async (handlingState: "awaiting_human" | "human", claimedBy: string | null) => {
         const [row] = await tx
