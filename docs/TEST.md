@@ -6,14 +6,15 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.20，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.21，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
-| 最后更新 | 2026-10-16 |
+| 最后更新 | 2026-10-17 |
 
 变更记录（登用例增改，不登执行轮次）：
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-17 | 按 DESIGN v1.21 看板口径：新增 `TC-DASH-006` 至 `TC-DASH-009`（AI 接待段做分母、去向拆分、影子回复、无时限工单、首响按工作时段含平台后台回复、新段记开段模式、页面呈现）；`TC-DASH-005` 废弃，被 `TC-DASH-007` 取代；原位修改 `TC-DASH-003` 第 4 步的 CSV 列；§3 场景 `first-reply-off-hours` 换成 `dashboard-metrics` | 实现会话 |
 | 2026-10-16 | 按 DESIGN v1.17 新增四条源自缺陷的用例：`TC-KB-042`（买家只发图片或商品卡时知识库检索报错）、`TC-SHOP-031`（Shopee 推送订阅缺失时店铺页仍显示正常）、`TC-SHOP-032`（手机宽度下回复率图表横轴文字重叠）、`TC-ORD-027`（已结束的售后单请求拒绝原因返回 502） | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-048`（源自缺陷：Shopee 卖家后台的回复没有进 Shopilot）、`TC-CONV-049`（本方回复的回声不算平台后台回复）、`TC-CONV-050`（店铺自动回复不算平台后台回复）；§3 加模拟器接口「卖家后台回复」 | 实现会话 |
 | 2026-10-16 | 按 DESIGN v1.18 新增 `TC-CONV-054`（源自缺陷：平台后台处理过的会话在工作台列表里找不到）、`TC-CONV-055`（源自缺陷：平台英文系统提示原样显示英文）；「同事处理中」分组改名「他人处理中」、员工也有这一组，原位修改 `TC-PERM-001` 第 1–3 步、`TC-CONV-004` 第 1 步、`TC-CONV-017` 第 1 步、`TC-TEAM-009` 第 3 步（员工本来就有这一组，去掉「出现同事处理中」）；§3 场景加 `tiktok-system-notices` | 实现会话 |
@@ -151,7 +152,7 @@
 | `handover-candidate` | Demo Shopee MY 一个 Nur Aisyah 处理中的会话，最后一条是 20 分钟前的买家消息；今天的工作时段改为在 1 分钟前结束；输出会话 ID |
 | `unclaimed-11m` | Demo Shopee MY 一个待认领会话，买家消息在 11 分钟前，本段未提醒；`unclaimed_remind_minutes = 10`；输出会话 ID |
 | `platform-human` | Demo Shopee MY 一个处理中、`claimed_by` 为空的会话（`handoff_reason = platform_human`，即卖家在平台后台直接回复过），买家消息在 6 分钟前；输出会话 ID |
-| `first-reply-off-hours` | Demo Shopee MY 一个已结束的会话段：林晓首个认领，买家消息在 30 分钟前，林晓 10 分钟前回复，段记为工作时间外开始（`first_reply_in_hours = false`）；输出会话 ID |
+| `dashboard-metrics` | Demo Store 排班改为每天 09:00–18:00、无节假日；在 5 天前（商户时区，记为 D）的 Demo Shopee MY 造 7 个会话段：自动模式 AI 独立解决 1 段；自动模式 AI 回过买家后 10:10 转人工、林晓 10:20 回复 1 段；辅助模式 11:30 转人工、林晓 11:40 回复 1 段（11:00 开段）；影子模式 17:50 开段、林晓次日 09:10 回复 1 段；未开 AI 20:00 开段、林晓次日 09:05 回复 1 段；影子模式 14:00 开段、只有平台后台 14:02 回复 1 段（另有一条 13:00 的平台后台消息挂在本段）；未开 AI 15:00 开段、平台后台 15:01、林晓 15:30 回复 1 段；两个影子段各带一份影子回复；另有两张 D 日 12:00 解决的内部确认工单，一张截止 13:00、一张没有截止时间；输出 D、会话 ID 与工单号 |
 | `shadow-foreign` | Demo Shopee MY 一个影子模式的待认领会话（`handoff_reason = shadow`），带一份英文影子回复、还没有译文（AI 替身的出稿是中文，用场景造）；输出会话 ID 与草稿 ID（`draftId`） |
 | `tiktok-system-notices` | Demo TikTok MY 一个待认领会话：一条买家消息之后，依次 7 条 TikTok 英文系统提示（分配客服、开始接待、`[Other]` 卖家中心提示、要求转人工、客服结束、买家超时，最后一条「Your chat was rated 5 stars」不在 DESIGN 对照表里）；模拟器不能发系统提示，用场景造；输出会话 ID |
 | `auth-link-6min` | Demo Store 的 Shopee 应用一条授权链接：链接本身是新签名，其中的 `state` 签发于 6 分钟前、已过期（模拟授权页本身拒绝时间戳超过 5 分钟的链接）；输出链接 |
@@ -3249,7 +3250,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 1 | 向 Demo Shopee MY 两个新买家各发一条；Nur 对第一份草稿点「认领并发送」，对第二份点「忽略」 | 两个操作都完成 |
 | 2 | owner 刷新看板 | 发送为 S0 + 1，忽略为 I0 + 1，转人工原因「人工」为 M0 + 1 |
 | 3 | 范围改为「近 90 天」 | 页面重新加载数据，不报错 |
-| 4 | 点「导出报表」 | 下载 CSV，含会话段数与草稿处置的列 |
+| 4 | 点「导出报表」 | 下载 CSV，含会话段数、Shopilot 回复、平台后台回复、草稿处置、影子回复与工单无时限的列 |
 
 后置：无。
 
@@ -3264,7 +3265,9 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：无。
 
-#### `TC-DASH-005` 团队页与看板的人工首响中位同口径 — 对应 `REQ-DASH-001`、`REQ-TEAM-005` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 团队页人工首响中位算进了工作时间外开始的会话段
+#### `TC-DASH-005` 团队页与看板的人工首响中位同口径（已废弃） — 对应 `REQ-DASH-001`、`REQ-TEAM-005` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 团队页人工首响中位算进了工作时间外开始的会话段
+
+已废弃，被 `TC-DASH-007` 取代：DESIGN v1.21 起首响按工作时段累计，工作时间外开始的段也进样本，本用例第 1、2 步的预期不再成立。
 
 前置：基线；终端执行 `pnpm scenario first-reply-off-hours`，记会话 C（周一 00:30 前执行时这一段落在上周，改到之后执行）；`login owner@demo.test`。
 
@@ -3272,6 +3275,56 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | --- | --- | --- |
 | 1 | `api owner@demo.test "$B/api/v1/dashboard?range=7d"` | `HTTP 200`；`people` 里林晓一行 `segments = 1`、`firstReplyMedianSec = null`：这一段在工作时间外开始，不进首响样本 |
 | 2 | `api owner@demo.test "$B/api/v1/members?period=week"` | `HTTP 200`；林晓的 `handled.segments = 1`、`handled.firstReplyMedianSec = null`，与第 1 步一致 |
+
+后置：无。
+
+#### `TC-DASH-006` AI 接待段做比率分母，去向拆分，影子回复与无时限工单单列 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`api owner@demo.test "$B/api/v1/dashboard?range=7d"` 记 `kpis.aiResolved` 为 a / b（分子 / 分母）、`kpis.handoffRate` 为 h / H、`drafts.shadow` 为 W、`tickets.noDue` 为 N、`tickets.onTimeRate.den` 为 O；然后终端执行 `pnpm scenario dashboard-metrics`，记输出的 `date` 为 D。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api owner@demo.test "$B/api/v1/dashboard?range=7d"` | `HTTP 200`；`kpis.aiResolved` 为 a + 1 / b + 3，`kpis.handoffRate` 为 h + 2 / H + 3：7 段里只有自动 2 段、辅助 1 段是 AI 接待段；`handoffReasons` 的 `count` 合计等于 `kpis.handoffRate.num` |
+| 2 | 看同一响应 `trend` 里 `date` 为 D 的一行 | `segments` 7、`aiResolved` 1、`handedOff` 2、`shopilot` 3、`platform` 1、`pending` 0 |
+| 3 | 看同一响应的 `drafts` 与 `tickets` | `drafts.shadow` 为 W + 2；`tickets.noDue` 为 N + 1；`tickets.onTimeRate.den` 为 O + 1；`byType` 里内部确认一行的 `noDue` 至少为 1 |
+| 4 | `api owner@demo.test "$B/api/v1/dashboard?range=7d&format=csv"` | 首行为「日期,会话段,AI 独立解决,转人工,Shopilot 回复,平台后台回复,未回复或进行中,人工首响中位（秒）,辅助草稿,原样发送,改后发送,忽略,过期,影子回复,工单已解决,工单按时解决,工单无时限」；D 那一行为「D,7,1,2,3,1,0,450,0,0,0,0,0,2,2,1,1」 |
+
+后置：重建基线（场景改了 Demo Store 的排班）。
+
+#### `TC-DASH-007` 人工首响按工作时段累计，含平台后台回复，团队页同口径 — 对应 `REQ-DASH-001`、`REQ-TEAM-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；终端执行 `pnpm scenario dashboard-metrics`，记输出的 `date` 为 D；`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api owner@demo.test "$B/api/v1/dashboard?range=7d&format=csv"`，看 D 那一行的「人工首响中位（秒）」 | 450：6 个样本依次是 600（从转人工 10:10 起算）、2400（辅助模式从 11:00 起算）、1200（下班前 10 分钟加次日上班 10 分钟）、300（工作时间外开段，从次日 09:00 起算）、120（平台后台回复，13:00 那条开段前的不算）、60（平台后台先回） |
+| 2 | `api owner@demo.test "$B/api/v1/dashboard?range=7d"`，看 `people` 里林晓一行 | `segments` 5，`firstReplyMedianSec` 1200：只算林晓自己的回复，样本 600、2400、1200、300、1800 |
+| 3 | `api owner@demo.test "$B/api/v1/members?period=30d"`，看林晓的 `handled` | `segments` 5，`firstReplyMedianSec` 1200，与第 2 步一致 |
+
+后置：重建基线。
+
+#### `TC-DASH-008` 看板页面呈现新口径，桌面与手机宽度 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；终端执行 `pnpm scenario dashboard-metrics`；以 owner@demo.test 登录，打开 `/dashboard?range=7d`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 桌面宽度（1440）看「每日会话段去向」 | 图例 5 项：AI 独立解决、转人工、Shopilot 回复、平台后台回复、未回复或进行中；右侧「AI 独立解决」下写「分母：已结束的 AI 接待段 X」；「人工首响中位」下写「买家等人工到首次人工回复，含平台后台回复」与「只累计工作时段 · 样本 X 段」；「转人工」下写「占 AI 接待段 X%」或「样本 X，满 10 才计算」 |
+| 2 | 看「辅助草稿处置」面板底部 | 一行「影子回复 X 份：只给管理员、组长看，不发送，不计入采纳率」，X 等于接口的 `drafts.shadow` |
+| 3 | 看工单区「按时完成率」与「按类型的时限达成」 | 按时完成率的说明里有「无时限 X 张不计」；类型图图例 4 项，含「无时限」 |
+| 4 | 把窗口改为 390 宽重看第 1–3 步 | 内容都在，图例换行显示，页面没有横向滚动条 |
+
+后置：重建基线。
+
+#### `TC-DASH-009` 新开的会话段记开段模式，影子模式的段不进 AI 接待段 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`api owner@demo.test "$B/api/v1/dashboard?range=7d"` 记 `kpis.segments` 为 S、`kpis.handoffRate.den` 为 H。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `curl -s -X POST $B/api/mock/sim/create_buyer -H 'Content-Type: application/json' -d '{"platform":"shopee","shopId":"220001","name":"Mode Assist","language":"en"}'` 记 `conversationId` 为 X1，再对 X1 调 `POST $B/api/mock/sim/buyer_message`，正文「Is it in stock?」 | 两次都返回 `"ok":true` |
+| 2 | 同样给 Demo Shopee SG（`shopId` 为 220002，影子模式）建买家「Mode Shadow」并发一条「Is it in stock?」 | 两次都返回 `"ok":true` |
+| 3 | 等 20 秒，再取一次看板接口 | `kpis.segments` 为 S + 2；`kpis.handoffRate.den` 为 H + 1：辅助模式那段是 AI 接待段，影子模式那段不是 |
 
 后置：无。
 
@@ -4055,6 +4108,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-031 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（空查询不检索、推送未订阅入口、窄屏横轴、已结束售后单不取原因） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-030：TC-KB-042、TC-SHOP-031、TC-SHOP-032、TC-ORD-027、TC-KB-024） | 通过 5/5 |
 | RUN-040 | 2026-10-16 | 本地 | `aa34591` + 场景 `tiktok-system-notices`（未修复） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-CONV-054、TC-CONV-055） | 通过 0/2 · 失败 2 |
 | RUN-041 | 2026-10-16 | 本地 | `aa34591` + 工作区改动（他人处理中含平台后台会话、系统提示显示中文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-040：TC-CONV-054、TC-CONV-055、TC-PERM-001、TC-CONV-004） | 通过 4/4 |
+| RUN-042 | 2026-10-17 | 本地 | `13a0a12` + 工作区改动（看板口径 DESIGN v1.21） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-DASH-001、TC-DASH-002、TC-DASH-003、TC-DASH-004、TC-DASH-006、TC-DASH-007、TC-DASH-008、TC-DASH-009、TC-BILL-001） | 通过 8/9 · 待人工 1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -4161,6 +4215,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-030 | TC-ORD-027 | 失败 | 第 2 步预期 409，实际 HTTP 200 并返回 3 条原因，日志有一次 `reject_reasons` 平台调用（模拟平台对已结束的取消单照样给原因；线上真实 TikTok 报错，接口返回 502）；证据 `docs/test-runs/run-030-TC-ORD-027-2.json` | 实现修复，RUN-031 复测 |
 | RUN-040 | TC-CONV-054 | 失败 | 第 1 步 Nur 的侧栏工作台只有待认领、AI 草稿、我处理中、已结束，没有「他人处理中」，C 在五个分组的接口结果里都没有；第 2 步 `counts.team` 为 0，预期 T0 + 1 = 1；第 3 步 owner 的 `view=team` 里也没有 C；证据 `docs/test-runs/run-040-TC-CONV-054-1.png` | 实现修复（他人处理中含平台后台处理、没有处理人的会话，员工也有这一组），RUN-041 复测 |
 | RUN-040 | TC-CONV-055 | 失败 | 第 1 步 6 条系统提示都原样显示英文，如「Chat ended by customer service agent.」；第 2 步没有「客服已结束对话」可点；证据 `docs/test-runs/run-040-TC-CONV-055-1.png` | 实现修复（时间线按对照表显示中文，可点开看原文），RUN-041 复测 |
+| RUN-042 | TC-DASH-004 | 待人工 | 执行者为人工，AI 未执行 | 人工收口轮 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -4211,6 +4266,8 @@ RUN-031 证据：复测轮，承接 RUN-030，环境与手段同 RUN-030，2026-
 RUN-040 证据：修复前那一轮，只跑两条源自缺陷的用例。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_wbfix` 并按 §3 重建基线，`pnpm dev` 起 Web 与 Worker（3360，`DATABASE_URL` 指向该库），`AI_MODE=stub`、`FEISHU_MODE=stub`。被测版本 `aa34591`，工作区只多了文档与场景 `tiktok-system-notices`，实现代码未改。前置 Q0 = 1、T0 = 0。`TC-CONV-054` 在第 1 步失败，与线上现象一致：会话不在员工的任何分组里，owner 的「同事处理中」也没有它，该分组只取 `claimed_by` 不等于本人的行，`claimed_by` 为空的比不出来。`TC-CONV-055` 在第 1 步失败，时间线显示英文原文。
 
 RUN-041 证据：复测轮，承接 RUN-040，另加分组改名与员工可见「他人处理中」波及的 `TC-PERM-001`（冒烟）与 `TC-CONV-004`。环境同 RUN-040，起跑前停服务、重建基线再起。`TC-CONV-054`：前置 Q0 = 1、T0 = 0；Nur 的侧栏子项为待认领 1、AI 草稿 1、我处理中 1、他人处理中 1、已结束，列表行显示「平台后台」与「买家再回复 · 等 6 分钟」（场景只有一条买家消息，按置顶显示等待）；之后 `counts` 为 queue 1、team 1，徽标「工作台 2」= 1 + 1；owner 的 `view=team` 有 C、`claimedBy` 为 null，`view=queue` 没有 C；点开后顶部有「认领」（`docs/test-runs/run-041-TC-CONV-054-1.png`、`docs/test-runs/run-041-TC-CONV-054-4.png`）。`TC-CONV-055`：7 条依次符合，点开「客服已结束对话」显示「原文 Chat ended by customer service agent.」，表外那一行不能展开，库里 7 行仍是英文（`docs/test-runs/run-041-TC-CONV-055-1.png`、`docs/test-runs/run-041-TC-CONV-055-2.png`）。`TC-PERM-001`：三个角色的工作台子项都有「他人处理中」，员工侧栏见 `docs/test-runs/run-041-TC-PERM-001-3.png`。另在 390 px 宽度看了时间线与列表，没有横向溢出。本轮之后把「要求转人工」一条改为按开头匹配（DESIGN 对照表同步），重新打开本轮的会话 C 确认仍显示中文。冒烟级其余 13 条未跑：按 10-14 起的快速开发约定，小改动只跑源自缺陷与受影响的用例。
+
+RUN-042 证据：看板口径改动（DESIGN v1.21）的局部轮。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_dashv` 并按 §3 重建基线，Web 与 Worker 跑在 3365，`AI_MODE=stub`。执行顺序：基线上跑 `TC-DASH-001`、`TC-DASH-002`、`TC-DASH-009`、`TC-DASH-003`；重建基线后跑 `TC-DASH-006`（其中执行场景 `dashboard-metrics`），同一状态接着跑 `TC-DASH-007`、`TC-DASH-008`、`TC-BILL-001`。`TC-DASH-006` 场景前后：AI 独立解决 0 / 1 → 1 / 4，转人工 2 / 8 → 4 / 11，影子回复 2 → 4，无时限 0 → 1，导出里 D 那一行为「2026-10-12,7,1,2,3,1,0,450,0,0,0,0,0,2,2,1,1」；`TC-DASH-007` 林晓在看板与团队页都是 5 段、1200 秒；接口响应摘录见 `docs/test-runs/run-042-dashboard-api.json`。`TC-DASH-008` 截图 `docs/test-runs/run-042-TC-DASH-008-desktop.png`、`docs/test-runs/run-042-TC-DASH-008-390.png`，两种宽度都没有横向滚动、没有控制台报错。基线种子的回复时刻按执行时间倒推，本轮在当地 03:50 执行、场景把排班改为每天 09:00–18:00，种子里的回复都落在工作时段外，总体首响显示 0 秒，符合「只累计工作时段」。冒烟级未跑：按 10-14 起的快速开发约定，同 RUN-014。
 
 ## 7. 遗留问题
 

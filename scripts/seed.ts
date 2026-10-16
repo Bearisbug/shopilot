@@ -255,6 +255,8 @@ async function main() {
             firstReplyInHours: firstHuman ? true : null,
             humanReplied: !!firstHuman,
             handedOff: plan.state === "awaiting_human" && plan.handoff !== "shop_off" && plan.handoff !== "shadow",
+            // 开段模式（看板 AI 接待段）：影子、未开 AI 的待认领段照原因，其余按该店工作时间内的模式
+            openMode: plan.handoff === "shadow" ? "shadow" : plan.handoff === "shop_off" ? "off" : SHOPS[key].modes[0],
           })
           .returning();
         await tx.update(schema.conversation).set({ currentSegmentId: seg.id }).where(eq(schema.conversation.id, conv.id));

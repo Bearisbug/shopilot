@@ -1,0 +1,122 @@
+{
+  "run": "RUN-042",
+  "env": "本地独立库 shopilot_dashv，Web 与 Worker 跑在 3365",
+  "TC-DASH-009": {
+    "before": {
+      "S": 16,
+      "H": 8
+    },
+    "after": {
+      "S": 18,
+      "H": 9
+    }
+  },
+  "TC-DASH-003": {
+    "before": {
+      "S": 0,
+      "I": 0,
+      "M": 0
+    },
+    "after": {
+      "S": 1,
+      "I": 1,
+      "M": 1
+    },
+    "csvHeader": "日期,会话段,AI 独立解决,转人工,Shopilot 回复,平台后台回复,未回复或进行中,人工首响中位（秒）,辅助草稿,原样发送,改后发送,忽略,过期,影子回复,工单已解决,工单按时解决,工单无时限"
+  },
+  "TC-DASH-006": {
+    "before": {
+      "a": {
+        "num": 0,
+        "den": 1,
+        "rate": null
+      },
+      "h": {
+        "num": 2,
+        "den": 8,
+        "rate": null
+      },
+      "W": 2,
+      "N": 0,
+      "O": 0
+    },
+    "after": {
+      "a": {
+        "num": 1,
+        "den": 4,
+        "rate": null
+      },
+      "h": {
+        "num": 4,
+        "den": 11,
+        "rate": 0.36363636363636365
+      },
+      "reasons": 4,
+      "dayD": {
+        "date": "2026-10-12",
+        "segments": 7,
+        "aiResolved": 1,
+        "handedOff": 2,
+        "shopilot": 3,
+        "platform": 1,
+        "pending": 0
+      },
+      "W": 4,
+      "N": 1,
+      "O": 1,
+      "internal": {
+        "type": "internal",
+        "label": "内部确认",
+        "onTime": 1,
+        "lateMerchant": 0,
+        "latePlatform": 0,
+        "noDue": 1
+      },
+      "lin": {
+        "membershipId": "01a1464a-05a2-75d2-a930-67ffbfaa04fa",
+        "name": "林晓",
+        "segments": 5,
+        "firstReplyMedianSec": 1200,
+        "transferRate": {
+          "num": 0,
+          "den": 5,
+          "rate": null
+        },
+        "ticketsOnTimeRate": {
+          "num": 1,
+          "den": 1,
+          "rate": null
+        }
+      },
+      "kpiReply": [
+        0,
+        13
+      ]
+    },
+    "csvHeader": "日期,会话段,AI 独立解决,转人工,Shopilot 回复,平台后台回复,未回复或进行中,人工首响中位（秒）,辅助草稿,原样发送,改后发送,忽略,过期,影子回复,工单已解决,工单按时解决,工单无时限",
+    "csvDayD": "2026-10-12,7,1,2,3,1,0,450,0,0,0,0,0,2,2,1,1"
+  },
+  "TC-DASH-007": {
+    "dashboardPeople": {
+      "membershipId": "01a1464a-05a2-75d2-a930-67ffbfaa04fa",
+      "name": "林晓",
+      "segments": 5,
+      "firstReplyMedianSec": 1200,
+      "transferRate": {
+        "num": 0,
+        "den": 5,
+        "rate": null
+      },
+      "ticketsOnTimeRate": {
+        "num": 1,
+        "den": 1,
+        "rate": null
+      }
+    },
+    "members30d": {
+      "segments": 5,
+      "transferred": 0,
+      "firstReplyMedianSec": 1200
+    }
+  }
+}

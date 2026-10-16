@@ -168,7 +168,7 @@ export async function handoff(conv: ConversationRow, reason: HandoffReason, mode
     .where(and(eq(schema.conversation.id, conv.id), eq(schema.conversation.handlingState, "bot")))
     .returning();
   if (!updated) return;
-  if (conv.currentSegmentId) await db().update(schema.segment).set({ handedOff: true }).where(eq(schema.segment.id, conv.currentSegmentId));
+  if (conv.currentSegmentId) await db().update(schema.segment).set({ handedOff: true, handedOffAt: new Date() }).where(eq(schema.segment.id, conv.currentSegmentId));
   if (mode === "auto" && reason !== "send_failed") {
     const text = soothing ?? fixedSoothing(await lastBuyerText(conv.id));
     await sendOutbound({ conversation: updated, senderRole: "ai", sentBy: null, clientRequestId: `soothe:${randomUUID()}`, type: "text", text, payload: { soothing: true } });

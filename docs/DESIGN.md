@@ -8,7 +8,7 @@
 | 项目画像 | 生产产品（面向外部商户的多商户 SaaS）。本期只在本机跑通、没有生产环境，§21–§23 按场景级原因写 N/A，上线前由 deploy-pipeline 补齐 |
 | Owner | 产品负责人：用户；实现：「Shopilot 实现」会话 |
 | 评审人 | 用户 |
-| 最后更新 | 2026-10-16 |
+| 最后更新 | 2026-10-17 |
 | 关联 | 交接 [implementation-handoff.md](implementation-handoff.md) · 角色 [roles.md](roles.md) · 逐按钮清单 [ui-interactions.md](ui-interactions.md) · 功能与接口对照 [ui-feasibility.md](ui-feasibility.md) · 5 条需求 [requirements-ui-impact.md](requirements-ui-impact.md) · 平台接口 [platform-api/](platform-api/README.md) · Quilt 项目「Shopilot」`924976f9-2aa2-4b5d-9671-fe0f6f7d6587` · 现网参考 `~/Documents/Projects/Bots/Obsbot`（docs/DESIGN.md §11–§12） · 契约 `src/contracts/`（zod） · 测试 [TEST.md](TEST.md) · 视觉 `brand/` |
 | 链路层 | 部分 |
 
@@ -16,6 +16,9 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-17 | v1.21 | REQ-DASH-001、API-DASH-001、API-TEAM-001、API-BILL-001、ENT-Segment | 看板的 AI 独立解决率与转人工率只算 AI 接待的段，影子与未开 AI 的段不进分母 | 功能 |
+| 2026-10-17 | v1.21 | REQ-DASH-001、API-DASH-001、API-TEAM-001、ENT-Segment | 人工首响只累计工作时段，算进平台后台回复，转人工前 AI 已回过买家的段从转人工时刻起算 | 功能 |
+| 2026-10-17 | v1.21 | REQ-DASH-001、API-DASH-001 | 每日去向拆成 Shopilot 回复与平台后台回复，草稿面板加影子回复数，无截止时间的工单单列、不进按时率 | 功能 |
 | 2026-10-16 | v1.20 | FLOW-AI-DRAFT、REQ-KB-006 | 买家只发图片或商品卡时不再用空查询检索知识库；改写也没给出问题时不检索，按没检索到资料出稿 | 缺陷修复 |
 | 2026-10-16 | v1.20 | REQ-SHOP-006、API-SHOP-008、PAGE-SHOPS、PAGE-ORDERS | Shopee 推送没订阅到 Shopilot 时店铺页标需处理并给「重新校验」入口，订单页提示直接链过去 | 缺陷修复 |
 | 2026-10-16 | v1.20 | REQ-SHOP-006、PAGE-SHOPS | 店铺页回复率图表在窄屏上横轴文字不再重叠：放不下时只写站点，平台看图例 | 缺陷修复 |
@@ -646,10 +649,24 @@
 | 指标 | 定义 | 当前 | 目标 | 由哪些事件算 |
 | --- | --- | --- | --- | --- |
 | 接入完成率 | 30 天内完成接入的商户 / 开始接入的商户 | —（未上线） | ≥ 70% | `EVT:connect_started`、`EVT:shop_connected` |
-| 人工首响中位时长 | 会话段内首条买家消息到首条人工回复的中位数，只算工作时间内 | Obsbot v2 未统计 | ≤ 15 分钟 | `EVT:conversation_opened`、`EVT:agent_reply_sent` |
+| 人工首响中位时长 | 买家开始等人工到首条人工回复的中位数，只累计工作时段，起止见表下 | Obsbot v2 未统计 | ≤ 15 分钟 | `EVT:conversation_opened`、`EVT:agent_reply_sent`、`EVT:handoff` |
+| AI 独立解决率 | AI 独立解决的段 / 已结束的 AI 接待段 | 线上全部店铺是影子模式，没有 AI 接待段 | —（只观测） | `EVT:conversation_closed` |
+| 转人工率 | 转人工的 AI 接待段 / AI 接待段 | 同上 | —（只观测） | `EVT:handoff` |
 | 草稿采纳率 | assist 草稿中（原样发送 + 改后发送）/（原样发送 + 改后发送 + 忽略）；过期、被替代不进分母 | Obsbot v2 3 张中 1 张 | ≥ 40% | `EVT:draft_disposed` |
-| 工单按时完成率 | 在 due_at 前解决的工单 / 已解决工单 | — | ≥ 90% | `EVT:ticket_resolved` |
+| 工单按时完成率 | 在 due_at 前解决的工单 / 有 due_at 的已解决工单；没有 due_at 的单列「无时限」 | — | ≥ 90% | `EVT:ticket_resolved` |
 | 角色分权有效 | 被服务端拒绝的越权请求中，前端本应隐藏入口的次数（前后端口径不一致） | — | 0 | `EVT:permission_denied` |
+
+指标口径补充：
+
+- AI 接待段：开段时店铺接待模式为辅助或自动的会话段，影子、未开 AI 都不算
+- 开段模式未知的旧段按非 AI 接待计，回填规则见 §25 迁移 0010
+- 人工首响的起点：转人工前 AI 已给买家发过消息的段取转人工时刻，其余取首条买家消息
+- 辅助模式的草稿不发给买家，这类段转人工时起点仍是首条买家消息
+- 人工首响的终点：第一条人工回复，Shopilot 成员与平台后台的回复都算，店铺自动回复不算
+- 平台后台回复只取开段之后发出的消息，回补挂进本段的旧消息不算
+- 工作时段按商户时区与排班累计，每天的时段是 [开始, 结束)，节假日整天不计
+- 工作时间外开始的段从下一个上班时刻起算，也进样本
+- 按人统计的首响只算该成员首个认领的段里 Shopilot 成员的首条回复，平台后台回复只进总体
 
 ## 4. 术语表 / 统一语言
 
@@ -786,7 +803,7 @@
 | REQ-KB-004 | 资料开关与删除：随时停用或重新解析，删除时清掉检索副本 | G7 | P0 |
 | REQ-KB-005 | 测试问答：按出稿同一链路回答，显示引用与检索明细 | G7 | P0 |
 | REQ-KB-006 | 出稿检索：出稿前检索资料，草稿下方给客服显示依据 | G7 | P0 |
-| REQ-DASH-001 | 看板：会话段数、AI 独立解决、人工首响、转人工原因、草稿处置、按人统计、工单区；平台口径单列不合并；组长只看负责店铺；时间范围与导出 | G6 | P0 |
+| REQ-DASH-001 | 看板按时间范围统计会话、AI、人工、草稿与工单，可导出 | G6 | P0 |
 | REQ-BILL-001 | 用量：本期出稿（按日、按店、按模式堆叠）、额度与剩余、AI 独立解决段、账单列表 | G6 | P0 |
 | REQ-BILL-002 | 套餐：全部套餐、月付 / 年付、改套餐（仅所有者；店铺数超新套餐上限时不可降级）、联系销售（记线索） | G6 | P1 |
 | REQ-BILL-003 | 加购出稿包：模拟支付成功后当期额度立即增加，生成账单 | G6 | P1 |
@@ -848,6 +865,10 @@
 - REQ-MOCK-002：页面显示卖家发出的消息与卡片，每个动作按平台格式向 Shopilot 回调地址发推送
 - REQ-MOCK-003：邮件含邀请、重置密码、发票与各类提醒
 - REQ-MOCK-004：发送替身的约定见 §17 飞书接口与卡片，发件箱见 `API-MOCK-011`
+- REQ-DASH-001：指标有会话段数、AI 独立解决、人工首响、转人工原因、每日去向、草稿处置、按人统计、工单区
+- REQ-DASH-001：平台口径单列，不与 Shopilot 口径合并
+- REQ-DASH-001：组长只看负责店铺；范围可选近 7 天、本月、上月、近 90 天，可导出 CSV
+- REQ-DASH-001：各指标口径见 §3 与 §8.9 `API-DASH-001` 表下说明
 
 ## 6. 总体架构
 
@@ -1146,6 +1167,8 @@ erDiagram
     text end_reason
     uuid first_claimed_by FK
     timestamptz first_human_reply_at
+    text open_mode
+    timestamptz handed_off_at
     boolean ai_resolved
     boolean backfilled
   }
@@ -1650,7 +1673,8 @@ erDiagram
 | `API-TEAM-012` | `GET /api/v1/members/options` | REQ-CONV-004、REQ-TKT-002 | `?shopId=` | `{ items[{ membershipId, name, role }] }`：负责该店的启用组长、员工 + 全部启用管理员 | — | no-store |
 
 - `API-TEAM-001` 成员与 `stats` 的 `firstReplyMedianSec` 口径同 §3「人工首响中位时长」。
-- 团队页与看板 `API-DASH-001` 的首响取同一组会话段：工作时间内开始、有人工回复。
+- `stats.firstReplyMedianSec` 与看板总体首响同口径，含平台后台回复
+- 成员的 `firstReplyMedianSec` 与看板按人统计同口径，只算 Shopilot 成员的回复
 
 ### 8.3 店铺与接入
 
@@ -1763,7 +1787,7 @@ erDiagram
 
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `API-DASH-001` | `GET /api/v1/dashboard` | REQ-DASH-001 | `?range=7d\|this_month\|last_month\|90d&format=csv` | `{ kpis{ segments, aiResolved, firstReplyMedianSec, handoffRate }, trend[], handoffReasons[], drafts{ generated, sent, editedSent, ignored, expired, adoptionRate }, people[{ name, segments, firstReplyMedianSec, ticketsOnTimeRate }], tickets{ open, onTimeRate, resolveMedianSec, platformAutoHandled, byType[] }, platformMetrics[{ shopId, platform, label, value, target? }] }` | — | no-store |
+| `API-DASH-001` | `GET /api/v1/dashboard` | REQ-DASH-001 | `?range=7d\|this_month\|last_month\|90d&format=csv` | `{ kpis{ segments, aiResolved, firstReplyMedianSec, handoffRate }, trend[], handoffReasons[], drafts{ generated, sent, editedSent, ignored, expired, shadow, adoptionRate }, people[{ name, segments, firstReplyMedianSec, ticketsOnTimeRate }], tickets{ open, onTimeRate, noDue, resolveMedianSec, platformAutoHandled, byType[] }, platformMetrics[{ shopId, platform, label, value, target? }] }` | — | no-store |
 | `API-BILL-001` | `GET /api/v1/billing` | REQ-BILL-001 | `?daily=7d\|period&shopsMonth=YYYY-MM&statements=3m\|12m` | `{ plan, period{ start, end }, usage{ used, quota, topup, remaining, byMode{ auto, assist, shadow } }, daily[], byShop[], aiResolvedSegments, overage{ policy, budget }, alerts, statements[], paymentMethod?, autoRenew, invoiceInfo }`；`usage.used` 是计费口径，删除买家数据（`API-SET-009`）不退回，`byMode` 按现存草稿统计，二者差额在页面上单独注明 | — | no-store |
 | `API-BILL-002` | `GET /api/v1/billing/plans` | REQ-BILL-002 | — | `{ items[{ code, name, monthlyPrice, yearlyPrice, draftQuota, shopLimit, seatLimit }], current, downgradeBlockedReason? }` | — | no-store |
 | `API-BILL-003` | `POST /api/v1/billing/plan` | REQ-BILL-002 | `{ planCode, cycle: monthly\|yearly }` | 200 订阅（升级立即生效；降级与改年付下周期生效） | 403 `/errors/owner-only`；409 `/errors/not-allowed`（店铺数超上限）；402 `/errors/payment-failed` | 幂等键 |
@@ -1773,6 +1797,18 @@ erDiagram
 | `API-BILL-007` | `PUT /api/v1/billing/payment` | REQ-BILL-005 | `{ autoRenew?, card?{ number(模拟), expiry } }`（只存品牌与后 4 位） | 200 | 403 `/errors/owner-only`；422（卡号格式） | 幂等 |
 | `API-BILL-008` | `PUT /api/v1/billing/invoice-info` | REQ-BILL-005 | `{ companyName, taxId?, address, email }` | 200 | — | 幂等 |
 | `API-BILL-009` | `POST /api/v1/billing/sales-leads` | REQ-BILL-002 | `{ contactName, contact, note? }` | 201 | — | 幂等键 |
+
+- `API-DASH-001` 的比率与首响按 §3「指标口径补充」计算
+- `kpis.aiResolved` 的分母是已结束的 AI 接待段
+- `kpis.handoffRate` 的分母是全部 AI 接待段
+- `handoffReasons` 只统计转人工的 AI 接待段，合计等于 `kpis.handoffRate` 的分子
+- `trend[]` 每天一行：`date`、`segments`、`aiResolved`、`handedOff`、`shopilot`、`platform`、`pending`
+- 每段按开始日依次判定一个去向：AI 独立解决、转人工、Shopilot 回复、平台后台回复、其余
+- Shopilot 回复是有 Shopilot 成员回复的段，平台后台回复是只有平台后台回复的段
+- `drafts.shadow` 是范围内生成的影子回复数，不进采纳率与改写率
+- `tickets.noDue` 是范围内解决、没有截止时间的工单数，不进按时率
+- `tickets.byType[]` 每个类型含 `onTime`、`lateMerchant`、`latePlatform`、`noDue`
+- `API-BILL-001` 的 `aiResolvedSegments` 同样只算已结束的 AI 接待段
 
 ### 8.10 商户设置、通知、搜索
 
@@ -1917,6 +1953,8 @@ erDiagram
 | 阶段来源 | `stageSource` | `segment.stage_source` | enum | 是 | `auto` / `manual` / `keyword` | — | — |
 | 阶段依据 | `stageBasis` | `segment.stage_basis` | text | 否 | 如「订单 2510086T3QK1NB SHIPPED」 | — | — |
 | 段结束原因 | — | `segment.end_reason` | enum | 否 | `resolved` / `idle` / `backfill` / `shop_disconnected` | — | — |
+| 开段模式 | — | `segment.open_mode` | enum | 否 | `off` / `shadow` / `assist` / `auto`：开段时该店的当前接待模式；为空是迁移 0010 推断不了的旧段 | — | — |
+| 转人工时刻 | — | `segment.handed_off_at` | timestamptz | 否 | 本段转人工（11.1 handoff）的时刻 | — | — |
 | AI 独立解决 | — | `segment.ai_resolved` | boolean | 是 | 段结束时：没有人工消息、没有转人工、至少一条 AI 发出的消息 | — | — |
 | 回补段 | — | `segment.backfilled` | boolean | 是 | 回补入库的段为 true，不进任何统计 | — | — |
 | 消息方向 | `direction` | `message.direction` | enum | 是 | `in` / `out` | — | — |
@@ -2235,11 +2273,11 @@ stateDiagram-v2
 
 | 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
 | --- | --- | --- | --- | --- | --- |
-| [*] → bot | open | 首条买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {assist, auto} 且 店铺 `status = connected` | 建会话与会话段，判定阶段，排 `draft.generate` | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
-| [*] → awaiting_human | open_to_queue | 首条买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {off, shadow} | 建会话与会话段；`handoff_reason = shop_off` 或 `shadow`；shadow 时排 `draft.generate(mode=shadow)`；推飞书待认领卡（12.9） | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| [*] → bot | open | 首条买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {assist, auto} 且 店铺 `status = connected` | 建会话与会话段并记开段模式，判定阶段，排 `draft.generate` | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| [*] → awaiting_human | open_to_queue | 首条买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {off, shadow} | 建会话与会话段并记开段模式；`handoff_reason = shop_off` 或 `shadow`；shadow 时排 `draft.generate(mode=shadow)`；推飞书待认领卡（12.9） | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
 | [*] → closed | record_only | `buyer_kind = affiliate` 或 来源 = 历史回补 | 只建会话与消息，段标 `backfilled` 或达人会话；不判阶段、不出稿、不进队列、不计统计 | 内部任务 `inbound.process` / `shop.backfill` | `API-HOOK-001`（推送; code=10）/ 内部任务 `shop.backfill` |
 | bot → bot | ai_reply | 当前模式 = auto 且 草稿 `status = generated` 且 `handoff = false` 且 `confidence ≥ 阈值` | 发送草稿（11.2 `send`），更新 `last_agent_at` | 内部任务 `draft.generate` | 内部任务 `draft.generate` |
-| bot → awaiting_human | handoff | `handoff_reason ∈ {keyword, low_confidence, non_text, model_error, timeout, send_failed, human_request, policy, quota, shop_off, shadow}` | 写 `handoff_reason`、审计 `EVT:handoff`；auto 模式先发安抚句（不更新 `last_agent_at`，等待计时与待认领提醒照常）；通知负责该店的启用成员（规则 `handoff`）；推飞书待认领卡（12.9） | 内部任务 `inbound.process` / `draft.generate` | 内部任务 `draft.generate` |
+| bot → awaiting_human | handoff | `handoff_reason ∈ {keyword, low_confidence, non_text, model_error, timeout, send_failed, human_request, policy, quota, shop_off, shadow}` | 写 `handoff_reason` 与段的转人工时刻、审计 `EVT:handoff`；auto 模式先发安抚句（不更新 `last_agent_at`，等待计时与待认领提醒照常）；通知负责该店的启用成员（规则 `handoff`）；推飞书待认领卡（12.9） | 内部任务 `inbound.process` / `draft.generate` | 内部任务 `draft.generate` |
 | bot → human | claim | 操作人是启用成员 且 店铺在其范围内 且 请求带 `version` 时版本一致 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；未处置草稿保留可用；审计 `EVT:conversation_claimed` | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
 | bot → human | platform_human | 入站 `sender_role = platform_human`（卖家在平台后台直接回复）且 不是本方出站回声 且 不是店铺自动回复 | `claimed_by = null`，作废未处置草稿，写系统事件「平台侧已有人处理」；会话列进「他人处理中」、标「平台后台」，不进待认领 | 内部任务 `inbound.process` / `inbound.refetch` | `API-HOOK-001`（推送; code=10，Shopee 经 `mark_as_replied` 通知补拉）/ `API-HOOK-002`（webhook; type=14） |
 | awaiting_human → human | claim | 同 bot → human claim | 同上 | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
@@ -2254,8 +2292,8 @@ stateDiagram-v2
 | bot → closed | idle_close | `now − last_message_at > 72h` | 结束当前段（`end_reason = idle`），作废未处置草稿 | 定时任务 `conversation.idle_close` | 内部任务 `conversation.idle_close` |
 | awaiting_human → closed | idle_close | `now − last_message_at > 72h` | 同上；写系统事件「超时未处理」 | 定时任务 `conversation.idle_close` | 内部任务 `conversation.idle_close` |
 | human → closed | idle_close | `now − last_message_at > 72h` | 同上；`claimed_by` 保留供统计 | 定时任务 `conversation.idle_close` | 内部任务 `conversation.idle_close` |
-| closed → bot | reopen | 新买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {assist, auto} | 开新段，重判阶段，清空 `handoff_reason`、`claimed_by`，置顶；排 `draft.generate` | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
-| closed → awaiting_human | reopen_to_queue | 新买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {off, shadow} | 开新段，重判阶段，`handoff_reason = shop_off` 或 `shadow`，置顶；shadow 时排影子出稿；推飞书待认领卡（12.9） | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| closed → bot | reopen | 新买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {assist, auto} | 开新段并记开段模式，重判阶段，清空 `handoff_reason`、`claimed_by`，置顶；排 `draft.generate` | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| closed → awaiting_human | reopen_to_queue | 新买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {off, shadow} | 开新段并记开段模式，重判阶段，`handoff_reason = shop_off` 或 `shadow`，置顶；shadow 时排影子出稿；推飞书待认领卡（12.9） | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
 
 不改状态的事件：`awaiting_human` / `human` 下收到买家消息只更新 `last_buyer_at` 并置顶（`human` 状态不出稿）；`bot` 下收到新买家消息：作废未处置草稿（11.2 `supersede`）并重新出稿。处理人发消息（`API-CONV-007`）只写出站消息与审计 `EVT:agent_reply_sent`。内部任务 `unclaimed.remind` 对 `awaiting_human` 超过 `unclaimed_remind_minutes` 且本段未提醒过的会话，通知负责该店的组长一次（REQ-CONV-010），同时推飞书超时卡（REQ-FEISHU-004），不改状态；提醒时长为「不提醒」时两者都不做。
 
@@ -4555,6 +4593,13 @@ N/A — 场景级原因：本期不部署（用户 10-11 定「这期只本地�
 ## 25. 迁移 / 数据回填
 
 N/A — 新库，无存量数据；数据库结构由 drizzle-kit 迁移文件从零建立（`drizzle/`）。知识库的新表与草稿的新字段（可空或带默认值）同样由迁移建立，旧草稿不回填；迁移为每个已有商户补建「未分类」。飞书推送的三张表由迁移 0008 新建，没有存量数据要回填。迁移 0009 给草稿加可空的译文列、给飞书投递加默认 0 的同段序号，唯一索引换成（会话段、卡种、序号）；旧数据不回填，旧版代码写入的序号都是 0，去重照旧。OBSBOT 从 Obsbot v2 迁入是后续独立工作（§28）。
+
+迁移 0010 给会话段加两列可空字段：开段模式、转人工时刻，回填非回补段：
+
+- 开段模式取本段最早一张草稿的模式：影子、辅助或自动
+- 本段没有草稿的，开段模式留空，看板按非 AI 接待计
+- 转人工时刻取本段时间内最早一条 `EVT:handoff` 审计的时间
+- 回滚只需删这两列，旧版代码不读它们
 
 ## 26. 里程碑
 

@@ -1,5 +1,6 @@
 // pnpm scenario <名称>：在 Demo Store 里构造时间敏感数据（docs/TEST.md §3 场景表）。每次新建对象、可重复执行；只用于本机。
 import { randomUUID } from "node:crypto";
+import { TZDate } from "@date-fns/tz";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { mockDb } from "@/mock/db/client";
 import { mockShop } from "@/mock/db/schema";
@@ -388,22 +389,82 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
   // 卖家在平台后台直接回复过：处理中、没有 Shopilot 处理人（模拟器没有「平台后台回复」动作，用场景造）
   "platform-human": async () =>
     out(await conversation({ shopName: "Demo Shopee MY", state: "human", claimedBy: null, handoffReason: "platform_human", messages: [{ from: "buyer", text: "Can I use it with Android?", minutesAgo: 6 }] })),
-  // 工作时间外开始、林晓首个认领并回复的已结束会话段：人工首响只算工作时间内开始的段，这一段不进首响样本
-  "first-reply-off-hours": async () => {
+  // 看板口径（DESIGN §3 指标口径补充）：5 天前（商户时区）7 个会话段、2 份影子回复、2 张已解决工单；排班改为每天 09:00–18:00
+  "dashboard-metrics": async () => {
     const m = await demo();
     const owner = await member(m.id, "owner@demo.test");
-    const r = await conversation({
-      shopName: "Demo Shopee MY",
-      state: "closed",
-      claimedBy: owner.id,
-      ended: true,
-      messages: [
-        { from: "buyer", text: "Is this still in stock?", minutesAgo: 30 },
-        { from: "agent", text: "Yes, it is in stock.", minutesAgo: 10 },
-      ],
-    });
-    await db().update(schema.segment).set({ firstReplyInHours: false }).where(eq(schema.segment.conversationId, r.conversationId));
-    out({ ...r, firstClaimedBy: owner.name, firstReplySec: 20 * 60 });
+    const shop = await shopByName(m.id, "Demo Shopee MY");
+    const everyDay = { on: true, start: "09:00", end: "18:00" };
+    await db()
+      .update(schema.receptionSettings)
+      .set({ schedule: { mon: everyDay, tue: everyDay, wed: everyDay, thu: everyDay, fri: everyDay, sat: everyDay, sun: everyDay }, holidays: [] })
+      .where(eq(schema.receptionSettings.merchantId, m.id));
+    const now = new TZDate(Date.now(), m.timezone);
+    const at = (hh: number, mm: number, next = 0) => new Date(new TZDate(now.getFullYear(), now.getMonth(), now.getDate() - 5 + next, hh, mm, 0, m.timezone).getTime());
+    type Seg = { openMode: "off" | "shadow" | "assist" | "auto"; start: Date; ended?: boolean; aiReplied?: boolean; aiResolved?: boolean; handedOffAt?: Date; handoffReason?: string; shopilotAt?: Date; platformAt?: Date[]; shadowDraft?: boolean };
+    const segs: Seg[] = [
+      { openMode: "auto", start: at(9, 30), ended: true, aiReplied: true, aiResolved: true },
+      { openMode: "auto", start: at(10, 0), ended: true, aiReplied: true, handedOffAt: at(10, 10), handoffReason: "human_request", shopilotAt: at(10, 20) },
+      { openMode: "assist", start: at(11, 0), ended: true, handedOffAt: at(11, 30), handoffReason: "manual", shopilotAt: at(11, 40) },
+      { openMode: "shadow", start: at(17, 50), ended: true, shopilotAt: at(9, 10, 1), shadowDraft: true },
+      { openMode: "off", start: at(20, 0), ended: true, shopilotAt: at(9, 5, 1) },
+      { openMode: "shadow", start: at(14, 0), platformAt: [at(13, 0), at(14, 2)], shadowDraft: true },
+      { openMode: "off", start: at(15, 0), ended: true, platformAt: [at(15, 1)], shopilotAt: at(15, 30) },
+    ];
+    const conversations: string[] = [];
+    for (const x of segs) {
+      const tag = randomUUID().slice(0, 8);
+      const [conv] = await db()
+        .insert(schema.conversation)
+        .values({ merchantId: m.id, shopId: shop.id, platform: shop.platform, externalConversationId: `scenario-${tag}`, buyerExternalId: `scenario-buyer-${tag}`, buyerName: `scenario.${tag}`, handlingState: x.ended ? "closed" : "human", claimedBy: x.shopilotAt ? owner.id : null, handoffReason: x.handoffReason ?? null, lastMessageAt: x.start, lastBuyerAt: x.start })
+        .returning();
+      const [seg] = await db()
+        .insert(schema.segment)
+        .values({
+          merchantId: m.id,
+          conversationId: conv.id,
+          stage: "presale",
+          stageSource: "auto",
+          stageBasis: "场景构造",
+          startedAt: x.start,
+          firstBuyerAt: x.start,
+          endedAt: x.ended ? new Date(x.start.getTime() + 86_400_000) : null,
+          endReason: x.ended ? "resolved" : null,
+          openMode: x.openMode,
+          aiReplied: !!x.aiReplied,
+          aiResolved: !!x.aiResolved,
+          handedOff: !!x.handedOffAt,
+          handedOffAt: x.handedOffAt ?? null,
+          humanReplied: !!(x.shopilotAt || x.platformAt),
+          firstHumanReplyAt: x.shopilotAt ?? null,
+          firstClaimedBy: x.shopilotAt ? owner.id : null,
+        })
+        .returning();
+      await db().update(schema.conversation).set({ currentSegmentId: seg.id }).where(eq(schema.conversation.id, conv.id));
+      const msg = (senderRole: "buyer" | "agent" | "platform_human", sentAt: Date) => ({
+        merchantId: m.id,
+        conversationId: conv.id,
+        segmentId: seg.id,
+        externalMessageId: `scenario-${randomUUID()}`,
+        direction: senderRole === "buyer" ? ("in" as const) : ("out" as const),
+        senderRole,
+        sentBy: senderRole === "agent" ? owner.id : null,
+        type: "text" as const,
+        text: senderRole === "buyer" ? "Is this in stock?" : "Yes, it is.",
+        sendStatus: senderRole === "agent" ? ("sent" as const) : null,
+        sentAt,
+      });
+      await db().insert(schema.message).values([msg("buyer", x.start), ...(x.platformAt ?? []).map((t) => msg("platform_human", t)), ...(x.shopilotAt ? [msg("agent", x.shopilotAt)] : [])]);
+      if (x.shadowDraft) await db().insert(schema.draft).values({ merchantId: m.id, conversationId: conv.id, segmentId: seg.id, mode: "shadow", text: "影子回复", confidence: 0.8, status: "shadow", model: "scenario", latencyMs: 1500, createdAt: x.start });
+      conversations.push(conv.id);
+    }
+    const tickets: string[] = [];
+    for (const dueAt of [at(13, 0), null]) {
+      const n = await nextSequence(db(), m.id, "ticket", 1001);
+      await db().insert(schema.ticket).values({ merchantId: m.id, number: `T-${n}`, type: "internal", origin: "manual", dedupeKey: `internal:manual:${randomUUID()}`, shopId: shop.id, platform: shop.platform, buyerName: "scenario buyer", description: "场景构造", status: "resolved", dueAt, dueSource: dueAt ? "merchant" : null, resolvedAt: at(12, 0), assigneeId: owner.id, createdBy: owner.id, createdAt: at(11, 0) });
+      tickets.push(`T-${n}`);
+    }
+    out({ date: at(12, 0).toLocaleDateString("sv-SE", { timeZone: m.timezone }), conversations, tickets, firstClaimedBy: owner.name });
   },
   "auth-link-6min": async () => {
     const m = await demo();

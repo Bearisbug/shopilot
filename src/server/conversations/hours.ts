@@ -102,3 +102,29 @@ export function nextShiftStart(rc: Pick<ReceptionContext, "timezone" | "schedule
   }
   return new Date(from.getTime() + 86400_000);
 }
+
+/**
+ * [from, to) 里落在工作时段的秒数（看板人工首响，DESIGN §3 指标口径补充）。每天按当天排班累计 [开始, 结束)，节假日整天不计；
+ * 结束不晚于开始的视为跨午夜，当天计 [00:00, 结束) 与 [开始, 24:00)，与 isInHours 的判法一致。
+ */
+export function workSeconds(rc: Pick<ReceptionContext, "timezone" | "schedule" | "holidays">, from: Date, to: Date): number {
+  if (to.getTime() <= from.getTime()) return 0;
+  const base = new TZDate(from.getTime(), rc.timezone);
+  let ms = 0;
+  for (let i = 0; i < 3700; i++) {
+    const d = new TZDate(base.getFullYear(), base.getMonth(), base.getDate() + i, 0, 0, 0, rc.timezone);
+    if (d.getTime() >= to.getTime()) break;
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const day = rc.schedule[DAYS[d.getDay()]];
+    if (!day?.on || rc.holidays.includes(date)) continue;
+    const s = minutes(day.start);
+    const e = minutes(day.end);
+    const at = (m: number) => new TZDate(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(m / 60), m % 60, 0, rc.timezone).getTime();
+    for (const [a, b] of e > s ? [[s, e]] : [[0, e], [s, 24 * 60]]) {
+      const lo = Math.max(at(a), from.getTime());
+      const hi = Math.min(at(b), to.getTime());
+      if (hi > lo) ms += hi - lo;
+    }
+  }
+  return ms / 1000;
+}

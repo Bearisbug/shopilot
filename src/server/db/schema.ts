@@ -431,7 +431,11 @@ export const segment = pgTable(
     firstBuyerAt: ts("first_buyer_at"),
     firstHumanReplyAt: ts("first_human_reply_at"),
     firstReplyInHours: boolean("first_reply_in_hours"),
+    /** 开段时该店的当前接待模式（看板 AI 接待段 = assist / auto）；为空是迁移 0010 推断不了的旧段 */
+    openMode: text("open_mode", { enum: ["off", "shadow", "assist", "auto"] }),
     handedOff: boolean("handed_off").notNull().default(false),
+    /** 本段转人工（11.1 handoff）的时刻；人工首响在 AI 回过买家的段从这里起算 */
+    handedOffAt: ts("handed_off_at"),
     aiReplied: boolean("ai_replied").notNull().default(false),
     humanReplied: boolean("human_replied").notNull().default(false),
     aiResolved: boolean("ai_resolved").notNull().default(false),

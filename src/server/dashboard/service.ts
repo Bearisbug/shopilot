@@ -1,5 +1,5 @@
-// 看板（DESIGN §8.9 API-DASH-001、REQ-DASH-001；口径见 §3 与 §9.3 段字段）。
-// 统计对象：范围内开始的会话段（回补段、达人会话不计）、范围内生成的辅助草稿、范围内解决的工单；
+// 看板（DESIGN §8.9 API-DASH-001、REQ-DASH-001；口径见 §3「指标口径补充」与 §9.3 段字段）。
+// 统计对象：范围内开始的会话段（回补段、达人会话不计）、范围内生成的辅助草稿与影子回复、范围内解决的工单；
 // 组长只算负责店铺（visibleConversations / visibleTickets / visibleShops 收窄），按商户时区切日。
 import { TZDate } from "@date-fns/tz";
 import { addDays, addMonths, format } from "date-fns";
@@ -11,6 +11,7 @@ import type { ShopMetric, ShopPeriod } from "@/contracts/shops";
 import { TYPE_LABEL } from "@/contracts/tickets";
 import { HANDOFF_LABEL } from "@/server/ai/draft";
 import type { MemberContext } from "@/server/auth/context";
+import { receptionContext, workSeconds } from "@/server/conversations/hours";
 import { visibleConversations } from "@/server/conversations/scope";
 import { db, schema } from "@/server/db/client";
 import { csv } from "@/server/http/route";
@@ -23,8 +24,10 @@ const C = schema.conversation;
 const D = schema.draft;
 const T = schema.ticket;
 const A = schema.auditLog;
+const M = schema.message;
 
 type Bounds = { start: Date; end: Date; days: string[] };
+type Span = Pick<Bounds, "start" | "end">;
 
 /** 范围的 [start, end)：近 7 / 90 天含今天；本月从 1 日到今天；上月整月 */
 export function rangeBounds(range: DashRange, tz: string, now = new Date()): Bounds {
@@ -43,45 +46,82 @@ export const ratio = (num: number, den: number): Ratio => ({ num, den, rate: den
 const sec = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v)));
 const dayOf = (col: PgColumn, tz: string) => sql<string>`to_char(${col} at time zone ${tz}, 'YYYY-MM-DD')`;
 
-// 段的去向按先后判定：AI 独立解决 → 转人工 → 有人工回复 → 其余
+// 段的去向按先后判定：AI 独立解决 → 转人工 → Shopilot 回复 → 平台后台回复 → 其余
 const AI = sql`${G.aiResolved}`;
 const HANDED = sql`(${G.handedOff} and not ${G.aiResolved})`;
-const HUMAN = sql`(not ${G.handedOff} and not ${G.aiResolved} and ${G.humanReplied})`;
-/** 人工首响样本：有首条买家消息与首条人工回复；只排除明确记为工作时间外的（§3 只算工作时间内）。团队页（API-TEAM-001）共用 */
-const REPLY_SAMPLE = sql`(${G.firstHumanReplyAt} is not null and ${G.firstBuyerAt} is not null and ${G.firstReplyInHours} is distinct from false)`;
-export const REPLY_MEDIAN = sql<number | null>`percentile_cont(0.5) within group (order by extract(epoch from ${G.firstHumanReplyAt} - ${G.firstBuyerAt})) filter (where ${REPLY_SAMPLE})`;
+const SHOPILOT = sql`(not ${G.handedOff} and not ${G.aiResolved} and ${G.firstHumanReplyAt} is not null)`;
+const PLATFORM = sql`(not ${G.handedOff} and not ${G.aiResolved} and ${G.humanReplied} and ${G.firstHumanReplyAt} is null)`;
+/** AI 接待段：开段时为辅助或自动模式；影子、未开 AI、开段模式未知的旧段都不算 */
+const AI_RECEIVED = sql`${G.openMode} in ('assist', 'auto')`;
 
-function segmentWhere(ctx: MemberContext, b: Bounds): SQL {
+function segmentWhere(ctx: MemberContext, b: Span): SQL {
   return and(visibleConversations(ctx), eq(C.buyerKind, "buyer"), eq(G.backfilled, false), gte(G.startedAt, b.start), lt(G.startedAt, b.end))!;
 }
 
 async function segmentStats(ctx: MemberContext, b: Bounds) {
   const tz = ctx.merchant.timezone;
   const day = dayOf(G.startedAt, tz);
-  const rows = await db()
+  return db()
     .select({
       day,
       segments: sql<number>`count(*)::int`,
-      ended: sql<number>`count(*) filter (where ${G.endedAt} is not null)::int`,
       ai: sql<number>`count(*) filter (where ${AI})::int`,
       handed: sql<number>`count(*) filter (where ${HANDED})::int`,
-      human: sql<number>`count(*) filter (where ${HUMAN})::int`,
-      samples: sql<number>`count(*) filter (where ${REPLY_SAMPLE})::int`,
-      median: REPLY_MEDIAN,
+      shopilot: sql<number>`count(*) filter (where ${SHOPILOT})::int`,
+      platform: sql<number>`count(*) filter (where ${PLATFORM})::int`,
+      aiSegments: sql<number>`count(*) filter (where ${AI_RECEIVED})::int`,
+      aiEnded: sql<number>`count(*) filter (where ${AI_RECEIVED} and ${G.endedAt} is not null)::int`,
+      aiResolvedAi: sql<number>`count(*) filter (where ${AI_RECEIVED} and ${AI})::int`,
+      handedAi: sql<number>`count(*) filter (where ${AI_RECEIVED} and ${G.handedOff})::int`,
     })
     .from(G)
     .innerJoin(C, eq(C.id, G.conversationId))
     .where(segmentWhere(ctx, b))
     .groupBy(sql`1`);
-  const [all] = await db()
-    .select({ samples: sql<number>`count(*) filter (where ${REPLY_SAMPLE})::int`, median: REPLY_MEDIAN })
-    .from(G)
-    .innerJoin(C, eq(C.id, G.conversationId))
-    .where(segmentWhere(ctx, b));
-  return { rows, samples: all?.samples ?? 0, median: sec(all?.median) };
 }
 
-/** 转人工段按原因：取段内最后一次 EVT:handoff 的 reason；没有事件时取会话当前的 handoff_reason（仅当前段） */
+const median = (xs: number[]): number | null => {
+  if (xs.length === 0) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const n = s.length;
+  return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+};
+
+/**
+ * 人工首响（§3 指标口径补充）：起点为首条买家消息，转人工前 AI 已回过买家的段改为转人工时刻；
+ * 总体的终点是 Shopilot 成员首条回复与开段后首条平台后台回复里较早的一条，按人只取 Shopilot 成员的回复；只累计工作时段。
+ * 团队页（API-TEAM-001）共用。
+ */
+export async function firstReplyStats(ctx: MemberContext, b: Span) {
+  const tz = ctx.merchant.timezone;
+  const platformAt = sql<Date | null>`(select min(${M.sentAt}) from ${M} where ${M.conversationId} = ${G.conversationId} and ${M.segmentId} = ${G.id} and ${M.senderRole} = 'platform_human' and ${M.sentAt} >= ${G.startedAt})`.mapWith(M.sentAt);
+  const [rc, rows] = await Promise.all([
+    receptionContext(ctx.merchant.id),
+    db()
+      .select({ day: dayOf(G.startedAt, tz), claimedBy: G.firstClaimedBy, startedAt: G.startedAt, firstBuyerAt: G.firstBuyerAt, handedOffAt: G.handedOffAt, aiReplied: G.aiReplied, shopilotAt: G.firstHumanReplyAt, platformAt })
+      .from(G)
+      .innerJoin(C, eq(C.id, G.conversationId))
+      .where(and(segmentWhere(ctx, b), sql`(${G.firstHumanReplyAt} is not null or ${G.humanReplied})`)),
+  ]);
+  const all: number[] = [];
+  const byDay = new Map<string, number[]>();
+  const byPerson = new Map<string, number[]>();
+  const push = (m: Map<string, number[]>, k: string, v: number) => (m.get(k) ?? m.set(k, []).get(k)!).push(v);
+  for (const r of rows) {
+    const from = r.handedOffAt && r.aiReplied ? r.handedOffAt : (r.firstBuyerAt ?? r.startedAt);
+    const replies = [r.shopilotAt, r.platformAt].filter((t): t is Date => !!t);
+    if (replies.length === 0) continue;
+    const first = new Date(Math.min(...replies.map((t) => t.getTime())));
+    const v = workSeconds(rc, from, first);
+    all.push(v);
+    push(byDay, r.day, v);
+    if (r.claimedBy && r.shopilotAt) push(byPerson, r.claimedBy, workSeconds(rc, from, r.shopilotAt));
+  }
+  const medians = (m: Map<string, number[]>) => new Map([...m].map(([k, v]) => [k, median(v)]));
+  return { samples: all.length, median: sec(median(all)), byDay: medians(byDay), byPerson: medians(byPerson) };
+}
+
+/** 转人工的 AI 接待段按原因：取段内最后一次 EVT:handoff 的 reason；没有事件时取会话当前的 handoff_reason（仅当前段） */
 async function handoffReasons(ctx: MemberContext, b: Bounds) {
   const res = await db().execute<{ reason: string | null; n: number }>(sql`
     select coalesce(ev.reason, case when ${C.currentSegmentId} = ${G.id} then ${C.handoffReason} end) as reason, count(*)::int as n
@@ -94,7 +134,7 @@ async function handoffReasons(ctx: MemberContext, b: Bounds) {
         and (${G.endedAt} is null or ${A.createdAt} <= ${G.endedAt})
       order by ${A.createdAt} desc limit 1
     ) ev on true
-    where ${segmentWhere(ctx, b)} and ${HANDED}
+    where ${segmentWhere(ctx, b)} and ${HANDED} and ${AI_RECEIVED}
     group by 1
     order by 2 desc, 1`);
   return res.rows.map((r) => ({ reason: r.reason ?? "unknown", label: r.reason ? (HANDOFF_LABEL[r.reason] ?? `未知（${r.reason}）`) : "未记录原因", count: Number(r.n) }));
@@ -102,17 +142,27 @@ async function handoffReasons(ctx: MemberContext, b: Bounds) {
 
 async function draftStats(ctx: MemberContext, b: Bounds) {
   const day = dayOf(D.createdAt, ctx.merchant.timezone);
-  const st = (s: string) => sql<number>`count(*) filter (where ${D.status} = ${s})::int`;
+  const st = (s: string) => sql<number>`count(*) filter (where ${D.mode} = 'assist' and ${D.status} = ${s})::int`;
   return db()
-    .select({ day, generated: sql<number>`count(*)::int`, sent: st("sent"), editedSent: st("edited_sent"), ignored: st("ignored"), expired: st("expired") })
+    .select({
+      day,
+      generated: sql<number>`count(*) filter (where ${D.mode} = 'assist')::int`,
+      sent: st("sent"),
+      editedSent: st("edited_sent"),
+      ignored: st("ignored"),
+      expired: st("expired"),
+      shadow: sql<number>`count(*) filter (where ${D.mode} = 'shadow')::int`,
+    })
     .from(D)
     .innerJoin(C, eq(C.id, D.conversationId))
-    .where(and(visibleConversations(ctx), eq(C.buyerKind, "buyer"), eq(D.mode, "assist"), gte(D.createdAt, b.start), lt(D.createdAt, b.end)))
+    .where(and(visibleConversations(ctx), eq(C.buyerKind, "buyer"), inArray(D.mode, ["assist", "shadow"]), gte(D.createdAt, b.start), lt(D.createdAt, b.end)))
     .groupBy(sql`1`);
 }
 
 const RESOLVED = sql`${T.resolvedAt} is not null and ${T.status} in ('resolved', 'closed')`;
-const ON_TIME = sql`(${T.dueAt} is null or ${T.resolvedAt} <= ${T.dueAt})`;
+/** 按时只看有截止时间的；没有截止时间的单列「无时限」，不进按时率 */
+const ON_TIME = sql`(${T.dueAt} is not null and ${T.resolvedAt} <= ${T.dueAt})`;
+const NO_DUE = sql`${T.dueAt} is null`;
 const LATE = sql`(${T.dueAt} is not null and ${T.resolvedAt} > ${T.dueAt})`;
 
 function resolvedWhere(ctx: MemberContext, b: Bounds): SQL {
@@ -135,6 +185,7 @@ async function ticketStats(ctx: MemberContext, b: Bounds) {
     .select({
       resolved: sql<number>`count(*)::int`,
       onTime: sql<number>`count(*) filter (where ${ON_TIME})::int`,
+      noDue: sql<number>`count(*) filter (where ${NO_DUE})::int`,
       median: sql<number | null>`percentile_cont(0.5) within group (order by extract(epoch from ${T.resolvedAt} - ${T.createdAt}))`,
       // 截止后由平台推送解决：Shopilot 推断为平台超时自动处理
       autoHandled: sql<number>`count(*) filter (where ${LATE} and exists (select 1 from ${schema.ticketEvent} e where e.ticket_id = ${T.id} and e.source = 'webhook' and e.data->>'to' = 'resolved'))::int`,
@@ -147,22 +198,23 @@ async function ticketStats(ctx: MemberContext, b: Bounds) {
       onTime: sql<number>`count(*) filter (where ${ON_TIME})::int`,
       latePlatform: sql<number>`count(*) filter (where ${LATE} and ${T.dueSource} = 'platform')::int`,
       lateMerchant: sql<number>`count(*) filter (where ${LATE} and ${T.dueSource} is distinct from 'platform')::int`,
+      noDue: sql<number>`count(*) filter (where ${NO_DUE})::int`,
     })
     .from(T)
     .where(resolvedWhere(ctx, b))
     .groupBy(T.type);
   const day = dayOf(T.resolvedAt, ctx.merchant.timezone);
   const daily = await db()
-    .select({ day, resolved: sql<number>`count(*)::int`, onTime: sql<number>`count(*) filter (where ${ON_TIME})::int` })
+    .select({ day, resolved: sql<number>`count(*)::int`, onTime: sql<number>`count(*) filter (where ${ON_TIME})::int`, noDue: sql<number>`count(*) filter (where ${NO_DUE})::int` })
     .from(T)
     .where(resolvedWhere(ctx, b))
     .groupBy(sql`1`);
   return { snap, res, byType, daily };
 }
 
-async function people(ctx: MemberContext, b: Bounds): Promise<DashboardPerson[]> {
+async function people(ctx: MemberContext, b: Bounds, replies: Awaited<ReturnType<typeof firstReplyStats>>): Promise<DashboardPerson[]> {
   const segs = await db()
-    .select({ id: G.firstClaimedBy, segments: sql<number>`count(*)::int`, median: REPLY_MEDIAN })
+    .select({ id: G.firstClaimedBy, segments: sql<number>`count(*)::int` })
     .from(G)
     .innerJoin(C, eq(C.id, G.conversationId))
     .where(and(segmentWhere(ctx, b), isNotNull(G.firstClaimedBy)))
@@ -174,7 +226,7 @@ async function people(ctx: MemberContext, b: Bounds): Promise<DashboardPerson[]>
     .where(and(eq(A.merchantId, ctx.merchant.id), eq(A.action, "conversation_transferred"), gte(A.createdAt, b.start), lt(A.createdAt, b.end), visibleConversations(ctx)))
     .groupBy(A.actorMembershipId);
   const tickets = await db()
-    .select({ id: T.assigneeId, resolved: sql<number>`count(*)::int`, onTime: sql<number>`count(*) filter (where ${ON_TIME})::int` })
+    .select({ id: T.assigneeId, withDue: sql<number>`count(*) filter (where not ${NO_DUE})::int`, onTime: sql<number>`count(*) filter (where ${ON_TIME})::int` })
     .from(T)
     .where(and(resolvedWhere(ctx, b), isNotNull(T.assigneeId)))
     .groupBy(T.assigneeId);
@@ -195,9 +247,9 @@ async function people(ctx: MemberContext, b: Bounds): Promise<DashboardPerson[]>
         membershipId: n.id,
         name: n.name,
         segments,
-        firstReplyMedianSec: sec(s?.median),
+        firstReplyMedianSec: sec(replies.byPerson.get(n.id) ?? null),
         transferRate: ratio(tr?.n ?? 0, segments),
-        ticketsOnTimeRate: ratio(tk?.onTime ?? 0, tk?.resolved ?? 0),
+        ticketsOnTimeRate: ratio(tk?.onTime ?? 0, tk?.withDue ?? 0),
       };
     })
     .sort((x, y) => y.segments - x.segments || x.name.localeCompare(y.name, "zh-CN"));
@@ -240,36 +292,35 @@ type Loaded = Awaited<ReturnType<typeof load>>;
 
 async function load(ctx: MemberContext, range: DashRange) {
   const b = rangeBounds(range, ctx.merchant.timezone);
+  const replies = await firstReplyStats(ctx, b);
   const [seg, reasons, drafts, tickets, ppl, metrics] = await Promise.all([
     segmentStats(ctx, b),
     handoffReasons(ctx, b),
     draftStats(ctx, b),
     ticketStats(ctx, b),
-    people(ctx, b),
+    people(ctx, b, replies),
     platformMetrics(ctx, range),
   ]);
-  return { b, seg, reasons, drafts, tickets, people: ppl, metrics };
+  return { b, seg, replies, reasons, drafts, tickets, people: ppl, metrics };
 }
 
 function trendOf(l: Loaded): DashboardTrendDay[] {
   return l.b.days.map((date) => {
-    const r = l.seg.rows.find((x) => x.day === date);
+    const r = l.seg.find((x) => x.day === date);
     const segments = r?.segments ?? 0;
     const aiResolved = r?.ai ?? 0;
     const handedOff = r?.handed ?? 0;
-    const human = r?.human ?? 0;
-    return { date, segments, aiResolved, handedOff, human, pending: segments - aiResolved - handedOff - human };
+    const shopilot = r?.shopilot ?? 0;
+    const platform = r?.platform ?? 0;
+    return { date, segments, aiResolved, handedOff, shopilot, platform, pending: segments - aiResolved - handedOff - shopilot - platform };
   });
 }
 
 export async function dashboard(ctx: MemberContext, range: DashRange): Promise<DashboardResponse> {
   const l = await load(ctx, range);
   const sum = <K extends string>(rows: Array<Record<K, number | string>>, k: K) => rows.reduce((s, r) => s + Number(r[k]), 0);
-  const segRows = l.seg.rows;
+  const segRows = l.seg;
   const segments = sum(segRows, "segments");
-  const ended = sum(segRows, "ended");
-  const ai = sum(segRows, "ai");
-  const handed = sum(segRows, "handed");
   const d = { generated: sum(l.drafts, "generated"), sent: sum(l.drafts, "sent"), editedSent: sum(l.drafts, "editedSent"), ignored: sum(l.drafts, "ignored"), expired: sum(l.drafts, "expired") };
   const { snap, res, byType } = l.tickets;
   return {
@@ -279,16 +330,17 @@ export async function dashboard(ctx: MemberContext, range: DashRange): Promise<D
     shopCount: l.metrics.length,
     kpis: {
       segments,
-      aiResolved: ratio(ai, ended),
-      firstReplyMedianSec: l.seg.median,
-      firstReplySamples: l.seg.samples,
-      handoffRate: ratio(handed, segments),
+      aiResolved: ratio(sum(segRows, "aiResolvedAi"), sum(segRows, "aiEnded")),
+      firstReplyMedianSec: l.replies.median,
+      firstReplySamples: l.replies.samples,
+      handoffRate: ratio(sum(segRows, "handedAi"), sum(segRows, "aiSegments")),
     },
     trend: trendOf(l),
     handoffReasons: l.reasons,
     drafts: {
       ...d,
       other: d.generated - d.sent - d.editedSent - d.ignored - d.expired,
+      shadow: sum(l.drafts, "shadow"),
       adoptionRate: ratio(d.sent + d.editedSent, d.sent + d.editedSent + d.ignored),
       editRate: ratio(d.editedSent, d.sent + d.editedSent),
     },
@@ -298,29 +350,32 @@ export async function dashboard(ctx: MemberContext, range: DashRange): Promise<D
       due6h: snap?.due6h ?? 0,
       overdue: snap?.overdue ?? 0,
       resolved: res?.resolved ?? 0,
-      onTimeRate: ratio(res?.onTime ?? 0, res?.resolved ?? 0),
+      onTimeRate: ratio(res?.onTime ?? 0, (res?.resolved ?? 0) - (res?.noDue ?? 0)),
+      noDue: res?.noDue ?? 0,
       resolveMedianSec: sec(res?.median),
       platformAutoHandled: res?.autoHandled ?? 0,
-      byType: byType.map((r) => ({ type: r.type, label: TYPE_LABEL[r.type], onTime: r.onTime, lateMerchant: r.lateMerchant, latePlatform: r.latePlatform })).sort((x, y) => y.onTime + y.lateMerchant + y.latePlatform - (x.onTime + x.lateMerchant + x.latePlatform)),
+      byType: byType
+        .map((r) => ({ type: r.type, label: TYPE_LABEL[r.type], onTime: r.onTime, lateMerchant: r.lateMerchant, latePlatform: r.latePlatform, noDue: r.noDue }))
+        .sort((x, y) => y.onTime + y.lateMerchant + y.latePlatform + y.noDue - (x.onTime + x.lateMerchant + x.latePlatform + x.noDue)),
     },
     platformMetrics: l.metrics,
     platformPeriod: platformPeriodOf(range),
   };
 }
 
-/** 导出：按日一行，最后一行合计；列含会话段去向、人工首响、草稿处置与工单按时 */
+/** 导出：按日一行，最后一行合计；列含会话段去向、人工首响、草稿处置、影子回复与工单按时 */
 export async function dashboardCsv(ctx: MemberContext, range: DashRange): Promise<Response> {
   const l = await load(ctx, range);
   const trend = trendOf(l);
-  const header = ["日期", "会话段", "AI 独立解决", "转人工", "人工直接接待", "未回复或进行中", "人工首响中位（秒）", "辅助草稿", "原样发送", "改后发送", "忽略", "过期", "工单已解决", "工单按时解决"];
+  const header = ["日期", "会话段", "AI 独立解决", "转人工", "Shopilot 回复", "平台后台回复", "未回复或进行中", "人工首响中位（秒）", "辅助草稿", "原样发送", "改后发送", "忽略", "过期", "影子回复", "工单已解决", "工单按时解决", "工单无时限"];
   const rows: Array<Array<string | number | null>> = trend.map((t) => {
-    const s = l.seg.rows.find((x) => x.day === t.date);
     const dr = l.drafts.find((x) => x.day === t.date);
     const tk = l.tickets.daily.find((x) => x.day === t.date);
-    return [t.date, t.segments, t.aiResolved, t.handedOff, t.human, t.pending, sec(s?.median), dr?.generated ?? 0, dr?.sent ?? 0, dr?.editedSent ?? 0, dr?.ignored ?? 0, dr?.expired ?? 0, tk?.resolved ?? 0, tk?.onTime ?? 0];
+    const reply = sec(l.replies.byDay.get(t.date) ?? null);
+    return [t.date, t.segments, t.aiResolved, t.handedOff, t.shopilot, t.platform, t.pending, reply, dr?.generated ?? 0, dr?.sent ?? 0, dr?.editedSent ?? 0, dr?.ignored ?? 0, dr?.expired ?? 0, dr?.shadow ?? 0, tk?.resolved ?? 0, tk?.onTime ?? 0, tk?.noDue ?? 0];
   });
   const total = (i: number) => rows.reduce((s, r) => s + Number(r[i] ?? 0), 0);
-  rows.push(["合计", total(1), total(2), total(3), total(4), total(5), l.seg.median, total(7), total(8), total(9), total(10), total(11), total(12), total(13)]);
+  rows.push(["合计", ...header.slice(1).map((_, k) => (k + 1 === 7 ? l.replies.median : total(k + 1)))]);
   const first = l.b.days[0];
   const last = l.b.days[l.b.days.length - 1];
   return csv(`看板_${RANGE_LABEL[range]}_${first}_${last}.csv`, [header, ...rows]);

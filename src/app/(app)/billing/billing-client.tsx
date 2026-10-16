@@ -364,7 +364,7 @@ function ResolvedPanel({ d, tz }: { d: BillingResponse; tz: string }) {
       <PanelHeader title="AI 独立解决" description="会话段结束时没有人工参与" />
       <p className="text-2xl font-semibold tabular-nums">{num(resolved)} 段</p>
       {total === 0 ? (
-        <EmptyState icon={BotIcon} title="还没有结束的会话段" description="本期有会话段结束后，这里显示 AI 独立解决的占比。" />
+        <EmptyState icon={BotIcon} title="还没有结束的 AI 接待段" description="本期有开段时为辅助或自动模式的会话段结束后，这里显示 AI 独立解决的占比。" />
       ) : (
         <>
           <div className="relative mt-3">
@@ -379,11 +379,11 @@ function ResolvedPanel({ d, tz }: { d: BillingResponse; tz: string }) {
             )}
             <div className="absolute inset-x-0 bottom-1 text-center">
               <p className="text-2xl font-semibold tabular-nums">{rate}%</p>
-              <p className="text-xs text-muted-foreground">占已结束会话段</p>
+              <p className="text-xs text-muted-foreground">占已结束的 AI 接待段</p>
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground tabular-nums">
-            按 {inTz(d.period.start, tz, "MM-dd")} 至今结束的 {num(total)} 个会话段计算
+            按 {inTz(d.period.start, tz, "MM-dd")} 至今结束的 {num(total)} 个 AI 接待段计算（开段时为辅助或自动模式）
           </p>
         </>
       )}

@@ -253,7 +253,7 @@ export function TeamClient({ me }: { me: Me }) {
                 <div>
                   <dt className="text-sm text-muted-foreground">人工首响中位</dt>
                   <dd className="text-2xl font-semibold tabular-nums">{duration(d.stats.firstReplyMedianSec)}</dd>
-                  <dd className="text-xs text-muted-foreground">买家开口到第一条人工回复</dd>
+                  <dd className="text-xs text-muted-foreground">买家等人工到首次人工回复，含平台后台回复，只累计工作时段</dd>
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">最长待认领</dt>

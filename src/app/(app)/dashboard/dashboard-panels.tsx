@@ -46,7 +46,8 @@ const insufficient = (r: Ratio) => `样本 ${r.den}，满 ${MIN_SAMPLE} 才计�
 const TREND_SERIES = [
   { key: "aiResolved", label: "AI 独立解决" },
   { key: "handedOff", label: "转人工" },
-  { key: "human", label: "人工直接接待" },
+  { key: "shopilot", label: "Shopilot 回复" },
+  { key: "platform", label: "平台后台回复" },
   { key: "pending", label: "未回复或进行中" },
 ] as const;
 
@@ -58,7 +59,7 @@ export function TrendPanel({ d, canConnect }: { d: DashboardResponse; canConnect
   return (
     <Panel className="flex min-w-0 flex-col gap-6 lg:flex-row">
       <div className="min-w-0 flex-1">
-        <PanelHeader title="每日会话段去向" description="按会话段开始的日期；依次按 AI 独立解决、转人工、人工直接接待判定" />
+        <PanelHeader title="每日会话段去向" description="按会话段开始的日期；依次按 AI 独立解决、转人工、Shopilot 回复、平台后台回复判定" />
         <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
           <div>
             <p className="text-[1.875rem] leading-tight font-semibold tracking-tight tabular-nums">{num(k.segments)}</p>
@@ -87,7 +88,7 @@ export function TrendPanel({ d, canConnect }: { d: DashboardResponse; canConnect
               <BrandChart
                 type="bar"
                 height={236}
-                label={`每日会话段按去向堆叠：${d.trend.filter((t) => t.segments > 0).map((t) => `${t.date} 共 ${t.segments} 段，AI 独立解决 ${t.aiResolved}，转人工 ${t.handedOff}`).join("；")}`}
+                label={`每日会话段按去向堆叠：${d.trend.filter((t) => t.segments > 0).map((t) => `${t.date} 共 ${t.segments} 段，AI 独立解决 ${t.aiResolved}，转人工 ${t.handedOff}，Shopilot 回复 ${t.shopilot}，平台后台回复 ${t.platform}`).join("；")}`}
                 data={{
                   labels: d.trend.map((t) => inTz(`${t.date}T12:00:00Z`, "UTC", "MM-dd")),
                   datasets: TREND_SERIES.map((s, i) => ({
@@ -117,23 +118,23 @@ export function TrendPanel({ d, canConnect }: { d: DashboardResponse; canConnect
           <dd className="mt-1 text-xs text-muted-foreground tabular-nums">
             {k.aiResolved.rate === null ? insufficient(k.aiResolved) : `${num(k.aiResolved.num)} 段，未经人工即结束`}
             <br />
-            分母：已结束的 {num(k.aiResolved.den)} 段
+            分母：已结束的 AI 接待段 {num(k.aiResolved.den)}
           </dd>
         </div>
         <div className="min-w-0 flex-1 lg:flex-none">
           <dt className="text-sm text-muted-foreground">人工首响中位</dt>
           <dd className="mt-1 text-2xl font-semibold tracking-tight whitespace-nowrap tabular-nums">{replyTime(k.firstReplyMedianSec)}</dd>
           <dd className="mt-1 text-xs text-muted-foreground tabular-nums">
-            从买家开口到人工首次回复
+            买家等人工到首次人工回复，含平台后台回复
             <br />
-            只统计工作时间内开始的会话段 · 样本 {num(k.firstReplySamples)} 段
+            只累计工作时段 · 样本 {num(k.firstReplySamples)} 段
           </dd>
         </div>
         <div className="min-w-0 flex-1 lg:flex-none">
           <dt className="text-sm text-muted-foreground">转人工</dt>
           <dd className="mt-1 text-2xl font-semibold tracking-tight whitespace-nowrap tabular-nums">{num(k.handoffRate.num)} 段</dd>
           <dd className="mt-1 text-xs text-muted-foreground tabular-nums">
-            {k.handoffRate.rate === null ? insufficient(k.handoffRate) : `占会话段 ${pct(k.handoffRate)}%`}
+            {k.handoffRate.rate === null ? insufficient(k.handoffRate) : `占 AI 接待段 ${pct(k.handoffRate)}%`}
             {top && (
               <>
                 <br />
@@ -160,13 +161,20 @@ export function DraftsPanel({ d }: { d: DashboardResponse }) {
   ];
   const adopted = dr.sent + dr.editedSent;
   const disposed = slices.reduce((n, x) => n + x.value, 0);
+  const shadowNote = dr.shadow > 0 && <p className="mt-3 text-xs text-muted-foreground tabular-nums">影子回复 {num(dr.shadow)} 份：只给管理员、组长看，不发送，不计入采纳率</p>;
   return (
     <Panel className="min-w-0">
       <PanelHeader title="辅助草稿处置" description={`${num(dr.generated)} 张辅助草稿，按生成日期统计`} />
       {dr.generated === 0 ? (
-        <EmptyState icon={PencilLineIcon} title="这个范围内没有辅助草稿" description="接待模式为辅助草稿的店铺，AI 为买家消息起草回复，员工发送或忽略后计入这里。" />
+        <>
+          <EmptyState icon={PencilLineIcon} title="这个范围内没有辅助草稿" description="接待模式为辅助草稿的店铺，AI 为买家消息起草回复，员工发送或忽略后计入这里。" />
+          {shadowNote}
+        </>
       ) : disposed === 0 ? (
-        <EmptyState icon={PencilLineIcon} title="草稿都还没有处置" description={`${num(dr.other)} 张草稿还未处置、被新消息替代或发送失败；员工发送、忽略或草稿过期后计入这里。`} />
+        <>
+          <EmptyState icon={PencilLineIcon} title="草稿都还没有处置" description={`${num(dr.other)} 张草稿还未处置、被新消息替代或发送失败；员工发送、忽略或草稿过期后计入这里。`} />
+          {shadowNote}
+        </>
       ) : (
         <>
           <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-2 xl:grid-cols-1">
@@ -201,6 +209,7 @@ export function DraftsPanel({ d }: { d: DashboardResponse }) {
             被改写率 = 改后 /（原样 + 改后）= {num(dr.editedSent)} / {num(adopted)}
             {dr.editRate.rate === null ? `，${insufficient(dr.editRate)}` : ` = ${pct(dr.editRate)}%`}
           </p>
+          {shadowNote}
         </>
       )}
     </Panel>
@@ -345,7 +354,7 @@ function RateCell({ r }: { r: Ratio }) {
 export function PeoplePanel({ d, canSeeTeam }: { d: DashboardResponse; canSeeTeam: boolean }) {
   return (
     <Panel className="min-w-0">
-      <PanelHeader title="按人统计" description="按会话段首个认领人统计；平台接口不暴露子账号">
+      <PanelHeader title="按人统计" description="按会话段首个认领人统计；首响只算 Shopilot 回复，平台接口不暴露子账号">
         {canSeeTeam && (
           <Button asChild variant="outline" size="sm">
             <Link href="/team">
@@ -405,10 +414,11 @@ export function PeoplePanel({ d, canSeeTeam }: { d: DashboardResponse; canSeeTea
 
 export function TicketStats({ d }: { d: DashboardResponse }) {
   const t = d.tickets;
+  const noDue = t.noDue > 0 ? `；无时限 ${num(t.noDue)} 张不计` : "";
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Stat label="未结" value={`${num(t.open)} 张`} note={`6 小时内到期 ${t.due6h} · 已超时 ${t.overdue}`} />
-      <Stat label="按时完成率" value={<RateValue r={t.onTimeRate} />} note={t.onTimeRate.rate === null ? `已解决 ${t.resolved} 张，${insufficient(t.onTimeRate)}` : `已解决 ${num(t.resolved)} 张，按时 ${num(t.onTimeRate.num)} 张`} />
+      <Stat label="按时完成率" value={<RateValue r={t.onTimeRate} />} note={t.onTimeRate.rate === null ? `已解决 ${num(t.resolved)} 张，${insufficient(t.onTimeRate)}${noDue}` : `已解决 ${num(t.resolved)} 张，按时 ${num(t.onTimeRate.num)} 张${noDue}`} />
       <Stat label="解决时长中位" value={t.resolveMedianSec === null ? "—" : duration(t.resolveMedianSec)} note="从建单到已解决" />
       <Stat label="超时后被平台自动处理" value={`${num(t.platformAutoHandled)} 次`} note="Shopilot 推断：截止后由平台事件解决" />
     </div>
@@ -419,6 +429,7 @@ const TYPE_SERIES = [
   { key: "onTime", label: "按时" },
   { key: "lateMerchant", label: "超商户时限" },
   { key: "latePlatform", label: "超平台截止" },
+  { key: "noDue", label: "无时限" },
 ] as const;
 
 export function TicketTypesPanel({ d }: { d: DashboardResponse }) {
@@ -426,7 +437,7 @@ export function TicketTypesPanel({ d }: { d: DashboardResponse }) {
   const rows = d.tickets.byType;
   return (
     <Panel className="min-w-0">
-      <PanelHeader title="按类型的时限达成" description={`已解决 ${num(d.tickets.resolved)} 张；平台类型按平台截止算，手动类型按商户时限算`}>
+      <PanelHeader title="按类型的时限达成" description={`已解决 ${num(d.tickets.resolved)} 张；平台类型按平台截止算，手动类型按商户时限算，没有截止时间的单列`}>
         {rows.length > 0 && <Legend items={TYPE_SERIES.map((s) => s.label)} />}
       </PanelHeader>
       {rows.length === 0 ? (
@@ -436,7 +447,7 @@ export function TicketTypesPanel({ d }: { d: DashboardResponse }) {
           <BrandChart
             type="bar"
             height={Math.max(140, rows.length * 40 + 40)}
-            label={`已解决工单按类型的时限达成：${rows.map((r) => `${r.label} 按时 ${r.onTime}，超商户时限 ${r.lateMerchant}，超平台截止 ${r.latePlatform}`).join("；")}`}
+            label={`已解决工单按类型的时限达成：${rows.map((r) => `${r.label} 按时 ${r.onTime}，超商户时限 ${r.lateMerchant}，超平台截止 ${r.latePlatform}，无时限 ${r.noDue}`).join("；")}`}
             data={{
               labels: rows.map((r) => r.label),
               datasets: TYPE_SERIES.map((s, i) => ({

@@ -13,7 +13,7 @@ import { db, schema, type Tx } from "../db/client";
 import { env } from "../env";
 import { conflict, notAllowed, notFound, Problem } from "../http/problem";
 import { plan } from "../billing/plans";
-import { REPLY_MEDIAN } from "../dashboard/service";
+import { firstReplyStats } from "../dashboard/service";
 import { systemEvent } from "../conversations/ingest";
 import { queueFeishuCard } from "../feishu/deliver";
 import { ROLE_LABEL } from "@/lib/permissions";
@@ -62,11 +62,7 @@ export async function listMembers(ctx: MemberContext, query: { role: string; sta
     .innerJoin(m, eq(m.id, schema.membershipShop.membershipId))
     .where(eq(m.merchantId, ctx.merchant.id));
   const stats = await db()
-    .select({
-      membershipId: schema.segment.firstClaimedBy,
-      segments: count(),
-      median: REPLY_MEDIAN,
-    })
+    .select({ membershipId: schema.segment.firstClaimedBy, segments: count() })
     .from(schema.segment)
     .where(and(eq(schema.segment.merchantId, ctx.merchant.id), eq(schema.segment.backfilled, false), gte(schema.segment.startedAt, from), lt(schema.segment.startedAt, to), isNotNull(schema.segment.firstClaimedBy)))
     .groupBy(schema.segment.firstClaimedBy);
@@ -75,10 +71,8 @@ export async function listMembers(ctx: MemberContext, query: { role: string; sta
     .from(schema.auditLog)
     .where(and(eq(schema.auditLog.merchantId, ctx.merchant.id), eq(schema.auditLog.action, "conversation_transferred"), gte(schema.auditLog.createdAt, from), lt(schema.auditLog.createdAt, to)))
     .groupBy(schema.auditLog.actorMembershipId);
-  const [overall] = await db()
-    .select({ median: REPLY_MEDIAN })
-    .from(schema.segment)
-    .where(and(eq(schema.segment.merchantId, ctx.merchant.id), eq(schema.segment.backfilled, false), gte(schema.segment.startedAt, from), lt(schema.segment.startedAt, to), isNotNull(schema.segment.firstHumanReplyAt)));
+  // 首响与看板同口径（DESIGN §3 指标口径补充）：总体含平台后台回复，成员只算 Shopilot 成员的回复
+  const replies = await firstReplyStats(ctx, { start: from, end: to });
   const [waiting] = await db()
     .select({ oldest: sql<string | null>`min(${schema.conversation.lastBuyerAt})` })
     .from(schema.conversation)
@@ -107,6 +101,7 @@ export async function listMembers(ctx: MemberContext, query: { role: string; sta
 
   let members = rows.map(({ membership, user }) => {
     const st = stats.find((s) => s.membershipId === membership.id);
+    const own = replies.byPerson.get(membership.id);
     const online = Boolean(membership.status === "active" && liveUsers.has(user.id) && membership.lastSeenAt && now - membership.lastSeenAt.getTime() < 5 * 60_000);
     return {
       membershipId: membership.id,
@@ -120,7 +115,7 @@ export async function listMembers(ctx: MemberContext, query: { role: string; sta
       twoFactorEnabled: Boolean(user.twoFactorEnabled),
       lastSeenAt: membership.lastSeenAt?.toISOString() ?? null,
       online,
-      handled: { segments: st?.segments ?? 0, transferred: transfers.find((t) => t.actor === membership.id)?.n ?? 0, firstReplyMedianSec: st?.median === null || st?.median === undefined ? null : Number(st.median) },
+      handled: { segments: st?.segments ?? 0, transferred: transfers.find((t) => t.actor === membership.id)?.n ?? 0, firstReplyMedianSec: own === null || own === undefined ? null : Math.round(own) },
     };
   });
   const activeCount = members.filter((x) => x.status === "active").length;
@@ -141,7 +136,7 @@ export async function listMembers(ctx: MemberContext, query: { role: string; sta
       onlineCount,
       activeCount,
       disabledCount,
-      firstReplyMedianSec: overall?.median === null || overall?.median === undefined ? null : Number(overall.median),
+      firstReplyMedianSec: replies.median,
       longestWaitingSec: waiting?.oldest ? Math.round((now - new Date(waiting.oldest).getTime()) / 1000) : null,
       periodStart: from.toISOString(),
     },

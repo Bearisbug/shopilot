@@ -73,7 +73,7 @@ function planFor(mode: ReceptionMode): OpenPlan {
   return { state: "awaiting_human", handoffReason: "shop_off", draftMode: null };
 }
 
-async function openSegment(ex: Executor, shop: ShopRow, conv: Pick<ConversationRow, "id" | "merchantId" | "buyerExternalId">, m: NormalizedMessage) {
+async function openSegment(ex: Executor, shop: ShopRow, conv: Pick<ConversationRow, "id" | "merchantId" | "buyerExternalId">, m: NormalizedMessage, mode: ReceptionMode) {
   const stage = await judgeStage(ex, {
     shopId: shop.id,
     platform: shop.platform,
@@ -84,7 +84,7 @@ async function openSegment(ex: Executor, shop: ShopRow, conv: Pick<ConversationR
   });
   const [seg] = await ex
     .insert(schema.segment)
-    .values({ merchantId: conv.merchantId, conversationId: conv.id, stage: stage.stage, stageSource: stage.source, stageBasis: stage.basis, startedAt: m.sentAt, firstBuyerAt: m.sentAt })
+    .values({ merchantId: conv.merchantId, conversationId: conv.id, stage: stage.stage, stageSource: stage.source, stageBasis: stage.basis, startedAt: m.sentAt, firstBuyerAt: m.sentAt, openMode: mode })
     .returning();
   return seg;
 }
@@ -181,7 +181,7 @@ export async function ingestMessage(
         lastBuyerAt: m.sentAt,
       })
       .returning();
-    const seg = await openSegment(ex, shop, conv, m);
+    const seg = await openSegment(ex, shop, conv, m, mode);
     await ex.update(schema.conversation).set({ currentSegmentId: seg.id }).where(eq(schema.conversation.id, conv.id));
     const [msg] = await ex
       .insert(schema.message)
@@ -220,7 +220,7 @@ export async function ingestMessage(
   if (existing.handlingState === "closed") {
     // reopen / reopen_to_queue：开新段
     const plan = planFor(mode);
-    const seg = await openSegment(ex, shop, existing, m);
+    const seg = await openSegment(ex, shop, existing, m, mode);
     await ex.update(schema.message).set({ segmentId: seg.id }).where(eq(schema.message.id, msg.id));
     await ex
       .update(schema.conversation)

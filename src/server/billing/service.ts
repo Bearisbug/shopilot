@@ -143,7 +143,8 @@ export async function getBilling(ctx: MemberContext, query: { daily: "7d" | "per
   const [seg] = await db()
     .select({ total: count(), resolved: sql<number>`count(*) filter (where ${G.aiResolved})`.mapWith(Number) })
     .from(G)
-    .where(and(eq(G.merchantId, merchantId), eq(G.backfilled, false), isNotNull(G.endedAt), gte(G.startedAt, period.periodStart), lt(G.startedAt, period.periodEnd)));
+    // 与看板同口径（DESIGN §3）：只算 AI 接待段，即开段时为辅助或自动模式的段
+    .where(and(eq(G.merchantId, merchantId), eq(G.backfilled, false), isNotNull(G.endedAt), inArray(G.openMode, ["assist", "auto"]), gte(G.startedAt, period.periodStart), lt(G.startedAt, period.periodEnd)));
 
   const recipientRows = sub.alertConfig.recipients.length
     ? await db()

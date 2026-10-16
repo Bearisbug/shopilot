@@ -1,0 +1,4 @@
+ALTER TABLE "segment" ADD COLUMN "open_mode" text;--> statement-breakpoint
+ALTER TABLE "segment" ADD COLUMN "handed_off_at" timestamp with time zone;--> statement-breakpoint
+UPDATE "segment" s SET "open_mode" = (SELECT d."mode" FROM "draft" d WHERE d."segment_id" = s."id" ORDER BY d."created_at" LIMIT 1) WHERE NOT s."backfilled" AND s."open_mode" IS NULL;--> statement-breakpoint
+UPDATE "segment" s SET "handed_off_at" = (SELECT min(a."created_at") FROM "audit_log" a WHERE a."merchant_id" = s."merchant_id" AND a."action" = 'handoff' AND a."target_type" = 'conversation' AND a."target_id" = s."conversation_id"::text AND a."created_at" >= s."started_at" AND (s."ended_at" IS NULL OR a."created_at" <= s."ended_at")) WHERE s."handed_off" AND s."handed_off_at" IS NULL;

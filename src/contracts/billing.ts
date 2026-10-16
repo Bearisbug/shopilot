@@ -113,6 +113,7 @@ export type BillingResponse = {
   byShop: Array<{ shopId: string; name: string; platform: "shopee" | "tiktok"; market: string; drafts: number }>;
   byShopRange: { month: string; start: string; end: string };
   shopsMonths: Array<{ month: string; start: string; end: string }>;
+  /** 本期结束的 AI 接待段（开段时为辅助或自动模式）里 AI 独立解决的段数 */
   aiResolvedSegments: { resolved: number; total: number };
   overage: { policy: "stop" | "continue"; budget: string | null; price: string; drafts: number; amount: string };
   alerts: { thresholds: number[]; recipients: Array<{ membershipId: string; name: string }>; email: boolean; inApp: boolean };
