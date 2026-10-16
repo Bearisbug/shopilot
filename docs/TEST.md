@@ -6,7 +6,7 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.13，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.16，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
 | 最后更新 | 2026-10-16 |
 
@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | 新增 `TC-CONV-048`（源自缺陷：Shopee 卖家后台的回复没有进 Shopilot）、`TC-CONV-049`（本方回复的回声不算平台后台回复）、`TC-CONV-050`（店铺自动回复不算平台后台回复）；§3 加模拟器接口「卖家后台回复」 | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-044`（源自缺陷：消息拉取不及时，新消息最长 10 秒才进工作台列表）；按 DESIGN v1.13 的新轮询间隔原位修改 `TC-AI-001` 第 2 步（侧栏计数 10 秒）与 `TC-SHOP-001` 第 9 步引用的 §16 口径（工作台会话列表 ≤ 3 秒） | 实现会话 |
 | 2026-10-16 | 新增 `TC-DASH-005`（源自缺陷：团队页人工首响中位算进了工作时间外开始的会话段，与看板对不上）；§3 场景加 `first-reply-off-hours` | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-041`（源自缺陷：平台后台有人回复过的会话谁都认领不了）；§3 场景加 `platform-human` | 实现会话 |
@@ -120,6 +121,7 @@
 | TikTok | App Key `mockttwiz01`，App Secret `mock-secret-wiz01` | MY、TH 各一店 | Wizard TikTok MY、Wizard TikTok TH | 按站点授权 |
 
 - 模拟器 `/mock/simulator`：扮演买家与平台。选店铺与买家（可「新建买家」，得到一个在该店没有会话的买家），以买家身份发文字、图片、订单卡、商品卡；下单、推进订单状态（按各平台枚举）、申请取消、申请退货、买家寄回、平台仲裁、取消授权、授权到期。页面显示每个买家的会话（含卖家发出的消息与卡片）、订单与售后单的平台原始状态、TikTok 店的坐席接单（`can_accept_chat`）、TikTok 会话 session 是否已结束、推送日志（目标 URL、HTTP 状态、载荷）。
+- 卖家后台回复（只有 Shopee 会话）：接口 `POST $B/api/mock/sim/seller_backend_reply`，请求体 `{"conversationId":"<模拟器会话 ID>","text":"<可选>","auto":<可选 true>}`。带 `text` 时把一条卖家消息写进平台会话（`get_message` 读得到）但不推送，与真实 Shopee 一致；随后推一条 code 10 的 `mark_as_replied` 会话通知。不带 `text` 时只推通知。`auto` 为 `true` 时这条消息的时刻取该会话最近一条买家消息的时刻，模拟店铺自动回复。
 - AI 替身（`AI_MODE=stub`）：模拟器页「AI 替身」面板设定下一次出稿的回复，可选「正常回复」（默认，confidence 0.85）、「低置信 0.4」、「要求转人工」、「非 JSON 文本」、「超时」；设定只作用于下一次出稿，之后回到默认；面板显示所选回复的 JSON（含 `reason`）。面板同时显示最近一次出稿请求（接口 `GET /api/dev/ai-stub` 的 `lastRequest`），用例写「最近一次请求」即指它。翻译与开票字段抽取在 stub 下返回非空的替身文本。另有「资料不足」（`insufficient = true`、confidence 0.9、`used_sources` 为空）：面板没有这一项，用接口设 `curl -s -X PUT $B/api/dev/ai-stub -H 'Content-Type: application/json' -d '{"next":"insufficient"}'`，同样只作用于下一次；其他选项也可以这样设，加 `"sticky":true` 则一直生效，用完设回 `{"next":"normal"}`。出稿请求带资料片段时，「正常回复」在 `used_sources` 里引用第 1 段；检索前的改写请求一律返回买家原话，不受设定影响，也不记入「最近一次请求」。测试问答（`API-KB-012`）与出稿共用同一个替身。
 - 检索替身（`KNOWLEDGE_MODE=stub`，DESIGN `API-MOCK-010`）：入库时文本类资料（md、txt、csv、html）按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，上传即报索引完成；检索读该商户已解析的分块，按关键词重合打分（中文按相邻两字），每段都带向量分。下一次表现用接口设：`curl -s -X PUT $B/api/dev/knowledge-stub -H 'Content-Type: application/json' -d '{"next":"<值>"}'`，值为 `normal`（默认）、`no_vector`（混合检索结果没有向量分）、`timeout`（检索超时）、`error`（检索返回 HTTP 500）、`ingest_error`（入库时条目索引报 `workers_ai_timeout_error（替身）`）；默认只作用于下一次检索或下一次条目上传，加 `"sticky":true` 一直生效，用完设回 `{"next":"normal"}`。`curl -s $B/api/dev/knowledge-stub` 返回当前设定与 `lastQuery`（最近 6 次检索请求，旧的在前，每条有 `query` 与 `retrievalType`：`hybrid` 混合、`vector` 纯向量），用例写「最近检索请求」即指它。`AI_MODE=deepseek` 时调真实 DeepSeek，改 `.env` 后重启 `pnpm dev`。
 - 飞书发送替身（`FEISHU_MODE=stub`，DESIGN `API-MOCK-011`）：不连飞书，「发出」的卡片记进投递记录，在 `/dev/outbox?tab=feishu` 查看（标题、颜色、正文、图片、按钮链接与卡片 JSON），接口 `GET /api/dev/feishu`。约定：App Secret 含 `bad` 时校验失败（飞书 10014）；Webhook 地址末段含 `bad` 时签名失败（19021）；机器人所在的群固定为「Shopilot 客服群（替身）」`oc_stub_service`、「售后处理群（替身）」`oc_stub_aftersale`、「泰国站客服（替身）」`oc_stub_th`。卡片里的 AI 总结在 `AI_MODE=stub` 下固定为「AI 替身总结：买家发来新消息，正在等待客服认领。」
@@ -1646,6 +1648,47 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 5 | A：看对话栏时间线 | T2 后 3 秒内出现「poll check 2」 |
 | 6 | B：新建买家 Y；A 的网络面板出现一次 `GET /api/v1/nav-summary` 返回后，B 立即以 Y 发「poll check 3」，记 T3，记该响应里的 `counts.queue` 为 Q | 推送日志新增一条，HTTP 200 |
 | 7 | A：看侧栏「工作台」下「待认领」的计数 | T3 后 12 秒内变为 Q + 1 |
+
+后置：无。
+
+#### `TC-CONV-048` 卖家在 Shopee 后台的回复补拉进会话并转为平台后台处理 — 对应 `REQ-CONV-001` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-16 Shopee 卖家后台的回复没有进 Shopilot
+
+前置：基线；执行 §3「curl 会话」，`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `curl -s -X POST $B/api/mock/sim/create_buyer -H 'Content-Type: application/json' -d '{"platform":"shopee","shopId":"220001","name":"Backend Reply","language":"en"}'`，记返回的 `conversationId` 为 X；再 `curl -s -X POST $B/api/mock/sim/buyer_message -H 'Content-Type: application/json' -d '{"conversationId":"<X>","text":"Is the camera in stock?"}'` | 两次都返回 `"ok":true`；第二次的 `pushes` 有 1 条，`httpStatus` 为 200 |
+| 2 | 等 20 秒，`api owner@demo.test "$B/api/v1/conversations?view=ai"`，在 `items` 里找 `buyerName` 为 Backend Reply 的一行，记 `id` 为 C | 该行 `handlingState` 为 `bot`，`draftPending` 为 `true` |
+| 3 | `curl -s -X POST $B/api/mock/sim/seller_backend_reply -H 'Content-Type: application/json' -d '{"conversationId":"<X>","text":"Yes, in stock. Ships today."}'` | 返回 `"ok":true`，`pushes` 只有 1 条（mark_as_replied 通知），`httpStatus` 为 200 |
+| 4 | 等 20 秒，`api owner@demo.test "$B/api/v1/conversations/<C>"` | `conversation.handlingState` 为 `human`，`claimedBy` 为 null，`handoffReason` 为 `platform_human`；`messages` 里有一条正文「Yes, in stock. Ships today.」，`senderRole` 为 `platform_human`、`senderName` 为「平台后台」；其后有一条正文「平台侧已有人处理」的系统事件；`draft` 为 null |
+| 5 | 再调一次第 3 步的接口，请求体只有 `{"conversationId":"<X>"}`（只推通知）；等 20 秒后重复第 4 步的查询 | 正文「Yes, in stock. Ships today.」的消息仍只有 1 条 |
+
+后置：无。
+
+#### `TC-CONV-049` 本方从 Shopilot 发出的回复不算平台后台回复 — 对应 `REQ-CONV-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行 §3「curl 会话」，`login agent@demo.test`（Nur，负责 Demo Shopee MY）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 同 `TC-CONV-048` 第 1 步，买家名 Echo Check，消息「Do you ship to Penang?」，记 X | 两次都返回 `"ok":true` |
+| 2 | 等 20 秒，`api agent@demo.test "$B/api/v1/conversations?view=ai"`，找 `buyerName` 为 Echo Check 的行，记 `id` 为 C | 该行 `handlingState` 为 `bot` |
+| 3 | `api agent@demo.test -X POST $B/api/v1/conversations/<C>/messages -d '{"clientRequestId":"tc-conv-049","type":"text","text":"Yes, we ship to Penang."}'` | HTTP 201 |
+| 4 | `curl -s -X POST $B/api/mock/sim/seller_backend_reply -H 'Content-Type: application/json' -d '{"conversationId":"<X>"}'`（只推通知，模拟平台对本方回复发的 mark_as_replied） | 返回 `"ok":true`，`pushes` 只有 1 条，`httpStatus` 为 200 |
+| 5 | 等 20 秒，`api agent@demo.test "$B/api/v1/conversations/<C>"` | `conversation.handlingState` 为 `human`，`claimedBy.name` 为 Nur Aisyah；正文「Yes, we ship to Penang.」的消息只有 1 条，`senderRole` 为 `agent`；没有 `senderRole` 为 `platform_human` 的消息，没有「平台侧已有人处理」 |
+
+后置：无。
+
+#### `TC-CONV-050` 店铺自动回复不算平台后台回复 — 对应 `REQ-CONV-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行 §3「curl 会话」，`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 同 `TC-CONV-048` 第 1 步，买家名 Auto Reply，消息「Hello, anyone there?」，记 X | 两次都返回 `"ok":true` |
+| 2 | 等 20 秒，`api owner@demo.test "$B/api/v1/conversations?view=ai"`，找 `buyerName` 为 Auto Reply 的行，记 `id` 为 C | 该行 `handlingState` 为 `bot`，`draftPending` 为 `true` |
+| 3 | `curl -s -X POST $B/api/mock/sim/seller_backend_reply -H 'Content-Type: application/json' -d '{"conversationId":"<X>","text":"Thanks for messaging Demo Shopee MY!","auto":true}'` | 返回 `"ok":true`，`pushes` 只有 1 条，`httpStatus` 为 200 |
+| 4 | 等 20 秒，`api owner@demo.test "$B/api/v1/conversations/<C>"` | `conversation.handlingState` 仍为 `bot`，`handoffReason` 为 null；`draft.status` 为 `generated`；正文「Thanks for messaging Demo Shopee MY!」的消息 `senderRole` 为 `platform_bot`、`senderName` 为「平台自动回复」；没有「平台侧已有人处理」 |
 
 后置：无。
 
@@ -3857,6 +3900,8 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-016 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（团队页首响与看板同口径） | AI（Claude Code 执行子会话；curl） | 复测（RUN-015：TC-DASH-005） | 通过 1/1 |
 | RUN-017 | 2026-10-16 | 本地 | `c6fc3a3` | AI（Claude Code 执行子会话；Playwright + Edge） | 局部（TC-CONV-044） | 通过 0/1 · 失败 1 |
 | RUN-018 | 2026-10-16 | 本地 | `c6fc3a3` + 工作区改动（工作台轮询改为 3 / 2 / 10 秒） | AI（Claude Code 执行子会话；Playwright + Edge） | 复测（RUN-017：TC-CONV-044） | 通过 1/1 |
+| RUN-025 | 2026-10-16 | 本地 | `1eaa7ec` + 模拟器动作 `seller_backend_reply`（未修复） | AI（Claude Code 执行子会话；curl） | 局部（TC-CONV-048） | 通过 0/1 · 失败 1 |
+| RUN-026 | 2026-10-16 | 本地 | `1eaa7ec` + 工作区改动（Shopee 卖家后台回复补拉） | AI（Claude Code 执行子会话；curl、Playwright + Edge） | 复测（RUN-025：TC-CONV-048、TC-CONV-049、TC-CONV-050、TC-AI-001） | 通过 4/4 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -3955,6 +4000,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-013 | TC-SHOP-001 | 失败 | 第 9 步照用例先发消息再打开 `/wb`，发出后 10.0 秒待认领里仍没有该会话，与 RUN-012 相同：会话入库后约 2 秒影子草稿生成，页面首次取列表时还不可见，下一次要等 10 秒轮询；证据 `run-013-TC-SHOP-001-9.png` | 用例口径待裁定（「10 秒内」从发出算起，还是改为下一次列表刷新后可见），裁定前不改用例 |
 | RUN-015 | TC-DASH-005 | 失败 | 第 2 步林晓的 `handled.firstReplyMedianSec` 为 1200，预期 null（第 1 步看板为 null）：团队页的首响中位没排除工作时间外开始的会话段；证据 `docs/test-runs/run-015-TC-DASH-005-2.json` | 实现修复（团队页改用看板的首响样本），RUN-016 复测 |
 | RUN-017 | TC-CONV-044 | 失败 | 第 3 步预期 T1 后 5 秒内列表出现 X 的会话，实际 10.1 秒才出现（列表每 10 秒刷新一次）；第 5 步时间线 4.4 秒（预期 3 秒内）；第 7 步侧栏计数 30.1 秒（预期 12 秒内）；证据 `docs/test-runs/run-017-TC-CONV-044-3.png`（列表头已是「待认领 7」，侧栏仍是 6） | 实现修复（轮询改为列表 3 秒、详情 2 秒、导航摘要 10 秒，DESIGN v1.13 §15、ADR-007），RUN-018 复测 |
+| RUN-025 | TC-CONV-048 | 失败 | 第 4 步预期会话转 `human`、时间线出现「Yes, in stock. Ships today.」（平台后台），实际 `handlingState` 仍为 `bot`、时间线只有买家消息、草稿仍在；这条 `mark_as_replied` 通知被记为 ignored「聊天通知 mark_as_replied，不是消息」；证据 `docs/test-runs/run-025-TC-CONV-048-4.json` | 实现修复（收到通知后补拉，DESIGN v1.16 §11.1），RUN-026 复测 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -3989,6 +4035,10 @@ RUN-016 证据：复测轮，承接 RUN-015，环境同 RUN-015，起跑前重�
 RUN-017 证据：源自缺陷用例在未修复版本上的一轮。环境是 §3 本地行的独立副本：被测版本 `c6fc3a3` 检出到单独的 git 工作区，同一 PostgreSQL 实例里另建库 `shopilot_pollrun` 并按 §3 重建基线，Web 跑在 3363、Worker 单独起，`AI_MODE=stub`、`FEISHU_MODE=stub`；Playwright 1.64 + 本机 Edge（headless），等对应请求返回后立即调 `POST /api/mock/sim/buyer_message` 发消息，从发出时刻计时，2026-10-16 13:39–13:41（UTC+8）。实测：列表 10.1 秒、时间线 4.4 秒、侧栏计数 30.1 秒，三处都超时限，首个失败在第 3 步。
 
 RUN-018 证据：复测轮，承接 RUN-017。被测版本为 `c6fc3a3` 加本次两处前端改动（`src/app/(app)/wb/wb-shared.tsx` 列表 3 秒、详情 2 秒；`src/components/shell/app-shell.tsx` 导航摘要 10 秒），环境与手段同 RUN-017，2026-10-16 13:41–13:42。实测：列表 3.4 秒、时间线 2.3 秒、侧栏计数 10.1 秒。按 2026-10-14 起的快速开发约定（小修不跑整轮）本轮未跑冒烟级；冒烟级里涉及列表刷新的 `TC-AI-001`（20 秒内）与 `TC-SHOP-001` 第 9 步（15 秒内）时限都宽于新的 3 秒间隔。
+
+RUN-025 证据：修复前那一轮，只跑源自缺陷的 `TC-CONV-048`。环境是 §3 本地行的独立副本：分支 `fix/shopee-refetch` 的独立 git 工作区，同一 PostgreSQL 实例里另建库 `shopilot_ingest` 并按 §3 重建基线，Web 跑在 3365、Worker 单独起，`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`、`FEISHU_MODE=stub`；被测版本 `1eaa7ec` 只加了模拟器动作 `seller_backend_reply`（测试手段，不改入站处理），2026-10-16 14:12–14:14（UTC+8）。第 1–3 步通过，第 4 步失败，现象与线上一致：卖家后台回复只来一条通知，Shopilot 不处理。
+
+RUN-026 证据：复测轮，承接 RUN-025，环境同 RUN-025，起跑前重建基线，2026-10-16 14:21–14:27。第一次起跑时发现之前起的两个未修复版本 Worker 仍连着本库、抢走了通知事件（RUN-025 时它们同为未修复版本，不影响该轮结果），停掉全部旧进程、重建基线后整轮重跑，下列结果都来自重跑。`TC-CONV-048` 第 4 步会话 `human`、`platform_human`，回复由「平台后台」发出，草稿为 null（`docs/test-runs/run-026-TC-CONV-048-4.json`），第 5 步再推通知后回复仍 1 条（`run-026-TC-CONV-048-5.json`）；`TC-CONV-049` 本方回复 1 条、仍由 Nur 处理（`run-026-TC-CONV-049-5.json`）；`TC-CONV-050` 自动回复记「平台自动回复」，会话仍为 `bot`、草稿保留（`run-026-TC-CONV-050-4.json`）；冒烟 `TC-AI-001` 用 Playwright 1.64 + 本机 Edge（headless）跑完 7 步，已用 3 → 4、assist 3 → 4，截图 `docs/test-runs/run-026-TC-AI-001-{1..5}.png`。其余 13 条冒烟级未跑：本次只改 Shopee 聊天通知的处理与入库时间，按 2026-10-14 起的快速开发约定小修不跑整轮，同 RUN-014；冒烟级里经过入站与回声判定的 `TC-AI-001` 已跑。服务端用例 `src/server/inbound/refetch.test.ts` 8 条、`process.test.ts` 3 条通过；其中「最近消息时间不往回退」在去掉 `ingest.ts` 的改动后失败。
 
 ## 7. 遗留问题
 

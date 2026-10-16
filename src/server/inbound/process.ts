@@ -10,6 +10,7 @@ import { normalizeShopeeMessage } from "@/server/platforms/shopee";
 import { normalizeTiktokMessage, tiktokFindConversation } from "@/server/platforms/tiktok";
 import { logisticsTicket, syncAfterSaleTicket } from "@/server/tickets/platform";
 import { enqueueInbound } from "./accept";
+import { enqueueRefetch } from "./refetch";
 
 type EventRow = typeof schema.inboundEvent.$inferSelect;
 type Outcome = { status: "done" | "ignored"; reason?: string; followUp?: FollowUp };
@@ -157,8 +158,15 @@ async function dispatch(ev: EventRow): Promise<Outcome> {
   // 聊天
   if (platform === "shopee" && code === 10) {
     const content = (d.content ?? {}) as Record<string, unknown>;
-    // data.type=notification 是会话状态通知（如卖家后台标记已回复 mark_as_replied），不是聊天消息
-    if (d.type !== "message") return { status: "ignored", reason: `聊天通知 ${String(content.type ?? d.type ?? "")}，不是消息` };
+    // data.type=notification 是会话状态通知，不是聊天消息。mark_as_replied：会话变为已回复，卖家后台的回复只以这条通知到达，排补拉
+    if (d.type !== "message") {
+      const conversationId = String(content.conversation_id ?? "");
+      if (content.type === "mark_as_replied" && conversationId) {
+        await enqueueRefetch(shop.id, conversationId);
+        return { status: "done", reason: "会话已回复，排补拉" };
+      }
+      return { status: "ignored", reason: `聊天通知 ${String(content.type ?? d.type ?? "")}，不是消息` };
+    }
     const m = normalizeShopeeMessage(content, shop.externalShopId);
     const affiliate = Number(content.business_type ?? 0) === 11;
     const res = await db().transaction((tx) => ingestMessage(tx, shop, m, m.fromBuyer ? { externalId: m.buyerExternalId ?? "", name: m.buyerName, affiliate } : null));

@@ -1,5 +1,5 @@
 // 需要数据库：DATABASE_URL 未设置时跳过（set -a && . ./.env && set +a && pnpm exec vitest run src/server/inbound）。
-// Shopee 聊天推送（code 10）：data.type=message 落一条消息；data.type=notification（如 mark_as_replied）是会话状态通知，不落消息。
+// Shopee 聊天推送（code 10）：data.type=message 落一条消息；data.type=notification 是会话状态通知，不落消息，其中 mark_as_replied 排一次补拉（inbound.refetch）。
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -70,7 +70,8 @@ describe.skipIf(!process.env.DATABASE_URL)("Shopee 聊天推送处理（code 10�
 
   const messageCount = async () => (await db().select({ id: schema.message.id }).from(schema.message).where(eq(schema.message.merchantId, ctx.merchantId))).length;
 
-  it("notification（mark_as_replied）不落消息，事件记为 ignored", async () => {
+  it("notification（mark_as_replied）不落消息，按会话排补拉，事件记为 done", async () => {
+    const { enqueue } = await import("@/server/jobs/boss");
     const before = await messageCount();
     const conv = "10162216384810179";
     const ev = await run({
@@ -87,8 +88,14 @@ describe.skipIf(!process.env.DATABASE_URL)("Shopee 聊天推送处理（code 10�
         conversation_id: conv,
       },
     });
-    expect(ev.status).toBe("ignored");
+    expect(ev.status).toBe("done");
     expect(await messageCount()).toBe(before);
+    expect(enqueue).toHaveBeenCalledWith("inbound.refetch", { shopId: ctx.shopId, conversationId: conv }, { singletonKey: `${ctx.shopId}:${conv}`, startAfter: 10 });
+  });
+
+  it("其他会话通知仍记为 ignored", async () => {
+    const ev = await run({ type: "notification", region: "PH", content: { type: "other_notice", conversation_id: "10162216384810180", timestamp: Math.floor(Date.now() / 1000) } });
+    expect(ev.status).toBe("ignored");
   });
 
   it("message 照常落一条买家文字消息", async () => {

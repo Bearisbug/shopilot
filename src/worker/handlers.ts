@@ -4,6 +4,7 @@ import { purgeMerchants, retentionPurge, runExport } from "@/server/settings/dat
 import { backfillShop, scanLogistics, syncRecentOrders } from "@/server/inbound/backfill";
 import { pollReadOnlyShops } from "@/server/inbound/poll";
 import { processInbound, sweepInbound } from "@/server/inbound/process";
+import { refetchConversation } from "@/server/inbound/refetch";
 import { generateDraft } from "@/server/ai/draft";
 import { translateMessage } from "@/server/ai/translate";
 import { shopMetricsJob, tokenRefreshJob } from "@/server/shops/jobs";
@@ -32,6 +33,7 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "inbound.process": processInbound,
   "inbound.sweep": () => sweepInbound(),
   "inbound.poll": () => pollReadOnlyShops(),
+  "inbound.refetch": refetchConversation,
   "shop.backfill": backfillShop,
   "order.sync": syncRecentOrders,
   "logistics.scan": () => scanLogistics(),

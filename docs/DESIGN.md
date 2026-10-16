@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.16 | REQ-CONV-001、ENT-Conversation、ENT-InboundEvent、API-MOCK-004 | Shopee 卖家后台的回复补拉进会话：收到「会话已回复」通知后补拉，后台回复转平台后台处理；店铺自动回复与本方回复不算 | 缺陷修复 |
 | 2026-10-16 | v1.13 | API-CONV-001、API-CONV-002、API-NAV-001、ADR-007 | 工作台刷新加快：会话列表 3 秒、打开的会话 2 秒、侧栏计数 10 秒刷新一次（原 10、4、30 秒） | 缺陷修复 |
 | 2026-10-16 | v1.13 | API-TEAM-001 | 团队页的人工首响中位与看板同口径，只算工作时间内开始的会话段 | 缺陷修复 |
 | 2026-10-16 | v1.13 | API-CONV-004、PAGE-WB、ENT-Conversation | 平台后台有人回复过的会话可在 Shopilot 认领接手，员工也能打开 | 缺陷修复 |
@@ -724,7 +725,7 @@
 | REQ-SHOP-011 | 预约远程协助：记录协助单（平台、卡住的步骤、时段、联系方式），站内提示已提交 | G1 | P1 |
 | REQ-SHOP-012 | 授权维护：token 到期前自动刷新；刷新失败或平台推送取消授权时店铺转「授权失效」并通知管理员；授权 30 天内到期时提醒（见 11.6 `refresh_failed` / `deauthorized`） | G1 | P0 |
 | REQ-SHOP-013 | 历史回补：接入后按店串行回补会话约 90 天、订单 180 天；回补会话以已结束入库、无处理人、不出稿、不计统计（无对外 API，见 12.1 末条、内部任务 `shop.backfill`） | G1 | P1 |
-| REQ-CONV-001 | 入站：校验平台签名，按事件 ID 幂等落库后 2 秒内应答；后台异步建会话与消息；未知店铺、本方出站回声、达人会话按规则忽略或只记录 | G2 | P0 |
+| REQ-CONV-001 | 入站：平台推送验签后按事件 ID 幂等落库、2 秒内应答，后台异步建会话与消息 | G2 | P0 |
 | REQ-CONV-002 | 会话列表：分组待认领 / AI 草稿 / 我处理中 / 已结束，组长以上另有「同事处理中」；按平台、店铺筛选；买家再回复置顶并显示已等时长，超接待时限标警示；行上显示未结工单徽标 | G2 | P0 |
 | REQ-CONV-003 | 会话详情：时间线（文字、图片、订单卡、商品卡、退货卡、物流卡、优惠券卡、译文与译文来源、系统事件）；右栏买家与订单、工单小节；工作台宽度放不下「会话列表 + 400px 对话栏 + 右栏」时右栏收成抽屉，对话栏最小 400px | G2 | P0 |
 | REQ-CONV-004 | 认领（原子，先到先得）、转交 / 改派（可勾选关联工单一并转交）、结束（TikTok 同步结束会话）；员工只能转交、结束自己的会话 | G2 | P0 |
@@ -1780,7 +1781,7 @@ erDiagram
 | `API-MOCK-001` | Shopee `/api/v2/...` | REQ-MOCK-001 | `public/get_shops_by_partner`、`shop/auth_partner`（授权页）、`shop/cancel_auth_partner`、`auth/token/get`、`auth/access_token/get`、`push/get_app_push_config`、`push/set_app_push_config`、`shop/get_shop_info`、`sellerchat/get_conversation_list`、`sellerchat/get_one_conversation`、`sellerchat/get_message`、`sellerchat/get_unread_conversation_count`、`sellerchat/send_message`、`sellerchat/upload_image`、`order/get_order_list`、`order/get_order_detail`、`order/cancel_order`、`order/handle_buyer_cancellation`、`logistics/get_tracking_info`、`returns/get_return_list`、`returns/get_return_detail`、`returns/confirm`、`returns/dispute`、`account_health/get_shop_performance` |
 | `API-MOCK-002` | TikTok `/...` | REQ-MOCK-001 | `open/authorize`（授权页）、`api/v2/token/get`、`api/v2/token/refresh`、`authorization/202309/shops`、`customer_service/202309/conversations`、`customer_service/202309/conversations/{id}/messages`（GET）、`customer_service/202606/conversations/{id}/messages`（POST 发送）、`customer_service/202309/images/upload`、`customer_service/202605/conversations/{id}/sessions/{sid}/end`、`customer_service/202309/agents/settings`（GET / PUT）、`customer_service/202407/performance`、`order/202309/orders/search`、`order/202507/orders`、`fulfillment/202309/orders/{id}/tracking`、`return_refund/202602/cancellations`（卖家取消订单）、`return_refund/202602/cancellations/search`、`return_refund/202309/cancellations/{id}/approve`、`return_refund/202309/cancellations/{id}/reject`、`return_refund/202602/returns/search`、`return_refund/202309/returns/{id}/approve`、`return_refund/202606/returns/{id}/reject`、`return_refund/202309/returns/{id}/records`、`return_refund/202309/reject_reasons`、`promotion/202406/coupons/search`、`event/202309/webhooks`（GET / PUT）；退货或退款批准到 `RETURN_OR_REFUND_REQUEST_SUCCESS` 后，模拟平台紧接着打款转 `_COMPLETE`，两次状态各推一次 webhook 12 |
 | `API-MOCK-003` | `GET /mock/shopee/{region}/api/v2/shop/auth_partner`、`GET /mock/shopee/{region}/api/v2/shop/cancel_auth_partner`、`GET /mock/tiktok/auth/open/authorize`；提交 `POST /mock/auth-submit/{shopee-authorize\|shopee-cancel\|tiktok-authorize}` | REQ-MOCK-001 | 模拟平台授权页，路径与真实平台相同：列出该应用可授权的店（Shopee 主账号下多店，可逐店取消勾选；TikTok 按 `shop_region`），点「授权」后 303 整页跳回 `API-SHOP-005` 并带 code；可选「模拟子账号授权」「模拟拒绝」（Shopee 回跳 `?error=access_denied`，TikTok `?error=auth_denied&state`）；授权链接时间戳超过 5 分钟拒绝打开；对已授权的店再授权只更新授权时间，旧 token 在 Shopilot 用新 code 换 token 时才作废 |
-| `API-MOCK-004` | `POST /api/mock/sim/{action}` | REQ-MOCK-002 | 模拟器动作：`buyer_message`、`buyer_image`、`buyer_order_card`、`buyer_product_card`、`create_order`、`advance_order`（UNPAID → … → COMPLETED / 各平台枚举）、`request_cancel`、`request_return`、`buyer_ship_return`、`platform_arbitrate`、`expire_auth`、`deauthorize`、`create_buyer`（新买家，首条消息后会话才出现）、`resend_push`；每个动作改模拟数据并按平台格式签名推送到已配置回调 |
+| `API-MOCK-004` | `POST /api/mock/sim/{action}` | REQ-MOCK-002 | 模拟器动作：`buyer_message`、`buyer_image`、`buyer_order_card`、`buyer_product_card`、`create_order`、`advance_order`（UNPAID → … → COMPLETED / 各平台枚举）、`request_cancel`、`request_return`、`buyer_ship_return`、`platform_arbitrate`、`expire_auth`、`deauthorize`、`create_buyer`（新买家，首条消息后会话才出现）、`resend_push`、`seller_backend_reply`（Shopee 卖家在卖家中心回复：消息只进平台会话、不推送，随后推 code 10 通知 `mark_as_replied`；不带正文只推通知；`auto` 为真时消息时刻取最近一条买家消息的时刻，模拟店铺自动回复）；每个动作改模拟数据并按平台格式签名推送到已配置回调 |
 | `API-MOCK-005` | `GET /api/mock/sim/state` | REQ-MOCK-002 | 模拟器读数：店铺、买家会话（含卖家发出的消息与卡片）、订单、售后单、推送日志 |
 | `API-MOCK-006` | `GET /api/dev/outbox`、`POST /api/dev/outbox/{id}/bounce`、`GET /api/dev/outbox/{id}/attachments/{fileId}` | REQ-MOCK-003 | 发件箱列表与正文（`?to=` 按收件人筛选）、标记退信（发票邮件转 11.9 bounce）、下载附件；只在 `MOCK_PLATFORM=1` 时可用 |
 | `API-MOCK-007` | `GET/PUT /api/mock/sim/faults` | REQ-MOCK-002 | 故障注入：`{ platform, shopId, category: send_message\|order_read\|after_sale_write, mode: once\|sticky\|off, kind: error\|timeout }`；error 返回平台 5xx（Shopee `error_server`、TikTok 36009003），timeout 延迟 12 秒后照常响应 |
@@ -1884,7 +1885,7 @@ erDiagram
 | AI 独立解决 | — | `segment.ai_resolved` | boolean | 是 | 段结束时：没有人工消息、没有转人工、至少一条 AI 发出的消息 | — | — |
 | 回补段 | — | `segment.backfilled` | boolean | 是 | 回补入库的段为 true，不进任何统计 | — | — |
 | 消息方向 | `direction` | `message.direction` | enum | 是 | `in` / `out` | — | — |
-| 发送方 | `senderRole` | `message.sender_role` | enum | 是 | `buyer` / `agent` / `ai` / `platform_human`（卖家后台直接回复）/ `platform_bot` / `system`；平台系统消息不管发送方字段是谁都记 `system`，不算买家发言、不触发出稿、不改处理状态：Shopee `notification`、`bundle_message`、`chatbot_msg`、`live_agent_transfer`，TikTok `NOTIFICATION`、`OTHER`、`ALLOCATED_SERVICE`、`BUYER_ENTER_FROM_TRANSFER`、`USER_ENTER_FROM_*`、`GOODS_CARD`、`SESSION_CLOSE`（原始类型存 `payload.platformType`） | — | — |
+| 发送方 | `senderRole` | `message.sender_role` | enum | 是 | `buyer` / `agent` / `ai` / `platform_human`（卖家后台直接回复）/ `platform_bot`（平台或店铺的自动回复：TikTok `ROBOT`；Shopee 补拉到的、距前一条买家消息不超过 2 秒的店铺消息）/ `system`；平台系统消息不管发送方字段是谁都记 `system`，不算买家发言、不触发出稿、不改处理状态：Shopee `notification`、`bundle_message`、`chatbot_msg`、`live_agent_transfer`，TikTok `NOTIFICATION`、`OTHER`、`ALLOCATED_SERVICE`、`BUYER_ENTER_FROM_TRANSFER`、`USER_ENTER_FROM_*`、`GOODS_CARD`、`SESSION_CLOSE`（原始类型存 `payload.platformType`） | — | — |
 | 消息类型 | `type` | `message.type` | enum | 是 | `text` / `image` / `order_card` / `product_card` / `return_card` / `logistics_card` / `coupon_card` / `sticker` / `video` / `other`；Shopee 原始类型归一：`faq_liveagent` → text，`image_with_text` → image（附文字），`variation_card` / `item_list` / `bundle_deal` / `add_on_deal` → product_card，`voucher` → coupon_card，`logistics_card`、`return_refund_card` → 对应卡片 | — | — |
 | 正文 | `text` | `message.text` | text | 否 | ≤ 2,000 字（出站） | — | 中 |
 | 译文 | `translation` | `message.translation` | text | 否 | — | — | 中 |
@@ -2201,9 +2202,9 @@ stateDiagram-v2
 | bot → bot | ai_reply | 当前模式 = auto 且 草稿 `status = generated` 且 `handoff = false` 且 `confidence ≥ 阈值` | 发送草稿（11.2 `send`），更新 `last_agent_at` | 内部任务 `draft.generate` | 内部任务 `draft.generate` |
 | bot → awaiting_human | handoff | `handoff_reason ∈ {keyword, low_confidence, non_text, model_error, timeout, send_failed, human_request, policy, quota, shop_off, shadow}` | 写 `handoff_reason`、审计 `EVT:handoff`；auto 模式先发安抚句（不更新 `last_agent_at`，等待计时与待认领提醒照常）；通知负责该店的启用成员（规则 `handoff`）；推飞书待认领卡（12.9） | 内部任务 `inbound.process` / `draft.generate` | 内部任务 `draft.generate` |
 | bot → human | claim | 操作人是启用成员 且 店铺在其范围内 且 请求带 `version` 时版本一致 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；未处置草稿保留可用；审计 `EVT:conversation_claimed` | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
-| bot → human | platform_human | 入站 `sender_role = platform_human`（卖家在平台后台直接回复）且 不是本方出站回声 | `claimed_by = null`，作废未处置草稿，写系统事件「平台侧已有人处理」 | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| bot → human | platform_human | 入站 `sender_role = platform_human`（卖家在平台后台直接回复）且 不是本方出站回声 且 不是店铺自动回复 | `claimed_by = null`，作废未处置草稿，写系统事件「平台侧已有人处理」 | 内部任务 `inbound.process` / `inbound.refetch` | `API-HOOK-001`（推送; code=10，Shopee 经 `mark_as_replied` 通知补拉）/ `API-HOOK-002`（webhook; type=14） |
 | awaiting_human → human | claim | 同 bot → human claim | 同上 | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
-| awaiting_human → human | platform_human | 同 bot → human platform_human | 同上 | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| awaiting_human → human | platform_human | 同 bot → human platform_human | 同上 | 内部任务 `inbound.process` / `inbound.refetch` | `API-HOOK-001`（推送; code=10，Shopee 经 `mark_as_replied` 通知补拉）/ `API-HOOK-002`（webhook; type=14） |
 | human → human | take_over | `claimed_by` 为空（平台后台有人回复过，Shopilot 里没有处理人）且 操作人是启用成员、店铺在其范围内 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；审计 `EVT:conversation_claimed`；负责该店的员工也能打开这类会话 | 成员（会话页「认领」、飞书卡片认领链接、认领并发送） | `API-CONV-004` / `API-CONV-007` |
 | human → human | assign | 目标是启用成员 且 负责该店（或为管理员）且 目标 ≠ 当前处理人 且 `version` 一致 | `claimed_by = 目标`；`withTickets` 时关联未结工单负责人改为目标并写工单时间线；通知目标（规则 `ticket_assigned` 只在带工单时） | 处理人（转交）/ 组长、管理员（改派） | `API-CONV-005` |
 | human → awaiting_human | release | 处理人被停用 | `claimed_by = null`、`handoff_reason = manual`，写系统事件；停用提交后推飞书待认领卡（本段推过就不推） | 管理员停用成员时的系统动作 | `API-TEAM-008` |
@@ -2217,6 +2218,18 @@ stateDiagram-v2
 | closed → awaiting_human | reopen_to_queue | 新买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {off, shadow} | 开新段，重判阶段，`handoff_reason = shop_off` 或 `shadow`，置顶；shadow 时排影子出稿；推飞书待认领卡（12.9） | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
 
 不改状态的事件：`awaiting_human` / `human` 下收到买家消息只更新 `last_buyer_at` 并置顶（`human` 状态不出稿）；`bot` 下收到新买家消息：作废未处置草稿（11.2 `supersede`）并重新出稿。处理人发消息（`API-CONV-007`）只写出站消息与审计 `EVT:agent_reply_sent`。内部任务 `unclaimed.remind` 对 `awaiting_human` 超过 `unclaimed_remind_minutes` 且本段未提醒过的会话，通知负责该店的组长一次（REQ-CONV-010），同时推飞书超时卡（REQ-FEISHU-004），不改状态；提醒时长为「不提醒」时两者都不做。
+
+Shopee 卖家后台回复的补拉（内部任务 `inbound.refetch`）：
+
+- Shopee 不推送卖家侧消息。卖家在卖家中心回复时，只来一条 code 10 会话通知 `mark_as_replied`。
+- 这条通知在会话由「未回复」变为「已回复」时发一次；同一轮里接着发的回复不再通知，要等买家再发消息后的下一次回复。
+- 收到通知后 10 秒补拉该会话最新一页消息（20 条），同一会话这 10 秒里的其他通知并进同一次补拉。
+- 只入库本段开始之后、库里还没有的卖家侧与平台消息，按时间从旧到新，走与推送相同的入库规则。
+- 补拉不入库买家消息，买家消息以推送为准；所以补拉不开新段、不出稿。
+- 本方从 Shopilot 发出的消息按平台消息 ID，或 2 分钟内同类型同正文的发送中消息认出，不重复入库。
+- 店铺发出、距前一条买家消息不超过 2 秒的是店铺自动回复，记 `platform_bot`，不触发 `platform_human`。
+- 会话还没建、是达人会话、店铺没有聊天权限或授权失效时不补拉。
+- 补拉到的消息早于会话最近一条消息时，会话的最近消息时间、最近客服回复时间不往回改。
 
 ### 11.2 草稿 `ENT-Draft.status`
 
@@ -2266,8 +2279,8 @@ stateDiagram-v2
 | --- | --- | --- | --- | --- | --- |
 | [*] → queued | accept | 签名有效 且 `(platform_app_id, external_event_id)` 不存在 | 存原始载荷，排 `inbound.process`，立即 200 | 平台 | `API-HOOK-001` / `API-HOOK-002` |
 | queued → processing | claim | `status = queued` 且 任务取得 | 写 `lease_until = now + 60s` | Worker | 内部任务 `inbound.process` |
-| processing → done | process | 会话、消息、订单、售后、工单已按事件落库 | 记 `processed_at` | Worker | 内部任务 `inbound.process` |
-| processing → ignored | skip | 事件类型不在处理清单 或 本方出站回声 或 店铺不属于该应用 或 店铺 `status = disconnected` | 记原因 | Worker | 内部任务 `inbound.process` |
+| processing → done | process | 会话、消息、订单、售后、工单已按事件落库，或 Shopee 会话通知 `mark_as_replied` 已排补拉 | 记 `processed_at` | Worker | 内部任务 `inbound.process` |
+| processing → ignored | skip | 事件类型不在处理清单（含 `mark_as_replied` 以外的 Shopee 会话通知） 或 本方出站回声 或 店铺不属于该应用 或 店铺 `status = disconnected` | 记原因 | Worker | 内部任务 `inbound.process` |
 | processing → failed | fail | 处理抛出异常 | 记错误摘要，`attempts + 1` | Worker | 内部任务 `inbound.process` |
 | processing → failed | lease_expire | `lease_until < now` | 记「处理中断」 | 定时任务 `inbound.sweep` | 内部任务 `inbound.sweep` |
 | failed → queued | retry | `attempts < 3` | 重新排队，退避 10 秒 × 2^attempts | 定时任务 `inbound.sweep` | 内部任务 `inbound.sweep` |
@@ -2977,6 +2990,36 @@ sequenceDiagram
 - 卡尾一行灰字说明这是哪种卡、同一段只推一次
 - 测试卡片标题「测试卡片 · 商户名」蓝色，说明之后会收到什么；应用接法附一张上传的测试图片
 
+### 12.10 Shopee 卖家后台回复 → 补拉入库（REQ-CONV-001）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant SC as Shopee 卖家中心（店铺员工）
+  participant SP as Shopee 开放平台
+  participant API as Shopilot API
+  participant DB as PostgreSQL
+  participant W as Worker（inbound.process、inbound.refetch）
+  SC->>SP: 直接回复买家
+  SP->>API: 推送 code 10 会话通知 mark_as_replied (API-HOOK-001)
+  API->>DB: 验签，幂等写 inbound_event queued
+  API-->>SP: 200（2 秒内）
+  W->>DB: inbound.process：排 inbound.refetch（10 秒后，同会话只排一个），事件 done
+  W->>SP: v2.sellerchat.get_message（最新 20 条）
+  loop 本段开始之后、库里没有的卖家侧消息（旧 → 新）
+    alt 本方出站回声
+      W->>DB: 补上平台消息 ID，不重复入库
+    else 距前一条买家消息 ≤ 2 秒
+      W->>DB: 记平台自动回复，不改状态
+    else 卖家后台回复
+      W->>DB: 记平台后台回复；会话在 AI 接待或待认领时转 human（11.1 platform_human）
+    end
+  end
+  alt 平台超时、5xx、网络错误
+    W->>W: 30 秒后重试，共 2 次
+  end
+```
+
 ## 13. 页面与跳转地图
 
 视觉来源：品牌目录 `brand/`（`brand/DESIGN.md`；配色、字体、标志「叠信」都取自 Quilt 项目「Shopilot」设计系统 v5「奶油 / 可可 / 芒果 / 焦糖」，与原型一致）；页面结构与交互以 Quilt 原型 73 屏为准（ACRU 仪表盘结构：白侧栏可收起、顶栏搜索 + 图标按钮 + 账号卡、白色圆角面板网格；图表一律 Chart.js）。原型里知识库模块的屏（经验卡、更新审核、AI 核验、产品目录）与助手的屏不实现；知识库一期是接待设置里的「知识库」标签页，侧栏不单列「知识库」，顶栏不显示「助手」。
@@ -3246,6 +3289,7 @@ flowchart LR
 | 双击发送 | `API-CONV-007` × 2 同 `clientRequestId` | 只发一次；第二次返回首次结果 | 唯一索引 `(conversation_id, client_request_id)` |
 | 两人同时处置同一草稿 | `API-CONV-007`（带 `draftId`）× 2 | 一人成功；另一人 409 | `UPDATE draft … WHERE status='generated'` |
 | 草稿生成期间买家又发消息 | `draft.generate` 与 `inbound.process` | 旧触发消息生成的草稿落库即标 `superseded`，再按最新消息出稿 | 保存草稿前比对 `trigger_message_id` 是否仍为会话最新买家消息；同会话出稿任务 `singletonKey = conversation_id` |
+| 同一会话短时间内多条 `mark_as_replied` 通知 | `inbound.refetch` × n | 排队中的补拉只有一个，后到的通知并进去；执行中再来通知最多再排一个 | `singletonKey = 店铺:会话`，队列策略同一键最多一个排队、一个执行中；入库靠唯一索引 `(conversation_id, external_message_id)` 去重 |
 | 同一会话的入站事件并发 | `inbound.process` × n | 按平台时间顺序落库，状态迁移不交错 | 处理时取 `pg_advisory_xact_lock(hash(conversation 外部 ID))` |
 | 平台重放推送 | `API-HOOK-001` / `API-HOOK-002` 重复 | 200，不重复处理 | 唯一索引 `(platform_app_id, external_event_id)`，`ON CONFLICT DO NOTHING` |
 | 平台事件与人工售后操作交错 | `API-ORD-007` 与 `API-HOOK-002`（type=12） | 以平台状态为准；旧事件不覆盖新状态 | `after_sale.platform_updated_at` 单调，较旧事件只记时间线不改状态；人工操作持 `after_sale` 行锁，成功后回读平台 |
@@ -3296,6 +3340,7 @@ flowchart LR
 | --- | --- | --- | --- | --- | --- |
 | `inbound.process` | 回调落库后入队 | 单事件；并发 10；同会话咨询锁 | 30 秒 | 记 `failed`，由 `inbound.sweep` 重试至第 3 次 | 本期无告警（§21 N/A），Worker 日志 error |
 | `inbound.sweep` | 每分钟 | 单实例 | 1 分钟 | 下轮补扫 | 同上 |
+| `inbound.refetch` | Shopee 会话通知 `mark_as_replied` 处理后入队，10 秒后执行 | `singletonKey = 店铺:会话`；每次 1 页 20 条 | 1 分钟 | 平台超时、5xx、网络错误 30 秒后重试 2 次；授权失效、无聊天权限、会话不存在只记日志 | 同上 |
 | `draft.generate` | 入站处理后入队 | `singletonKey = conversation_id`；全局并发 20、单商户 5 | 60 秒（改写 6 + 检索 13 + 出稿 25 + 余量） | 不重试；转人工 | 同上 |
 | `knowledge.ingest` | `API-KB-002`、`API-KB-006` | `singletonKey = document_id`；全局并发 4、单商户 2 | 20 分钟 | 条目级删除后同名重传最多 2 次；任务异常或超时把资料标 `failed`，管理员可重新解析 | 同上 |
 | `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库（改分类、站点、AI 可用都会重新计时），`processing` 超过 25 分钟没有更新的标失败，原因「入库任务中断，请重新解析」；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
@@ -3682,6 +3727,21 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Then 返回 401，不落库
   When 同一条消息推送两次
   Then 两次都返回 200，只生成一条消息
+
+场景: Shopee 卖家后台的回复补拉进会话 (REQ-CONV-001)
+  Given Shopee 店一个 AI 接待中的会话，带一份未处置的草稿
+  When 店铺员工在 Shopee 卖家中心直接回复，平台推来 mark_as_replied 通知
+  Then 约 20 秒内时间线出现这条回复，发送方为平台后台
+  And 会话转为平台后台已有人处理，没有处理人，草稿作废
+  When 同一会话再来一条通知
+  Then 这条回复仍只有一条
+
+场景: 本方回复与店铺自动回复不算平台后台回复 (REQ-CONV-001)
+  Given Shopee 店一个会话
+  When 员工从 Shopilot 回复后平台推来 mark_as_replied 通知
+  Then 时间线里这条回复只有一条，会话仍由该员工处理
+  When 另一个 AI 接待中的会话里，店铺自动回复与买家消息同一秒发出，随后平台推来通知
+  Then 自动回复记为平台自动回复，会话仍由 AI 接待，草稿保留
 
 场景: 会话列表分组、置顶与等待时长 (REQ-CONV-002)
   Given 员工处理中的会话里买家在他回复后又发了消息
@@ -4383,6 +4443,9 @@ N/A — 本期不上线。
 | Open Question | 部署位置、真实发信服务、支付服务商 | 用户 | 上线前 |
 | 风险 | 2026-10-13 用 OBSBOT 现网 token 只读实测（Shopee 6 店、TikTok 5 店）：店铺信息、平台指标、会话与消息、订单列表与详情、物流轨迹、退货与取消、拒绝原因、聊天券、坐席接单状态都能由 Shopilot 适配器读通并正确归一。写接口（发消息、改推送、登记 webhook、换 token、售后同意或拒绝、取消订单、结束会话、改坐席接单）没有实测：现网 Obsbot v2 在用同一套应用，写操作会影响真实买家或现网回调；TikTok 售后写接口与 Send Message（202606）仍是「推断可调」 | 实现 | 接入第一家试点店时，用测试买家账号逐个实测写接口 |
 | 风险 | Shopee Chat 接口文档不公开，模拟平台按 Obsbot v2 现网代码实现，字段可能不全 | 实现 | 接真实平台时 |
+| 风险 | 已知限制：Shopee 打包消息（`bundle_message`）是买家转人工前与 Shopee 助手的对话，推送只列消息 ID。2026-10-16 线上核对：经 `get_message` 回补的 976 条打包消息里，941 条前 10 分钟内没有任何别的消息，接口不单列包内消息，补拉也取不到；这段对话 Shopilot 看不到，只记一条系统事件 | 用户 | 需要时先用测试店确认平台有没有按消息 ID 取内容的接口 |
+| 风险 | 已知限制：Shopee 同一轮里接着发的后台回复不再通知，要等下一次 `mark_as_replied` 补拉才进 Shopilot；店铺自动回复按「距买家消息 ≤ 2 秒」判断，买家与店员恰好同时发时会把人工回复记成自动回复 | 实现 | 上线后看两周补拉日志 |
+| 风险 | 已知限制：TikTok 会话建立前到达的卖家侧消息不入库。2026-10-16 线上核对近 22 小时被丢的 78 条：65 条是店铺机器人的问候与问题菜单，13 条是平台通知，没有人工回复；其中只有 9 条所在的会话后来建立 | 实现 | 出现人工回复被丢时 |
 | 风险 | 商户没上传资料、或资料没覆盖买家问的内容时，AI 对产品参数类问题仍会因资料不足转人工，草稿采纳率随资料覆盖面变化 | 用户 | 知识库上线后看两周数据 |
 | 风险 | Cloudflare AI Search 是 2026-10-01 才 GA 的新产品，2026-11-01 起计费；实测混合检索约 2.6% 静默降级、入库偶发超时、「重新同步」返回成功却没重建，接口与价格可能再变 | 实现 | 每月核对一次产品变更；命中 ADR-014 换回条件时 |
 | 风险 | 重排模型对泰语、马来语打分接近 0，越南语扫描件 OCR 丢声调；这几种语言的检索主要靠中文改写那一路 | 实现 | 上线后按语种抽检命中率 |
