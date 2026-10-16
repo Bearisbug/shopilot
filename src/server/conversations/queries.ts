@@ -328,7 +328,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     openTickets: tickets,
     history: segs.map(({ seg: s, messages: n }) => ({ id: s.id, stage: s.stage, startedAt: s.startedAt.toISOString(), endedAt: s.endedAt?.toISOString() ?? null, endReason: s.endReason, claimedBy: s.firstClaimedBy ? (segNames.get(s.firstClaimedBy) ?? null) : null, messages: n })),
     permissions: {
-      canClaim: ctx.can("wb.handle") && (conv.handlingState === "bot" || conv.handlingState === "awaiting_human") && !affiliate,
+      canClaim: ctx.can("wb.handle") && (conv.handlingState === "bot" || conv.handlingState === "awaiting_human" || (conv.handlingState === "human" && !conv.claimedBy)) && !affiliate,
       canSend: ctx.can("wb.handle") && ((conv.handlingState === "human" && conv.claimedBy === me) || conv.handlingState === "bot" || conv.handlingState === "awaiting_human") && !affiliate,
       canTransfer: conv.handlingState === "human" && (conv.claimedBy === me || manager),
       canClose: open && (conv.claimedBy === me || manager),

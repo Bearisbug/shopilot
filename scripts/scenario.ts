@@ -348,6 +348,9 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
     await db().update(schema.receptionSettings).set({ unclaimedRemindMinutes: 10 }).where(eq(schema.receptionSettings.merchantId, m.id));
     out(await conversation({ shopName: "Demo Shopee MY", state: "awaiting_human", handoffReason: "low_confidence", messages: [{ from: "buyer", text: "Hello? Anyone there?", minutesAgo: 11 }] }));
   },
+  // 卖家在平台后台直接回复过：处理中、没有 Shopilot 处理人（模拟器没有「平台后台回复」动作，用场景造）
+  "platform-human": async () =>
+    out(await conversation({ shopName: "Demo Shopee MY", state: "human", claimedBy: null, handoffReason: "platform_human", messages: [{ from: "buyer", text: "Can I use it with Android?", minutesAgo: 6 }] })),
   "auth-link-6min": async () => {
     const m = await demo();
     const owner = await member(m.id, "owner@demo.test");

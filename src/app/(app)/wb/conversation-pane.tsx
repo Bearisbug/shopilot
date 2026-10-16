@@ -345,7 +345,15 @@ function Footer({ d, editing, onDoneEditing, onCancelEditing }: { d: Conversatio
   if (c.handlingState === "closed") reason = "会话已结束。买家再发消息时会开新的会话段，按当时的接待模式进入 AI 或待认领。";
   else if (c.shop.status === "disconnected") reason = "店铺已断开，管理员在「店铺与连接」重新授权后恢复发送。";
   else if (!d.permissions.canSend || !c.canReply)
-    reason = c.replyBlockedReason ?? (c.handlingState === "human" ? `${c.claimedBy ? `${c.claimedBy.name} ` : "平台后台"}正在处理，只有处理人能发送。` : "当前角色不能在这个会话里发送。");
+    reason =
+      c.replyBlockedReason ??
+      (c.handlingState === "human"
+        ? c.claimedBy
+          ? `${c.claimedBy.name} 正在处理，只有处理人能发送。`
+          : d.permissions.canClaim
+            ? "平台后台有人回复过这个会话。点上方「认领」接手，之后在这里继续回复。"
+            : "平台后台有人回复过这个会话。"
+        : "当前角色不能在这个会话里发送。");
   if (reason) {
     return (
       <div className="shrink-0 border-t border-border px-4 py-3">

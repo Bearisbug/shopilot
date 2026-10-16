@@ -1,5 +1,5 @@
 // 会话写操作（DESIGN §11.1、§11.2、§11.7）：认领、转交 / 改派、结束、发送、忽略草稿、改阶段、重试。
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import type { MessageItem, SendBody } from "@/contracts/conversations";
 import { handoff } from "@/server/ai/draft";
 import { translateText } from "@/server/ai/translate";
@@ -30,7 +30,8 @@ async function memberName(id: string | null): Promise<string> {
 async function loadForHandling(ctx: MemberContext, id: string): Promise<ConversationRow> {
   if (ctx.membership.role === "agent" && /^[0-9a-f-]{36}$/i.test(id)) {
     const [row] = await db().select().from(c).where(and(eq(c.id, id), shopScopedConversations(ctx))).limit(1);
-    if (row && row.handlingState === "human" && row.claimedBy !== ctx.membership.id) {
+    // 平台后台有人回复过（处理中、没有 Shopilot 处理人）的会话可以接手，不算冲突
+    if (row && row.handlingState === "human" && row.claimedBy && row.claimedBy !== ctx.membership.id) {
       const by = await memberName(row.claimedBy);
       throw conflict(row.claimedBy ? `${by} 已经认领了这个会话。` : "会话状态已变化，请刷新后再试。", {
         claimedBy: row.claimedBy ? { id: row.claimedBy, name: by } : null,
@@ -47,7 +48,8 @@ export async function claim(ctx: MemberContext, id: string, version: number | nu
   const conv = await loadForHandling(ctx, id);
   if (conv.handlingState === "human" && conv.claimedBy === ctx.membership.id) return conv;
   if (conv.buyerKind === "affiliate") throw notAllowed("达人会话只记录，不能认领。");
-  const conds = [eq(c.id, conv.id), inArray(c.handlingState, ["bot", "awaiting_human"])];
+  // 可认领：AI 接待中、待认领，以及平台后台有人回复过（处理中但没有 Shopilot 处理人）
+  const conds = [eq(c.id, conv.id), or(inArray(c.handlingState, ["bot", "awaiting_human"]), and(eq(c.handlingState, "human"), isNull(c.claimedBy)))!];
   if (version !== null) conds.push(eq(c.version, version));
   const now = new Date();
   const [updated] = await db()
@@ -213,7 +215,7 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
     if (!file) throw new Problem("validation", { detail: "图片不存在，请重新上传。", extra: { fields: { fileId: "图片不存在" } } });
   }
 
-  if (conv.handlingState !== "human") conv = await claim(ctx, conv.id, null);
+  if (conv.handlingState !== "human" || !conv.claimedBy) conv = await claim(ctx, conv.id, null);
 
   let draft: typeof schema.draft.$inferSelect | undefined;
   if (body.draftId) {

@@ -123,8 +123,9 @@ function ArrivalClaim({ id, claim }: { id: string; claim: boolean }) {
     if (d) {
       const c = d.conversation;
       const mine = c.handlingState === "human" && c.claimedBy?.id === me.data.active.membershipId;
-      if (c.handlingState === "awaiting_human" && d.permissions.canClaim) doClaim.mutate(c.version);
-      else if (c.handlingState === "human" && !mine) toast.info(c.claimedBy ? `已由 ${c.claimedBy.name} 认领` : "平台后台已有人在处理这个会话");
+      // 待认领、AI 接待中，以及平台后台有人回复过（没有 Shopilot 处理人）的会话都直接认领
+      if (d.permissions.canClaim) doClaim.mutate(c.version);
+      else if (c.handlingState === "human" && !mine && c.claimedBy) toast.info(`已由 ${c.claimedBy.name} 认领`);
       else if (c.handlingState === "closed") toast.info("会话已经结束");
     } else if (q.error instanceof ApiError && q.error.status === 404) {
       // 员工看不到同事处理中的会话：认领接口在负责店铺内会回 409 并带上处理人

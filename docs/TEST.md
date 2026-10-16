@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-16 | 新增 `TC-CONV-041`（源自缺陷：平台后台有人回复过的会话谁都认领不了）；§3 场景加 `platform-human` | 实现会话 |
 | 2026-10-16 | RUN-013 之后修正 `TC-SHOP-001` 第 9 步措辞（原位修改）：原「10 秒内」比 DESIGN §16「下一次轮询（≤ 10 秒）可见」更严，改为下一次列表轮询后出现、从买家发出算起 15 秒内 | 实现会话 |
 | 2026-10-16 | 按 DESIGN v1.13 补飞书群推送：新增功能域「飞书推送」`TC-FEISHU-001` 至 `TC-FEISHU-016`（冒烟 2、回归 14，其中人工 1），用例共 281 条；原位修改 `TC-AUTH-014` 第 4 步（开启后自动回到登录前要去的页面）、`TC-SHOP-024` 第 2 步（只查接入向导与店铺页没有飞书入口）、`TC-SET-006` 第 1 步（注明一期不做飞书登录）、`TC-MOCK-002` 第 2 步（加飞书投递记录接口）；§2 范围与不测项、§3 飞书发送替身与「连上飞书替身」、§5 冒烟集加两条 | 实现会话 |
 | 2026-10-16 | RUN-010 之后修正 `TC-KB-035`（原位修改）：前置去掉「入库前关掉 AI 可用」，那一步刷新了资料的更新时间，补扫按最近一次更新计时（DESIGN v1.12 §17 写明）；第 2 步改为状态「可用」 | 实现会话 |
@@ -141,6 +142,7 @@
 | `auth-expiring-20d` | Demo TikTok MY 授权到期 = 现在 + 20 天，未发过到期提醒 |
 | `handover-candidate` | Demo Shopee MY 一个 Nur Aisyah 处理中的会话，最后一条是 20 分钟前的买家消息；今天的工作时段改为在 1 分钟前结束；输出会话 ID |
 | `unclaimed-11m` | Demo Shopee MY 一个待认领会话，买家消息在 11 分钟前，本段未提醒；`unclaimed_remind_minutes = 10`；输出会话 ID |
+| `platform-human` | Demo Shopee MY 一个处理中、`claimed_by` 为空的会话（`handoff_reason = platform_human`，即卖家在平台后台直接回复过），买家消息在 6 分钟前；输出会话 ID |
 | `auth-link-6min` | Demo Store 的 Shopee 应用一条授权链接：链接本身是新签名，其中的 `state` 签发于 6 分钟前、已过期（模拟授权页本身拒绝时间戳超过 5 分钟的链接）；输出链接 |
 | `session-aged-9h` | `agent@demo.test` 最近一个登录会话的创建时间改为 9 小时前 |
 | `export-expired` | 一个已完成的数据导出，`expires_at` 已过；输出下载链接 |
@@ -1614,6 +1616,17 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 1 | owner 打开 C | 时间线先显示最新的 50 条，顶部有「查看更早的消息」 |
 | 2 | 点「查看更早的消息」 | 时间线共 62 条，「同秒 01」到「同秒 62」各出现一次；顶部不再有「查看更早的消息」 |
 | 3 | `api owner@demo.test "$B/api/v1/conversations/<C>"` 取第一条消息的 id P，再 `api owner@demo.test "$B/api/v1/conversations/<C>?before=<P>"` | 第二次返回 12 条买家消息、`hasMore` 为 `false`，与第一次返回的消息 id 没有重复 |
+
+后置：无。
+
+#### `TC-CONV-041` 平台后台有人回复过的会话可以认领接手 — 对应 `REQ-CONV-004`、`REQ-FEISHU-006` · 级别: 回归 · 执行者: 皆可 · 源自缺陷（2026-10-16：这类会话谁都认领不了，只提示「平台后台有人处理」）
+
+前置：基线；终端执行 `pnpm scenario platform-human`，记会话 C 与商户 M（Demo Store）；`login agent@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | Nur 打开 `/wb/<C>?m=<M>` | 对话栏显示会话；顶部状态「平台后台已有人回复」，有「认领」按钮；输入区位置提示「平台后台有人回复过这个会话。点上方「认领」接手，之后在这里继续回复。」 |
+| 2 | 打开 `/wb/<C>?claim=1&m=<M>`（飞书卡片「认领」的链接） | 自动认领：地址里的 `claim`、`m` 被去掉，输入框出现；`api owner@demo.test "$B/api/v1/conversations/<C>"` 返回 `handlingState = human`、`claimedBy` 为 Nur |
 
 后置：无。
 
@@ -3809,6 +3822,7 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | RUN-011 | 2026-10-16 | 本地 | `adfc875` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-010：TC-KB-035、TC-AUTH-001、TC-SHOP-001、TC-AUTH-004、TC-AI-001、TC-AI-002、TC-TKT-001、TC-ORD-015、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-KB-001、TC-KB-024） | 通过 13/13 |
 | RUN-012 | 2026-10-16 | 本地 | `a246bfc` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 局部（TC-PERM-002、TC-PERM-001、TC-PERM-005、TC-AUTH-004、TC-AUTH-001、TC-SHOP-001、TC-AI-001、TC-TKT-001、TC-ORD-015、TC-KB-001、TC-KB-024、TC-AUTH-011、TC-AUTH-013、TC-AUTH-015、TC-AUTH-021、TC-CONV-012、TC-CONV-013、TC-CONV-029、TC-CONV-036、TC-AI-015、TC-SET-004、TC-SET-006、TC-MOCK-004、TC-TEAM-012、TC-FEISHU-004、TC-FEISHU-001、TC-FEISHU-002、TC-FEISHU-003、TC-FEISHU-005、TC-FEISHU-006、TC-FEISHU-007、TC-FEISHU-008、TC-FEISHU-009、TC-FEISHU-013、TC-FEISHU-011、TC-FEISHU-012、TC-FEISHU-015、TC-FEISHU-010、TC-CONV-037、TC-AUTH-014、TC-FEISHU-014、TC-MOCK-002、TC-AI-002、TC-SHOP-024、TC-FEISHU-016） | 通过 40/45 · 失败 3 · 待人工 2 |
 | RUN-013 | 2026-10-16 | 本地 | `c248a6e` | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-012：TC-SHOP-001、TC-FEISHU-002、TC-FEISHU-007、TC-FEISHU-010、TC-PERM-002、TC-PERM-001、TC-PERM-005、TC-AUTH-004、TC-AUTH-001、TC-AI-001、TC-KB-001、TC-KB-024、TC-FEISHU-005、TC-FEISHU-011、TC-TKT-001、TC-ORD-015、TC-AI-002） | 通过 16/17 · 失败 1 |
+| RUN-014 | 2026-10-16 | 本地 | `c41fff9` + 工作区改动（平台后台回复过的会话可接手） | AI（Claude Code 主会话；Playwright + Edge） | 局部（缺陷修复：TC-CONV-041） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |

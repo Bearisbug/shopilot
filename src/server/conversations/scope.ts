@@ -1,5 +1,5 @@
 // 会话行级可见性（DESIGN §10 行级表）。所有会话查询都经这里拼条件（ADR-003）。
-import { and, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { schema } from "../db/client";
 import type { MemberContext } from "../auth/context";
 
@@ -28,6 +28,8 @@ export function visibleConversations(ctx: MemberContext): SQL {
     base.push(
       or(
         inArray(c.handlingState, ["bot", "awaiting_human"]),
+        // 平台后台有人回复过、没有 Shopilot 处理人的：负责店铺的员工可以打开并接手
+        and(eq(c.handlingState, "human"), isNull(c.claimedBy))!,
         eq(c.claimedBy, ctx.membership.id),
         and(eq(c.handlingState, "closed"), sql`exists (select 1 from segment s where s.conversation_id = ${c.id} and s.first_claimed_by = ${ctx.membership.id})`)!,
       )!,

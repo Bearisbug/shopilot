@@ -376,5 +376,13 @@ describe.skipIf(!process.env.DATABASE_URL)("飞书推送（需要数据库）", 
       const outsider = await addMember(A.merchant, "agent", "员工丙", [A.shopTh.id]);
       expect((await problemOf(claim(outsider, convId, null))).status).toBe(404);
     });
+
+    it("平台后台有人回复过（处理中但没有 Shopilot 处理人）：员工点认领直接接手", async () => {
+      const convId = await ingestBuyer(A.shopVn, `c-${randomUUID()}`);
+      await db().update(schema.conversation).set({ handlingState: "human", claimedBy: null, handoffReason: "platform_human" }).where(eq(schema.conversation.id, convId));
+      const a = await addMember(A.merchant, "agent", "员工丁", [A.shopVn.id]);
+      const took = await claim(a, convId, null);
+      expect(took).toMatchObject({ handlingState: "human", claimedBy: a.membership.id });
+    });
   });
 });

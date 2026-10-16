@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-16 | v1.13 | API-CONV-004、PAGE-WB、ENT-Conversation | 平台后台有人回复过的会话可在 Shopilot 认领接手，员工也能打开 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-CARD、REQ-FEISHU-005、API-MOCK-011 | 测试轮发现的两处修复：卡片里的中文消息不再挂平台机翻的译文；开发发件箱能显示测试卡片里上传的图片 | 缺陷修复 |
 | 2026-10-16 | v1.13 | FLOW-FEISHU-SETUP、FLOW-FEISHU-CARD、FLOW-AI-DRAFT、FLOW-MOCK、REQ-FEISHU-001、REQ-FEISHU-002、REQ-FEISHU-003、REQ-FEISHU-004、REQ-FEISHU-005、REQ-FEISHU-006、REQ-MOCK-004、API-SET-017、API-SET-018、API-SET-019、API-SET-020、API-SET-021、API-SET-022、API-SET-023、API-SET-024、API-MOCK-011、ENT-FeishuIntegration、ENT-FeishuTarget、ENT-FeishuDelivery、INV-FEISHU-001、INV-FEISHU-002、ADR-015 | 新增飞书群推送：会话待认领或超时时往商户的飞书群发卡片，点卡片上的认领直达工作台 | 功能 |
 | 2026-10-16 | v1.13 | REQ-MOCK-001、REQ-MOCK-002、REQ-MOCK-003 | 模拟平台的三条需求改成一句话，细则移到需求补充说明 | 文档 |
@@ -1646,7 +1647,7 @@ erDiagram
 | `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 10 秒轮询 |
 | `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ documentId, name, available }] }, shadowDrafts?[{ id, text, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 4 秒轮询 |
 | `API-CONV-003` | `GET /api/v1/conversations/{id}/buyer` | REQ-ORD-001、REQ-CONV-003 | — | `{ buyer{ name, externalId, language }, orders[{ id, externalOrderId, status, statusGroup, total, currency, items, shipByAt, tracking?, recipient?, afterSales[{ kind, platformStatus, sellerDueAt, open }] }], totals{ count180d, amount180d, currency }, piiMasked, syncedAt }`；只读订单镜像，不实时调平台（镜像由推送、每小时 `order.sync` 与 `API-ORD-003` 手动同步保持新鲜） | — | no-store；前端 10 秒轮询（订单推送到达后 10 秒内显示，见 §19） |
-| `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用 | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
+| `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
 | `API-CONV-006` | `POST /api/v1/conversations/{id}/close` | REQ-CONV-004 | `{ reason?, version }` | 200 会话；TikTok 结束会话失败只记录，不阻断 | 409 `/errors/conflict` | 已结束再结束返回 200 |
 | `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|order_card\|logistics_card\|return_card\|coupon_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, translateTo?, draftId?, disposition?: sent\|edited_sent }`；待认领会话发送 = 先认领再发送 | 201 `{ message{ id, sendStatus } }` | 409 `/errors/conflict`（会话已被他人认领或已结束）；409 `/errors/not-allowed`（能力表不支持该类型、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
@@ -2112,7 +2113,7 @@ erDiagram
 
 | 对象 | Admin | Lead | Agent |
 | --- | --- | --- | --- |
-| 会话 | 全部店铺 | 负责店铺内全部 | 负责店铺内 `bot` / `awaiting_human` 的会话 + `claimed_by = 本人` 的会话 + 本人处理过的已结束会话 |
+| 会话 | 全部店铺 | 负责店铺内全部 | 负责店铺内 `bot` / `awaiting_human` 的会话 + 负责店铺内平台后台有人回复过、`claimed_by` 为空的处理中会话（可接手）+ `claimed_by = 本人` 的会话 + 本人处理过的已结束会话 |
 | 影子回复（`shadowDrafts`） | 可见 | 负责店铺内可见 | 不返回 |
 | 草稿依据（`citations`） | 随草稿与影子回复返回 | 同左 | 随草稿返回 |
 | 知识库资料与测试问答 | 全部 | 全部（测试问答的店铺只列负责店铺） | — |
@@ -2173,6 +2174,7 @@ stateDiagram-v2
   awaiting_human --> human : claim
   awaiting_human --> human : platform_human
   human --> human : assign
+  human --> human : take_over
   human --> awaiting_human : release
   bot --> closed : resolve
   awaiting_human --> closed : resolve
@@ -2197,6 +2199,7 @@ stateDiagram-v2
 | bot → human | platform_human | 入站 `sender_role = platform_human`（卖家在平台后台直接回复）且 不是本方出站回声 | `claimed_by = null`，作废未处置草稿，写系统事件「平台侧已有人处理」 | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
 | awaiting_human → human | claim | 同 bot → human claim | 同上 | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
 | awaiting_human → human | platform_human | 同 bot → human platform_human | 同上 | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
+| human → human | take_over | `claimed_by` 为空（平台后台有人回复过，Shopilot 里没有处理人）且 操作人是启用成员、店铺在其范围内 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；审计 `EVT:conversation_claimed`；负责该店的员工也能打开这类会话 | 成员（会话页「认领」、飞书卡片认领链接、认领并发送） | `API-CONV-004` / `API-CONV-007` |
 | human → human | assign | 目标是启用成员 且 负责该店（或为管理员）且 目标 ≠ 当前处理人 且 `version` 一致 | `claimed_by = 目标`；`withTickets` 时关联未结工单负责人改为目标并写工单时间线；通知目标（规则 `ticket_assigned` 只在带工单时） | 处理人（转交）/ 组长、管理员（改派） | `API-CONV-005` |
 | human → awaiting_human | release | 处理人被停用 | `claimed_by = null`、`handoff_reason = manual`，写系统事件；停用提交后推飞书待认领卡（本段推过就不推） | 管理员停用成员时的系统动作 | `API-TEAM-008` |
 | bot → closed | resolve | 操作人为组长或管理员且在范围内，或 店铺被断开 | 结束当前段（`end_reason = resolved` 或 `shop_disconnected`），作废未处置草稿 | 组长、管理员 / 系统 | `API-CONV-006` / `API-SHOP-012` |
@@ -3060,7 +3063,7 @@ sequenceDiagram
 - 未登录：照常去 `/login?next=<原地址>`，登录后回来；要两步验证的按 `PAGE-LOGIN`、`PAGE-ACCOUNT-SECURITY` 带着 `next` 回来
 - 当前商户不是 `m`、本人是 `m` 的启用成员：先切过去（`API-AUTH-007`），提示「已切换到「商户名」」，会话等切换后再读
 - 本人不是 `m` 的启用成员：对话栏显示「看不到这个会话」与「回到会话列表」
-- 带 `claim=1` 且会话待认领：带读到的 `version` 认领，提示「已认领」，焦点交给输入框
+- 带 `claim=1` 且会话可认领（待认领、AI 接待中，或平台后台有人回复过、没有 Shopilot 处理人）：带读到的 `version` 认领，提示「已认领」，焦点交给输入框
 - 本人已认领：直接打开，不提示；同事已认领：提示「已由 X 认领」，管理员与组长照常看到会话
 - 员工看不到同事处理中的会话：不带 `version` 认领，按 409 带回的处理人显示「X 已认领这个会话」
 - 会话已结束：提示「会话已经结束」；会话不在本人范围内：沿用「找不到或已删除」
