@@ -19,6 +19,7 @@
 | 2026-10-17 | v1.22 | FLOW-AI-DRAFT、REQ-AI-002 | AI 回复的语言按买家最近一条文字消息定，品牌语气、提示词与资料是中文也不改变；判不出时用店铺站点的默认语言 | 缺陷修复 |
 | 2026-10-17 | v1.22 | FLOW-AI-DRAFT、REQ-AI-001 | 买家停手 6 秒才出稿，连发的几条按最后一条出；影子模式下最后一条是图片、商品卡等非文字时不出影子回复 | 功能 |
 | 2026-10-17 | v1.22 | FLOW-AI-DRAFT、REQ-KB-006 | 混合检索每路等 5 秒（原 8 秒），超时立即改纯向量重试 | 功能 |
+| 2026-10-17 | v1.22 | FLOW-AI-DRAFT、REQ-AI-001 | 影子模式的会话段开头是图片、商品卡时，买家后到的第一句文字照常出影子回复，每段只出一份 | 功能 |
 | 2026-10-17 | v1.22 | REQ-AI-002 | DeepSeek 每次调用记一行日志：用途、模型、耗时、token 数、成败与错误类别 | 功能 |
 | 2026-10-16 | v1.20 | FLOW-AI-DRAFT、REQ-KB-006 | 买家只发图片或商品卡时不再用空查询检索知识库；改写也没给出问题时不检索，按没检索到资料出稿 | 缺陷修复 |
 | 2026-10-16 | v1.20 | REQ-SHOP-006、API-SHOP-008、PAGE-SHOPS、PAGE-ORDERS | Shopee 推送没订阅到 Shopilot 时店铺页标需处理并给「重新校验」入口，订单页提示直接链过去 | 缺陷修复 |
@@ -356,13 +357,15 @@
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 并发 | 买家 6 秒内又发了消息 | 等最后一条到达满 6 秒再出稿，只出一份，按最后一条出 | 竞态「买家连发多条消息」；场景「买家连发时按最后一条出稿」 | TC-AI-031 |
+| 边界 | 影子模式，本段还没有影子回复，买家又发来文字 | 照常排出稿任务，按这句文字出影子回复 | 迁移 ENT-Draft [*]→shadow；场景「影子模式开段不是文字时按第一句文字出稿」 | TC-AI-034 |
+| 边界 | 影子模式，本段已有影子回复，买家又发来消息 | 不再出影子回复 | 迁移 ENT-Draft [*]→shadow | TC-AI-034 |
 
 ##### S2 检查消息类型与关键词
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 失败 | 辅助或自动模式，买家最后一条不是文字 | 转人工，原因「非文本消息」 | 迁移 ENT-Conversation bot→awaiting_human；场景「转人工条件」 | TC-AI-018 |
-| 边界 | 影子模式，买家最后一条不是文字 | 不出影子回复，不计用量，不检索 | 迁移 ENT-Draft [*]→shadow；场景「影子模式下买家只发图片时不出稿」 | TC-AI-032 |
+| 边界 | 影子模式，买家最后一条不是文字 | 这次不出影子回复，不计用量，不检索 | 迁移 ENT-Draft [*]→shadow；场景「影子模式下买家只发图片时不出稿」 | TC-AI-032 |
 | 失败 | 消息命中转人工关键词 | 转人工，自动模式先发一句安抚 | 迁移 ENT-Conversation bot→awaiting_human；场景「转人工条件」 | TC-AI-015 |
 
 ##### S3 预占出稿用量
@@ -443,7 +446,7 @@
 
 | 步骤 | 位置 |
 | --- | --- |
-| S1 | `src/server/conversations/ingest.ts#enqueueDraft` |
+| S1 | `src/server/conversations/ingest.ts#enqueueDraft`；`src/server/conversations/ingest.ts#ingestMessage` |
 | S2–S3 | `src/server/ai/draft.ts#generateDraft`；`src/server/conversations/hours.ts#hitKeyword`；`src/server/billing/usage.ts#reserveDraft` |
 | S4–S6 | `src/server/knowledge/retrieve.ts#retrieveForDraft` |
 | S7–S8 | `src/server/ai/draft.ts#generateDraft`；`src/server/ai/language.ts#replyLanguage`；`src/server/ai/client.ts#chat`；`src/server/ai/draft.ts#handoff`；`src/server/ai/translate.ts#translateDraft` |
@@ -829,6 +832,7 @@
 - REQ-AI-001：shadow 出稿不发送、员工看不到，影子回复在会话里折叠只读给管理员、组长
 - REQ-AI-001：assist 草稿显示在工作台；auto 直接发送，只对 TikTok 店开放
 - REQ-AI-001：买家停手 6 秒才出稿，连发的几条按最后一条出；shadow 下最后一条不是文字时不出影子回复
+- REQ-AI-001：shadow 每段只出一份影子回复；开段那条不是文字时，买家后到的第一句文字照常出
 - REQ-AI-001：无对外 API，见 11.1 `open`、11.2 `create` 与 `create_shadow`、12.2、12.3，模式由 `API-RCP-002` 设置
 - REQ-AI-002：输入还含品牌语气与商户时区，对话、订单与物流的时间一律换成商户时区的本地时间（模型会照抄时间回复买家）；DeepSeek 输出 JSON 的字段见 12.8「出稿检索规则」
 - REQ-AI-002：回复语言按买家最近一条判得出语言的文字消息定，判不出用店铺站点默认语言；品牌语气、提示词与资料的语言不改变它，见 12.8「回复语言」
@@ -2305,7 +2309,7 @@ stateDiagram-v2
 | 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
 | --- | --- | --- | --- | --- | --- |
 | [*] → generated | create | 模式 ∈ {assist, auto} 且 模型返回合法 JSON 且 `reply` 非空 且 `handoff = false` 且 `confidence ≥ 阈值` 且 额度允许 | 保存草稿，用量 +1（跨过提醒阈值时通知接收人并审计 `EVT:usage_threshold_crossed`），审计 `EVT:draft_generated`；auto 模式立即执行 `send` | 内部任务 `draft.generate` | 内部任务 `draft.generate` |
-| [*] → shadow | create_shadow | 模式 = shadow 且 买家最后一条消息是文字 且 模型返回合法 JSON 且 额度允许 | 保存为影子草稿（不发送；只在会话里折叠显示给管理员、组长），用量 +1，审计 `EVT:draft_generated` | 内部任务 `draft.generate` | 内部任务 `draft.generate` |
+| [*] → shadow | create_shadow | 模式 = shadow 且 买家最后一条消息是文字 且 本段还没有影子回复 且 模型返回合法 JSON 且 额度允许 | 保存为影子草稿（不发送；只在会话里折叠显示给管理员、组长），用量 +1，审计 `EVT:draft_generated` | 内部任务 `draft.generate` | 内部任务 `draft.generate` |
 | generated → sent | send | 平台返回出站消息 ID | 写出站消息（`sender_role = ai` 或 `agent`）、`sent_message_id`；会话为待认领 / AI 时先认领；审计 `EVT:draft_disposed`（`disposition = sent`） | 内部任务 `draft.generate`（auto）/ 成员（assist） | 内部任务 `draft.generate` / `API-CONV-007`（`disposition = sent`） |
 | generated → edited_sent | edit_send | 编辑后文本非空 且 ≤ 2,000 字 且 平台返回出站消息 ID | 以编辑文本发送，记 `edit_distance`；审计 `EVT:draft_disposed`（`edited_sent`） | 成员 | `API-CONV-007`（`disposition = edited_sent`） |
 | generated → ignored | ignore | 会话 `handling_state ∈ {bot, awaiting_human, human}` | 审计 `EVT:draft_disposed`（`ignored`）；会话为 `bot` 时转 11.1 `handoff`（`reason = manual`） | 成员 | `API-CONV-008` |
@@ -4152,6 +4156,13 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 买家只发一张图片，之后 6 秒内没有补发文字
   Then 不生成影子回复，用量不变，检索服务没有收到请求
 
+场景: 影子模式开段不是文字时按第一句文字出稿 (REQ-AI-001)
+  Given 店铺是影子模式
+  When 买家先发一张商品卡，20 秒后才补一句「这款能连 iPad 吗」
+  Then 补的这句文字到达 6 秒后生成一份影子回复，触发消息是这句文字
+  When 买家再发一句「谢谢」
+  Then 不再生成影子回复
+
 场景: 买家连发时按最后一条出稿 (REQ-AI-001)
   Given 店铺是影子模式
   When 买家先发一张商品卡，2 秒后补一句「这款能连 iPad 吗」
@@ -4636,7 +4647,7 @@ N/A — 本期不上线。
 | 风险 | 商户没上传资料、或资料没覆盖买家问的内容时，AI 对产品参数类问题仍会因资料不足转人工，草稿采纳率随资料覆盖面变化 | 用户 | 知识库上线后看两周数据 |
 | 风险 | Cloudflare AI Search 是 2026-10-01 才 GA 的新产品，2026-11-01 起计费；实测混合检索约 2.6% 静默降级、入库偶发超时、「重新同步」返回成功却没重建，接口与价格可能再变 | 实现 | 每月核对一次产品变更；命中 ADR-014 换回条件时 |
 | Open Question | 检索 P95 改 5 秒后推算仍约 8.5 秒。本机实测两路各自同时发混合与纯向量、5 秒内混合带向量分就用混合，否则用纯向量，P95 5.7 秒，前 8 段与两路混合重合 95%；代价是每份草稿的检索次数从 2 次变 4 次 | 用户 | 下一轮检索提速前 |
-| 风险 | 影子模式只在会话段开始时出一次稿：开段那条不是文字、买家 6 秒后才补文字的，不再有影子回复。2026-10-14 至 16 日线上 100 份影子回复里 20 份由非文字触发：1 份 6 秒内补了文字（改按文字出稿），13 份在 6.2–34.7 秒后才补，6 份没补 | 用户 | 看两周影子回复覆盖率后，定是否把非文字的等待放长到 30 秒或让段内第一句文字出稿 |
+| 已决 | 影子模式开段那条不是文字时：本段还没有影子回复，买家后到的第一句文字照常出影子回复（同样等买家停手 6 秒），本段已有影子回复后不再出。2026-10-14 至 16 日线上 100 份影子回复里 20 份由非文字触发：1 份 6 秒内补了文字，13 份在 6.2–34.7 秒后才补（按此规则仍各出一份），6 份没补（不再出） | 用户 | 已定（v1.22，2026-10-17 协调会话代用户拍板） |
 | 风险 | 重排模型对泰语、马来语打分接近 0，越南语扫描件 OCR 丢声调；这几种语言的检索主要靠中文改写那一路 | 实现 | 上线后按语种抽检命中率 |
 | 风险 | 已知限制：测试问答的限流计数存在 Web 进程内存里，重启清零；多实例部署时每商户每分钟的实际上限是 20 × 实例数 | 实现 | Web 扩到多实例时改存数据库或 Redis |
 | 风险 | 资料自相矛盾时 AI 会照着答错：OBSBOT 话术库 PRE-015 写「所有相机都有内置麦克风」，而 Tail 2 只有 3.5mm 麦克风接口，曾导致真实投诉 | 用户 | OBSBOT 资料入库前清理一遍 |

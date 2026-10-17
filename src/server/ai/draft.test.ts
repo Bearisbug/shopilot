@@ -1,5 +1,6 @@
 // 需要数据库：DATABASE_URL 未设置时跳过（set -a && . ./.env && set +a && pnpm exec vitest run src/server/ai）。
-// 出稿任务（§12.8、§16）：买家停手 6 秒才出稿，未满时延后重排；影子模式最后一条不是文字不出稿；出稿请求带回复语言。
+// 出稿任务（§12.8、§16）：买家停手 6 秒才出稿，未满时延后重排；影子模式最后一条不是文字不出稿，开段不是文字时段内第一句文字出稿；
+// 出稿请求带回复语言。
 // 造的商户、账号在 afterAll 删除，AI 替身设定恢复原值；队列投递被替换，不进共用的 pg-boss。
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
@@ -15,6 +16,7 @@ describe.skipIf(!process.env.DATABASE_URL)("出稿防抖与回复语言（需要
   const { encrypt } = await import("@/server/core/crypto");
   const { provisionMerchant } = await import("@/server/merchants/provision");
   const { generateDraft } = await import("./draft");
+  const { ingestMessage, runFollowUp } = await import("@/server/conversations/ingest");
   type Conv = typeof schema.conversation.$inferSelect;
 
   const userIds: string[] = [];
@@ -112,6 +114,46 @@ describe.skipIf(!process.env.DATABASE_URL)("出稿防抖与回复语言（需要
     expect(enqueue).not.toHaveBeenCalled();
     const [after] = await db().select().from(schema.usagePeriod).where(eq(schema.usagePeriod.merchantId, merchantId));
     expect(after?.draftsUsed).toBe(before?.draftsUsed);
+  });
+
+  it.each([7, 35])("影子模式开段是图片、%i 秒后补文字：第一句文字出一份影子回复，之后的文字不再出", async (gap) => {
+    await db()
+      .insert(schema.shopReception)
+      .values({ shopId, merchantId, modeInHours: "shadow", modeOffHours: "shadow" })
+      .onConflictDoUpdate({ target: schema.shopReception.shopId, set: { modeInHours: "shadow", modeOffHours: "shadow" } });
+    const [shop] = await db().select().from(schema.shop).where(eq(schema.shop.id, shopId));
+    const ext = `c-${randomUUID()}`;
+    /** 走入站落库与提交后动作（出稿任务被替换成记录），再把消息的到达时间改成 secondsAgo 秒前 */
+    const ingest = async (type: "text" | "image", text: string | null, secondsAgo: number) => {
+      const at = new Date(Date.now() - secondsAgo * 1000);
+      const m = { externalMessageId: `m-${randomUUID()}`, externalConversationId: ext, buyerExternalId: "b9", buyerName: "Somchai", fromBuyer: true, senderRole: "buyer" as const, type, text, translation: null, payload: {}, sentAt: at, affiliate: false, raw: {} };
+      const res = await db().transaction((tx) => ingestMessage(tx, shop, m, { externalId: "b9", name: "Somchai", affiliate: false }));
+      await runFollowUp(res.followUp);
+      await db().update(schema.message).set({ createdAt: at }).where(eq(schema.message.id, res.messageId!));
+      return res.conversationId!;
+    };
+    const draftJobs = () => enqueue.mock.calls.filter((c) => c[0] === "draft.generate");
+
+    const convId = await ingest("image", null, gap + 10);
+    expect(draftJobs()).toHaveLength(1);
+    await generateDraft({ conversationId: convId, mode: "shadow" });
+    const conv = { id: convId } as Conv;
+    expect(await drafts(conv)).toEqual([]);
+
+    enqueue.mockClear();
+    await ingest("text", "ใช้กับ iPad ได้ไหม", 10);
+    expect(draftJobs()).toEqual([["draft.generate", { conversationId: convId, mode: "shadow" }, { singletonKey: convId, startAfter: 6 }]]);
+    await generateDraft({ conversationId: convId, mode: "shadow" });
+    const [d] = await drafts(conv);
+    expect(d).toMatchObject({ mode: "shadow", status: "shadow" });
+    const [trigger] = await db().select().from(schema.message).where(eq(schema.message.id, d.triggerMessageId!));
+    expect(trigger.text).toBe("ใช้กับ iPad ได้ไหม");
+
+    enqueue.mockClear();
+    await ingest("text", "ขอบคุณครับ", 8);
+    expect(draftJobs()).toEqual([]);
+    await generateDraft({ conversationId: convId, mode: "shadow" });
+    expect(await drafts(conv)).toHaveLength(1);
   });
 
   it("辅助模式最后一条不是文字：照旧转人工「非文本消息」", async () => {

@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-17 | 按 DESIGN v1.22 新增 `TC-AI-034`（影子模式开段是商品卡、之后补文字时按第一句文字出一份影子回复） | 实现会话 |
 | 2026-10-17 | 按 DESIGN v1.22 新增 `TC-AI-030`（源自缺陷：品牌语气改成中文后影子回复用中文回外语买家）、`TC-AI-031`（买家先发商品卡、2 秒后补文字，只出一份影子回复）、`TC-AI-032`（影子模式下只发图片不出稿、不检索）、`TC-AI-033`（DeepSeek 调用日志）；`TC-KB-042` 废弃，被 `TC-AI-032` 取代（只发图片在影子模式下已不出稿，走不到检索） | 实现会话 |
 | 2026-10-16 | 按 DESIGN v1.17 新增四条源自缺陷的用例：`TC-KB-042`（买家只发图片或商品卡时知识库检索报错）、`TC-SHOP-031`（Shopee 推送订阅缺失时店铺页仍显示正常）、`TC-SHOP-032`（手机宽度下回复率图表横轴文字重叠）、`TC-ORD-027`（已结束的售后单请求拒绝原因返回 502） | 实现会话 |
 | 2026-10-16 | 新增 `TC-CONV-048`（源自缺陷：Shopee 卖家后台的回复没有进 Shopilot）、`TC-CONV-049`（本方回复的回声不算平台后台回复）、`TC-CONV-050`（店铺自动回复不算平台后台回复）；§3 加模拟器接口「卖家后台回复」 | 实现会话 |
@@ -2122,6 +2123,19 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 后置：`kbclear`。
 
+#### `TC-AI-034` 影子模式开段是商品卡、20 秒后才补文字：按这句文字出一份影子回复，之后不再出 — 对应 `REQ-AI-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线（Demo Shopee SG 为影子模式）；按 §3「知识库 curl 函数」定义 `q`；`say` 同 `TC-AI-030` 前置。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 同 `TC-AI-031` 第 1 步在 Demo Shopee SG 新建买家 S，只发商品卡 `24580022002` | 输出 `true` |
+| 2 | 等 20 秒，`q "select c.handling_state, c.handoff_reason, (select count(*) from draft d where d.conversation_id = c.id) from conversation c where c.external_conversation_id = '<S>'"` | `awaiting_human\|shadow\|0`：商品卡没有出影子回复 |
+| 3 | `say <S> 'Does this tumbler keep drinks cold for 24 hours?'`，等 20 秒，同 `TC-AI-031` 第 2 步查影子回复 | 只有一行：`shadow\|text\|Does this tumbler keep drinks cold for 24 hours?` |
+| 4 | `say <S> 'Thanks!'`，等 20 秒，`q "select count(*) from draft d join conversation c on c.id = d.conversation_id where c.external_conversation_id = '<S>'"` | `1`：本段已有影子回复，不再出 |
+
+后置：无。
+
 #### `TC-AI-033` 每次调用 DeepSeek 记一行日志，不含买家内容 — 对应 `REQ-AI-002` · 级别: 回归 · 执行者: 皆可
 
 前置：基线；`.env` 中 `AI_MODE=deepseek`、`DEEPSEEK_API_KEY` 已按 §3 填好，Worker 的输出写进文件（如 `pnpm worker > $SP_TMP/worker.log 2>&1`，或在运行 `pnpm dev` 的终端里看），重启并通过就绪判定；`say` 同 `TC-AI-030` 前置。
@@ -4118,6 +4132,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-041 | 2026-10-16 | 本地 | `aa34591` + 工作区改动（他人处理中含平台后台会话、系统提示显示中文） | AI（Claude Code 执行子会话；Playwright + Edge、curl） | 复测（RUN-040：TC-CONV-054、TC-CONV-055、TC-PERM-001、TC-CONV-004） | 通过 4/4 |
 | RUN-050 | 2026-10-17 | 本地 | `ba4b462`（未修复） | AI（Claude Code 子会话；curl） | 局部（TC-AI-030） | 通过 0/1 · 失败 1 |
 | RUN-051 | 2026-10-17 | 本地 | `ba4b462` + 工作区改动（回复语言、出稿防抖、影子模式非文字不出稿、混合检索 5 秒、DeepSeek 调用日志） | AI（Claude Code 子会话；Playwright + Edge、curl） | 复测（RUN-050：TC-AI-030、TC-AI-031、TC-AI-032、TC-AI-033、TC-AI-001、TC-KB-024、TC-AI-005、TC-AI-012、TC-AI-018、TC-KB-028、TC-KB-030） | 通过 11/11 |
+| RUN-052 | 2026-10-17 | 本地 | `d464519` + 工作区改动（影子模式段内第一句文字出稿） | AI（Claude Code 子会话；curl） | 局部（TC-AI-034、TC-AI-031、TC-AI-032） | 通过 3/3 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -4279,6 +4294,8 @@ RUN-041 证据：复测轮，承接 RUN-040，另加分组改名与员工可见�
 RUN-050 证据：修复前那一轮，只跑源自缺陷的 `TC-AI-030`。环境是 §3 本地行的独立副本：同一 PostgreSQL 实例里另建库 `shopilot_aiq` 并按 §3 重建基线，Web 起在 3381（`APP_BASE_URL`、模拟平台地址同步改端口），Worker 单独起，`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`、`FEISHU_MODE=stub`；`q` 改用 `docker exec shopilot-postgres-1 psql -d shopilot_aiq`。被测版本 `ba4b462`，工作区只多了文档与未接入的 `language.ts`，出稿代码未改。第 1 步推送成功，第 2 步最近一次出稿请求里 `reply_language` 为 `null`、品牌语气是中文，与线上现象（中文品牌语气下 31 条影子回复 11 条中文）的成因一致，第 3 步护栏没有回复语言的规定。本轮之后把第 3 步加了一项：提示词最后一行写出这次的语言名（失败步骤不变）。
 
 RUN-051 证据：复测轮，承接 RUN-050，环境同 RUN-050，起跑前重建基线、重启 Web 与 Worker。`TC-AI-030` 六步依次为 `Thai`（品牌语气仍是那段中文）、护栏含「回复语言只由 reply_language 决定」且最后一行「本次回复语言：Thai。reply 只用 Thai 写，不夹用别的语言。」、`Vietnamese`、`Vietnamese`（👍 判不出，沿用前一条）、`Malay`（只有数字，用 MY 默认），每次出稿在买家消息后 8–10 秒出现（`docs/test-runs/run-051-TC-AI-030-2.json`）。`TC-AI-031` 只有一份影子回复，触发消息是那句文字，生成时间在文字到达后 7.4 秒（`docs/test-runs/run-051-TC-AI-031-2.txt`）。`TC-AI-032` 会话 `awaiting_human|shadow|0`，`lastQuery` 为 `[]`，用量 5 → 5。`TC-AI-033` 在 `AI_MODE=deepseek` 下跑，Worker 输出两行：`rewrite` 1,101 ms、195/15 token，`draft` 1,611 ms、649/141 token，都 `"ok":true`，两行都找不到 towel 与 colour（`docs/test-runs/run-051-TC-AI-033-2.log`），之后改回 `AI_MODE=stub`。`TC-AI-001`：草稿置信度 0.85，认领并发送后本方消息 1 条、10 秒后仍 1 条，模拟器收到同文，用量 0 → 1、assist 0 → 1（`docs/test-runs/run-051-TC-AI-001-3.png`）。`TC-KB-024`：员工看到「依据：《保修政策.md》」且不是链接，两路检索都是 `hybrid`，管理员点依据打开 `/reception/knowledge?doc=<ID>`，买家只收到正文（`docs/test-runs/run-051-TC-KB-024-2.png`）。`TC-AI-005` 第一次执行时脚本在管理员页面没加载完就计数，判成失败；改为等页面出现影子回复后重跑，员工看不到、接口 `shadowDrafts` 为 null，组长展开有正文与 0.85、没有发送按钮，管理员可见，shadow 用量 +1，模拟器没有卖家消息（`docs/test-runs/run-051-TC-AI-005-3.png`）。`TC-AI-012` 旧草稿 `superseded`，只剩 1 份待审草稿，最近一次请求的最后一条买家消息是第二问。`TC-AI-018` 会话 `awaiting_human|non_text`、没有草稿。`TC-KB-028` 新检索 2 条 `hybrid`、1 条 `vector`，改写路 `no_vector` 后紧接纯向量重试，`degraded` 为 false。`TC-KB-030` 会话仍在 AI 接待，没有依据，载荷没有 `knowledge`，`degradedReason` 为「检索失败（改写路：timeout；原话路：timeout）」（`docs/test-runs/run-051-TC-KB-030-2.png`）。冒烟级其余 12 条未跑：按 10-14 起的快速开发约定，只跑源自缺陷、新增与受影响的用例。vitest 全部 35 个文件 231 条通过，其中新增 `src/server/ai/draft.test.ts`（防抖重排、影子模式非文字不出稿、`reply_language`）、`language.test.ts`、`client.test.ts` 的日志用例与 `knowledge.test.ts`「混合检索每路 5 秒」。
+
+RUN-052 证据：局部轮，环境同 RUN-050（独立库 `shopilot_aiq`、端口 3381、`AI_MODE=stub`），起跑前重建基线。`TC-AI-034`：商品卡 20 秒后会话 `awaiting_human|shadow|0`；补文字后只有一份影子回复，触发消息是那句文字；再发「Thanks!」20 秒后仍 1 份（`docs/test-runs/run-052-TC-AI-034-4.txt`）。`TC-AI-031` 仍只有一份、按文字出，生成在文字到达后 7.9 秒。`TC-AI-032` 只发图片 20 秒后 `awaiting_human|shadow|0`，`lastQuery` 为 `[]`，用量 2 → 2。vitest 全部 35 个文件 233 条通过，新增 `draft.test.ts`「影子模式开段是图片、7 / 35 秒后补文字」两条，在去掉入站触发的版本上失败。
 
 ## 7. 遗留问题
 

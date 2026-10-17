@@ -6,7 +6,7 @@ import { notify, shopMembers } from "@/server/core/notify";
 import { currentPeriod } from "@/server/billing/periods";
 import { reserveDraft } from "@/server/billing/usage";
 import { hitKeyword, receptionContext } from "@/server/conversations/hours";
-import { DRAFT_QUIET_MS, enqueueDraft, systemEvent, type ConversationRow } from "@/server/conversations/ingest";
+import { DRAFT_QUIET_MS, enqueueDraft, hasShadowDraft, systemEvent, type ConversationRow } from "@/server/conversations/ingest";
 import { sendOutbound } from "@/server/conversations/send";
 import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
@@ -41,8 +41,8 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     await enqueueDraft(conv.id, mode, wait);
     return;
   }
-  // 影子模式：买家停手时最后一条不是文字（只发了图片、商品卡等）就不出影子回复
-  if (mode === "shadow" && trigger.type !== "text") return;
+  // 影子模式：买家停手时最后一条不是文字（只发了图片、商品卡等）就不出影子回复；每段只出一份影子回复
+  if (mode === "shadow" && (trigger.type !== "text" || (await hasShadowDraft(db(), conv.currentSegmentId)))) return;
   // 同一条买家消息只出一次稿
   const [dup] = await db()
     .select({ id: schema.draft.id })
