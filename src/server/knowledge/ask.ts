@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import type { KnowledgeTestBody, KnowledgeTestResult } from "@/contracts/knowledge";
 import { AiError, chat, parseJson } from "@/server/ai/client";
 import { handoffVerdict, parseModelOutput } from "@/server/ai/draft";
+import { replyLanguage } from "@/server/ai/language";
 import { composePrompt, DEFAULT_PROMPTS } from "@/server/ai/prompts";
 import { inScope, type MemberContext } from "@/server/auth/context";
 import { receptionContext } from "@/server/conversations/hours";
@@ -48,16 +49,18 @@ export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody):
     .from(schema.promptTemplate)
     .where(and(eq(schema.promptTemplate.merchantId, merchantId), eq(schema.promptTemplate.stage, "presale")))
     .limit(1);
+  const lang = replyLanguage([body.question], shop?.market ?? null);
   const system = composePrompt(tpl?.text.trim() ? tpl.text : DEFAULT_PROMPTS.presale, {
     merchantName: ctx.merchant.name,
     shopName: shop?.name ?? "（测试问答，未选店铺）",
     platform: shop ? (shop.platform === "shopee" ? "Shopee" : "TikTok Shop") : "电商平台",
     market: shop?.market ?? "全部站点",
+    replyLanguage: lang,
   });
   const conversation = [{ from: "buyer", type: "text", text: body.question, at: new Date().toISOString() }];
   const retrieval = await retrieveForDraft({ merchantId, market: shop?.market ?? null, original: body.question, conversation, orderFacts: [] });
   const knowledge = knowledgePayload(retrieval);
-  const userPayload = { brand_voice: rc.brandVoice ?? "", order_facts: [], conversation, latest_buyer_message: body.question, ...(knowledge ? { knowledge } : {}) };
+  const userPayload = { reply_language: lang, brand_voice: rc.brandVoice ?? "", order_facts: [], conversation, latest_buyer_message: body.question, ...(knowledge ? { knowledge } : {}) };
 
   let parsed;
   try {

@@ -1,4 +1,4 @@
-// draft.generate（DESIGN §11.2 create / create_shadow，§12.2、§12.3、§12.8）：转人工判定 → 额度 → 检索知识库 → 出稿 → assist 存草稿 / auto 直接发 / shadow 存影子。
+// draft.generate（DESIGN §11.2 create / create_shadow，§12.2、§12.3、§12.8）：等买家停手 → 转人工判定 → 额度 → 检索知识库 → 出稿 → assist 存草稿 / auto 直接发 / shadow 存影子。
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { audit, systemActor } from "@/server/core/audit";
@@ -6,7 +6,7 @@ import { notify, shopMembers } from "@/server/core/notify";
 import { currentPeriod } from "@/server/billing/periods";
 import { reserveDraft } from "@/server/billing/usage";
 import { hitKeyword, receptionContext } from "@/server/conversations/hours";
-import { systemEvent, type ConversationRow } from "@/server/conversations/ingest";
+import { DRAFT_QUIET_MS, enqueueDraft, systemEvent, type ConversationRow } from "@/server/conversations/ingest";
 import { sendOutbound } from "@/server/conversations/send";
 import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
@@ -14,6 +14,7 @@ import { inTzText } from "@/server/settings/data";
 import { queueFeishuCard } from "@/server/feishu/deliver";
 import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
 import { AiError, chat, parseJson, type ChatMessage } from "./client";
+import { replyLanguage } from "./language";
 import { composePrompt, DEFAULT_PROMPTS, UNKNOWN_STAGE_PROMPT, type PromptStage } from "./prompts";
 
 const MODEL_REASONS = new Set(["human_request", "policy", "keyword", "low_confidence"]);
@@ -34,6 +35,14 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     .orderBy(desc(schema.message.sentAt), desc(schema.message.createdAt))
     .limit(1);
   if (!shop || !trigger) return;
+  // 防抖：最近一条买家消息到达不满 6 秒就延到满 6 秒再看；同会话排队中的任务只有一个，期间的新消息都并进来，按最后一条出稿
+  const wait = DRAFT_QUIET_MS - (Date.now() - trigger.createdAt.getTime());
+  if (wait > 0) {
+    await enqueueDraft(conv.id, mode, wait);
+    return;
+  }
+  // 影子模式：买家停手时最后一条不是文字（只发了图片、商品卡等）就不出影子回复
+  if (mode === "shadow" && trigger.type !== "text") return;
   // 同一条买家消息只出一次稿
   const [dup] = await db()
     .select({ id: schema.draft.id })
@@ -68,7 +77,6 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
       .limit(1);
     body = tpl?.text.trim() ? tpl.text : DEFAULT_PROMPTS[stage];
   }
-  const system = composePrompt(body, { merchantName: merchant?.name ?? "", shopName: shop.name, platform: shop.platform === "shopee" ? "Shopee" : "TikTok Shop", market: shop.market });
   const history = await db()
     .select()
     .from(schema.message)
@@ -83,7 +91,12 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
   // 有对该店站点可用的资料时，用最近 10 条消息与订单事实改写问题，再两路检索（§12.8）；检索失败只降级、不转人工（RULE-KB-002）
   const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts });
   const knowledge = knowledgePayload(retrieval);
+  // 回复语言按买家最近的文字消息判定，不受品牌语气、提示词与资料的语言影响（§12.8）
+  const buyerTexts = conversation.filter((m) => m.from === "buyer" && m.type === "text" && m.text).map((m) => m.text).reverse();
+  const lang = replyLanguage(buyerTexts, shop.market);
+  const system = composePrompt(body, { merchantName: merchant?.name ?? "", shopName: shop.name, platform: shop.platform === "shopee" ? "Shopee" : "TikTok Shop", market: shop.market, replyLanguage: lang });
   const userPayload = {
+    reply_language: lang,
     brand_voice: rc.brandVoice ?? "",
     timezone: tz,
     order_facts: facts,

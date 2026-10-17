@@ -1,0 +1,2 @@
+{"t":"2026-10-16T20:36:56.888Z","level":"info","msg":"deepseek call","kind":"rewrite","model":"deepseek-flash","ms":1101,"promptTokens":195,"completionTokens":15,"ok":true,"error":null}
+{"t":"2026-10-16T20:36:58.527Z","level":"info","msg":"deepseek call","kind":"draft","model":"deepseek-flash","ms":1611,"promptTokens":649,"completionTokens":141,"ok":true,"error":null}

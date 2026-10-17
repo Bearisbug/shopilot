@@ -430,8 +430,37 @@ describe.skipIf(!process.env.DATABASE_URL)("知识库（需要数据库）", asy
       expect(queries).toEqual([]);
     });
 
+    it("混合检索每路 5 秒，超时立即改纯向量重试（5 秒），不记降级", async () => {
+      const calls: Array<[string, number]> = [];
+      const slow = {
+        ...svc,
+        async search(instance: string, req: Parameters<typeof svc.search>[1]) {
+          calls.push([req.retrievalType, req.timeoutMs]);
+          if (req.retrievalType === "hybrid") throw new KnowledgeServiceError("timeout", "检索服务超时");
+          return svc.search(instance, req);
+        },
+      };
+      const r = await retrieveForDraft({ merchantId: ctx.merchant.id, market: "MY", original: "保修多久", conversation: [], orderFacts: [], svc: slow });
+      expect(calls.sort()).toEqual([
+        ["hybrid", 5000],
+        ["hybrid", 5000],
+        ["vector", 5000],
+        ["vector", 5000],
+      ]);
+      expect(r?.routes.map((a) => [a.kind, a.mode, a.error])).toEqual([
+        ["rewritten", "hybrid", "timeout"],
+        ["rewritten", "vector_only", null],
+        ["original", "hybrid", "timeout"],
+        ["original", "vector_only", null],
+      ]);
+      expect(r).toMatchObject({ degraded: false, vectorRetry: true });
+      expect(r?.merged.length).toBeGreaterThan(0);
+    });
+
+    /** 10 秒前到达的买家消息：出稿要等买家停手 6 秒 */
     async function buyerSays(conversationId: string, textMsg: string) {
-      await db().insert(schema.message).values({ merchantId: ctx.merchant.id, conversationId, direction: "in", senderRole: "buyer", type: "text", text: textMsg, sentAt: new Date() });
+      const at = new Date(Date.now() - 10_000);
+      await db().insert(schema.message).values({ merchantId: ctx.merchant.id, conversationId, direction: "in", senderRole: "buyer", type: "text", text: textMsg, sentAt: at, createdAt: at });
       await db().update(schema.conversation).set({ lastBuyerAt: new Date() }).where(eq(schema.conversation.id, conversationId));
     }
 

@@ -9,11 +9,11 @@ import type { DraftCitation, DraftRetrieval } from "@/server/db/schema";
 import { searchService } from "./search-service";
 import { KnowledgeServiceError, type KnowledgeSearchService, type SearchHit } from "./types";
 
-/** 每路要 20 条、过滤后留 10 条，合并取前 8 段；每路 8 秒，纯向量重试 5 秒（§15） */
+/** 每路要 20 条、过滤后留 10 条，合并取前 8 段；混合检索每路 5 秒，超时即改纯向量重试 5 秒（§15） */
 export const ROUTE_FETCH = 20;
 export const ROUTE_KEEP = 10;
 export const MERGED_KEEP = 8;
-export const SEARCH_TIMEOUT_MS = 8_000;
+export const SEARCH_TIMEOUT_MS = 5_000;
 export const RETRY_TIMEOUT_MS = 5_000;
 
 const d = schema.knowledgeDocument;

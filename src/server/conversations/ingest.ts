@@ -37,8 +37,12 @@ export async function supersedeDrafts(ex: Executor, conversationId: string) {
     .where(and(eq(schema.draft.conversationId, conversationId), eq(schema.draft.status, "generated")));
 }
 
-export function enqueueDraft(conversationId: string, mode: "shadow" | "assist" | "auto") {
-  return enqueue("draft.generate", { conversationId, mode }, { singletonKey: conversationId });
+/** 买家停手多久才出稿：常见先发商品卡、图片，1–2 秒后补一句文字，按最后一条出稿 */
+export const DRAFT_QUIET_MS = 6_000;
+
+/** 出稿任务延后执行（默认 6 秒）；同一会话最多一个排队、一个执行中，排队期间再投递的并进排队中的那个 */
+export function enqueueDraft(conversationId: string, mode: "shadow" | "assist" | "auto", delayMs = DRAFT_QUIET_MS) {
+  return enqueue("draft.generate", { conversationId, mode }, { singletonKey: conversationId, startAfter: Math.ceil(delayMs / 1000) });
 }
 
 const OUT_ROLES = new Set(["agent", "platform_human", "platform_bot"]);
