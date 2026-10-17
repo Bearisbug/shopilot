@@ -84,7 +84,7 @@ describe.skipIf(!process.env.DATABASE_URL)("影子回复译文（需要数据库
     await pool().end();
   });
 
-  /** 待认领（影子模式）的会话，带一条买家消息 */
+  /** 待认领（影子模式）的会话，带一条 10 秒前到达的买家消息（出稿要等买家停手 6 秒） */
   async function shadowConversation(buyerText: string): Promise<{ conv: Conv; triggerId: string }> {
     const [conv] = await db()
       .insert(schema.conversation)
@@ -92,7 +92,8 @@ describe.skipIf(!process.env.DATABASE_URL)("影子回复译文（需要数据库
       .returning();
     const [seg] = await db().insert(schema.segment).values({ merchantId: admin.merchant.id, conversationId: conv.id, stage: "presale", startedAt: new Date() }).returning();
     await db().update(schema.conversation).set({ currentSegmentId: seg.id }).where(eq(schema.conversation.id, conv.id));
-    const [m] = await db().insert(schema.message).values({ merchantId: admin.merchant.id, conversationId: conv.id, segmentId: seg.id, direction: "in", senderRole: "buyer", type: "text", text: buyerText, sentAt: new Date() }).returning();
+    const at = new Date(Date.now() - 10_000);
+    const [m] = await db().insert(schema.message).values({ merchantId: admin.merchant.id, conversationId: conv.id, segmentId: seg.id, direction: "in", senderRole: "buyer", type: "text", text: buyerText, sentAt: at, createdAt: at }).returning();
     return { conv: { ...conv, currentSegmentId: seg.id }, triggerId: m.id };
   }
 

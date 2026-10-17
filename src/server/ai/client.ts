@@ -1,4 +1,4 @@
-// DeepSeek chat/completions（ADR-011、ADR-014，§17）：JSON 输出、关闭思考、按用途给超时。AI_MODE=stub 时由 dev_ai_stub 决定替身回复，并记录最近一次出稿请求。
+// DeepSeek chat/completions（ADR-011、ADR-014，§17）：JSON 输出、关闭思考、按用途给超时，每次调用记一行日志（§21）。AI_MODE=stub 时由 dev_ai_stub 决定替身回复，并记录最近一次出稿请求。
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
@@ -30,6 +30,7 @@ export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?:
     ...(opts.json ? { response_format: { type: "json_object" } } : {}),
   };
   const attempt = async () => {
+    const t0 = Date.now();
     let res: Response;
     try {
       res = await fetch("https://api.deepseek.com/chat/completions", {
@@ -39,14 +40,30 @@ export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?:
         signal: AbortSignal.timeout(TIMEOUT_MS[kind]),
       });
     } catch (err) {
-      const timeout = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+      const timeout = isTimeout(err);
+      logCall(kind, body.model, t0, undefined, timeout ? "timeout" : "network");
       throw new AiError(timeout ? "timeout" : "model_error", timeout ? "DeepSeek 超时" : String(err));
     }
-    if (!res.ok) throw new AiError("model_error", `DeepSeek HTTP ${res.status}`);
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }>; model?: string };
+    if (!res.ok) {
+      logCall(kind, body.model, t0, undefined, `http_${res.status}`);
+      throw new AiError("model_error", `DeepSeek HTTP ${res.status}`);
+    }
+    let json: { choices?: Array<{ message?: { content?: string } }>; model?: string; usage?: Usage };
+    try {
+      json = (await res.json()) as typeof json;
+    } catch (err) {
+      const timeout = isTimeout(err);
+      logCall(kind, body.model, t0, undefined, timeout ? "timeout" : "bad_body");
+      throw new AiError(timeout ? "timeout" : "model_error", timeout ? "DeepSeek 超时" : "DeepSeek 返回的不是 JSON");
+    }
+    const model = json.model ?? e.DEEPSEEK_MODEL;
     const content = json.choices?.[0]?.message?.content ?? "";
-    if (!content.trim()) throw new AiError("model_error", "DeepSeek 返回空内容");
-    return { content, model: json.model ?? e.DEEPSEEK_MODEL, latencyMs: Date.now() - started };
+    if (!content.trim()) {
+      logCall(kind, model, t0, json.usage, "empty");
+      throw new AiError("model_error", "DeepSeek 返回空内容");
+    }
+    logCall(kind, model, t0, json.usage, null);
+    return { content, model, latencyMs: Date.now() - started };
   };
   try {
     return await attempt();
@@ -58,6 +75,28 @@ export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?:
     }
     throw err;
   }
+}
+
+type Usage = { prompt_tokens?: number; completion_tokens?: number };
+
+const isTimeout = (err: unknown) => err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+
+/** 每次调用 DeepSeek 一行日志（§21）：用途、模型、耗时、token 数、成败与错误类别；不记提示词与买家内容 */
+function logCall(kind: AiKind, model: string, t0: number, usage: Usage | undefined, error: string | null) {
+  console.log(
+    JSON.stringify({
+      t: new Date().toISOString(),
+      level: error ? "warn" : "info",
+      msg: "deepseek call",
+      kind,
+      model,
+      ms: Date.now() - t0,
+      promptTokens: usage?.prompt_tokens ?? null,
+      completionTokens: usage?.completion_tokens ?? null,
+      ok: !error,
+      error,
+    }),
+  );
 }
 
 /** 解析模型的 JSON 输出；不是对象时抛 invalid_json */

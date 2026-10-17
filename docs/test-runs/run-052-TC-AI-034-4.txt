@@ -1,0 +1,4 @@
+product_card||2026-10-17 05:24:06.138769+00
+text|Does this tumbler keep drinks cold for 24 hours?|2026-10-17 05:24:26.169761+00
+text|Thanks!|2026-10-17 05:24:46.697903+00
+shadow|2026-10-17 05:24:33.160622+00|01a14851-8bbe-7666-afa5-00d1ea55d4c9

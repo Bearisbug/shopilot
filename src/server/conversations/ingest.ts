@@ -37,8 +37,12 @@ export async function supersedeDrafts(ex: Executor, conversationId: string) {
     .where(and(eq(schema.draft.conversationId, conversationId), eq(schema.draft.status, "generated")));
 }
 
-export function enqueueDraft(conversationId: string, mode: "shadow" | "assist" | "auto") {
-  return enqueue("draft.generate", { conversationId, mode }, { singletonKey: conversationId });
+/** 买家停手多久才出稿：常见先发商品卡、图片，1–2 秒后补一句文字，按最后一条出稿 */
+export const DRAFT_QUIET_MS = 6_000;
+
+/** 出稿任务延后执行（默认 6 秒）；同一会话最多一个排队、一个执行中，排队期间再投递的并进排队中的那个 */
+export function enqueueDraft(conversationId: string, mode: "shadow" | "assist" | "auto", delayMs = DRAFT_QUIET_MS) {
+  return enqueue("draft.generate", { conversationId, mode }, { singletonKey: conversationId, startAfter: Math.ceil(delayMs / 1000) });
 }
 
 const OUT_ROLES = new Set(["agent", "platform_human", "platform_bot"]);
@@ -236,7 +240,16 @@ export async function ingestMessage(
     const draftMode = mode === "assist" || mode === "auto" ? mode : null;
     return { status: "done", conversationId: existing.id, messageId: msg.id, ...afterCommit(existing.id, msg.id, shop.platform, draftMode, m) };
   }
-  return { status: "done", conversationId: existing.id, messageId: msg.id, ...afterCommit(existing.id, msg.id, shop.platform, null, m) };
+  // 影子模式的段还没有影子回复（开段那条是图片、商品卡等）：买家后到的第一句文字照常出影子回复
+  const shadowFirstText = existing.handlingState === "awaiting_human" && existing.handoffReason === "shadow" && mode === "shadow" && m.type === "text" && !!m.text?.trim() && !(await hasShadowDraft(ex, existing.currentSegmentId));
+  return { status: "done", conversationId: existing.id, messageId: msg.id, ...afterCommit(existing.id, msg.id, shop.platform, shadowFirstText ? "shadow" : null, m) };
+}
+
+/** 本段有没有影子回复 */
+export async function hasShadowDraft(ex: Executor, segmentId: string | null): Promise<boolean> {
+  if (!segmentId) return false;
+  const [d] = await ex.select({ id: schema.draft.id }).from(schema.draft).where(and(eq(schema.draft.segmentId, segmentId), eq(schema.draft.mode, "shadow"))).limit(1);
+  return !!d;
 }
 
 /** 事务提交后要做的事（出稿、翻译、会话进入待认领时的飞书卡片），由调用方在提交后执行 */
