@@ -1,6 +1,6 @@
 "use client";
 
-// PAGE-DASHBOARD（/dashboard）：会话段去向、草稿处置、平台口径、转人工原因、按人统计、工单（REQ-DASH-001、API-DASH-001）。
+// PAGE-DASHBOARD（/dashboard）：会话段去向、草稿处置、平台口径、转人工原因、AI 草稿与人工回复、按人统计、工单（REQ-DASH-001、API-DASH-001）。
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { DownloadIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import { inTz } from "@/lib/format";
 import { DashRangePicker } from "./range-picker";
 import { DraftsPanel, PeoplePanel, PlatformPanel, TicketStats, TicketTypesPanel, TrendPanel } from "./dashboard-panels";
+import { DraftReviewPanel } from "./draft-review-panel";
 import { IssuesPanel } from "./issues-panel";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -94,6 +95,7 @@ export function DashboardClient({ me }: { me: Me }) {
           </div>
           <Section title="处理质量" description="只统计经 Shopilot 处理的会话段；回补的历史会话与达人会话不计。" />
           <IssuesPanel d={d} tz={tz} rangeQs={qs} canManage={me.active.permissions.includes("reception.manage")} />
+          <DraftReviewPanel d={d} tz={tz} rangeQs={qs} />
           <PeoplePanel d={d} canSeeTeam={me.active.permissions.includes("team.manage")} />
           <Section title="工单" description="时限来源分平台截止与商户时限，超时是标记、不是状态。" />
           <TicketStats d={d} />

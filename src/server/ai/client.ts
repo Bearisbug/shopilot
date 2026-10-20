@@ -4,7 +4,7 @@ import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary" | "issue";
+export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary" | "issue" | "compare";
 
 export class AiError extends Error {
   constructor(public kind: "timeout" | "model_error" | "invalid_json", message: string) {
@@ -14,7 +14,7 @@ export class AiError extends Error {
 
 export type AiResult = { content: string; model: string; latencyMs: number };
 
-const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000 };
+const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000, compare: 15_000 };
 
 export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?: boolean; maxTokens?: number; stubHint?: string } = {}): Promise<AiResult> {
   const e = env();
@@ -148,6 +148,25 @@ function stubIssue(system: string, transcript: string): string {
   return JSON.stringify({ summary: `买家咨询：${firstBuyer.slice(0, 30) || "（无文字）"}`, category: hit && listed.has(hit) ? hit : "其他" });
 }
 
+/**
+ * 替身草稿对比：两段文字去空白后相同记语义一致；人工回复包含草稿记补充信息；长度相近记仅语言润色；其余记弃用重写。
+ * 载荷是 draft.compare 发出的 JSON（draft、human）。
+ */
+function stubCompare(rest: Array<{ role: string; content: string }>): string {
+  let p: { draft?: string; human?: string } = {};
+  try {
+    p = JSON.parse(rest.find((m) => m.role === "user")?.content ?? "{}") as typeof p;
+  } catch {
+    // 落到下面按空串比
+  }
+  const squash = (x: string | undefined) => (x ?? "").replace(/\s+/g, "");
+  const [draft, human] = [squash(p.draft), squash(p.human)];
+  const ratio = draft ? human.length / draft.length : 0;
+  const [cls, consistency] =
+    draft === human ? ["same", "same"] : human.includes(draft) ? ["supplement", "partial"] : ratio >= 0.7 && ratio <= 1.3 ? ["polish", "same"] : ["rewrite", "different"];
+  return JSON.stringify({ edit_class: cls, consistency, reason: "替身：按字面比较", evidence: (p.human ?? "").slice(0, 40) });
+}
+
 /** 出稿请求 user 载荷里有没有资料片段 */
 function stubHasKnowledge(rest: Array<{ role: string; content: string }>): boolean {
   try {
@@ -178,6 +197,7 @@ async function stubChat(kind: AiKind, messages: ChatMessage[], hint: string | un
   if (kind === "translate") return done(`[译文] ${hint ?? ""}`.trim());
   if (kind === "summary") return done(STUB_SUMMARY);
   if (kind === "issue") return done(stubIssue(system, hint ?? ""));
+  if (kind === "compare") return done(stubCompare(rest));
   if (kind === "extract") return done(JSON.stringify({ buyerName: "PT Contoh Sdn Bhd", address: "12 Jalan Contoh, 50000 Kuala Lumpur", email: "finance@contoh.example", taxId: "C1234567890" }));
   const reply = STUB_REPLIES[next];
   if (!reply) throw new AiError("timeout", "替身：超时");

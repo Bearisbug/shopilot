@@ -5,8 +5,8 @@ import { TZDate } from "@date-fns/tz";
 import { addDays, addMonths, differenceInCalendarDays, format, parseISO, startOfWeek } from "date-fns";
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
-import type { DashboardIssueList, DashboardIssueStats, DashboardPerson, DashboardPlatformMetric, DashboardResponse, DashboardTrendDay, DashPreset, DashRangeSpec, IssueView, PlatformMetricStatus, Ratio } from "@/contracts/dashboard";
-import { ISSUE_LIST_LIMIT, MAX_RANGE_DAYS, MIN_SAMPLE, PRESET_LABEL } from "@/contracts/dashboard";
+import type { DashboardDraftReviewList, DashboardIssueList, DashboardIssueStats, DashboardPerson, DashboardPlatformMetric, DashboardResponse, DashboardTrendDay, DashPreset, DashRangeSpec, DraftConsistency, DraftEditClass, DraftReviewKind, DraftReviewStats, IssueView, PlatformMetricStatus, Ratio } from "@/contracts/dashboard";
+import { DRAFT_EDIT_CLASSES, DRAFT_REVIEW_LIST_LIMIT, ISSUE_LIST_LIMIT, MAX_RANGE_DAYS, MIN_SAMPLE, PRESET_LABEL } from "@/contracts/dashboard";
 import type { ShopMetric, ShopPeriod } from "@/contracts/shops";
 import { TYPE_LABEL } from "@/contracts/tickets";
 import { HANDOFF_LABEL } from "@/server/ai/draft";
@@ -27,6 +27,7 @@ const D = schema.draft;
 const T = schema.ticket;
 const A = schema.auditLog;
 const M = schema.message;
+const RV = schema.draftReview;
 
 type Bounds = { start: Date; end: Date; days: string[]; preset: DashPreset | null; label: string };
 type Span = { start: Date; end: Date };
@@ -317,6 +318,78 @@ async function draftStats(ctx: MemberContext, b: Bounds) {
     .groupBy(sql`1`);
 }
 
+/** AI 草稿与人工回复对比：按草稿生成日期落在范围内、成员可见的买家会话 */
+function reviewWhere(ctx: MemberContext, b: Span): SQL {
+  return and(visibleConversations(ctx), eq(C.buyerKind, "buyer"), gte(D.createdAt, b.start), lt(D.createdAt, b.end))!;
+}
+
+async function draftReviewStats(ctx: MemberContext, b: Bounds): Promise<DraftReviewStats> {
+  const rows = await db()
+    .select({ kind: RV.kind, status: RV.draftStatus, editClass: RV.editClass, consistency: RV.consistency, n: sql<number>`count(*)::int` })
+    .from(RV)
+    .innerJoin(D, eq(D.id, RV.draftId))
+    .innerJoin(C, eq(C.id, RV.conversationId))
+    .where(reviewWhere(ctx, b))
+    .groupBy(sql`1`, sql`2`, sql`3`, sql`4`);
+  const total = (f: (r: (typeof rows)[number]) => boolean) => rows.filter(f).reduce((s, r) => s + r.n, 0);
+  const shadow = (r: (typeof rows)[number]) => r.kind === "shadow";
+  const assist = (r: (typeof rows)[number]) => r.kind === "assist";
+  const sameShadow = total((r) => shadow(r) && r.consistency === "same");
+  const comparedShadow = total(shadow);
+  const byClass = (kind: DraftReviewKind) => DRAFT_EDIT_CLASSES.map((editClass) => ({ editClass, count: total((r) => r.kind === kind && r.editClass === editClass) }));
+  return {
+    shadow: {
+      compared: comparedShadow,
+      same: sameShadow,
+      partial: total((r) => shadow(r) && r.consistency === "partial"),
+      different: total((r) => shadow(r) && r.consistency === "different"),
+      consistency: ratio(sameShadow, comparedShadow),
+    },
+    assist: {
+      compared: total(assist),
+      sent: total((r) => assist(r) && r.status === "sent"),
+      editedSent: total((r) => assist(r) && r.status === "edited_sent"),
+      ignored: total((r) => assist(r) && r.status === "ignored"),
+    },
+    byClass: { shadow: byClass("shadow"), assist: byClass("assist") },
+  };
+}
+
+/** 某类型、某修改分类下的对比样例（按草稿生成时间倒序，最多 DRAFT_REVIEW_LIST_LIMIT 条）；不给分类时列这一类型的全部 */
+export async function draftReviewList(ctx: MemberContext, spec: DashRangeSpec, kind: DraftReviewKind, editClass: DraftEditClass | null): Promise<DashboardDraftReviewList> {
+  const b = rangeBounds(spec, ctx.merchant.timezone);
+  const where = and(reviewWhere(ctx, b), eq(RV.kind, kind), editClass ? eq(RV.editClass, editClass) : undefined);
+  const [{ total }] = await db().select({ total: sql<number>`count(*)::int` }).from(RV).innerJoin(D, eq(D.id, RV.draftId)).innerJoin(C, eq(C.id, RV.conversationId)).where(where);
+  const items = await db()
+    .select({
+      draftId: RV.draftId,
+      conversationId: RV.conversationId,
+      createdAt: D.createdAt,
+      shopName: schema.shop.name,
+      buyerName: C.buyerName,
+      draftStatus: RV.draftStatus,
+      editClass: RV.editClass,
+      consistency: RV.consistency,
+      draftText: D.text,
+      humanText: RV.humanText,
+      reason: RV.reason,
+      evidence: RV.evidence,
+    })
+    .from(RV)
+    .innerJoin(D, eq(D.id, RV.draftId))
+    .innerJoin(C, eq(C.id, RV.conversationId))
+    .innerJoin(schema.shop, eq(schema.shop.id, C.shopId))
+    .where(where)
+    .orderBy(desc(D.createdAt), desc(D.id))
+    .limit(DRAFT_REVIEW_LIST_LIMIT);
+  return {
+    kind,
+    editClass,
+    total,
+    items: items.map((r) => ({ ...r, createdAt: r.createdAt.toISOString(), editClass: r.editClass as DraftEditClass, consistency: r.consistency as DraftConsistency })),
+  };
+}
+
 const RESOLVED = sql`${T.resolvedAt} is not null and ${T.status} in ('resolved', 'closed')`;
 /** 按时只看有截止时间的；没有截止时间的单列「无时限」，不进按时率 */
 const ON_TIME = sql`(${T.dueAt} is not null and ${T.resolvedAt} <= ${T.dueAt})`;
@@ -455,16 +528,17 @@ type Loaded = Awaited<ReturnType<typeof load>>;
 async function load(ctx: MemberContext, spec: DashRangeSpec) {
   const b = rangeBounds(spec, ctx.merchant.timezone);
   const [replies, r12] = await Promise.all([firstReplyStats(ctx, b), replied12hStats(ctx, b)]);
-  const [seg, reasons, issues, drafts, tickets, ppl, metrics] = await Promise.all([
+  const [seg, reasons, issues, drafts, reviews, tickets, ppl, metrics] = await Promise.all([
     segmentStats(ctx, b),
     handoffReasons(ctx, b),
     issueStats(ctx, b),
     draftStats(ctx, b),
+    draftReviewStats(ctx, b),
     ticketStats(ctx, b),
     people(ctx, b, replies, r12),
     platformMetrics(ctx, platformPeriodOf(b)),
   ]);
-  return { b, seg, replies, r12, reasons, issues, drafts, tickets, people: ppl, metrics };
+  return { b, seg, replies, r12, reasons, issues, drafts, reviews, tickets, people: ppl, metrics };
 }
 
 function trendOf(l: Loaded): DashboardTrendDay[] {
@@ -509,6 +583,7 @@ export async function dashboard(ctx: MemberContext, spec: DashRangeSpec): Promis
       adoptionRate: ratio(d.sent + d.editedSent, d.sent + d.editedSent + d.ignored),
       editRate: ratio(d.editedSent, d.sent + d.editedSent),
     },
+    draftReview: l.reviews,
     people: l.people,
     tickets: {
       open: snap?.open ?? 0,
