@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import type { ConversationDetail, DraftItem, SendBody, UploadedFile } from "@/contracts/conversations";
 import type { QuickReply, QuickReplyLang } from "@/contracts/reception";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverAnchor } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +17,7 @@ import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
 import { quickReplyInsert } from "@/lib/quick-reply";
 import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
+import { usePretranslate, type Pretranslation } from "./use-pretranslate";
 import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
 import { AiTag, Citations, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
@@ -157,6 +159,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const [draftLang, setDraftLang] = useDraftLang(c.id);
   // 本条实际的发送前翻译：插入了某个语言版本的快捷回复就不翻译
   const sendLang = draftLang ? "none" : translateTo;
+  const pre = usePretranslate(text, sendLang);
   const fileRef = useRef<HTMLInputElement>(null);
   // 同一段文字重发沿用同一个 clientRequestId：结果未知（504）后再点发送，服务端按它去重，不会发两遍
   const attempt = useRef<{ text: string; key: string } | null>(null);
@@ -205,6 +208,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
     const body = text.trim();
     const clientRequestId = attempt.current?.text === body ? attempt.current.key : newKey();
     attempt.current = { text: body, key: clientRequestId };
+    // 停顿时已经翻好的译文随消息带上，服务端不再同步翻译；没翻好（还在翻、失败、刚改字）由服务端照旧翻译
+    const translatedText = sendLang === "none" ? undefined : pre.get(body, sendLang);
     const done = () => {
       attempt.current = null;
       setText("");
@@ -217,6 +222,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
         text: body,
         clientRequestId,
         translateTo: sendLang === "none" ? undefined : (sendLang as SendBody["translateTo"]),
+        ...(translatedText ? { translatedText } : {}),
         ...(editing ? { draftId: editing.id, disposition: "edited_sent" as const } : {}),
       },
       {
@@ -389,6 +395,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
                     ))}
                   </SelectContent>
                 </Select>
+                {/* 预览只占这一行剩下的宽度、单行截断：出现、消失、切换状态都不改变输入框高度 */}
+                {pre.state.status !== "idle" && <SendPreview key={pre.key} state={pre.state} lang={sendLang} />}
                 <span className={`ml-auto text-xs whitespace-nowrap tabular-nums ${over > 0 ? "text-destructive" : "text-muted-foreground"}`}>
                   {length.toLocaleString("en-US")} / {max.toLocaleString("en-US")}
                 </span>
@@ -460,6 +468,45 @@ function PastedPreview({ items, sent }: { items: (Media & { preview: string })[]
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * 工具栏里「将发送」的译文预览：单行截断，点开在浮层里看全文；翻译中、失败只给一句说明。
+ * 盒子窄于 24rem（手机宽度）时只留「将发送」标签，点开看全文。
+ * contain:inline-size 让预览不按译文长度撑宽工具栏：只占剩下的宽度，工具栏换不换行与有无预览无关，输入框高度不跳。
+ */
+function SendPreview({ state, lang }: { state: Exclude<Pretranslation, { status: "idle" }>; lang: string }) {
+  const label = (
+    <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
+      将发送
+    </Badge>
+  );
+  if (state.status !== "done") {
+    return (
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground [contain:inline-size]">
+        {label}
+        <span className="truncate @max-sm/composer:sr-only">{state.status === "pending" ? "翻译中…" : "预翻译没成功，发送时再翻译"}</span>
+      </span>
+    );
+  }
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="focus-ring flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 overflow-hidden rounded-sm text-left text-xs text-muted-foreground [contain:inline-size]">
+          {label}
+          <span lang={lang} className="truncate @max-sm/composer:sr-only">
+            {state.text}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" collisionPadding={12} className="w-80 max-w-[calc(100vw-1.5rem)] text-sm">
+        <p className="mb-1.5 text-xs text-muted-foreground">将发送给买家的译文</p>
+        <p lang={lang} className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+          {state.text}
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
