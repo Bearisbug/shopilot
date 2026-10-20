@@ -24,6 +24,7 @@ import { Problem, notFound, validation } from "@/server/http/problem";
 import { enqueue } from "@/server/jobs/boss";
 import { builtinCategoryId } from "./categories";
 import { checkKnowledgeFile } from "./format";
+import { publishedQaCounts } from "./qa";
 import { deniedByRule } from "./shared";
 
 const d = schema.knowledgeDocument;
@@ -38,6 +39,7 @@ async function documentViews(rows: DocRow[], tx: Executor = db()): Promise<Knowl
   const names = uploaders.length
     ? await tx.select({ id: schema.membership.id, name: schema.user.name }).from(schema.membership).innerJoin(schema.user, eq(schema.user.id, schema.membership.userId)).where(inArray(schema.membership.id, uploaders))
     : [];
+  const qaN = await publishedQaCounts(ids, tx);
   const partN = new Map(parts.map((p) => [p.id, p.n]));
   const chunkN = new Map(chunks.map((c) => [c.id, c.n]));
   const nameOf = new Map(names.map((n) => [n.id, n.name]));
@@ -53,6 +55,8 @@ async function documentViews(rows: DocRow[], tx: Executor = db()): Promise<Knowl
     failureReason: r.failureReason,
     partsCount: partN.get(r.id) ?? 0,
     chunksCount: chunkN.get(r.id) ?? 0,
+    qaExtract: { status: r.qaExtractStatus, count: r.qaExtractCount, error: r.qaExtractError, extractedAt: r.qaExtractedAt?.toISOString() ?? null },
+    publishedQaCount: qaN.get(r.id) ?? 0,
     uploadedByName: r.uploadedBy ? (nameOf.get(r.uploadedBy) ?? null) : null,
     createdAt: r.createdAt.toISOString(),
     readyAt: r.readyAt?.toISOString() ?? null,

@@ -561,6 +561,8 @@ export function normalizeShopeeOrder(o: Record<string, unknown>): NormalizedOrde
   const items = ((o.item_list as Array<Record<string, unknown>> | undefined) ?? []).map((i) => ({
     name: String(i.item_name ?? ""),
     sku: String(i.model_name ?? i.model_sku ?? "") || undefined,
+    // 卖家 SKU（物料编码）：规格级 model_sku 优先，单规格商品用 item_sku
+    sellerSku: String(i.model_sku || i.item_sku || "").trim() || undefined,
     productId: String(i.item_id ?? ""),
     skuId: String(i.model_id ?? ""),
     qty: Number(i.model_quantity_purchased ?? 1),

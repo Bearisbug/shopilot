@@ -99,6 +99,13 @@
       "when": 1792496163880,
       "tag": "0013_perfect_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792517484715,
+      "tag": "0014_outstanding_thaddeus_ross",
+      "breakpoints": true
     }
   ]
 }

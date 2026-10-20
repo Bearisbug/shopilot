@@ -14,6 +14,7 @@ import { enqueue } from "@/server/jobs/boss";
 import { inTzText } from "@/server/settings/data";
 import { queueFeishuCard } from "@/server/feishu/deliver";
 import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
+import { identifyProducts } from "@/server/products/dictionary";
 import { AiError, chat, parseJson, type ChatMessage } from "./client";
 import { replyLanguage } from "./language";
 import { composePrompt, DEFAULT_PROMPTS, UNKNOWN_STAGE_PROMPT, type PromptStage } from "./prompts";
@@ -102,8 +103,16 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     })
     .sort((a, b) => a.t.getTime() - b.t.getTime())
     .map(({ t, ...e }) => ({ ...e, at: local(t) }));
-  // 有对该店站点可用的资料时，用最近 10 条消息与订单事实改写问题，再两路检索（§12.8）；检索失败只降级、不转人工（RULE-KB-002）
-  const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts });
+  // 识别买家在问的产品（商品卡 → 订单商品 → 文字里的编码或名称），只用于问答检索的产品过滤
+  const productIds = await identifyProducts({
+    merchantId: conv.merchantId,
+    shopId: conv.shopId,
+    buyerExternalId: conv.buyerExternalId,
+    productCardIds: history.filter((m) => m.senderRole === "buyer" && m.type === "product_card").map((m) => String((m.payload as { productId?: unknown } | null)?.productId ?? "")),
+    buyerTexts: history.filter((m) => m.senderRole === "buyer" && m.type === "text" && m.text).slice(-5).map((m) => m.text!),
+  });
+  // 有对该店站点可用的资料或已发布问答时，用最近 10 条消息与订单事实改写问题，再检索（§12.8）；检索失败只降级、不转人工（RULE-KB-002）
+  const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts, stage, productIds });
   const knowledge = knowledgePayload(retrieval);
   // 回复语言按买家最近的文字消息判定，不受品牌语气、提示词与资料的语言影响（§12.8）
   const buyerTexts = conversation.filter((m) => m.from === "buyer" && m.type === "text" && m.text).map((m) => m.text).reverse();
@@ -314,11 +323,26 @@ export function handoffVerdict(p: ModelOutput, threshold: number): HandoffReason
 /** EVT:draft_generated、EVT:handoff 的检索属性（§20）；没检索时不带 */
 function retrievalEvent(r: RetrievalOutcome | null, insufficient: boolean) {
   if (!r) return { insufficient };
-  return { insufficient, retrieval_ms: r.latencyMs, retrieval_degraded: r.degraded, vector_retry: r.vectorRetry };
+  return { insufficient, retrieval_ms: r.latencyMs, retrieval_degraded: r.degraded, vector_retry: r.vectorRetry, qa_hits: r.qa?.merged.length ?? 0 };
 }
 
-/** §21 日志字段：job=draft.generate 的 retrievalMs、retrievalDegraded、vectorRetry、insufficient */
+/** §21 日志字段：job=draft.generate 的 retrievalMs、retrievalDegraded、vectorRetry、insufficient，以及问答检索的 qaRetrievalMs、qaHits、qaError */
 function logRetrieval(conv: ConversationRow, r: RetrievalOutcome | null, insufficient: boolean | null) {
   if (!r) return;
-  console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", job: "draft.generate", merchantId: conv.merchantId, conversationId: conv.id, retrievalMs: r.latencyMs, retrievalDegraded: r.degraded, vectorRetry: r.vectorRetry, insufficient }));
+  console.log(
+    JSON.stringify({
+      t: new Date().toISOString(),
+      level: "info",
+      job: "draft.generate",
+      merchantId: conv.merchantId,
+      conversationId: conv.id,
+      retrievalMs: r.latencyMs,
+      retrievalDegraded: r.degraded,
+      vectorRetry: r.vectorRetry,
+      insufficient,
+      qaRetrievalMs: r.qa?.latencyMs ?? null,
+      qaHits: r.qa ? r.qa.merged.length : null,
+      qaError: r.qa?.error ?? null,
+    }),
+  );
 }

@@ -13,6 +13,12 @@ export const QUEUES = {
   // 知识库：入库单份 ≤ 20 分钟（任务内自己计时，这里留余量）；删除重试 5 次指数退避，每小时补扫
   "knowledge.ingest": { policy: "stately" as const, expireInSeconds: 1320, retryLimit: 0 },
   "knowledge.purge": { policy: "standard" as const, expireInSeconds: 300, retryLimit: 5, retryDelay: 30, retryBackoff: true },
+  // 整理成问答：每批 DeepSeek 最长 90 秒，资料最多 200 条候选；失败记到资料上，由管理员重新发起，任务本身不重试
+  "knowledge.qa_extract": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 0 },
+  // 补问答向量（已发布、待审核里向量为空的），顺带把卡住的「整理中」标失败
+  "knowledge.qa_embed": { policy: "stately" as const, expireInSeconds: 120, retryLimit: 0 },
+  // 重新拉各店商品目录写卖家 SKU 对应关系（导入产品清单后、或管理员点「重新对应」）
+  "product.listing_sync": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 1, retryDelay: 60 },
   "message.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
   // Shopee 聊天视频：上传最长 90 秒 + 等平台处理最长 120 秒 + 发送；失败记到消息上由客服重试，任务本身不重试
   "message.video_send": { policy: "standard" as const, expireInSeconds: 300, retryLimit: 0 },
@@ -68,6 +74,7 @@ export const SCHEDULES: Partial<Record<QueueName, string>> = {
   "merchant.purge": "30 3 * * *",
   "knowledge.purge": "40 * * * *",
   "issue.extract": "*/10 * * * *",
+  "knowledge.qa_embed": "*/5 * * * *",
 };
 
 /** pg-boss 定时投递用的内部队列名（pg-boss 未导出该常量） */

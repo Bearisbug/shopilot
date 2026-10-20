@@ -5,6 +5,7 @@ import { notAllowed } from "@/server/http/problem";
 import { withShop, type ShopRow } from "@/server/platforms/clients";
 import { shopeeItemIds, shopeeItemModels, shopeeItemsBase } from "@/server/platforms/shopee";
 import { tiktokCatalog, tiktokProduct } from "@/server/platforms/tiktok";
+import { writeListings } from "./dictionary";
 import { cachedImages, productUrl, rememberProducts } from "./info";
 
 const TTL_MS = 10 * 60_000;
@@ -52,6 +53,8 @@ async function load(shop: ShopRow): Promise<ShopProducts> {
     return { items, truncated: all.length > MAX_PRODUCTS };
   });
   await rememberProducts(shop, list.items);
+  // 卖家 SKU → 产品清单的对应关系（问答检索按产品过滤、产品清单页的「未对应」都用它）
+  await writeListings(shop, list.items, list.truncated);
   return {
     items: list.items.map((p) => ({ ...p, url: productUrl(shop, p.productId) })),
     truncated: list.truncated,

@@ -1,11 +1,13 @@
-// 出稿检索（REQ-AI-002、REQ-KB-006、§12.8「出稿检索规则」）：有可用资料时改写问题 → 改写与原话两路并行检索 →
-// 按 Shopilot 库里资料的当前状态、AI 可用与站点过滤 → 两路交替合并去重取前 8 段。出稿任务与测试问答（API-KB-012）共用。
+// 出稿检索（REQ-AI-002、REQ-KB-006、§12.8「出稿检索规则」）：有可用资料或已发布问答时改写问题 →
+// 资料（AI Search 两路检索，按 Shopilot 库里资料的当前状态、AI 可用与站点过滤，两路交替合并去重取前 8 段）
+// 与问答（Postgres 向量检索，见 qa-retrieve.ts）并行；问答编号在前，资料分块接着编号。出稿任务与测试问答（API-KB-012）共用。
 import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
-import type { KnowledgeRetrieval } from "@/contracts/knowledge";
+import type { KnowledgeQaRetrieval, KnowledgeRetrieval } from "@/contracts/knowledge";
 import { AiError, chat, parseJson } from "@/server/ai/client";
 import { REWRITE_PROMPT } from "@/server/ai/prompts";
 import { db, schema } from "@/server/db/client";
 import type { DraftCitation, DraftRetrieval } from "@/server/db/schema";
+import { hasPublishedQa, retrieveQa, type QaOutcome } from "./qa-retrieve";
 import { searchService } from "./search-service";
 import { KnowledgeServiceError, type KnowledgeSearchService, type SearchHit } from "./types";
 
@@ -35,11 +37,15 @@ export type RouteAttempt = { kind: "rewritten" | "original"; mode: "hybrid" | "v
 export type RetrievalOutcome = {
   rewrittenQuery: string | null;
   routes: RouteAttempt[];
+  /** 资料分块；编号接在问答后面 */
   merged: Array<{ n: number; chunk: RetrievedChunk }>;
+  /** 资料检索两路都失败（问答检索的失败记在 qa.error，不算降级） */
   degraded: boolean;
   degradedReason: string | null;
   vectorRetry: boolean;
   latencyMs: number;
+  /** 问答检索；没有已发布问答时为 null */
+  qa: QaOutcome | null;
 };
 
 /** RULE-KB-001：解析完成、AI 可用开着、站点含「全部」或该店站点；market 为 null（测试问答没选店铺）时不看站点 */
@@ -142,8 +148,8 @@ export function mergeRoutes(rewritten: RetrievedChunk[] | null, original: Retrie
 }
 
 /**
- * 出稿与测试问答共用的检索链路。没有对该店站点可用的资料时返回 null（不改写、不检索）。
- * rewriteInput 为 null 时（测试问答）问题本身既是改写输入也是原话。
+ * 出稿与测试问答共用的检索链路。既没有对该店站点可用的资料、也没有已发布问答时返回 null（不改写、不检索）。
+ * stage（当前会话段阶段，unknown 或空不过滤）与 productIds（识别出的产品）只用于问答过滤。
  */
 export async function retrieveForDraft(input: {
   merchantId: string;
@@ -151,49 +157,65 @@ export async function retrieveForDraft(input: {
   original: string;
   conversation: unknown[];
   orderFacts: unknown[];
+  stage?: string | null;
+  productIds?: string[];
   svc?: KnowledgeSearchService;
 }): Promise<RetrievalOutcome | null> {
-  if (!(await hasUsableDocuments(input.merchantId, input.market))) return null;
-  const [idx] = await db().select().from(schema.knowledgeIndex).where(eq(schema.knowledgeIndex.merchantId, input.merchantId)).limit(1);
-  if (!idx) return null;
+  const [docsUsable, qaUsable] = await Promise.all([hasUsableDocuments(input.merchantId, input.market), hasPublishedQa(input.merchantId, input.market)]);
+  const [idx] = docsUsable ? await db().select().from(schema.knowledgeIndex).where(eq(schema.knowledgeIndex.merchantId, input.merchantId)).limit(1) : [];
+  if (!idx && !qaUsable) return null;
   const svc = input.svc ?? searchService();
   const started = Date.now();
   const rewrittenQuery = await rewriteQuestion({ conversation: input.conversation, orderFacts: input.orderFacts, original: input.original });
   // 检索服务不接受空查询（Cloudflare 400 7001）：买家只发图片、商品卡时原话为空，这一路不跑；改写也为空时两路都不跑，按没检索到资料处理
   const original = input.original.trim();
-  const [rw, og] = await Promise.all([
-    rewrittenQuery ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "rewritten", rewrittenQuery) : Promise.resolve(null),
-    original ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "original", original) : Promise.resolve(null),
+  const [rw, og, qa] = await Promise.all([
+    idx && rewrittenQuery ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "rewritten", rewrittenQuery) : Promise.resolve(null),
+    idx && original ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "original", original) : Promise.resolve(null),
+    qaUsable ? retrieveQa({ merchantId: input.merchantId, market: input.market, stage: input.stage ?? null, productIds: input.productIds ?? [], rewritten: rewrittenQuery, original }) : Promise.resolve(null),
   ]);
   const attempts = [...(rw?.attempts ?? []), ...(og?.attempts ?? [])];
   const failed = [rw, og].filter((r) => r && r.chunks === null).length;
   const ran = [rw, og].filter(Boolean).length;
   const degraded = ran > 0 && failed === ran;
   const errors = attempts.filter((a) => a.mode === "vector_only" && a.error).map((a) => `${a.kind === "rewritten" ? "改写路" : "原话路"}：${a.error}`);
+  const offset = qa?.merged.length ?? 0;
   return {
     rewrittenQuery,
     routes: attempts,
-    merged: degraded ? [] : mergeRoutes(rw?.chunks ?? null, og?.chunks ?? null),
+    merged: degraded ? [] : mergeRoutes(rw?.chunks ?? null, og?.chunks ?? null).map((m) => ({ n: m.n + offset, chunk: m.chunk })),
     degraded,
     degradedReason: degraded ? `检索失败（${errors.join("；")}）` : null,
     vectorRetry: attempts.some((a) => a.mode === "vector_only"),
     latencyMs: Date.now() - started,
+    qa,
   };
 }
 
-/** 出稿请求 user 载荷里的资料段 `knowledge: [{ n, title, text }]`；降级时不带 */
+/**
+ * 出稿请求 user 载荷里的资料段 `knowledge: [{ n, title, text }]`：问答在前（标题「问答：第一个问法」，正文「问：…答：…」），
+ * 资料分块在后；资料检索降级时只带问答，两样都没有时不带。
+ */
 export function knowledgePayload(r: RetrievalOutcome | null): Array<{ n: number; title: string; text: string }> | undefined {
-  if (!r || r.degraded) return undefined;
-  return r.merged.map((m) => ({ n: m.n, title: m.chunk.name, text: m.chunk.text }));
+  if (!r) return undefined;
+  const qa = (r.qa?.merged ?? []).map((m) => ({ n: m.n, title: `问答：${m.hit.questions[0]}`, text: `问：${m.hit.questions.join(" / ")}\n答：${m.hit.answer}` }));
+  const docs = r.degraded ? [] : r.merged.map((m) => ({ n: m.n, title: m.chunk.name, text: m.chunk.text }));
+  const all = [...qa, ...docs];
+  return all.length ? all : undefined;
 }
 
-/** 依据：used_sources 里在合并结果中的编号，按资料去重（不在结果里的编号忽略） */
+/** 依据：used_sources 里在合并结果中的编号，问答按问答去重、资料按资料去重（不在结果里的编号忽略） */
 export function citationsFrom(r: RetrievalOutcome | null, usedSources: number[]): DraftCitation[] {
   if (!r) return [];
   const out: DraftCitation[] = [];
   for (const n of usedSources) {
+    const qa = r.qa?.merged.find((x) => x.n === n);
+    if (qa) {
+      if (!out.some((c) => c.kind === "qa" && c.qaId === qa.hit.qaId)) out.push({ n, kind: "qa", qaId: qa.hit.qaId, name: qa.hit.questions[0] });
+      continue;
+    }
     const m = r.merged.find((x) => x.n === n);
-    if (m && !out.some((c) => c.documentId === m.chunk.documentId)) out.push({ n, documentId: m.chunk.documentId, name: m.chunk.name });
+    if (m && !out.some((c) => c.kind !== "qa" && c.documentId === m.chunk.documentId)) out.push({ n, kind: "document", documentId: m.chunk.documentId, name: m.chunk.name });
   }
   return out;
 }
@@ -207,6 +229,29 @@ export function retrievalSnapshot(r: RetrievalOutcome): DraftRetrieval {
     degraded: r.degraded,
     ...(r.degradedReason ? { degradedReason: r.degradedReason } : {}),
     latencyMs: r.latencyMs,
+    ...(r.qa
+      ? {
+          qa: {
+            latencyMs: r.qa.latencyMs,
+            ...(r.qa.error ? { error: r.qa.error } : {}),
+            productIds: r.qa.productIds,
+            hits: r.qa.hits.map((h) => ({ route: h.route, qaId: h.qaId, distance: Number(h.distance.toFixed(4)) })),
+            merged: r.qa.merged.map((m) => ({ n: m.n, qaId: m.hit.qaId })),
+          },
+        }
+      : {}),
+  };
+}
+
+/** 测试问答返回的问答检索明细（API-KB-012） */
+export function qaDetail(qa: QaOutcome): KnowledgeQaRetrieval {
+  return {
+    latencyMs: qa.latencyMs,
+    error: qa.error,
+    stage: qa.stage,
+    productIds: qa.productIds,
+    hits: qa.hits.map((h) => ({ route: h.route, qaId: h.qaId, question: h.questions[0], answer: h.answer, distance: Number(h.distance.toFixed(4)) })),
+    merged: qa.merged.map((m) => ({ n: m.n, qaId: m.hit.qaId })),
   };
 }
 

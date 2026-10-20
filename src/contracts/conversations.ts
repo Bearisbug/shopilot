@@ -137,7 +137,11 @@ export type ProductCardInfo = {
 };
 
 /** 草稿依据（REQ-KB-006）：available = false 表示资料已删除，只显示文件名、不能点开；依据不随消息发给买家 */
-export type DraftCitationItem = { documentId: string; name: string; available: boolean };
+/**
+ * 草稿依据：资料（kind = document，documentId）或问答（kind = qa，qaId，name 是第一个问法）。
+ * available：资料未删除、问答仍是已发布；为 false 时只显示名字。
+ */
+export type DraftCitationItem = { kind: "document" | "qa"; documentId: string | null; qaId: string | null; name: string; available: boolean };
 
 export type DraftItem = {
   id: string;

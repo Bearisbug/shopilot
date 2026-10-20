@@ -1,4 +1,4 @@
-// 权限表的唯一出处：由 docs/roles.md 权限表逐行转写。知识库只转写一期的「资料与测试问答」一行（核验 AI 回复、产品目录属后续模块）；助手本期不做，未列入。
+// 权限表的唯一出处：由 docs/roles.md 权限表逐行转写。知识库转写「资料、问答与测试问答」与「产品清单」两行；助手本期不做，未列入。
 // /team/permissions 页直接渲染 PERMISSION_TABLE；服务端鉴权与前端显隐都读这里。
 export type Role = "admin" | "lead" | "agent";
 export type Grant = "yes" | "scope" | "owner" | "no";
@@ -13,7 +13,8 @@ export const PERMISSION_TABLE = [
   { perm: "tickets.manage", module: "工单", action: "查看负责店铺全部工单、改派、作废、改单张时限", admin: "yes", lead: "scope", agent: "no" },
   { perm: "dashboard.view", module: "看板", action: "查看看板", admin: "yes", lead: "scope", agent: "no" },
   { perm: "reception.manage", module: "接待设置", action: "接待模式、工作时间、提示词、工单类型与时限", admin: "yes", lead: "no", agent: "no" },
-  { perm: "knowledge.manage", module: "知识库", action: "上传、查看、分类、停用、删除资料，测试问答", admin: "yes", lead: "yes", agent: "no" },
+  { perm: "knowledge.manage", module: "知识库", action: "上传、查看、分类、停用、删除资料，录入、审核、发布问答，测试问答", admin: "yes", lead: "yes", agent: "no" },
+  { perm: "products.manage", module: "知识库", action: "导入、修改、删除产品清单（物料编码与官方产品名称）", admin: "yes", lead: "no", agent: "no" },
   { perm: "shops.manage", module: "店铺与连接", action: "接入店铺、更新应用密钥、续期授权、断开", admin: "yes", lead: "no", agent: "no" },
   { perm: "team.manage", module: "团队与权限", action: "邀请成员、改角色、分配负责店铺、停用", admin: "yes", lead: "no", agent: "no" },
   { perm: "billing.manage", module: "用量与套餐", action: "查看用量、设预警、加购出稿包", admin: "yes", lead: "no", agent: "no" },
