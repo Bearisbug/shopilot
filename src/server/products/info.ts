@@ -139,6 +139,29 @@ async function save(shop: ShopRow, productId: string, d: ProductDetail | null, s
     .onConflictDoUpdate({ target: [schema.productInfo.shopId, schema.productInfo.externalProductId], set: { ...values, fetchedAt: sql`now()` } });
 }
 
+/** 商品目录（「商品」页签）取到的商品顺手写进缓存，发出的商品卡打开会话时就有图有名 */
+export async function rememberProducts(shop: ShopRow, items: Array<ProductDetail & { productId: string }>): Promise<void> {
+  const values = items
+    .filter((i) => i.productId && i.name)
+    .map((i) => ({ merchantId: shop.merchantId, shopId: shop.id, externalProductId: i.productId, status: "ok" as const, source: "platform" as const, name: i.name, imageUrl: i.imageUrl, priceMin: i.priceMin, priceMax: i.priceMax, currency: i.currency }));
+  if (!values.length) return;
+  const p = schema.productInfo;
+  await db()
+    .insert(p)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [p.shopId, p.externalProductId],
+      // 目录接口不给图时（TikTok 补图失败）保留缓存里原有的图
+      set: { status: sql`excluded.status`, source: sql`excluded.source`, name: sql`excluded.name`, imageUrl: sql`coalesce(excluded.image_url, ${p.imageUrl})`, priceMin: sql`excluded.price_min`, priceMax: sql`excluded.price_max`, currency: sql`excluded.currency`, fetchedAt: sql`now()` },
+    });
+}
+
+/** 缓存里已有的商品主图（目录接口不给图时用） */
+export async function cachedImages(shopId: string, ids: string[]): Promise<Map<string, string>> {
+  const rows = await readRows(shopId, uniqIds(ids));
+  return new Map([...rows].filter(([, r]) => r.status === "ok" && r.imageUrl).map(([id, r]) => [id, r.imageUrl!]));
+}
+
 /** 本店订单里同一商品最近一次的名称、图片（补图前可能没有）、单价 */
 async function fromOrders(shop: ShopRow, productId: string): Promise<ProductDetail | null> {
   const [row] = await db()

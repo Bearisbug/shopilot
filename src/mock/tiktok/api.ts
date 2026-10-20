@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, lt, gt, sql } from "drizzle-orm";
 import { mockDb } from "../db/client";
 import { mockAfterSale, mockBuyerThread, mockCoupon, mockMessage, mockOrder, mockShop, type FaultCategory } from "../db/schema";
 import { FAULT_TIMEOUT_MS, sleep, takeFault } from "../faults";
-import { MOCK_PRODUCTS, TIKTOK_EVENT_TYPES } from "../fixtures";
+import { MOCK_PRODUCTS, mockStock, TIKTOK_EVENT_TYPES } from "../fixtures";
 import { nowSec, originOf, toSec } from "../http";
 import { tiktokReturnId } from "../ids";
 import { mockProductImageUrl } from "../images";
@@ -558,6 +558,26 @@ async function searchCoupons(ctx: Ctx): Promise<Response> {
 
 const EVENT_NAMES = new Set([...Object.values(TIKTOK_EVENT_TYPES), "PRODUCT_INFORMATION_CHANGE", "PRODUCT_CREATION", "PRODUCT_CATEGORY_CHANGE", "NEW_MESSAGE_LISTENER", "INVOICE_STATUS_CHANGE", "PRODUCT_AUDIT_STATUS_CHANGE", "REVERSE_STATUS_UPDATE"]);
 
+/** 商品搜索（工作台商品目录用）：只支持按 status 过滤；搜索结果不带主图，与真实接口一致 */
+async function searchProducts(ctx: Ctx): Promise<Response> {
+  const size = pageSize(ctx.query, 20, 1, 100);
+  const offset = offsetToken(ctx.query);
+  const s = shop(ctx);
+  const status = typeof ctx.body.status === "string" ? ctx.body.status : "ALL";
+  const all = status === "ALL" || status === "ACTIVATE" ? (MOCK_PRODUCTS[`tiktok:${s.shopId}`] ?? []) : [];
+  const page = all.slice(offset, offset + size);
+  return ok({
+    total_count: all.length,
+    next_page_token: offset + size < all.length ? nextToken(offset + size) : "",
+    products: page.map((p) => ({
+      id: p.itemId,
+      title: p.name,
+      status: "ACTIVATE",
+      skus: [{ id: p.skuId, seller_sku: p.skuId, price: { currency: s.currency, sale_price: p.price, tax_exclusive_price: p.price }, inventory: [{ warehouse_id: `wh-${s.shopId}`, quantity: mockStock(p) }] }],
+    })),
+  });
+}
+
 /** 商品详情（商品卡片取标题、主图、价格用；模拟商品都是单 SKU） */
 async function getProduct(ctx: Ctx): Promise<Response> {
   const s = shop(ctx);
@@ -632,6 +652,7 @@ const HANDLERS: Handler[] = [
   route("GET", "/return_refund/202309/reject_reasons", true, rejectReasons),
   route("POST", "/promotion/202406/coupons/search", true, searchCoupons),
   route("GET", "/product/202309/products/{id}", true, getProduct),
+  route("POST", "/product/202502/products/search", true, searchProducts),
   route("GET", "/event/202309/webhooks", true, getWebhooks),
   route("PUT", "/event/202309/webhooks", true, putWebhook),
   route("DELETE", "/event/202309/webhooks", true, deleteWebhook),

@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { mockDb } from "../db/client";
 import { mockAfterSale, mockApp, mockAuthCode, mockBuyerThread, mockMessage, mockOrder, mockShop, type FaultCategory } from "../db/schema";
 import { FAULT_TIMEOUT_MS, sleep, takeFault } from "../faults";
-import { MOCK_PRODUCTS, SHOPEE_ACCESS_TTL_SEC, SHOPEE_EVIDENCE_DUE_SEC, SHOPEE_REFRESH_TTL_SEC } from "../fixtures";
+import { MOCK_PRODUCTS, mockStock, SHOPEE_ACCESS_TTL_SEC, SHOPEE_EVIDENCE_DUE_SEC, SHOPEE_REFRESH_TTL_SEC } from "../fixtures";
 import { nowSec, originOf, toSec } from "../http";
 import { token } from "../ids";
 import { mockProductImageUrl } from "../images";
@@ -210,6 +210,25 @@ function catalogItem(s: ShopeeShop, itemId: string) {
   return (MOCK_PRODUCTS[`shopee:${s.shopId}`] ?? []).find((p) => p.itemId === itemId);
 }
 
+/** 在售商品列表（模拟商品都是 NORMAL）：offset 起每页 page_size 个，最多 100 */
+async function getItemList(ctx: Ctx): Promise<Response> {
+  const s = shop(ctx);
+  const offset = Number(ctx.query.get("offset") ?? "");
+  const size = Number(ctx.query.get("page_size") ?? "");
+  if (!Number.isInteger(offset) || offset < 0) throw E.param("offset is a required field");
+  if (!Number.isInteger(size) || size < 1 || size > 100) throw E.param("page_size should be between 1 and 100");
+  if (!ctx.query.getAll("item_status").length) throw E.param("item_status is a required field");
+  const all = ctx.query.getAll("item_status").includes("NORMAL") ? (MOCK_PRODUCTS[`shopee:${s.shopId}`] ?? []) : [];
+  const page = all.slice(offset, offset + size);
+  const more = offset + size < all.length;
+  return ok({
+    item: page.map((p) => ({ item_id: Number(p.itemId), item_status: "NORMAL", update_time: toSec(s.authTime) })),
+    total_count: all.length,
+    has_next_page: more,
+    ...(more ? { next_offset: offset + size } : {}),
+  });
+}
+
 async function getItemBaseInfo(ctx: Ctx): Promise<Response> {
   const s = shop(ctx);
   const ids = (ctx.query.get("item_id_list") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -217,7 +236,18 @@ async function getItemBaseInfo(ctx: Ctx): Promise<Response> {
   const item_list = ids.flatMap((id) => {
     const p = catalogItem(s, id);
     if (!p) return [];
-    return [{ item_id: Number(p.itemId), item_name: p.name, item_status: "NORMAL", has_model: false, image: { image_url_list: [mockProductImageUrl(p.itemId)], image_id_list: [p.itemId] }, price_info: [{ currency: s.currency, original_price: Number(p.originalPrice), current_price: Number(p.price) }] }];
+    return [
+      {
+        item_id: Number(p.itemId),
+        item_name: p.name,
+        item_sku: p.skuId,
+        item_status: "NORMAL",
+        has_model: false,
+        image: { image_url_list: [mockProductImageUrl(p.itemId)], image_id_list: [p.itemId] },
+        price_info: [{ currency: s.currency, original_price: Number(p.originalPrice), current_price: Number(p.price) }],
+        stock_info_v2: { summary_info: { total_reserved_stock: 0, total_available_stock: mockStock(p) } },
+      },
+    ];
   });
   return ok({ item_list });
 }
@@ -625,6 +655,7 @@ const HANDLERS: Record<string, Handler> = {
   "push/get_app_push_config": { method: "GET", level: "public", run: getPushConfig },
   "push/set_app_push_config": { method: "POST", level: "public", run: setPushConfig },
   "shop/get_shop_info": { method: "GET", level: "shop", run: getShopInfo },
+  "product/get_item_list": { method: "GET", level: "shop", run: getItemList },
   "product/get_item_base_info": { method: "GET", level: "shop", run: getItemBaseInfo },
   "product/get_model_list": { method: "GET", level: "shop", run: getModelList },
   "sellerchat/get_conversation_list": { method: "GET", level: "shop", run: getConversationList },

@@ -19,10 +19,12 @@ import { useMe } from "@/hooks/use-me";
 import { api, errorText } from "@/lib/api";
 import { inTz, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ProductsTab } from "./products-tab";
 import { Avatar, latestEvent, remainText, STAGE_LABEL, useBuyer, useConversation, useSend, useWbParams } from "./wb-shared";
 
 const TABS = [
   { value: "buyer", label: "买家与订单" },
+  { value: "products", label: "商品" },
   { value: "history", label: "历史会话" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
@@ -56,7 +58,7 @@ export function BuyerColumn({ id }: { id: string }) {
         <SheetContent side="right" className="flex w-[min(24rem,92vw)] flex-col gap-0 p-0">
           <SheetHeader className="sr-only">
             <SheetTitle>买家与订单</SheetTitle>
-            <SheetDescription>本段阶段、买家信息、工单与订单</SheetDescription>
+            <SheetDescription>本段阶段、买家信息、工单与订单，本店商品</SheetDescription>
           </SheetHeader>
           <BuyerPanelBody id={id} />
         </SheetContent>
@@ -68,7 +70,7 @@ export function BuyerColumn({ id }: { id: string }) {
 function BuyerPanelBody({ id }: { id: string }) {
   const { params, set } = useWbParams();
   const raw = params.get("side");
-  const tab: Tab = raw === "history" ? "history" : "buyer";
+  const tab: Tab = TABS.some((t) => t.value === raw) ? (raw as Tab) : "buyer";
   const conv = useConversation(id);
   // 标签计数只算已结束的段；进行中的当前段在列表里显示为「进行中」，不算历史
   const ended = conv.data?.history.filter((h) => h.endedAt).length ?? 0;
@@ -89,7 +91,7 @@ function BuyerPanelBody({ id }: { id: string }) {
       </TabsList>
       {TABS.map((t) => (
         <TabsContent key={t.value} value={t.value} className="scroll-y min-h-0 flex-1 px-4 py-4">
-          {conv.data ? t.value === "buyer" ? <BuyerTab d={conv.data} /> : <HistoryTab d={conv.data} /> : <LoadingRows rows={5} />}
+          {conv.data ? t.value === "buyer" ? <BuyerTab d={conv.data} /> : t.value === "products" ? <ProductsTab d={conv.data} /> : <HistoryTab d={conv.data} /> : <LoadingRows rows={5} />}
         </TabsContent>
       ))}
     </Tabs>

@@ -23,7 +23,7 @@ export const assignBody = z.object({ toMembershipId: zUuid, withTickets: z.boole
 export const closeBody = z.object({ reason: z.string().trim().max(200).optional(), version: z.number().int().min(1) });
 export const stageBody = z.object({ stage: z.enum(["presale", "insale", "aftersale", "unknown"]) });
 
-export const OUT_TYPES = ["text", "image", "order_card", "logistics_card", "return_card", "coupon_card"] as const;
+export const OUT_TYPES = ["text", "image", "order_card", "logistics_card", "return_card", "coupon_card", "product_card"] as const;
 export type OutType = (typeof OUT_TYPES)[number];
 
 export const sendBody = z
@@ -35,6 +35,8 @@ export const sendBody = z
     orderId: z.string().max(64).optional(),
     packageId: z.string().max(64).optional(),
     skuId: z.string().max(64).optional(),
+    /** 商品卡的平台商品 ID（纯数字） */
+    productId: z.string().regex(/^\d{1,20}$/, "商品 ID 格式不对").optional(),
     couponId: z.string().max(64).optional(),
     /** 只用于时间线显示 */
     couponTitle: z.string().max(200).optional(),
@@ -48,6 +50,7 @@ export const sendBody = z
     if (["order_card", "logistics_card", "return_card"].includes(b.type) && !b.orderId) ctx.addIssue({ code: "custom", path: ["orderId"], message: "请选择订单" });
     if (b.type === "return_card" && !b.skuId) ctx.addIssue({ code: "custom", path: ["skuId"], message: "请选择商品" });
     if (b.type === "coupon_card" && !b.couponId) ctx.addIssue({ code: "custom", path: ["couponId"], message: "请选择优惠券" });
+    if (b.type === "product_card" && !b.productId) ctx.addIssue({ code: "custom", path: ["productId"], message: "请选择商品" });
   });
 export type SendBody = z.infer<typeof sendBody>;
 
@@ -213,6 +216,24 @@ export type BuyerPanel = {
   piiMasked: boolean;
   syncedAt: string | null;
 };
+
+/**
+ * 店铺商品目录的一项（「商品」页签）：价格为店铺币种现价，多规格时 priceMin 与 priceMax 不同；
+ * stock 为各规格可售库存之和，平台没给时为 null；skus 为卖家 SKU（主 SKU 与各规格）；url 为买家可见的商品页
+ */
+export type ShopProduct = {
+  productId: string;
+  name: string;
+  imageUrl: string | null;
+  priceMin: string | null;
+  priceMax: string | null;
+  currency: string | null;
+  stock: number | null;
+  skus: string[];
+  url: string | null;
+};
+/** truncated：在售商品超过上限，只列了前面一部分 */
+export type ShopProducts = { items: ShopProduct[]; truncated: boolean; fetchedAt: string };
 
 export type SendResult = { message: MessageItem };
 export type CouponOption = { couponId: string; title: string; discount: string; endsAt: string | null };

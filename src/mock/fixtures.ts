@@ -120,6 +120,9 @@ export const DEMO_AUTHORIZED_SHOPS = MOCK_SHOPS.filter((s) => s.authorized);
 
 export type FixtureProduct = { itemId: string; skuId: string; name: string; skuName: string; price: string; originalPrice: string };
 
+/** 模拟可售库存：按 SKU ID 末两位算出的固定值（商品目录列库存用） */
+export const mockStock = (p: FixtureProduct) => 10 + ((Number(p.skuId.slice(-2)) * 7) % 90);
+
 /** 每店商品目录：模拟器下单、发商品卡从这里选。价格为店铺币种。 */
 export const MOCK_PRODUCTS: Record<string, FixtureProduct[]> = {
   "shopee:220001": [

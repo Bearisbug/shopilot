@@ -296,3 +296,39 @@ describe("故障注入", () => {
     expect(second.body.error).toBe("");
   });
 });
+
+describe("商品目录（工作台「商品」页签）", () => {
+  it("Shopee get_item_list 分页列在售商品，get_item_base_info 带卖家 SKU 与库存", async () => {
+    const list = (offset: string) =>
+      handleShopeeApi(shopeeRequest({ region: "sg", path: "product/get_item_list", ...DEMO_SHOPEE, accessToken: "mock-at-220001", shopId: "220001", query: { offset, page_size: "3", item_status: "NORMAL" } }), "sg", ["product", "get_item_list"]);
+    const p1 = await json(await list("0"));
+    const r1 = p1.body.response as { item: Array<{ item_id: number }>; has_next_page: boolean; next_offset: number; total_count: number };
+    expect(r1).toMatchObject({ total_count: 4, has_next_page: true, next_offset: 3 });
+    expect(r1.item.map((i) => String(i.item_id))).toEqual(["24580011001", "24580011002", "24580011003"]);
+    const r2 = (await json(await list("3"))).body.response as { item: unknown[]; has_next_page: boolean };
+    expect(r2).toMatchObject({ has_next_page: false });
+    expect(r2.item).toHaveLength(1);
+    const base = await json(
+      await handleShopeeApi(shopeeRequest({ region: "sg", path: "product/get_item_base_info", ...DEMO_SHOPEE, accessToken: "mock-at-220001", shopId: "220001", query: { item_id_list: "24580011001" } }), "sg", ["product", "get_item_base_info"]),
+    );
+    const item = (base.body.response as { item_list: Array<Record<string, unknown>> }).item_list[0];
+    expect(item).toMatchObject({ item_sku: "214500110011", stock_info_v2: { summary_info: { total_available_stock: expect.any(Number) } } });
+  });
+
+  it("Shopee get_item_list 缺 item_status 报参数错误", async () => {
+    const r = await json(await handleShopeeApi(shopeeRequest({ region: "sg", path: "product/get_item_list", ...DEMO_SHOPEE, accessToken: "mock-at-220001", shopId: "220001", query: { offset: "0", page_size: "10" } }), "sg", ["product", "get_item_list"]));
+    expect(r.body.error).not.toBe("");
+  });
+
+  it("TikTok 商品搜索返回在售商品、卖家 SKU 与库存，不带主图", async () => {
+    const { req, apiPath } = tiktokRequest({ path: "/product/202502/products/search", ...DEMO_TT, method: "POST", token: "mock-at-7000001", cipher: "ROW_demo_my", query: { page_size: "2" }, body: { status: "ACTIVATE" } });
+    const r = await json(await handleTiktokApi(req, apiPath));
+    expect(r.body.code).toBe(0);
+    const data = r.body.data as { total_count: number; next_page_token: string; products: Array<Record<string, unknown> & { skus: Array<{ seller_sku: string; inventory: Array<{ quantity: number }> }> }> };
+    expect(data.total_count).toBe(3);
+    expect(data.next_page_token).not.toBe("");
+    expect(data.products.map((p) => p.id)).toEqual(["1729582718312380101", "1729582718312380102"]);
+    expect(data.products[0]).not.toHaveProperty("main_images");
+    expect(data.products[0].skus[0]).toMatchObject({ seller_sku: "1729582718312480101", inventory: [{ quantity: expect.any(Number) }] });
+  });
+});
