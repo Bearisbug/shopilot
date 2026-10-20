@@ -3,7 +3,7 @@ import { shopeeHosts } from "@/server/env";
 import { platformFetch } from "./http";
 import { assertShopeeRead } from "./readonly";
 import { nowSec, shopeeSign } from "./signing";
-import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type ProductDetail, type TokenGrant } from "./types";
+import { PlatformError, type CatalogProduct, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type ProductDetail, type TokenGrant } from "./types";
 
 /** readOnly：只读接入（凭证借用自其他系统），只放行读接口，见 readonly.ts */
 export type ShopeeApp = { partnerId: string; partnerKey: string; host: string; readOnly?: boolean };
@@ -58,7 +58,8 @@ async function call(app: ShopeeApp, method: "GET" | "POST", apiPath: string, opt
   const init: RequestInit = { method };
   if (opts.form) init.body = opts.form;
   else if (method === "POST") {
-    init.body = JSON.stringify(opts.body ?? {});
+    // 字符串是调用方已拼好的 JSON（含超出安全整数范围的数字 ID 时用）
+    init.body = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body ?? {});
     init.headers = { "content-type": "application/json" };
   }
   const { status, json } = await platformFetch("shopee", `${app.host}${path}?${q}`, init);
@@ -211,6 +212,66 @@ export async function shopeeProduct(app: ShopeeApp, shop: ShopeeShopAuth, itemId
   };
 }
 
+/** 在售商品（item_status=NORMAL）的 ID，每页 100 个，最多取 max 个 */
+export async function shopeeItemIds(app: ShopeeApp, shop: ShopeeShopAuth, max = 500): Promise<string[]> {
+  const ids: string[] = [];
+  let offset = 0;
+  while (ids.length < max) {
+    const r = resp(await call(app, "GET", "product/get_item_list", { shop, query: { offset, page_size: 100, item_status: "NORMAL" } }));
+    for (const i of (r.item as Array<Record<string, unknown>> | undefined) ?? []) ids.push(String(i.item_id));
+    if (!r.has_next_page) break;
+    offset = Number(r.next_offset ?? offset + 100);
+  }
+  return ids.slice(0, max);
+}
+
+type ShopeeStock = { stock_info_v2?: { summary_info?: { total_available_stock?: unknown } } };
+const availableStock = (x: ShopeeStock): number | null => {
+  const n = x.stock_info_v2?.summary_info?.total_available_stock;
+  return typeof n === "number" ? n : null;
+};
+const priceRange = (prices: Array<Record<string, unknown>>) => {
+  const nums = prices.map((p) => Number(p.current_price)).filter((n) => Number.isFinite(n));
+  return {
+    priceMin: nums.length ? String(Math.min(...nums)) : null,
+    priceMax: nums.length ? String(Math.max(...nums)) : null,
+    currency: prices[0]?.currency ? String(prices[0].currency) : null,
+  };
+};
+
+/** 商品目录的基础信息，每次 50 个。withModels 里的多规格商品不带价格与库存，要再用 shopeeItemModels 取 */
+export async function shopeeItemsBase(app: ShopeeApp, shop: ShopeeShopAuth, ids: string[]): Promise<{ items: CatalogProduct[]; withModels: string[] }> {
+  const items: CatalogProduct[] = [];
+  const withModels: string[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const r = resp(await call(app, "GET", "product/get_item_base_info", { shop, query: { item_id_list: ids.slice(i, i + 50).join(",") } }));
+    for (const item of (r.item_list as Array<Record<string, unknown> & ShopeeStock> | undefined) ?? []) {
+      if (item.has_model) withModels.push(String(item.item_id));
+      items.push({
+        productId: String(item.item_id),
+        name: String(item.item_name ?? ""),
+        imageUrl: ((item.image as { image_url_list?: string[] } | undefined)?.image_url_list ?? [])[0] ?? null,
+        ...priceRange((item.price_info as Array<Record<string, unknown>> | undefined) ?? []),
+        stock: availableStock(item),
+        skus: item.item_sku ? [String(item.item_sku)] : [],
+      });
+    }
+  }
+  return { items, withModels };
+}
+
+/** 多规格商品的各规格：现价区间、可售库存之和、规格 SKU */
+export async function shopeeItemModels(app: ShopeeApp, shop: ShopeeShopAuth, itemId: string): Promise<Pick<CatalogProduct, "priceMin" | "priceMax" | "currency" | "stock" | "skus">> {
+  const m = resp(await call(app, "GET", "product/get_model_list", { shop, query: { item_id: itemId } }));
+  const models = (m.model as Array<Record<string, unknown> & ShopeeStock> | undefined) ?? [];
+  const stocks = models.map(availableStock).filter((n): n is number => n !== null);
+  return {
+    ...priceRange(models.flatMap((x) => (x.price_info as Array<Record<string, unknown>> | undefined) ?? [])),
+    stock: stocks.length ? stocks.reduce((a, b) => a + b, 0) : null,
+    skus: models.map((x) => String(x.model_sku ?? "")).filter(Boolean),
+  };
+}
+
 /** 一页消息（新 → 旧），offset 为上一页返回的 next_offset */
 export async function shopeeMessages(app: ShopeeApp, shop: ShopeeShopAuth, conversationId: string, offset: string | null, pageSize = 60): Promise<{ items: NormalizedMessage[]; nextOffset: string | null }> {
   const r = resp(await call(app, "GET", "sellerchat/get_message", { shop, query: { conversation_id: conversationId, page_size: pageSize, offset: offset ?? undefined } }));
@@ -327,8 +388,19 @@ export async function shopeeSendOrderCard(app: ShopeeApp, shop: ShopeeShopAuth, 
   return send(app, shop, buyerId, "order", { order_sn: orderSn });
 }
 
-async function send(app: ShopeeApp, shop: ShopeeShopAuth, buyerId: string, messageType: string, content: Record<string, unknown>): Promise<{ messageId: string; sentAt: Date }> {
-  const r = resp(await call(app, "POST", "sellerchat/send_message", { shop, body: { to_id: Number(buyerId), message_type: messageType, content } }));
+/**
+ * 商品卡：content 为 {"item_id": 数字}（2026-10-20 生产实测字段名）。
+ * item_id 按原始数字串写进请求体，不经 Number 转换，避免超出安全整数范围时丢精度。
+ */
+export async function shopeeSendItem(app: ShopeeApp, shop: ShopeeShopAuth, buyerId: string, itemId: string): Promise<{ messageId: string; sentAt: Date }> {
+  if (!/^\d{1,20}$/.test(itemId)) throw new PlatformError("shopee", "param_error", `商品 ID 格式不对：${itemId}`, "param");
+  return send(app, shop, buyerId, "item", `{"item_id":${itemId}}`);
+}
+
+async function send(app: ShopeeApp, shop: ShopeeShopAuth, buyerId: string, messageType: string, content: Record<string, unknown> | string): Promise<{ messageId: string; sentAt: Date }> {
+  const head = { to_id: Number(buyerId), message_type: messageType };
+  const body = typeof content === "string" ? `${JSON.stringify(head).slice(0, -1)},"content":${content}}` : { ...head, content };
+  const r = resp(await call(app, "POST", "sellerchat/send_message", { shop, body }));
   return { messageId: String(r.message_id), sentAt: secDate(r.created_timestamp) ?? new Date() };
 }
 

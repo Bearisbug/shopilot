@@ -237,8 +237,12 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
   if (!conv.lastBuyerAt || Date.now() - conv.lastBuyerAt.getTime() > 7 * 86400_000) throw notAllowed("买家最后发言已超过 7 天，平台不允许再发消息。", "reply_window_closed");
   const caps = shop.capabilities;
   if (body.type !== "text" && body.type !== "image") {
-    const supported = body.type === "coupon_card" ? caps.coupons : caps.cards.includes(body.type);
-    if (!supported) throw notAllowed(`${shop.platform === "shopee" ? "Shopee" : "TikTok"} 店不支持发送这种卡片。`, "unsupported_type");
+    // 商品卡两个平台都能发，前提是店铺授予了商品读取权限（能列出商品）
+    const supported = body.type === "coupon_card" ? caps.coupons : body.type === "product_card" ? caps.productScope : caps.cards.includes(body.type);
+    if (!supported) {
+      if (body.type === "product_card") throw notAllowed("店铺没有授予商品读取权限，不能发商品卡。", "unsupported_type");
+      throw notAllowed(`${shop.platform === "shopee" ? "Shopee" : "TikTok"} 店不支持发送这种卡片。`, "unsupported_type");
+    }
   }
   if (body.type === "image") {
     const [file] = await db().select().from(schema.file).where(and(eq(schema.file.id, body.fileId!), eq(schema.file.merchantId, ctx.merchant.id))).limit(1);
@@ -272,6 +276,7 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
   if (body.orderId) payload.orderId = body.orderId;
   if (body.packageId) payload.packageId = body.packageId;
   if (body.skuId) payload.skuId = body.skuId;
+  if (body.productId) payload.productId = body.productId;
   if (body.couponId) payload.couponId = body.couponId;
   if (body.couponTitle) payload.couponTitle = body.couponTitle;
 

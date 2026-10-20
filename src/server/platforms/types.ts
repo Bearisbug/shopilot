@@ -48,6 +48,9 @@ export type NormalizedMessage = {
 /** 商品卡片用的商品信息：价格为店铺币种的现价，多规格时为最低与最高 */
 export type ProductDetail = { name: string; imageUrl: string | null; priceMin: string | null; priceMax: string | null; currency: string | null };
 
+/** 店铺商品目录的一项（工作台「商品」页签）：价格为各规格现价的最低与最高；stock 为各规格可售库存之和，平台没给时为 null；skus 为卖家 SKU（主 SKU 与各规格） */
+export type CatalogProduct = ProductDetail & { productId: string; stock: number | null; skus: string[] };
+
 export type NormalizedOrder = {
   externalOrderId: string;
   buyerExternalId: string | null;

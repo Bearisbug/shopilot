@@ -5,13 +5,13 @@ import { db, schema } from "@/server/db/client";
 import { dataPath } from "@/server/files/storage";
 import { ShopUnavailableError, withShop } from "@/server/platforms/clients";
 import { READ_ONLY_SEND_FAILED, ReadOnlyPlatformError } from "@/server/platforms/readonly";
-import { shopeeSendImage, shopeeSendOrderCard, shopeeSendText } from "@/server/platforms/shopee";
-import { tiktokSendCouponCard, tiktokSendImage, tiktokSendLogisticsCard, tiktokSendOrderCard, tiktokSendReturnCard, tiktokSendText } from "@/server/platforms/tiktok";
+import { shopeeSendImage, shopeeSendItem, shopeeSendOrderCard, shopeeSendText } from "@/server/platforms/shopee";
+import { tiktokSendCouponCard, tiktokSendImage, tiktokSendLogisticsCard, tiktokSendOrderCard, tiktokSendProductCard, tiktokSendReturnCard, tiktokSendText } from "@/server/platforms/tiktok";
 import { PlatformError, platformErrorText } from "@/server/platforms/types";
 import { isInHours, receptionContext } from "./hours";
 import type { ConversationRow, MessageRow } from "./ingest";
 
-export type OutboundType = "text" | "image" | "order_card" | "logistics_card" | "return_card" | "coupon_card";
+export type OutboundType = "text" | "image" | "order_card" | "logistics_card" | "return_card" | "coupon_card" | "product_card";
 
 export type OutboundInput = {
   conversation: ConversationRow;
@@ -82,6 +82,8 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
             return shopeeSendImage(c.app, c.auth, conv.buyerExternalId, await imageOf(p));
           case "order_card":
             return shopeeSendOrderCard(c.app, c.auth, conv.buyerExternalId, String(p.orderId));
+          case "product_card":
+            return shopeeSendItem(c.app, c.auth, conv.buyerExternalId, String(p.productId));
           default:
             throw new PlatformError("shopee", "unsupported", `Shopee 不支持发送 ${msg.type}`, "forbidden");
         }
@@ -100,6 +102,8 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
           return tiktokSendReturnCard(c.app, c.auth, id, String(p.orderId), String(p.skuId));
         case "coupon_card":
           return tiktokSendCouponCard(c.app, c.auth, id, String(p.couponId));
+        case "product_card":
+          return tiktokSendProductCard(c.app, c.auth, id, String(p.productId));
         default:
           throw new PlatformError("tiktok", "unsupported", `TikTok 不支持发送 ${msg.type}`, "forbidden");
       }

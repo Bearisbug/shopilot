@@ -317,7 +317,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     shadowDrafts: shadow ? shadow.map((d) => toDraft(d, live)) : null,
     capabilities: {
       cards: caps.cards,
-      productCard: caps.productScope ? { enabled: false, reason: "本期不从工作台发送商品卡。" } : { enabled: false, reason: "店铺没有授予商品读取权限。" },
+      productCard: caps.productScope ? { enabled: true } : { enabled: false, reason: "店铺没有授予商品读取权限，请管理员到「店铺与连接」续期授权。" },
       coupons: caps.coupons,
       endSession: readOnly ? false : caps.endSession,
       maxTextLength: caps.maxTextLength,

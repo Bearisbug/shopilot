@@ -23,7 +23,7 @@ describe.skipIf(!process.env.DATABASE_URL)("出站发送（只读接入试发）
   type Conv = typeof schema.conversation.$inferSelect;
   const userIds: string[] = [];
   const merchantIds: string[] = [];
-  const conv = {} as { shopeeRo: Conv; tiktokRo: Conv; shopee: Conv };
+  const conv = {} as { shopeeRo: Conv; tiktokRo: Conv; shopee: Conv; tiktok: Conv };
   const imageFile = { ro: "", normal: "" };
 
   const caps = { chat: true, orders: true, piiMasked: false, productScope: true, cards: [], coupons: false, endSession: false, maxTextLength: 500 };
@@ -78,6 +78,7 @@ describe.skipIf(!process.env.DATABASE_URL)("出站发送（只读接入试发）
     conv.shopeeRo = await newConversation(ro.id, "shopee", true);
     conv.tiktokRo = await newConversation(ro.id, "tiktok", true);
     conv.shopee = await newConversation(normal.id, "shopee", false);
+    conv.tiktok = await newConversation(normal.id, "tiktok", false);
     imageFile.ro = await newImage(ro.id);
     imageFile.normal = await newImage(normal.id);
   });
@@ -129,5 +130,29 @@ describe.skipIf(!process.env.DATABASE_URL)("出站发送（只读接入试发）
     expect(image.error).toBeUndefined();
     expect(image.message).toMatchObject({ sendStatus: "sent", payload: { url: "https://img.test/a.png" } });
     expect(fetchMock.mock.calls.map(([u]) => new URL(String(u)).pathname)).toEqual(["/api/v2/sellerchat/send_message", "/api/v2/sellerchat/upload_image", "/api/v2/sellerchat/send_message"]);
+  });
+
+  const sendCard = (c: Conv, productId: string) =>
+    sendOutbound({ conversation: c, senderRole: "agent", sentBy: null, clientRequestId: randomUUID(), type: "product_card", payload: { productId } });
+
+  it("商品卡：Shopee 发 item、TikTok 发 PRODUCT_CARD，消息落成 product_card 并带商品 ID", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).includes("/api/v2/") ? Response.json({ response: { message_id: "s-1", created_timestamp: 1_700_000_000 } }) : Response.json({ code: 0, data: { message_id: "t-1" } }),
+    );
+    const shopee = await sendCard(conv.shopee, "24580011001");
+    expect(shopee.error).toBeUndefined();
+    expect(shopee.message).toMatchObject({ type: "product_card", sendStatus: "sent", externalMessageId: "s-1", payload: { productId: "24580011001" } });
+    const tiktok = await sendCard(conv.tiktok, "1729582718312380101");
+    expect(tiktok.error).toBeUndefined();
+    expect(tiktok.message).toMatchObject({ type: "product_card", sendStatus: "sent", externalMessageId: "t-1" });
+    const [s, t] = fetchMock.mock.calls.map(([, init]) => JSON.parse(String((init as RequestInit).body)));
+    expect(s).toEqual({ to_id: 123, message_type: "item", content: { item_id: 24580011001 } });
+    expect(t).toEqual({ type: "PRODUCT_CARD", content: JSON.stringify({ product_id: "1729582718312380101" }) });
+  });
+
+  it("商品卡：只读店照常落成失败消息，平台请求没有发出", async () => {
+    const out = await sendCard(conv.shopeeRo, "24580011001");
+    expect(out.message).toMatchObject({ type: "product_card", sendStatus: "failed", sendError: READ_ONLY_SEND_FAILED });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

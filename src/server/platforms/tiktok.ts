@@ -3,7 +3,7 @@ import { env } from "@/server/env";
 import { platformFetch } from "./http";
 import { assertTiktokRead, ReadOnlyPlatformError } from "./readonly";
 import { nowSec, tiktokSign } from "./signing";
-import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type ProductDetail, type TokenGrant } from "./types";
+import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type CatalogProduct, type ProductDetail, type TokenGrant } from "./types";
 
 /** readOnly：只读接入（凭证借用自其他系统），只放行读接口，见 readonly.ts */
 export type TiktokApp = { appKey: string; appSecret: string; serviceId?: string | null; readOnly?: boolean };
@@ -163,6 +163,36 @@ export async function tiktokProduct(app: TiktokApp, shop: TiktokShopAuth, produc
   };
 }
 
+/**
+ * 在售商品目录（status=ACTIVATE，每页 100 个，最多 max 个）：标题、各 SKU 价格区间、库存之和、卖家 SKU。
+ * 搜索接口不返回主图，imageUrl 为 null，由调用方用 tiktokProduct 补。需要商品读取权限（没有时 105005）
+ */
+export async function tiktokCatalog(app: TiktokApp, shop: TiktokShopAuth, max = 500): Promise<CatalogProduct[]> {
+  const out: CatalogProduct[] = [];
+  let pageToken: string | undefined;
+  while (out.length < max) {
+    const d = await call(app, "POST", "/product/202502/products/search", { shop, query: { page_size: 100, page_token: pageToken }, body: { status: "ACTIVATE" } });
+    for (const p of (d.products as Array<Record<string, unknown>> | undefined) ?? []) {
+      const skus = (p.skus as Array<{ seller_sku?: string; price?: { sale_price?: string; tax_exclusive_price?: string; currency?: string }; inventory?: Array<{ quantity?: number }> }> | undefined) ?? [];
+      const nums = skus.map((s) => Number(s.price?.sale_price ?? s.price?.tax_exclusive_price)).filter((n) => Number.isFinite(n));
+      const qty = skus.flatMap((s) => s.inventory ?? []).map((i) => i.quantity).filter((n): n is number => typeof n === "number");
+      out.push({
+        productId: String(p.id),
+        name: String(p.title ?? ""),
+        imageUrl: null,
+        priceMin: nums.length ? String(Math.min(...nums)) : null,
+        priceMax: nums.length ? String(Math.max(...nums)) : null,
+        currency: skus[0]?.price?.currency ?? null,
+        stock: qty.length ? qty.reduce((a, b) => a + b, 0) : null,
+        skus: skus.map((s) => s.seller_sku ?? "").filter(Boolean),
+      });
+    }
+    pageToken = typeof d.next_page_token === "string" && d.next_page_token ? d.next_page_token : undefined;
+    if (!pageToken) break;
+  }
+  return out.slice(0, max);
+}
+
 /** 一页消息（新 → 旧，每页 ≤ 10） */
 export async function tiktokMessages(app: TiktokApp, shop: TiktokShopAuth, conversationId: string, pageToken: string | null): Promise<{ items: NormalizedMessage[]; nextPageToken: string | null }> {
   const d = await call(app, "GET", `/customer_service/202309/conversations/${encodeURIComponent(conversationId)}/messages`, { shop, query: { page_size: 10, page_token: pageToken ?? undefined, sort_order: "DESC" } });
@@ -264,6 +294,7 @@ export const tiktokSendLogisticsCard = (app: TiktokApp, shop: TiktokShopAuth, co
   send(app, shop, conversationId, "LOGISTICS_CARD", { order_id: orderId, ...(packageId ? { package_id: packageId } : {}) });
 export const tiktokSendReturnCard = (app: TiktokApp, shop: TiktokShopAuth, conversationId: string, orderId: string, skuId: string) => send(app, shop, conversationId, "RETURN_REFUND_CARD", { order_id: orderId, sku_id: skuId });
 export const tiktokSendCouponCard = (app: TiktokApp, shop: TiktokShopAuth, conversationId: string, couponId: string) => send(app, shop, conversationId, "COUPON_CARD", { coupon_id: couponId });
+export const tiktokSendProductCard = (app: TiktokApp, shop: TiktokShopAuth, conversationId: string, productId: string) => send(app, shop, conversationId, "PRODUCT_CARD", { product_id: productId });
 
 export async function tiktokSendImage(app: TiktokApp, shop: TiktokShopAuth, conversationId: string, image: { bytes: Buffer; filename: string; mime: string }): Promise<{ messageId: string; sentAt: Date; url: string }> {
   const form = new FormData();

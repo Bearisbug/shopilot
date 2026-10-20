@@ -246,10 +246,10 @@ export function UnclaimDialog({ detail }: { detail: ConversationDetail }) {
   );
 }
 
-// ── 卡片（TikTok：订单、物流、退货退款；商品卡置灰） ──
+// ── 卡片（TikTok：订单、物流、退货退款；商品卡在右栏「商品」页签发） ──
 
-type CardKind = "order_card" | "logistics_card" | "return_card" | "product_card";
-const CARD_LABEL: Record<CardKind, string> = { order_card: "订单卡", logistics_card: "物流卡", return_card: "退货退款卡", product_card: "商品卡" };
+type CardKind = "order_card" | "logistics_card" | "return_card";
+const CARD_LABEL: Record<CardKind, string> = { order_card: "订单卡", logistics_card: "物流卡", return_card: "退货退款卡" };
 const RETURN_OK = new Set(["IN_TRANSIT", "DELIVERED", "COMPLETED"]);
 
 export function CardsDialog({ detail, orders }: { detail: ConversationDetail; orders: BuyerOrder[] }) {
@@ -273,7 +273,6 @@ function CardsForm({ detail, orders, onDone }: { detail: ConversationDetail; ord
   const [orderId, setOrderId] = useState(orders[0]?.externalOrderId ?? "");
   const [skuId, setSkuId] = useState("");
   const send = useSend(detail);
-  const productReason = detail.capabilities.productCard.reason;
   const eligible = eligibleFor(kind, orders);
   const order = eligible.find((o) => o.externalOrderId === orderId) ?? null;
   // 买家最近一张订单卡指向的订单；换卡片类型时，当前选择不可用就改选它（也不可用则不预选）
@@ -286,23 +285,22 @@ function CardsForm({ detail, orders, onDone }: { detail: ConversationDetail; ord
       setSkuId("");
     }
   };
-  const ready = kind !== "product_card" && !!order && (kind !== "return_card" || !!skuId);
+  const ready = !!order && (kind !== "return_card" || !!skuId);
   return (
     <>
       <DialogHeader>
         <DialogTitle>发卡片</DialogTitle>
-        <DialogDescription>卡片按 TikTok 的格式发给买家，买家点开可看订单、物流或发起退货退款。</DialogDescription>
+        <DialogDescription>卡片按 TikTok 的格式发给买家，买家点开可看订单、物流或发起退货退款。商品卡在右栏「商品」里发。</DialogDescription>
       </DialogHeader>
       <Tabs value={kind} onValueChange={(v) => changeKind(v as CardKind)}>
         <TabsList>
           {(Object.keys(CARD_LABEL) as CardKind[]).map((k) => (
-            <TabsTrigger key={k} value={k} disabled={k === "product_card"} title={k === "product_card" ? productReason : undefined}>
+            <TabsTrigger key={k} value={k}>
               {CARD_LABEL[k]}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
-      <p className="text-xs text-muted-foreground">商品卡不可用：{productReason}</p>
       {orders.length === 0 ? (
         <EmptyState icon={TicketPercentIcon} title="这位买家近 180 天没有订单" description="订单、物流、退货退款卡都要关联买家的订单。" />
       ) : (
@@ -314,7 +312,7 @@ function CardsForm({ detail, orders, onDone }: { detail: ConversationDetail; ord
             e.preventDefault();
             if (!ready || !order) return;
             send.mutate(
-              { type: kind as "order_card" | "logistics_card" | "return_card", orderId: order.externalOrderId, ...(kind === "logistics_card" && order.tracking?.packageId ? { packageId: order.tracking.packageId } : {}), ...(kind === "return_card" ? { skuId } : {}) },
+              { type: kind, orderId: order.externalOrderId, ...(kind === "logistics_card" && order.tracking?.packageId ? { packageId: order.tracking.packageId } : {}), ...(kind === "return_card" ? { skuId } : {}) },
               { onSuccess: onDone },
             );
           }}
