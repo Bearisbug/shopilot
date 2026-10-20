@@ -10,8 +10,7 @@ import { PlatformError } from "@/server/platforms/types";
 import { sellerSideSince } from "@/server/inbound/refetch";
 import { displayPayload } from "./bundle";
 
-const enqueued = vi.hoisted(() => [] as Array<{ name: string; data: unknown }>);
-vi.mock("@/server/jobs/boss", () => ({ enqueue: vi.fn(async (name: string, data: unknown) => (enqueued.push({ name, data }), null)) }));
+vi.mock("@/server/jobs/boss", () => ({ enqueue: vi.fn(async () => null) }));
 const byIds = vi.hoisted(() => ({ calls: [] as string[][], respond: ((() => []) as (ids: string[]) => unknown) }));
 vi.mock("@/server/platforms/shopee", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@/server/platforms/shopee")>();
@@ -143,7 +142,6 @@ describe.skipIf(!process.env.DATABASE_URL)("shopee.bundle 拉取与展开", asyn
   });
 
   beforeEach(() => {
-    enqueued.length = 0;
     byIds.calls = [];
     byIds.respond = () => MEMBERS;
   });
@@ -161,7 +159,7 @@ describe.skipIf(!process.env.DATABASE_URL)("shopee.bundle 拉取与展开", asyn
     await db()
       .insert(schema.message)
       .values({ merchantId: ctx.merchantId, conversationId: conv.id, segmentId: seg.id, externalMessageId: `${ext}-faq`, direction: "in", senderRole: "buyer", type: "text", text: "แชทกับเจ้าหน้าที่ของร้านค้า", sentAt: t0 });
-    return { ext, convId: conv.id, segId: seg.id };
+    return { ext, convId: conv.id };
   }
 
   const bundleMessage = (ext: string, ids: string[] | null) =>

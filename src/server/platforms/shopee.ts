@@ -448,7 +448,7 @@ export async function shopeeSendImage(app: ShopeeApp, shop: ShopeeShopAuth, buye
 
 export type ShopeeChatVideo = { video: string; thumbnail: string; durationMs: number; width: number; height: number };
 
-/** 聊天视频处理结果轮询：上传后先是 reported，约 15 秒后 successful（2026-10-20 生产实测）；默认最多等 120 秒 */
+/** 聊天视频处理结果轮询：上传后先是 reported，约 15 秒后 successful（2026-10-20 生产实测）；最多等 120 秒 */
 const VIDEO_POLL_MS = 3000;
 const VIDEO_WAIT_MS = 120_000;
 
@@ -461,14 +461,13 @@ export async function shopeeSendVideo(
   shop: ShopeeShopAuth,
   buyerId: string,
   file: { bytes: Buffer; filename: string; mime: string },
-  opts: { pollMs?: number; waitMs?: number } = {},
 ): Promise<{ messageId: string; sentAt: Date; video: ShopeeChatVideo }> {
   const form = new FormData();
   form.set("file", new Blob([new Uint8Array(file.bytes)], { type: file.mime }), file.filename);
   // 30 MB 的视频上传要几十秒，不套用默认的 10 秒超时
   const vid = String(resp(await call(app, "POST", "sellerchat/upload_video", { shop, form, timeoutMs: 90_000 })).vid ?? "");
   if (!vid) throw new PlatformError("shopee", "upload_video", "上传视频没有返回 vid", "server");
-  const deadline = Date.now() + (opts.waitMs ?? VIDEO_WAIT_MS);
+  const deadline = Date.now() + VIDEO_WAIT_MS;
   let video: ShopeeChatVideo | null = null;
   while (!video) {
     const r = resp(await call(app, "GET", "sellerchat/get_video_upload_result", { shop, query: { vid } }));
@@ -479,7 +478,7 @@ export async function shopeeSendVideo(
     }
     if (/fail|error|cancel|reject/.test(status)) throw new PlatformError("shopee", "video_process_failed", `平台处理视频失败（${status}）`, "server");
     if (Date.now() >= deadline) throw new PlatformError("shopee", "video_process_timeout", "平台处理视频超时，消息没有发出", "server");
-    await new Promise((r) => setTimeout(r, opts.pollMs ?? VIDEO_POLL_MS));
+    await new Promise((r) => setTimeout(r, VIDEO_POLL_MS));
   }
   const sent = await send(app, shop, buyerId, "video", {
     video_url: video.video,

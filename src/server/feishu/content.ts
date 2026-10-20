@@ -203,7 +203,6 @@ export async function transcript(shopId: string, msgs: MessageRow[]): Promise<st
 
 /** AI 一句话总结（1–2 句中文）；替身模式返回固定文案 */
 async function summarize(conv: ConversationRow, msgs: MessageRow[], facts: Awaited<ReturnType<typeof cardFacts>>, waitedSec: number | null): Promise<string | null> {
-  const transcript = transcriptOf(msgs, facts);
   const waited = waitedSec === null ? "" : `买家已等 ${Math.max(1, Math.round(waitedSec / 60))} 分钟。`;
   const res = await chat(
     "summary",
@@ -213,7 +212,7 @@ async function summarize(conv: ConversationRow, msgs: MessageRow[], facts: Await
         content:
           "你是电商客服组长的助手。根据下面这段买家与店铺的对话，用 1 到 2 句简体中文概括：买家要什么、发了哪些图片或订单、现在卡在哪里。只写事实，不加称呼、不给建议，不超过 80 个字。",
       },
-      { role: "user", content: `买家：${conv.buyerName}。${waited}\n${transcript}` },
+      { role: "user", content: `买家：${conv.buyerName}。${waited}\n${transcriptOf(msgs, facts)}` },
     ],
     { maxTokens: 200 },
   );
