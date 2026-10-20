@@ -20,7 +20,7 @@ export const SYNC_BUDGET_MS = 1200;
 /** 同一商品在本进程内当场取的最小间隔：会话详情每 4 秒、进度每 2 秒轮询，间隔内只等上一次的结果，不重复调平台 */
 const SYNC_RETRY_MS = 60_000;
 
-const SHOPEE_DOMAIN: Record<string, string> = {
+export const SHOPEE_DOMAIN: Record<string, string> = {
   MY: "shopee.com.my",
   SG: "shopee.sg",
   TH: "shopee.co.th",

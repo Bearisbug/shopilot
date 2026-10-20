@@ -1,6 +1,6 @@
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { imageInfo } from "./image";
+import { imageInfo, isMp4 } from "./image";
 
 function png(w: number, h: number): Buffer {
   const ihdr = Buffer.alloc(13);
@@ -21,5 +21,17 @@ describe("聊天图片格式识别", () => {
   it("GIF 与随机字节不认", () => {
     expect(imageInfo(Buffer.from("GIF89a" + "\0".repeat(20)))).toBeNull();
     expect(imageInfo(Buffer.from("hello world, not an image"))).toBeNull();
+  });
+});
+
+describe("聊天视频格式识别", () => {
+  const box = (brand: string) => Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftyp"), Buffer.from(brand), Buffer.alloc(12)]);
+  it("MP4（isom、mp42）认", () => {
+    expect(isMp4(box("isom"))).toBe(true);
+    expect(isMp4(box("mp42"))).toBe(true);
+  });
+  it("MOV（qt）与非视频不认", () => {
+    expect(isMp4(box("qt  "))).toBe(false);
+    expect(isMp4(Buffer.from("not a video at all"))).toBe(false);
   });
 });

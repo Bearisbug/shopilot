@@ -188,14 +188,28 @@ export type QuickReplyStage = (typeof QUICK_REPLY_STAGES)[number];
 export const QUICK_REPLY_TEXT_MAX = 2000;
 export const QUICK_REPLY_TITLE_MAX = 40;
 
+/** 语言版本可选的语言，与工作台「发送前翻译」的目标语言一致 */
+export const QUICK_REPLY_LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
+export type QuickReplyLang = (typeof QUICK_REPLY_LANGS)[number];
+export type QuickReplyVariant = { lang: QuickReplyLang; text: string };
+
+const quickReplyText = (empty: string) => zText(QUICK_REPLY_TEXT_MAX, `回复内容最多 ${QUICK_REPLY_TEXT_MAX.toLocaleString("en-US")} 字`).refine((s) => s.length > 0, empty);
+
 export const quickReplyBody = z.object({
   title: zText(QUICK_REPLY_TITLE_MAX, `标题最多 ${QUICK_REPLY_TITLE_MAX} 个字`).refine((s) => s.length > 0, "请填写标题"),
   stage: z.enum(QUICK_REPLY_STAGES),
-  text: zText(QUICK_REPLY_TEXT_MAX, `回复内容最多 ${QUICK_REPLY_TEXT_MAX.toLocaleString("en-US")} 字`).refine((s) => s.length > 0, "请填写回复内容"),
+  text: quickReplyText("请填写回复内容"),
+  variants: z
+    .array(z.object({ lang: z.enum(QUICK_REPLY_LANGS), text: quickReplyText("请填写这个语言版本的内容，不需要就删掉这个版本") }))
+    .max(QUICK_REPLY_LANGS.length)
+    .refine((list) => new Set(list.map((v) => v.lang)).size === list.length, "同一种语言只能有一个版本")
+    .optional(),
 });
 export type QuickReplyBody = z.infer<typeof quickReplyBody>;
-export const quickReplyPatch = quickReplyBody.partial().refine((b) => b.title !== undefined || b.stage !== undefined || b.text !== undefined, "没有要修改的内容");
+export const quickReplyPatch = quickReplyBody
+  .partial()
+  .refine((b) => b.title !== undefined || b.stage !== undefined || b.text !== undefined || b.variants !== undefined, "没有要修改的内容");
 export const quickRepliesQuery = z.object({ stage: z.enum(QUICK_REPLY_STAGES).optional() });
 
-export type QuickReply = { id: string; title: string; stage: QuickReplyStage; text: string };
+export type QuickReply = { id: string; title: string; stage: QuickReplyStage; text: string; variants: QuickReplyVariant[] };
 export type QuickReplyList = { items: QuickReply[] };

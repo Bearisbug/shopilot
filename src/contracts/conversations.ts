@@ -23,7 +23,7 @@ export const assignBody = z.object({ toMembershipId: zUuid, withTickets: z.boole
 export const closeBody = z.object({ reason: z.string().trim().max(200).optional(), version: z.number().int().min(1) });
 export const stageBody = z.object({ stage: z.enum(["presale", "insale", "aftersale", "unknown"]) });
 
-export const OUT_TYPES = ["text", "image", "order_card", "logistics_card", "return_card", "coupon_card"] as const;
+export const OUT_TYPES = ["text", "image", "video", "order_card", "logistics_card", "return_card", "coupon_card"] as const;
 export type OutType = (typeof OUT_TYPES)[number];
 
 export const sendBody = z
@@ -45,6 +45,7 @@ export const sendBody = z
   .superRefine((b, ctx) => {
     if (b.type === "text" && !b.text) ctx.addIssue({ code: "custom", path: ["text"], message: "请输入要发送的文字" });
     if (b.type === "image" && !b.fileId) ctx.addIssue({ code: "custom", path: ["fileId"], message: "请先上传图片" });
+    if (b.type === "video" && !b.fileId) ctx.addIssue({ code: "custom", path: ["fileId"], message: "请先上传视频" });
     if (["order_card", "logistics_card", "return_card"].includes(b.type) && !b.orderId) ctx.addIssue({ code: "custom", path: ["orderId"], message: "请选择订单" });
     if (b.type === "return_card" && !b.skuId) ctx.addIssue({ code: "custom", path: ["skuId"], message: "请选择商品" });
     if (b.type === "coupon_card" && !b.couponId) ctx.addIssue({ code: "custom", path: ["couponId"], message: "请选择优惠券" });
@@ -198,4 +199,4 @@ export type BuyerPanel = {
 
 export type SendResult = { message: MessageItem };
 export type CouponOption = { couponId: string; title: string; discount: string; endsAt: string | null };
-export type UploadedFile = { id: string; url: string; width: number | null; height: number | null };
+export type UploadedFile = { id: string; url: string; width: number | null; height: number | null; kind: "image" | "video" };

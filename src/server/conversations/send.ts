@@ -5,13 +5,15 @@ import { db, schema } from "@/server/db/client";
 import { dataPath } from "@/server/files/storage";
 import { ShopUnavailableError, withShop } from "@/server/platforms/clients";
 import { READ_ONLY_SEND_FAILED, ReadOnlyPlatformError } from "@/server/platforms/readonly";
-import { shopeeSendImage, shopeeSendOrderCard, shopeeSendText } from "@/server/platforms/shopee";
+import { enqueue } from "@/server/jobs/boss";
+import { shopeeSendImage, shopeeSendOrderCard, shopeeSendText, shopeeSendVideo, type ShopeeChatVideo } from "@/server/platforms/shopee";
+import { SHOPEE_DOMAIN } from "@/server/products/info";
 import { tiktokSendCouponCard, tiktokSendImage, tiktokSendLogisticsCard, tiktokSendOrderCard, tiktokSendReturnCard, tiktokSendText } from "@/server/platforms/tiktok";
 import { PlatformError, platformErrorText } from "@/server/platforms/types";
 import { isInHours, receptionContext } from "./hours";
 import type { ConversationRow, MessageRow } from "./ingest";
 
-export type OutboundType = "text" | "image" | "order_card" | "logistics_card" | "return_card" | "coupon_card";
+export type OutboundType = "text" | "image" | "video" | "order_card" | "logistics_card" | "return_card" | "coupon_card";
 
 export type OutboundInput = {
   conversation: ConversationRow;
@@ -56,7 +58,21 @@ export async function sendOutbound(input: OutboundInput): Promise<SendOutcome> {
       .limit(1);
     return { message: first };
   }
-  return deliver(conv, msg);
+  return msg.type === "video" ? queueVideo(msg) : deliver(conv, msg);
+}
+
+/** 视频上传加平台处理要十几秒到两分钟，放到 Worker 里发（message.video_send），先以「发送中」返回 */
+async function queueVideo(msg: MessageRow): Promise<SendOutcome> {
+  await enqueue("message.video_send", { messageId: msg.id }, { singletonKey: msg.id });
+  return { message: msg };
+}
+
+/** message.video_send：发出一条排队中的视频；消息不在「发送中」（已发出、已失败或已删除）就什么都不做 */
+export async function deliverQueuedVideo(data: Record<string, unknown>): Promise<void> {
+  const [msg] = await db().select().from(schema.message).where(eq(schema.message.id, String(data.messageId))).limit(1);
+  if (!msg || msg.type !== "video" || msg.sendStatus !== "sending") return;
+  const [conv] = await db().select().from(schema.conversation).where(eq(schema.conversation.id, msg.conversationId)).limit(1);
+  if (conv) await deliver(conv, msg);
 }
 
 /** 重试一条 failed 的出站消息（API-CONV-015） */
@@ -67,7 +83,7 @@ export async function retryOutbound(conv: ConversationRow, msg: MessageRow): Pro
     .where(and(eq(schema.message.id, msg.id), eq(schema.message.sendStatus, "failed")))
     .returning();
   if (!m) return { message: msg };
-  return deliver(conv, m);
+  return m.type === "video" ? queueVideo(m) : deliver(conv, m);
 }
 
 async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutcome> {
@@ -79,7 +95,11 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
           case "text":
             return shopeeSendText(c.app, c.auth, conv.buyerExternalId, msg.text ?? "");
           case "image":
-            return shopeeSendImage(c.app, c.auth, conv.buyerExternalId, await imageOf(p));
+            return shopeeSendImage(c.app, c.auth, conv.buyerExternalId, await fileOf(p));
+          case "video": {
+            const r = await shopeeSendVideo(c.app, c.auth, conv.buyerExternalId, await fileOf(p));
+            return { ...r, media: shopeeVideoMedia(r.video, c.shop.market) };
+          }
           case "order_card":
             return shopeeSendOrderCard(c.app, c.auth, conv.buyerExternalId, String(p.orderId));
           default:
@@ -91,7 +111,7 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
         case "text":
           return tiktokSendText(c.app, c.auth, id, msg.text ?? "");
         case "image":
-          return tiktokSendImage(c.app, c.auth, id, await imageOf(p));
+          return tiktokSendImage(c.app, c.auth, id, await fileOf(p));
         case "order_card":
           return tiktokSendOrderCard(c.app, c.auth, id, String(p.orderId));
         case "logistics_card":
@@ -104,7 +124,7 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
           throw new PlatformError("tiktok", "unsupported", `TikTok 不支持发送 ${msg.type}`, "forbidden");
       }
     });
-    const payload = "url" in result && result.url ? { ...p, url: result.url } : p;
+    const payload = "media" in result ? { ...p, ...result.media } : "url" in result && result.url ? { ...p, url: result.url } : p;
     const [sent] = await db()
       .update(schema.message)
       .set({ sendStatus: "sent", externalMessageId: result.messageId, payload, sentAt: result.sentAt })
@@ -155,8 +175,25 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
   }
 }
 
-async function imageOf(p: Record<string, unknown>): Promise<{ bytes: Buffer; filename: string; mime: string }> {
+/**
+ * 发出的视频在时间线上的播放地址与封面：平台回的是相对路径，按店铺站点拼 Shopee CDN（视频 cvf.、图片 cf.，与收到的视频地址同一格式）；
+ * 已是完整地址（模拟平台）原样用。站点不认识时保留本地文件地址播放
+ */
+export function shopeeVideoMedia(v: ShopeeChatVideo, market: string): Record<string, unknown> {
+  const domain = SHOPEE_DOMAIN[market.toUpperCase()];
+  const abs = (path: string, host: string) => (/^https?:\/\//i.test(path) ? path : domain && path ? `https://${host}.${domain}/file/${path.replace(/^\/+/, "")}` : undefined);
+  const url = abs(v.video, "cvf");
+  return {
+    ...(url ? { url } : {}),
+    cover: abs(v.thumbnail, "cf"),
+    width: v.width || undefined,
+    height: v.height || undefined,
+    duration: v.durationMs ? Math.round(v.durationMs / 1000) : undefined,
+  };
+}
+
+async function fileOf(p: Record<string, unknown>): Promise<{ bytes: Buffer; filename: string; mime: string }> {
   const [file] = await db().select().from(schema.file).where(eq(schema.file.id, String(p.fileId))).limit(1);
-  if (!file) throw new Error("图片文件不存在");
+  if (!file) throw new Error("文件不存在");
   return { bytes: await readFile(dataPath(file.path)), filename: file.path.split("/").pop() ?? "image", mime: file.mime };
 }

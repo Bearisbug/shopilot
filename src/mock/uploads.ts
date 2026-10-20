@@ -1,4 +1,4 @@
-// 图片上传存储（${DATA_DIR}/mock-uploads/）、尺寸解析、示例图生成。
+// 图片与聊天视频上传存储（${DATA_DIR}/mock-uploads/）、尺寸解析、示例图生成。
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -55,6 +55,23 @@ export async function saveUpload(platform: MockPlatform, shopId: string | null, 
   await writeFile(path.join(uploadDir(), id), data);
   await mockDb().insert(mockUpload).values({ id, platform, shopId, filename: filename.slice(0, 200), mime: info.mime, size: data.length, width: info.width, height: info.height });
   return { id, ...info, size: data.length };
+}
+
+/** 聊天视频上传：只认 MP4（ftyp 头），宽高固定记 640×360（模拟平台不解码视频） */
+export async function saveVideoUpload(platform: MockPlatform, shopId: string | null, filename: string, data: Buffer): Promise<StoredUpload | null> {
+  if (data.length < 12 || data.toString("ascii", 4, 8) !== "ftyp") return null;
+  const id = uploadId();
+  await mkdir(uploadDir(), { recursive: true });
+  await writeFile(path.join(uploadDir(), id), data);
+  await mockDb().insert(mockUpload).values({ id, platform, shopId, filename: filename.slice(0, 200), mime: "video/mp4", size: data.length, width: 640, height: 360 });
+  return { id, width: 640, height: 360, mime: "video/mp4", size: data.length };
+}
+
+/** 上传记录（视频处理结果按上传时间推算） */
+export async function uploadRow(id: string) {
+  if (!/^[0-9a-f]{24}$/.test(id)) return null;
+  const [row] = await mockDb().select().from(mockUpload).where(eq(mockUpload.id, id)).limit(1);
+  return row ?? null;
 }
 
 export async function readUpload(id: string): Promise<{ data: Buffer; mime: string } | null> {
