@@ -8,6 +8,18 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn<(...args: unknown[]) => Promise<null>>(async () => null) }));
 vi.mock("@/server/jobs/boss", () => ({ enqueue }));
+// AI 替身把「最后一次请求」存在共用的一行里，并行的测试文件会互相覆盖；出稿请求在这里按调用截获
+const { draftRequests } = vi.hoisted(() => ({ draftRequests: [] as Array<Array<{ role: string; content: string }>> }));
+vi.mock("@/server/ai/client", async (importOriginal) => {
+  const m = await importOriginal<typeof import("@/server/ai/client")>();
+  return {
+    ...m,
+    chat: vi.fn(async (...args: Parameters<typeof m.chat>) => {
+      if (args[0] === "draft") draftRequests.push(args[1] as Array<{ role: string; content: string }>);
+      return m.chat(...args);
+    }),
+  };
+});
 
 describe.skipIf(!process.env.DATABASE_URL)("出稿防抖与回复语言（需要数据库）", async () => {
   process.env.AI_MODE = "stub";
@@ -74,10 +86,7 @@ describe.skipIf(!process.env.DATABASE_URL)("出稿防抖与回复语言（需要
   }
 
   const drafts = (conv: Conv) => db().select().from(schema.draft).where(eq(schema.draft.conversationId, conv.id));
-  const lastPayload = async () => {
-    const [row] = await db().select().from(schema.devAiStub).where(eq(schema.devAiStub.id, 1));
-    return JSON.parse(row.lastRequest?.messages.find((m) => m.role === "user")?.content ?? "{}") as Record<string, unknown>;
-  };
+  const lastPayload = async () => JSON.parse(draftRequests.at(-1)?.find((m) => m.role === "user")?.content ?? "{}") as Record<string, unknown>;
 
   it("最后一条买家消息到达不满 6 秒：不出稿，按剩余时间重排同会话的出稿任务", async () => {
     const conv = await conversation("awaiting_human");

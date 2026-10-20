@@ -13,6 +13,18 @@ import { can, permissionsFor, type Role } from "@/lib/permissions";
 
 const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn<(...args: unknown[]) => Promise<null>>(async () => null) }));
 vi.mock("@/server/jobs/boss", () => ({ enqueue }));
+// AI 替身把「最后一次请求」存在共用的一行里，并行的测试文件会互相覆盖；出稿请求在这里按调用截获
+const { draftRequests } = vi.hoisted(() => ({ draftRequests: [] as Array<Array<{ role: string; content: string }>> }));
+vi.mock("@/server/ai/client", async (importOriginal) => {
+  const m = await importOriginal<typeof import("@/server/ai/client")>();
+  return {
+    ...m,
+    chat: vi.fn(async (...args: Parameters<typeof m.chat>) => {
+      if (args[0] === "draft") draftRequests.push(args[1] as Array<{ role: string; content: string }>);
+      return m.chat(...args);
+    }),
+  };
+});
 
 describe("knowledge.manage 权限（§10）", () => {
   it("管理员、组长可用，员工不可用", () => {
@@ -477,8 +489,7 @@ describe.skipIf(!process.env.DATABASE_URL)("知识库（需要数据库）", asy
       expect(draft.citations).toHaveLength(1);
       expect(draft.retrieval?.merged.length).toBeGreaterThan(0);
       expect(draft.retrieval?.routes.map((r) => r.kind)).toEqual(["rewritten", "original"]);
-      const [ai] = await db().select().from(schema.devAiStub).where(eq(schema.devAiStub.id, 1));
-      const payload = JSON.parse(ai.lastRequest?.messages.find((m) => m.role === "user")?.content ?? "{}");
+      const payload = JSON.parse(draftRequests.at(-1)?.find((m) => m.role === "user")?.content ?? "{}");
       expect(payload.knowledge[0]).toMatchObject({ n: 1, title: expect.any(String), text: expect.any(String) });
       // 给模型的时间是商户时区的本地时间（模型会照抄回复买家），不是 UTC 的 ISO 串
       expect(payload.timezone).toBe(ctx.merchant.timezone);
