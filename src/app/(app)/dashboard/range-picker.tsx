@@ -41,6 +41,8 @@ export function rangeLabel(spec: DashRangeSpec): string {
 export function DashRangePicker({ value, onChange, tz, resolved }: { value: DashRangeSpec; onChange: (v: DashRangeSpec) => void; tz: string; resolved?: { from: string; to: string } }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DateRange | undefined>();
+  // 打开时预选的是当前范围；第一次点日期要重新开始选，否则日历只会挪动这个范围的一端
+  const [fresh, setFresh] = useState(false);
   const today = todayIn(tz);
   const wide = useWide();
 
@@ -49,6 +51,7 @@ export function DashRangePicker({ value, onChange, tz, resolved }: { value: Dash
       const from = "from" in value ? value.from : resolved?.from;
       const to = "from" in value ? value.to : resolved?.to;
       setDraft(from && to ? { from: parseISO(from), to: parseISO(to) } : undefined);
+      setFresh(true);
     }
     setOpen(o);
   };
@@ -85,7 +88,12 @@ export function DashRangePicker({ value, onChange, tz, resolved }: { value: Dash
             <Calendar
               mode="range"
               selected={draft}
-              onSelect={setDraft}
+              onSelect={(r, day) => {
+                if (fresh) {
+                  setFresh(false);
+                  setDraft({ from: day, to: undefined });
+                } else setDraft(r);
+              }}
               numberOfMonths={wide ? 2 : 1}
               defaultMonth={addMonths(draft?.to ?? today, wide ? -1 : 0)}
               endMonth={today}
