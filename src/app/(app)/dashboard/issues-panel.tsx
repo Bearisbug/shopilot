@@ -2,7 +2,7 @@
 
 // 「问题与转人工原因」面板：全部问题（有买家发言的会话段）/ 转人工的（转人工的 AI 接待段）两个视图；
 // 类别分布（点类别看会话段）、按日趋势（图表配同数据明细表）、转人工的视图另显示转人工原因；管理员可管理类别。
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLinkIcon, LockIcon, MessageSquareTextIcon, PencilIcon, PlusIcon, Settings2Icon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -24,7 +24,6 @@ import { ISSUE_LIST_LIMIT, ISSUE_VIEWS, type DashboardIssueList, type DashboardR
 import { ISSUE_CATEGORY_LIMIT, ISSUE_OTHER, issueCategoryBody, type IssueCategory, type IssueCategoryDeleteResult, type IssueCategoryList } from "@/contracts/issues";
 import { ApiError, api, errorText, newKey } from "@/lib/api";
 import { inTz } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { axes, num } from "./dashboard-lib";
 import { HandoffReasonsChart, Legend } from "./dashboard-panels";
 
@@ -171,6 +170,7 @@ function IssueTrend({ stats, nameOf }: { stats: DashboardResponse["issues"]["vie
   const valueOf = (counts: Record<string, number>, key: string) =>
     key === "rest" ? Object.entries(counts).reduce((s, [id, n]) => (top.includes(id) ? s : s + n), 0) : (counts[key] ?? 0);
   const rows = stats.trend.map((t) => ({ date: t.date, values: series.map((s) => valueOf(t.counts, s.key)) }));
+  const nonEmpty = rows.filter((r) => r.values.some((x) => x > 0));
   return (
     <div className="min-w-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -181,10 +181,7 @@ function IssueTrend({ stats, nameOf }: { stats: DashboardResponse["issues"]["vie
         <BrandChart
           type="bar"
           height={220}
-          label={`每日问题类别：${rows
-            .filter((r) => r.values.some((x) => x > 0))
-            .map((r) => `${r.date} ${series.map((s, i) => `${s.label} ${r.values[i]}`).join("，")}`)
-            .join("；")}`}
+          label={`每日问题类别：${nonEmpty.map((r) => `${r.date} ${series.map((s, i) => `${s.label} ${r.values[i]}`).join("，")}`).join("；")}`}
           data={{
             labels: rows.map((r) => inTz(`${r.date}T12:00:00Z`, "UTC", "MM-dd")),
             datasets: series.map((s, i) => ({
@@ -214,19 +211,17 @@ function IssueTrend({ stats, nameOf }: { stats: DashboardResponse["issues"]["vie
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows
-                .filter((r) => r.values.some((x) => x > 0))
-                .map((r) => (
-                  <TableRow key={r.date}>
-                    <TableCell className="tabular-nums">{r.date}</TableCell>
-                    {r.values.map((x, i) => (
-                      <TableCell key={series[i].key} className="text-right tabular-nums">
-                        {x || <span className="text-muted-foreground">0</span>}
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-right tabular-nums">{r.values.reduce((a, b) => a + b, 0)}</TableCell>
-                  </TableRow>
-                ))}
+              {nonEmpty.map((r) => (
+                <TableRow key={r.date}>
+                  <TableCell className="tabular-nums">{r.date}</TableCell>
+                  {r.values.map((x, i) => (
+                    <TableCell key={series[i].key} className="text-right tabular-nums">
+                      {x || <span className="text-muted-foreground">0</span>}
+                    </TableCell>
+                  ))}
+                  <TableCell className="text-right tabular-nums">{r.values.reduce((a, b) => a + b, 0)}</TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>
@@ -257,7 +252,6 @@ function SegmentList({ categoryId, view, rangeQs, tz }: { categoryId: string; vi
   const q = useQuery({
     queryKey: ["dashboard-issues", rangeQs, view, categoryId],
     queryFn: () => api.get<DashboardIssueList>(`/api/v1/dashboard/issues?${rangeQs ? `${rangeQs}&` : ""}view=${view}&categoryId=${categoryId}`),
-    placeholderData: keepPreviousData,
   });
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   if (!q.data)
@@ -303,15 +297,13 @@ function nameError(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.type === "duplicate") return "已有同名类别";
     if (e.type === "not-allowed" && e.problem.code === "category_quota") return `类别最多 ${ISSUE_CATEGORY_LIMIT} 个`;
-    if (e.type === "not-allowed" && e.problem.code === "builtin") return `「${ISSUE_OTHER}」不能改名`;
-    if (e.type === "validation") return e.problem.detail ?? "类别名不合规";
   }
   return errorText(e);
 }
 
 function checkName(name: string): string | undefined {
   const r = issueCategoryBody.safeParse({ name });
-  return r.success ? undefined : r.error.issues[0]?.message;
+  return r.success ? undefined : r.error.issues[0].message;
 }
 
 function IssueCategoriesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -507,7 +499,7 @@ function CategoryRow({ c, onRemove, onChanged }: { c: IssueCategoryList["items"]
         </p>
       </div>
       {c.builtin ? (
-        <span className={cn("inline-flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground")}>
+        <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
           <LockIcon className="size-3.5" aria-hidden />
           内置，不能改名或删除
         </span>

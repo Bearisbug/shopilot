@@ -63,15 +63,12 @@ export const dashboardIssuesQuery = z
 /** 列表最多返回的条数（按会话段开始时间倒序） */
 export const ISSUE_LIST_LIMIT = 100;
 
-export type DashboardIssueItem = {
-  segmentId: string;
-  conversationId: string;
-  startedAt: string;
-  shopName: string;
-  buyerName: string;
-  summary: string | null;
+export type DashboardIssueList = {
+  categoryId: string;
+  categoryName: string;
+  total: number;
+  items: Array<{ segmentId: string; conversationId: string; startedAt: string; shopName: string; buyerName: string; summary: string | null }>;
 };
-export type DashboardIssueList = { categoryId: string; categoryName: string; total: number; items: DashboardIssueItem[] };
 
 export type DashboardIssueStats = {
   /** 范围内的会话段数（全部：有买家发言的段；转人工的：转人工的 AI 接待段） */

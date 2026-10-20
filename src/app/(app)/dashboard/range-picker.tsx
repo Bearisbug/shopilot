@@ -34,7 +34,7 @@ function useWide(): boolean {
   );
 }
 
-export function rangeLabel(spec: DashRangeSpec): string {
+function rangeLabel(spec: DashRangeSpec): string {
   return "from" in spec ? `${spec.from.slice(5)} 至 ${spec.to.slice(5)}` : PRESET_LABEL[spec.preset];
 }
 

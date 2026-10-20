@@ -12,7 +12,7 @@ const G = schema.segment;
 const M = schema.message;
 
 /** 买家停止发言多久后提取 */
-export const ISSUE_QUIET_MS = 30 * 60_000;
+const ISSUE_QUIET_MS = 30 * 60_000;
 /** 定时补扫每轮最多处理的段数、并发数，只看最近几天开始的段（更早的用补算脚本） */
 const SWEEP_LIMIT = 50;
 const SWEEP_CONCURRENCY = 4;
@@ -26,7 +26,7 @@ const squash = (s: string) => s.replace(/[\s（）()、，,]/g, "");
 export function parseIssue(content: string, categories: IssueCategory[]): { summary: string | null; categoryId: string } {
   const j = parseJson(content);
   const name = typeof j.category === "string" ? j.category.trim() : "";
-  const other = categories.find((c) => c.builtin) ?? categories.find((c) => c.name === ISSUE_OTHER);
+  const other = categories.find((c) => c.builtin);
   const hit = categories.find((c) => c.name === name) ?? (name ? categories.find((c) => squash(c.name) === squash(name)) : undefined);
   const raw = typeof j.summary === "string" ? j.summary.replace(/\s+/g, " ").trim() : "";
   const summary = raw ? (charCount(raw) > ISSUE_SUMMARY_MAX ? `${[...raw].slice(0, ISSUE_SUMMARY_MAX - 1).join("")}…` : raw) : null;
@@ -43,10 +43,10 @@ function prompt(categories: IssueCategory[]): string {
   ].join("\n");
 }
 
-export type ExtractResult = "done" | "no_buyer" | "failed";
+type ExtractResult = "done" | "no_buyer" | "failed";
 
 /** 提取一个会话段的问题；AI 超时、出错或输出不合规时不写库，留给下一轮 */
-export async function extractIssue(segmentId: string, now = new Date()): Promise<ExtractResult> {
+async function extractIssue(segmentId: string, now = new Date()): Promise<ExtractResult> {
   const [row] = await db()
     .select({ seg: G, shopId: schema.conversation.shopId })
     .from(G)
@@ -92,17 +92,6 @@ export async function extractIssue(segmentId: string, now = new Date()): Promise
 /** 段内最后一条买家消息的时刻 */
 const lastBuyerAt = sql<Date>`(select max(m.sent_at) from message m where m.conversation_id = ${G.conversationId} and m.segment_id = ${G.id} and m.sender_role = 'buyer')`;
 
-async function runAll(ids: string[], concurrency: number, now: Date) {
-  const tally = { done: 0, no_buyer: 0, failed: 0 } as Record<ExtractResult, number>;
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, ids.length) }, async () => {
-      while (next < ids.length) tally[await extractIssue(ids[next++], now)] += 1;
-    }),
-  );
-  return tally;
-}
-
 /** 定时补扫：最近几天开始、买家已停 30 分钟、还没提取或提取后买家又发过言的段（回补段、达人会话不提取） */
 export async function sweepIssues(now = new Date()) {
   const rows = await db()
@@ -120,16 +109,22 @@ export async function sweepIssues(now = new Date()) {
     )
     .orderBy(asc(G.startedAt))
     .limit(SWEEP_LIMIT);
-  const ids = rows.map((r) => r.id);
-  return { picked: ids.length, ...(await runAll(ids, SWEEP_CONCURRENCY, now)) };
+  const tally = { done: 0, no_buyer: 0, failed: 0 } as Record<ExtractResult, number>;
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(SWEEP_CONCURRENCY, rows.length) }, async () => {
+      while (next < rows.length) tally[await extractIssue(rows[next++].id, now)] += 1;
+    }),
+  );
+  return { picked: rows.length, ...tally };
 }
 
 /**
  * 补算历史：[from, to) 内开始、有买家消息的段；默认只算还没提取的，force 时全部重算。
- * 按 perSecond 限速逐段调用（默认每秒 1 段），每 200 段一批按开始时间推进。
+ * 按 perSecond 限速逐段调用，每 200 段一批按开始时间推进。
  */
-export async function backfillIssues(opts: { from: Date; to: Date; merchantId?: string; force?: boolean; perSecond?: number; log?: (line: string) => void }) {
-  const gap = 1000 / Math.max(0.1, opts.perSecond ?? 1);
+export async function backfillIssues(opts: { from: Date; to: Date; merchantId?: string; force?: boolean; perSecond: number; log?: (line: string) => void }) {
+  const gap = 1000 / Math.max(0.1, opts.perSecond);
   const tally = { total: 0, done: 0, no_buyer: 0, failed: 0 };
   let after: { startedAt: Date; id: string } | null = null;
   for (;;) {
