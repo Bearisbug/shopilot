@@ -41,6 +41,8 @@ export const sendBody = z
     /** 只用于时间线显示 */
     couponTitle: z.string().max(200).optional(),
     translateTo: z.enum(["ms", "en", "th", "vi", "id", "tl", "zh"]).optional(),
+    /** 输入框停顿时预先翻好的译文：和 translateTo 一起提交时服务端直接发它，不再同步翻译 */
+    translatedText: z.string().trim().min(1, "译文不能为空").max(2000, "译文最多 2,000 字").optional(),
     draftId: zUuid.optional(),
     disposition: z.enum(["sent", "edited_sent"]).optional(),
   })
@@ -52,6 +54,7 @@ export const sendBody = z
     if (b.type === "return_card" && !b.skuId) ctx.addIssue({ code: "custom", path: ["skuId"], message: "请选择商品" });
     if (b.type === "coupon_card" && !b.couponId) ctx.addIssue({ code: "custom", path: ["couponId"], message: "请选择优惠券" });
     if (b.type === "product_card" && !b.productId) ctx.addIssue({ code: "custom", path: ["productId"], message: "请选择商品" });
+    if (b.translatedText !== undefined && (b.type !== "text" || !b.translateTo)) ctx.addIssue({ code: "custom", path: ["translatedText"], message: "译文只能随文字消息和翻译目标语言一起提交" });
   });
 export type SendBody = z.infer<typeof sendBody>;
 

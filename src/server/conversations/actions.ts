@@ -266,10 +266,13 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
   let originalText: string | null = null;
   if (body.type === "text" && body.translateTo && text) {
     originalText = text;
-    try {
-      text = await translateText(text, body.translateTo);
-    } catch {
-      throw new Problem("ai-unavailable", { detail: "翻译暂时不可用，可以直接发送原文或稍后再试。" });
+    if (body.translatedText) text = body.translatedText;
+    else {
+      try {
+        text = await translateText(text, body.translateTo);
+      } catch {
+        throw new Problem("ai-unavailable", { detail: "翻译暂时不可用，可以直接发送原文或稍后再试。" });
+      }
     }
     if (Array.from(text).length > caps.maxTextLength) throw new Problem("validation", { detail: `译文超过 ${caps.maxTextLength} 字，请缩短后再发。` });
   }

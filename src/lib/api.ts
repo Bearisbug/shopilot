@@ -18,9 +18,10 @@ function requestId() {
   return `req_${crypto.randomUUID().replace(/-/g, "")}`;
 }
 
-async function once<T>(method: string, url: string, body: unknown, opts: { idempotencyKey?: string; timeoutMs: number; raw?: boolean }): Promise<T> {
+async function once<T>(method: string, url: string, body: unknown, opts: { idempotencyKey?: string; timeoutMs: number; raw?: boolean; signal?: AbortSignal }): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs);
+  opts.signal?.addEventListener("abort", () => ctrl.abort(), { once: true });
   const rid = requestId();
   try {
     const isForm = typeof FormData !== "undefined" && body instanceof FormData;
@@ -75,8 +76,9 @@ export const api = {
       throw e;
     }
   },
-  post<T>(url: string, body?: unknown, idempotencyKey?: string, timeoutMs = 30_000) {
-    return once<T>("POST", url, body ?? {}, { timeoutMs, idempotencyKey });
+  /** signal 由调用方取消（如防抖请求被新输入取代）；取消后同样抛超时类 ApiError，调用方据 signal.aborted 忽略 */
+  post<T>(url: string, body?: unknown, idempotencyKey?: string, timeoutMs = 30_000, signal?: AbortSignal) {
+    return once<T>("POST", url, body ?? {}, { timeoutMs, idempotencyKey, signal });
   },
   put<T>(url: string, body: unknown, idempotencyKey?: string) {
     return once<T>("PUT", url, body, { timeoutMs: 30_000, idempotencyKey });

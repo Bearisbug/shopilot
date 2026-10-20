@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { ConversationDetail, DraftItem, SendBody, UploadedFile } from "@/contracts/conversations";
 import type { QuickReply, QuickReplyLang } from "@/contracts/reception";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,7 @@ import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
 import { quickReplyInsert } from "@/lib/quick-reply";
 import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
+import { usePretranslate, type Pretranslation } from "./use-pretranslate";
 import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
 import { AiTag, Citations, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
@@ -157,6 +159,9 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const [draftLang, setDraftLang] = useDraftLang(c.id);
   // 本条实际的发送前翻译：插入了某个语言版本的快捷回复就不翻译
   const sendLang = draftLang ? "none" : translateTo;
+  const pre = usePretranslate(text, sendLang);
+  // 「将发送」预览展开看全文；记的是展开时的键，文字或语言一变自动收起
+  const [openPreview, setOpenPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // 同一段文字重发沿用同一个 clientRequestId：结果未知（504）后再点发送，服务端按它去重，不会发两遍
   const attempt = useRef<{ text: string; key: string } | null>(null);
@@ -205,6 +210,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
     const body = text.trim();
     const clientRequestId = attempt.current?.text === body ? attempt.current.key : newKey();
     attempt.current = { text: body, key: clientRequestId };
+    // 停顿时已经翻好的译文随消息带上，服务端不再同步翻译；没翻好（还在翻、失败、刚改字）由服务端照旧翻译
+    const translatedText = sendLang === "none" ? undefined : pre.get(body, sendLang);
     const done = () => {
       attempt.current = null;
       setText("");
@@ -217,6 +224,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
         text: body,
         clientRequestId,
         translateTo: sendLang === "none" ? undefined : (sendLang as SendBody["translateTo"]),
+        ...(translatedText ? { translatedText } : {}),
         ...(editing ? { draftId: editing.id, disposition: "edited_sent" as const } : {}),
       },
       {
@@ -333,6 +341,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
               // 上下留白用外边距而不是内边距：内边距会随内容一起滚走，滚动时文字贴到盒子描边上
               className="scroll-nav mt-3 mb-2 max-h-40 min-h-11 resize-none border-0 bg-transparent px-3 py-0 leading-relaxed shadow-none focus-visible:outline-none"
             />
+            {pre.state.status !== "idle" && <SendPreview state={pre.state} lang={sendLang} open={openPreview === pre.key} onToggle={() => setOpenPreview((k) => (k === pre.key ? null : pre.key))} />}
             {/* 超限说明单独一行、右缘与文字区对齐，窄屏不挤掉发送按钮 */}
             {over > 0 && (
               <p id="wb-reply-over" className="px-3 pb-1 text-right text-xs text-destructive tabular-nums">
@@ -460,6 +469,33 @@ function PastedPreview({ items, sent }: { items: (Media & { preview: string })[]
         </li>
       ))}
     </ul>
+  );
+}
+
+/** 输入框里「将发送」的译文预览：默认单行截断，点开看全文；翻译中、失败只给一句说明 */
+function SendPreview({ state, lang, open, onToggle }: { state: Exclude<Pretranslation, { status: "idle" }>; lang: string; open: boolean; onToggle: () => void }) {
+  const label = (
+    <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
+      将发送
+    </Badge>
+  );
+  if (state.status !== "done") {
+    return (
+      <p className="flex items-baseline gap-1.5 px-3 pb-1.5 text-xs text-muted-foreground">
+        {label}
+        {state.status === "pending" ? "翻译中…" : "预翻译没成功，发送时再翻译"}
+      </p>
+    );
+  }
+  return (
+    <div className="px-3 pb-1.5">
+      <button type="button" aria-expanded={open} onClick={onToggle} className="focus-ring flex cursor-pointer w-full min-w-0 items-baseline gap-1.5 rounded-sm text-left text-xs text-muted-foreground">
+        {label}
+        <span lang={lang} className={open ? "min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]" : "min-w-0 truncate"}>
+          {state.text}
+        </span>
+      </button>
+    </div>
   );
 }
 
