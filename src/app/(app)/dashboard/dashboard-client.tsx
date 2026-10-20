@@ -5,27 +5,33 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { DownloadIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Me } from "@/contracts/auth";
-import { DASH_RANGES, RANGE_LABEL, type DashboardResponse, type DashRange } from "@/contracts/dashboard";
+import { DASH_PRESETS, DEFAULT_PRESET, rangeSearch, type DashboardResponse, type DashPreset, type DashRangeSpec } from "@/contracts/dashboard";
 import { PageActions } from "@/components/shell/app-shell";
 import { ErrorState, PageHeader, PageScroll, Panel } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { inTz } from "@/lib/format";
+import { DashRangePicker } from "./range-picker";
 import { DraftsPanel, HandoffReasonsPanel, PeoplePanel, PlatformPanel, TicketStats, TicketTypesPanel, TrendPanel } from "./dashboard-panels";
 
-/** 范围写进 URL（INT-020）；非法值回默认「本月」 */
-function useRange(): [DashRange, (v: DashRange) => void] {
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const PERIOD_LABEL = { "7d": "近 7 天", "30d": "近 30 天", this_month: "本月", last_month: "上月" } as const;
+
+/** 范围写进 URL（INT-020）：预设写 ?range=，自定义写 ?from=&to=；非法值回默认「本月」 */
+function useRange(): [DashRangeSpec, (v: DashRangeSpec) => void] {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const raw = params.get("range");
-  const value = (DASH_RANGES as readonly string[]).includes(raw ?? "") ? (raw as DashRange) : "this_month";
-  const set = (v: DashRange) => {
+  const from = params.get("from");
+  const to = params.get("to");
+  const value: DashRangeSpec =
+    from && to && DAY.test(from) && DAY.test(to) && from <= to ? { from, to } : { preset: (DASH_PRESETS as readonly string[]).includes(raw ?? "") ? (raw as DashPreset) : DEFAULT_PRESET };
+  const set = (v: DashRangeSpec) => {
     const next = new URLSearchParams(params.toString());
-    if (v === "this_month") next.delete("range");
-    else next.set("range", v);
+    for (const k of ["range", "from", "to"]) next.delete(k);
+    for (const [k, val] of new URLSearchParams(rangeSearch(v))) next.set(k, val);
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
@@ -43,7 +49,8 @@ function Section({ title, description }: { title: string; description?: string }
 
 export function DashboardClient({ me }: { me: Me }) {
   const [range, setRange] = useRange();
-  const data = useQuery({ queryKey: ["dashboard", range], queryFn: () => api.get<DashboardResponse>(`/api/v1/dashboard?range=${range}`), placeholderData: keepPreviousData });
+  const qs = rangeSearch(range);
+  const data = useQuery({ queryKey: ["dashboard", qs], queryFn: () => api.get<DashboardResponse>(`/api/v1/dashboard${qs ? `?${qs}` : ""}`), placeholderData: keepPreviousData });
   const d = data.data;
   const tz = me.active.timezone;
   const scope = me.active.shopIds === null ? "全部" : "负责的";
@@ -55,25 +62,14 @@ export function DashboardClient({ me }: { me: Me }) {
     <PageScroll>
       <PageActions>
         <Button asChild variant="outline">
-          <a href={`/api/v1/dashboard?range=${range}&format=csv`} download>
+          <a href={`/api/v1/dashboard?${qs ? `${qs}&` : ""}format=csv`} download>
             <DownloadIcon />
             导出报表
           </a>
         </Button>
       </PageActions>
       <PageHeader title="看板" facts={facts}>
-        <Select value={range} onValueChange={(v) => setRange(v as DashRange)}>
-          <SelectTrigger aria-label="统计范围" className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DASH_RANGES.map((r) => (
-              <SelectItem key={r} value={r}>
-                {RANGE_LABEL[r]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <DashRangePicker value={range} onChange={setRange} tz={tz} resolved={d?.range} />
       </PageHeader>
       {data.isError && !d ? (
         <Panel>
@@ -87,7 +83,10 @@ export function DashboardClient({ me }: { me: Me }) {
             <TrendPanel d={d} canConnect={me.active.permissions.includes("shops.manage")} />
             <DraftsPanel d={d} />
           </div>
-          <Section title="平台口径" description={`两个平台的算法不同，不合并成一个数。${d.platformPeriod !== d.range ? "平台只提供到近 30 天，「近 90 天」下平台口径按近 30 天显示。" : ""}`} />
+          <Section
+            title="平台口径"
+            description={`两个平台的算法不同，不合并成一个数。${d.range.preset === d.platformPeriod ? "" : `平台只提供近 7 天、近 30 天、本月、上月四个窗口，当前范围下平台口径按${PERIOD_LABEL[d.platformPeriod]}显示。`}`}
+          />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <PlatformPanel d={d} platform="shopee" tz={tz} />
             <PlatformPanel d={d} platform="tiktok" tz={tz} />

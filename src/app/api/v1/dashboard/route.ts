@@ -7,5 +7,5 @@ export const GET = route({
   auth: "member",
   perm: "dashboard.view",
   query: dashboardQuery,
-  handler: ({ ctx, query }) => (query.format === "csv" ? dashboardCsv(ctx, query.range) : dashboard(ctx, query.range)),
+  handler: ({ ctx, query }) => (query.format === "csv" ? dashboardCsv(ctx, query.spec) : dashboard(ctx, query.spec)),
 });

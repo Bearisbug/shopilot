@@ -4,15 +4,48 @@ import type { TicketType } from "./tickets";
 
 // 看板契约（DESIGN §8.9 API-DASH-001、§3 指标口径、§13 PAGE-DASHBOARD）：前后端共用。
 
-export const DASH_RANGES = ["7d", "this_month", "last_month", "90d"] as const;
-export type DashRange = (typeof DASH_RANGES)[number];
-export const RANGE_LABEL: Record<DashRange, string> = { "7d": "近 7 天", this_month: "本月", last_month: "上月", "90d": "近 90 天" };
+/** 预设范围按商户时区切日：近 N 天含今天，本周从周一起，本月从 1 日到今天，上月整月 */
+export const DASH_PRESETS = ["today", "yesterday", "7d", "28d", "this_week", "this_month", "last_month", "90d"] as const;
+export type DashPreset = (typeof DASH_PRESETS)[number];
+export const PRESET_LABEL: Record<DashPreset, string> = {
+  today: "今天",
+  yesterday: "昨天",
+  "7d": "近 7 天",
+  "28d": "近 28 天",
+  this_week: "本周",
+  this_month: "本月",
+  last_month: "上月",
+  "90d": "近 90 天",
+};
+export const DEFAULT_PRESET: DashPreset = "this_month";
+/** 自定义范围最多跨多少天（含首尾） */
+export const MAX_RANGE_DAYS = 180;
 
-export const dashboardQuery = z.object({
-  range: z.enum(DASH_RANGES).default("this_month"),
-  format: z.enum(["json", "csv"]).default("json"),
-});
+const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式应为 YYYY-MM-DD");
+
+/** 统计范围：预设（range）或自定义起止日（from、to，含首尾，商户时区）；都不给时为本月 */
+export type DashRangeSpec = { preset: DashPreset } | { from: string; to: string };
+
+export const dashboardQuery = z
+  .object({
+    range: z.enum(DASH_PRESETS).optional(),
+    from: ymd.optional(),
+    to: ymd.optional(),
+    format: z.enum(["json", "csv"]).default("json"),
+  })
+  .superRefine((q, c) => {
+    if (!q.from !== !q.to) c.addIssue({ code: "custom", path: [q.from ? "to" : "from"], message: "自定义范围要同时给出起止日期" });
+    if (q.from && q.range) c.addIssue({ code: "custom", path: ["range"], message: "预设范围与自定义起止日期只能给一种" });
+    if (q.from && q.to && q.from > q.to) c.addIssue({ code: "custom", path: ["from"], message: "开始日期不能晚于结束日期" });
+  })
+  .transform(({ range, from, to, format }) => ({ spec: (from && to ? { from, to } : { preset: range ?? DEFAULT_PRESET }) as DashRangeSpec, format }));
 export type DashboardQuery = z.infer<typeof dashboardQuery>;
+
+/** 把范围写成查询串（页面链接与导出共用）；默认的本月不写参数 */
+export function rangeSearch(spec: DashRangeSpec): string {
+  if ("from" in spec) return `from=${spec.from}&to=${spec.to}`;
+  return spec.preset === DEFAULT_PRESET ? "" : `range=${spec.preset}`;
+}
 
 /** 比率的最小样本：分母小于它时不给比率，页面显示「数据不足」（PAGE-DASHBOARD 关键页态） */
 export const MIN_SAMPLE = 10;
@@ -39,8 +72,10 @@ export type DashboardPerson = {
   name: string;
   /** 本人首个认领的会话段 */
   segments: number;
-  /** 本人首个认领的段里 Shopilot 成员首条回复的首响中位（工作时段秒数，§3） */
-  firstReplyMedianSec: number | null;
+  /** 本人首个认领的段里 Shopilot 成员首条回复的首响平均（工作时段秒数，§3） */
+  firstReplyAvgSec: number | null;
+  /** 本人首个认领、买家已等满 12 小时或已被本人回复的段里，本人 12 小时内回复的占比 */
+  replied12h: Ratio;
   /** 本人转出的次数 / 本人会话段 */
   transferRate: Ratio;
   /** 指派给本人、在范围内解决、有截止时间的工单里按时的占比 */
@@ -71,7 +106,8 @@ export type DashboardPlatformMetric = {
 };
 
 export type DashboardResponse = {
-  range: DashRange;
+  /** 实际统计的范围；preset 为空表示自定义起止日 */
+  range: { preset: DashPreset | null; from: string; to: string; label: string };
   /** [start, end)，ISO 时间；按商户时区切日 */
   period: { start: string; end: string; days: number };
   timezone: string;
@@ -80,9 +116,11 @@ export type DashboardResponse = {
     segments: number;
     /** AI 接待段（开段模式为 assist / auto）里：分子 AI 独立解决的段，分母已结束的段 */
     aiResolved: Ratio;
-    /** 人工首响中位：起点到首条人工回复（含平台后台回复）的工作时段秒数（§3 指标口径补充） */
-    firstReplyMedianSec: number | null;
+    /** 人工首响平均：起点到首条人工回复（含平台后台回复）的工作时段秒数（§3 指标口径补充） */
+    firstReplyAvgSec: number | null;
     firstReplySamples: number;
+    /** 买家已等满 12 小时或已有回复的段里，12 小时内有回复（人工、AI 发出、平台后台）的占比 */
+    replied12h: Ratio;
     /** AI 接待段里：分子转人工的段，分母全部 AI 接待段 */
     handoffRate: Ratio;
   };
@@ -121,6 +159,6 @@ export type DashboardResponse = {
     byType: Array<{ type: TicketType; label: string; onTime: number; lateMerchant: number; latePlatform: number; noDue: number }>;
   };
   platformMetrics: DashboardPlatformMetric[];
-  /** 平台指标实际取用的周期；90 天范围平台指标按近 30 天取 */
+  /** 平台指标实际取用的窗口：本月、上月、近 7 天原样；其余范围不超过 7 天取近 7 天，超过取近 30 天 */
   platformPeriod: ShopPeriod;
 };

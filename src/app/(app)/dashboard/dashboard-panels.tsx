@@ -122,12 +122,23 @@ export function TrendPanel({ d, canConnect }: { d: DashboardResponse; canConnect
           </dd>
         </div>
         <div className="min-w-0 flex-1 lg:flex-none">
-          <dt className="text-sm text-muted-foreground">人工首响中位</dt>
-          <dd className="mt-1 text-2xl font-semibold tracking-tight whitespace-nowrap tabular-nums">{replyTime(k.firstReplyMedianSec)}</dd>
+          <dt className="text-sm text-muted-foreground">人工首响平均</dt>
+          <dd className="mt-1 text-2xl font-semibold tracking-tight whitespace-nowrap tabular-nums">{replyTime(k.firstReplyAvgSec)}</dd>
           <dd className="mt-1 text-xs text-muted-foreground tabular-nums">
             买家等人工到首次人工回复，含平台后台回复
             <br />
             只累计工作时段 · 样本 {num(k.firstReplySamples)} 段
+          </dd>
+        </div>
+        <div className="min-w-0 flex-1 lg:flex-none">
+          <dt className="text-sm text-muted-foreground">12 小时回复率</dt>
+          <dd className="mt-1 text-2xl font-semibold tracking-tight whitespace-nowrap tabular-nums">
+            <RateValue r={k.replied12h} />
+          </dd>
+          <dd className="mt-1 text-xs text-muted-foreground tabular-nums">
+            {k.replied12h.rate === null ? insufficient(k.replied12h) : `${num(k.replied12h.num)} / ${num(k.replied12h.den)} 段在买家首条消息后 12 小时内回复`}
+            <br />
+            人工、AI 与平台后台回复都算
           </dd>
         </div>
         <div className="min-w-0 flex-1 lg:flex-none">
@@ -354,7 +365,7 @@ function RateCell({ r }: { r: Ratio }) {
 export function PeoplePanel({ d, canSeeTeam }: { d: DashboardResponse; canSeeTeam: boolean }) {
   return (
     <Panel className="min-w-0">
-      <PanelHeader title="按人统计" description="按会话段首个认领人统计；首响只算 Shopilot 回复，平台接口不暴露子账号">
+      <PanelHeader title="按人统计" description="按会话段首个认领人统计；首响与 12 小时回复率只算本人在 Shopilot 的回复，平台接口不暴露子账号">
         {canSeeTeam && (
           <Button asChild variant="outline" size="sm">
             <Link href="/team">
@@ -373,10 +384,11 @@ export function PeoplePanel({ d, canSeeTeam }: { d: DashboardResponse; canSeeTea
               <TableHeader>
                 <TableRow>
                   <TableHead>客服</TableHead>
-                  <TableHead className="text-right">处理会话段</TableHead>
-                  <TableHead className="text-right">首响中位</TableHead>
+                  <TableHead className="text-right">会话段</TableHead>
+                  <TableHead className="text-right">首响平均</TableHead>
+                  <TableHead className="text-right">12 小时回复</TableHead>
                   <TableHead className="text-right">转交率</TableHead>
-                  <TableHead className="text-right">工单按时率</TableHead>
+                  <TableHead className="text-right">工单按时</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -391,7 +403,10 @@ export function PeoplePanel({ d, canSeeTeam }: { d: DashboardResponse; canSeeTea
                       </span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{num(p.segments)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{replyTime(p.firstReplyMedianSec)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{replyTime(p.firstReplyAvgSec)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <RateCell r={p.replied12h} />
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       <RateCell r={p.transferRate} />
                     </TableCell>
@@ -403,7 +418,7 @@ export function PeoplePanel({ d, canSeeTeam }: { d: DashboardResponse; canSeeTea
               </TableBody>
             </Table>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">比率的分母不足 {MIN_SAMPLE} 时显示「数据不足」。</p>
+          <p className="mt-3 text-xs text-muted-foreground">首响只累计工作时段，工作时间外开始、上班前已回复的段不计入；比率的分母不足 {MIN_SAMPLE} 时显示「数据不足」。</p>
         </>
       )}
     </Panel>
