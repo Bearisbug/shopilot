@@ -6,14 +6,15 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.22，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.23，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
-| 最后更新 | 2026-10-17 |
+| 最后更新 | 2026-10-20 |
 
 变更记录（登用例增改，不登执行轮次）：
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-20 | 按 DESIGN v1.23 新增：会话 `TC-CONV-056` 至 `TC-CONV-068`（常见问题记录、发商品、粘贴与发视频、快捷回复语言版本，其中 `TC-CONV-057` 源自缺陷：常见问题记录早于买家首条消息到达时整条丢失，`TC-CONV-068` 人工在真实平台执行）、`TC-AI-035`、`TC-FEISHU-018`、工单 `TC-TKT-021` 至 `TC-TKT-024`、看板 `TC-DASH-010` 至 `TC-DASH-014`（`TC-DASH-011` 源自缺陷：多个客服首响显示 0 秒）；`TC-DASH-007` 废弃，被 `TC-DASH-010` 取代（首响改按平均）；原位修改 `TC-DASH-001` 第 1 步与 `TC-DASH-008` 第 1 步的「人工首响中位」为「人工首响平均」、`TC-DASH-006` 第 4 步的 CSV 列；§3 加「新建模拟买家」「问过 AI 助手后转人工」与测试视频 | 实现会话 |
 | 2026-10-17 | 按 DESIGN v1.22 新增 `TC-AI-034`（影子模式开段是商品卡、之后补文字时按第一句文字出一份影子回复） | 实现会话 |
 | 2026-10-17 | 按 DESIGN v1.22 新增 `TC-AI-030`（源自缺陷：品牌语气改成中文后影子回复用中文回外语买家）、`TC-AI-031`（买家先发商品卡、2 秒后补文字，只出一份影子回复）、`TC-AI-032`（影子模式下只发图片不出稿、不检索）、`TC-AI-033`（DeepSeek 调用日志）；`TC-KB-042` 废弃，被 `TC-AI-032` 取代（只发图片在影子模式下已不出稿，走不到检索） | 实现会话 |
 | 2026-10-17 | 按 DESIGN v1.21 看板口径：新增 `TC-DASH-006` 至 `TC-DASH-009`（AI 接待段做分母、去向拆分、影子回复、无时限工单、首响按工作时段含平台后台回复、新段记开段模式、页面呈现）；`TC-DASH-005` 废弃，被 `TC-DASH-007` 取代；原位修改 `TC-DASH-003` 第 4 步的 CSV 列；§3 场景 `first-reply-off-hours` 换成 `dashboard-metrics` | 实现会话 |
@@ -129,6 +130,8 @@
 
 - 模拟器 `/mock/simulator`：扮演买家与平台。选店铺与买家（可「新建买家」，得到一个在该店没有会话的买家），以买家身份发文字、图片、订单卡、商品卡；下单、推进订单状态（按各平台枚举）、申请取消、申请退货、买家寄回、平台仲裁、取消授权、授权到期。页面显示每个买家的会话（含卖家发出的消息与卡片）、订单与售后单的平台原始状态、TikTok 店的坐席接单（`can_accept_chat`）、TikTok 会话 session 是否已结束、推送日志（目标 URL、HTTP 状态、载荷）。
 - 卖家后台回复（只有 Shopee 会话）：接口 `POST $B/api/mock/sim/seller_backend_reply`，请求体 `{"conversationId":"<模拟器会话 ID>","text":"<可选>","auto":<可选 true>}`。带 `text` 时把一条卖家消息写进平台会话（`get_message` 读得到）但不推送，与真实 Shopee 一致；随后推一条 code 10 的 `mark_as_replied` 会话通知。不带 `text` 时只推通知。`auto` 为 `true` 时这条消息的时刻取该会话最近一条买家消息的时刻，模拟店铺自动回复。
+- 新建模拟买家：接口 `POST $B/api/mock/sim/create_buyer`，请求体 `{"platform":"shopee","shopId":"220001","name":"<买家名>","language":"en"}`（Demo Shopee MY 为 `220001`，Demo Shopee SG 为 `220002`），返回 `conversationId` 即模拟器会话 ID；买家发第一条消息之前，Shopilot 里还没有这个会话。
+- 问过 AI 助手后转人工（只有 Shopee 会话）：接口 `POST $B/api/mock/sim/buyer_faq_transfer`，请求体 `{"conversationId":"<模拟器会话 ID>","question":"<可选>"}`；模拟器页同名按钮。先在平台写入会话分页读不到的商店 AI 助手对话（欢迎语、推荐 3 个商品、买家提问、助手回答「Thanks for asking! Our customer service team will check this for you shortly.」，买家提问带译文「[Shopee 机翻] <提问>」），再依次推送买家的 `faq_liveagent`「Chat with shop staff」与 `bundle_message`（只带成员消息 ID）。
 - AI 替身（`AI_MODE=stub`）：模拟器页「AI 替身」面板设定下一次出稿的回复，可选「正常回复」（默认，confidence 0.85）、「低置信 0.4」、「要求转人工」、「非 JSON 文本」、「超时」；设定只作用于下一次出稿，之后回到默认；面板显示所选回复的 JSON（含 `reason`）。面板同时显示最近一次出稿请求（接口 `GET /api/dev/ai-stub` 的 `lastRequest`），用例写「最近一次请求」即指它。翻译与开票字段抽取在 stub 下返回非空的替身文本。另有「资料不足」（`insufficient = true`、confidence 0.9、`used_sources` 为空）：面板没有这一项，用接口设 `curl -s -X PUT $B/api/dev/ai-stub -H 'Content-Type: application/json' -d '{"next":"insufficient"}'`，同样只作用于下一次；其他选项也可以这样设，加 `"sticky":true` 则一直生效，用完设回 `{"next":"normal"}`。出稿请求带资料片段时，「正常回复」在 `used_sources` 里引用第 1 段；检索前的改写请求一律返回买家原话，不受设定影响，也不记入「最近一次请求」。测试问答（`API-KB-012`）与出稿共用同一个替身。
 - 检索替身（`KNOWLEDGE_MODE=stub`，DESIGN `API-MOCK-010`）：入库时文本类资料（md、txt、csv、html）按 1,500 字切块，其余格式生成一段「替身解析：<文件名>」，上传即报索引完成；检索读该商户已解析的分块，按关键词重合打分（中文按相邻两字），每段都带向量分。下一次表现用接口设：`curl -s -X PUT $B/api/dev/knowledge-stub -H 'Content-Type: application/json' -d '{"next":"<值>"}'`，值为 `normal`（默认）、`no_vector`（混合检索结果没有向量分）、`timeout`（检索超时）、`error`（检索返回 HTTP 500）、`ingest_error`（入库时条目索引报 `workers_ai_timeout_error（替身）`）；默认只作用于下一次检索或下一次条目上传，加 `"sticky":true` 一直生效，用完设回 `{"next":"normal"}`。`curl -s $B/api/dev/knowledge-stub` 返回当前设定与 `lastQuery`（最近 6 次检索请求，旧的在前，每条有 `query` 与 `retrievalType`：`hybrid` 混合、`vector` 纯向量），用例写「最近检索请求」即指它。`AI_MODE=deepseek` 时调真实 DeepSeek，改 `.env` 后重启 `pnpm dev`。
 - 飞书发送替身（`FEISHU_MODE=stub`，DESIGN `API-MOCK-011`）：不连飞书，「发出」的卡片记进投递记录，在 `/dev/outbox?tab=feishu` 查看（标题、颜色、正文、图片、按钮链接与卡片 JSON），接口 `GET /api/dev/feishu`。约定：App Secret 含 `bad` 时校验失败（飞书 10014）；Webhook 地址末段含 `bad` 时签名失败（19021）；机器人所在的群固定为「Shopilot 客服群（替身）」`oc_stub_service`、「售后处理群（替身）」`oc_stub_aftersale`、「泰国站客服（替身）」`oc_stub_th`。卡片里的 AI 总结在 `AI_MODE=stub` 下固定为「AI 替身总结：买家发来新消息，正在等待客服认领。」
@@ -210,6 +213,7 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
   - 以上三个配方换应用时，把 `2001001` 与 `mock-key-2001001` 换成对应的 Partner ID 与 Key，主机区域段换成该应用登记的区域（`1000101`、`2001001` 为 `sg`，`2001003` 为 `cn`，`2001002` 为 `sandbox`）。
 - 测试图片（放 `$SP_TMP/img/`，执行前准备）：约 2 MB 的 PNG、恰好 10,485,760 字节的 PNG、约 11 MB 的 JPG、一张 GIF。
+- 测试视频（同目录）：`ffmpeg -f lavfi -i testsrc=duration=3:size=320x240:rate=25 -pix_fmt yuv420p -y $SP_TMP/img/clip.mp4`，再把同样参数的输出换成 `clip.mov`。
 - 知识库测试文件（放 `$KB`，执行前在仓库根运行下面的命令生成）：PDF 每页挂一段随机字节，页大小可控；xlsx、docx 是只存不压的 zip，文件头与 Office 文件相同。
 
 ```bash
@@ -1788,6 +1792,180 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 
 后置：无。
 
+#### `TC-CONV-056` Shopee 常见问题记录拉回对话并折叠显示 — 对应 `REQ-CONV-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」；按 §3「新建模拟买家」在 Demo Shopee MY 建买家 X，记模拟器会话 ID T；浏览器以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「问过 AI 助手后转人工」对 T 执行，`question` 为「Is the magnetic mount sold separately?」 | 返回 `"ok":true`；模拟器推送日志新增 2 条（`faq_liveagent`、`bundle_message`），HTTP 200 |
+| 2 | 15 秒后打开 `/wb`，在会话列表找到买家 X 并打开 | 时间线有卡片「常见问题记录 · Shopee 商店 AI 助手」；收起时显示最后 2 条：买家的提问与助手的回答；有展开按钮 |
+| 3 | 点展开 | 共 4 条，从上到下：助手欢迎语、「推荐了 3 个商品」、买家「Is the magnetic mount sold separately?」（下方「译 · Shopee」译文「[Shopee 机翻] Is the magnetic mount sold separately?」）、助手回答「Thanks for asking! Our customer service team will check this for you shortly.」 |
+| 4 | `q "select m.payload->'bundle'->>'status', jsonb_array_length(m.payload->'bundle'->'items') from message m join conversation c on c.id = m.conversation_id where c.buyer_name = '<X>' and m.payload->>'platformType' = 'bundle_message'"` | 一行：`ok\|4` |
+| 5 | 把窗口改为 390 宽，重看第 2–3 步 | 卡片收起与展开都完整显示，页面没有横向滚动条 |
+
+后置：无。
+
+#### `TC-CONV-057` 常见问题记录先于会话建立到达时补拉入库 — 对应 `REQ-CONV-013` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-20 常见问题记录早于买家首条消息到达时整条丢失
+
+前置：基线；执行「curl 会话」；按 §3「新建模拟买家」在 Demo Shopee MY 建买家 X，记模拟器会话 ID T。下文「Shopee 签名调用」「Shopee 改回调」「Shopee 签名推送」用 §3 配方，应用换成 `1000101`（Key `mock-key-1000101`，区域段 `sg`）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 「Shopee 签名调用」读 `/api/v2/push/get_app_push_config` | 记 `response.callback_url` 为 U（Shopilot 的回调地址） |
+| 2 | 「Shopee 改回调」把回调改为 `$B/mock/erp/shopee/push` | 响应没有 `error` |
+| 3 | 按 §3「问过 AI 助手后转人工」对 T 执行 | 推送日志新增 2 条，目标 URL 是 `$B/mock/erp/shopee/push`；Shopilot 工作台里还没有买家 X |
+| 4 | 「Shopee 改回调」把回调改回 U | 响应没有 `error` |
+| 5 | 从推送日志（或 `curl -s $B/api/mock/sim/state` 里的推送日志）复制 `bundle_message` 那条的原始载荷，「Shopee 签名推送」按 U 重放 | `200` |
+| 6 | 同样重放 `faq_liveagent` 那条的原始载荷 | `200` |
+| 7 | 等 30 秒，执行 `TC-CONV-056` 第 4 步的查询（买家名换成 X） | 一行：`ok\|4`，常见问题记录已入库并拉回成员 |
+| 8 | `q "select status from inbound_event where payload->'data'->'content'->>'message_type' = 'bundle_message' order by received_at desc limit 1"` | `done` |
+
+后置：再读一次 `get_app_push_config`，`callback_url` 为 U。
+
+#### `TC-CONV-058` 常见问题记录拉不到时提示到卖家中心查看 — 对应 `REQ-CONV-013` · 级别: 边缘 · 执行者: 皆可
+
+前置：先执行 `TC-CONV-056`（得到买家 X）；从推送日志复制那条 `bundle_message` 的原始载荷，把 `message_id` 改成一个新的 19 位数字 N、`content.messages` 改成 `["1000000000000000001"]`，记为载荷 P。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 「Shopee 签名推送」（应用 `1000101`）把 P 推到 Shopilot 的回调地址 | `200` |
+| 2 | 20 秒后刷新买家 X 的会话 | 时间线多一张常见问题记录卡，没有对话内容，提示到 Shopee 卖家中心查看；输入框照常可用 |
+| 3 | `q "select payload->'bundle'->>'status' from message where external_message_id = '<N>'"` | `failed` |
+
+后置：无。
+
+#### `TC-CONV-059` 历史常见问题记录补拉脚本 — 对应 `REQ-CONV-013` · 级别: 边缘 · 执行者: 皆可
+
+前置：先执行 `TC-CONV-056`；`q "select m.id from message m join conversation c on c.id = m.conversation_id where c.buyer_name = '<X>' and m.payload->'bundle'->>'status' = 'ok'"` 记为 M（执行过 `TC-CONV-058` 时这个会话里还有一条取不到的记录，按状态取拉到的那条）；把这条改回上线前的样子（只在本地库执行）：`docker compose exec -T postgres psql -U shopilot -d shopilot -c "update message set payload = payload - 'bundle' where id = '<M>'"`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `pnpm shopee:bundles --days 1` | 首行「最近 1 天待补的常见问题记录：K 条」，K ≥ 1；末行「完成：拉到 A，取不到 F，出错 0」，A ≥ 1；输出里没有消息内容 |
+| 2 | `q "select payload->'bundle'->>'status', jsonb_array_length(payload->'bundle'->'items') from message where id = '<M>'"` | `ok\|4` |
+
+后置：无。
+
+#### `TC-CONV-060` 商品页签列出与搜索本店在售商品 — 对应 `REQ-CONV-014` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login agent@demo.test`；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发一条文字；浏览器以 agent@demo.test（Nur，负责 Demo Shopee MY）登录，打开这个会话。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 右栏点「商品」页签 | 地址带 `side=products`；列出 4 件商品：Bamboo Fibre Bath Towel Set (3 pcs)、Stainless Steel Vacuum Tumbler 900ml、Silicone Kitchen Utensil Set (6 pcs)、Linen Cushion Cover 45x45cm；每件有图、名、价格，库存依次为 87、67、47、27 |
+| 2 | 搜索框输入「tumbler 900」 | 只剩 Stainless Steel Vacuum Tumbler 900ml |
+| 3 | 改为「tumbler towel」 | 没有商品，显示没有匹配的商品 |
+| 4 | 改为商品 ID「24580011003」 | 只剩 Silicone Kitchen Utensil Set (6 pcs) |
+| 5 | `api agent@demo.test "$B/api/v1/me"` 取 Demo Shopee MY 的店铺 ID S，`api agent@demo.test "$B/api/v1/shops/<S>/products"` | `HTTP 200`；`items` 4 条，`truncated` 为 false；每条有 `productId`、`url` |
+
+后置：无。
+
+#### `TC-CONV-061` 发商品卡，待认领的会话先认领 — 对应 `REQ-CONV-014` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发一条文字，记会话 C；浏览器以 agent@demo.test 登录，打开 C（还没有处理人）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 右栏「商品」里 Silicone Kitchen Utensil Set (6 pcs) 一行点「发商品卡」 | 提示已发商品卡；会话处理人变为 Nur Aisyah；时间线出现商品卡，显示该商品的图、名与价格，已发送 |
+| 2 | 模拟器打开这个买家的会话 | 买家视图出现这张商品卡 |
+| 3 | `q "select type, payload->>'productId', send_status from message where conversation_id = '<C>' and direction = 'out' order by created_at desc limit 1"` | `product_card\|24580011003\|sent` |
+
+后置：无。
+
+#### `TC-CONV-062` Shopee 店发商品链接，TikTok 店只能发商品卡 — 对应 `REQ-CONV-014` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「模拟器发消息」给 Demo Shopee MY、Demo TikTok TH 各一个新买家发一条文字；浏览器以 agent2@demo.test（Mei Lin，负责这两家店）登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 Shopee 买家的会话，「商品」里 Linen Cushion Cover 45x45cm 一行点「发链接」 | 时间线出现一条已发送的文字消息 `https://shopee.com.my/product/220001/24580011004` |
+| 2 | 打开 TikTok TH 买家的会话，右栏「商品」 | 列出 3 件泰文商品，每行只有「发商品卡」，没有「发链接」 |
+| 3 | 在第一件「ชุดผ้าขนหนูใยไผ่ 3 ผืน」点「发商品卡」 | 时间线出现商品卡，已发送；模拟器里该买家收到商品卡 |
+
+后置：无。
+
+#### `TC-CONV-063` 没有商品权限的店与不能发送的会话 — 对应 `REQ-CONV-014` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login lead@demo.test`、`login agent@demo.test`；按 §3「模拟器发消息」给 Demo TikTok MY 新买家发一条文字（会话 C1），再给 Demo Shopee MY 新买家发一条（会话 C2）；`api agent@demo.test -X POST $B/api/v1/conversations/<C2>/claim -d '{}'` 返回 `HTTP 200`；浏览器以 lead@demo.test（Arif）登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 C1，右栏「商品」 | 显示「不能列出这家店的商品」，说明店铺没有授予商品读取权限、请管理员到「店铺与连接」续期授权；不列商品 |
+| 2 | `api lead@demo.test "$B/api/v1/me"` 取 Demo TikTok MY 的店铺 ID，`api lead@demo.test "$B/api/v1/shops/<店铺 ID>/products"` | `HTTP 409`，`code` 为 `product_scope_missing` |
+| 3 | 打开 C2（Nur 处理中），右栏「商品」 | 照常列出商品；上方提示「只有这个会话的处理人能发送商品。」；点「发商品卡」「发链接」都不发送，时间线不变 |
+
+后置：无。
+
+#### `TC-CONV-064` 粘贴图片确认后发出，带文字按文字粘贴，PDF 给原因 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；准备 §3 测试图片里约 2 MB 的 PNG 与恰好 10,485,760 字节的 PNG，另 `printf '%%PDF-1.4\n' > $SP_TMP/img/a.pdf`；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发一条文字，记会话 C；浏览器以 agent@demo.test 登录，打开 C 并点「认领」。粘贴的做法：人工在访达里选中文件复制，再在输入框按 ⌘V；AI 对输入框派发一个 `paste` 事件，`clipboardData` 里放这些文件（与文字）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 在空输入框粘贴两张 PNG | 弹出确认框「发给 <买家名>？」，写「从剪贴板粘贴了 2 个文件，确认后按顺序逐个发出。」，预览两张缩略图，按钮「发送 2 个」 |
+| 2 | 点「发送 2 个」 | 两张依次打勾，确认框自动关闭；时间线多两张图片，都已发送 |
+| 3 | 粘贴同时带文字「你好」与一张 PNG 的剪贴板内容 | 输入框里出现「你好」，不弹确认框 |
+| 4 | 清空输入框后粘贴 a.pdf | 不弹确认框；提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」 |
+| 5 | 模拟器打开这个买家的会话 | 买家视图收到 2 张图片 |
+
+后置：无。
+
+#### `TC-CONV-065` Shopee 会话发 MP4 视频，TikTok 会话不能发视频 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login agent2@demo.test`；准备 §3 测试视频 clip.mp4 与 clip.mov；按 §3「模拟器发消息」给 Demo Shopee MY、Demo TikTok TH 各一个新买家发一条文字，记会话 C1、C2；浏览器以 agent2@demo.test（Mei Lin）登录，两个会话都点「认领」。粘贴做法同 `TC-CONV-064`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 C1，用输入框下方的附件按钮选 clip.mp4 | 不弹确认框；时间线出现视频气泡，标「发送中」 |
+| 2 | 等 15 秒 | 视频气泡变为已发送，点播放能播放 |
+| 3 | `q "select type, send_status from message where conversation_id = '<C1>' and type = 'video'"` | `video\|sent` |
+| 4 | 模拟器打开这个买家的会话 | 买家视图收到一条视频 |
+| 5 | 在 C1 输入框粘贴 clip.mov | 不发送；提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」 |
+| 6 | 打开 C2，在输入框粘贴 clip.mp4 | 不弹确认框；提示「TikTok 接口暂不支持发视频。」 |
+| 7 | `q "select id from file where kind = 'chat_video' order by created_at desc limit 1"` 记 F；`api agent2@demo.test -X POST $B/api/v1/conversations/<C2>/messages -d '{"clientRequestId":"tc065-video","type":"video","fileId":"<F>"}'` | `HTTP 409`，提示 TikTok 接口暂不支持发视频 |
+
+后置：无。
+
+#### `TC-CONV-066` 快捷回复按会话发送语言插入对应版本 — 对应 `REQ-CONV-009` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login owner@demo.test`；`api owner@demo.test -X POST $B/api/v1/quick-replies -d '{"title":"测试问候","stage":"any","text":"您好，有什么可以帮您？","variants":[{"lang":"ms","text":"Hai, ada apa yang boleh saya bantu?"},{"lang":"en","text":"Hi, how can I help you?"}]}'` 返回 `HTTP 201`；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发一条文字；浏览器以 agent@demo.test 登录，打开这个会话并点「认领」；看输入框下方的翻译下拉，记当前目标语言 L（马来语或英语）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 在空输入框输入「/测试」 | 菜单里有「测试问候」，预览的是 L 版内容，并显示这条有 3 个版本 |
+| 2 | 回车选中 | 输入框内容是 L 版：马来语为「Hai, ada apa yang boleh saya bantu?」，英语为「Hi, how can I help you?」；翻译下拉显示「不翻译 · 已插入<L>版」 |
+| 3 | 清空输入框 | 翻译下拉回到「译成<L>」 |
+| 4 | 输入「谢谢 」，接着输入「/测试」并回车 | 输入框是「谢谢 」加默认版「您好，有什么可以帮您？」；翻译下拉仍是「译成<L>」 |
+| 5 | 清空后再插入一次 L 版，点发送 | 时间线发出的是 L 版原文，没有「原文」对照；翻译下拉回到「译成<L>」 |
+
+后置：删除「测试问候」。
+
+#### `TC-CONV-067` 快捷回复语言版本的编辑与校验 — 对应 `REQ-CONV-009` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login owner@demo.test`；浏览器以 owner@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/reception/prompts`，快捷回复点新增：标题「语言版本测试」，默认页签填「请稍等」，再加一个「越南语」页签填「Vui lòng đợi」，保存 | 列表出现这一条，下方写「另有越南语版」 |
+| 2 | 再新增一条，加越南语页签但内容留空，保存 | 不保存；越南语页签提示「请填写这个语言版本的内容，不需要就删掉这个版本」 |
+| 3 | `api owner@demo.test -X POST $B/api/v1/quick-replies -d '{"title":"重复语言","stage":"any","text":"a","variants":[{"lang":"vi","text":"x"},{"lang":"vi","text":"y"}]}'` | `HTTP 422`，提示同一种语言只能有一个版本 |
+| 4 | `api owner@demo.test "$B/api/v1/quick-replies"` | 「语言版本测试」一项的 `variants` 为 `[{"lang":"vi","text":"Vui lòng đợi"}]` |
+
+后置：删除「语言版本测试」。
+
+#### `TC-CONV-068` 真实平台发商品卡、商品链接与视频 — 对应 `REQ-CONV-014`、`REQ-CONV-015` · 级别: 回归 · 执行者: 人工
+
+前置：已接真实 Shopee、TikTok 店铺的环境（shopilot.live）；在买家确实问到某件商品或需要视频的真实会话里操作，不为测试打扰无关买家。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | Shopee 会话，右栏「商品」搜到买家问的商品，点「发商品卡」 | Shopilot 时间线已发送；卖家中心同一会话出现商品卡 |
+| 2 | 同一会话点「发链接」 | 买家收到能打开的商品页地址 |
+| 3 | TikTok 会话发商品卡 | Shopilot 时间线已发送；卖家中心出现商品卡 |
+| 4 | Shopee 会话发一个 30 MB 以内的 MP4 | 2 分钟内变已发送；卖家中心可播放；Shopilot 时间线能播放 |
+
+后置：无。
+
 ### AI 出稿
 
 #### `TC-AI-001` 主链路：买家消息生成 assist 草稿，员工认领并发送到买家 — 对应 `REQ-AI-001`、`REQ-AI-002`、`REQ-AI-003`、`REQ-CONV-001`、`REQ-CONV-004`、`REQ-CONV-005`、`REQ-MOCK-002` · 级别: 冒烟 · 执行者: 皆可
@@ -2148,6 +2326,18 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 3 | 在这些行里找买家原话的片段 `towel set` 与 `colour` | 找不到：日志不含买家内容与提示词 |
 
 后置：`.env` 改回 `AI_MODE=stub`，重启并通过就绪判定。
+
+#### `TC-AI-035` 出稿看到常见问题记录里的买家原话 — 对应 `REQ-CONV-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」；按 §3「新建模拟买家」在 Demo Shopee MY（辅助模式）建买家 X，记模拟器会话 ID T。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「问过 AI 助手后转人工」对 T 执行，`question` 为「Is the magnetic mount sold separately?」 | 返回 `"ok":true` |
+| 2 | 15 秒后看模拟器「AI 替身」面板的最近一次请求（`curl -s $B/api/dev/ai-stub \| jq .lastRequest`） | 请求里的对话按时间排着：`shopee_ai_assistant` 的欢迎语、买家「Is the magnetic mount sold separately?」、`shopee_ai_assistant` 的回答，最后是买家「Chat with shop staff」 |
+| 3 | 浏览器以 owner@demo.test 打开买家 X 的会话 | 有一份 AI 草稿；时间线有常见问题记录卡 |
+
+后置：无。
 
 ### 订单、售后与开票
 
@@ -2656,6 +2846,54 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | 对照原型 `/tickets`、`/tickets/board`、`/tickets/siti`、`/wb/ticket` | 布局、配色、文案、按钮位置一致；平台驱动卡片的锁图标与置灰提示可辨认；差异逐条截图记入证据目录 |
+
+后置：无。
+
+#### `TC-TKT-021` 把工单转发到飞书群 — 对应 `REQ-TKT-006` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；模拟器为 Demo Shopee MY 新买家下单（订单 O），先推进到 PROCESSED，再推进到 RETRY_SHIP（模拟平台不允许从 READY_TO_SHIP 直接到 RETRY_SHIP），`/tickets` 出现关联 O 的「物流异常」工单，记为 K；`q "select id from merchant where name = 'Demo Store'"` 记为 DM；浏览器以 owner@demo.test 登录，打开 `/tickets/<K>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 页头点「转发到飞书」 | 弹窗列出「Shopilot 客服群（替身）」「售后处理群（替身）」「泰国站客服（替身）」，已预选「Shopilot 客服群（替身）」，标「默认群」 |
+| 2 | 备注填「请仓库核对」，点发送 | 提示已转发；时间线新增「林晓 转发到飞书 · Shopilot 客服群（替身）」，带备注 |
+| 3 | 打开 `/dev/outbox?tab=feishu`，看最新一张卡 | 标题为「工单 <K 的编号> · 物流异常 - 订单需要重新发货」；正文有订单号 O、店铺 Demo Shopee MY、商品名与规格、数量、备注「请仓库核对」；按钮「在 Shopilot 打开」的链接以 `/tickets/<K>?m=<DM>` 结尾，另有「打开卖家后台订单」 |
+| 4 | 刷新工单页 | 时间线那条转发记录不再显示「发送中」 |
+
+后置：重建基线（场景连了飞书）。
+
+#### `TC-TKT-022` 没连飞书时不能转发 — 对应 `REQ-TKT-006` · 级别: 回归 · 执行者: 皆可
+
+前置：基线（两个商户都没有连飞书）；执行「curl 会话」，`login owner@demo.test`；`api owner@demo.test "$B/api/v1/tickets?scope=all"` 取第一张工单 K；浏览器以 owner@demo.test 打开 `/tickets/<K>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 看页头「转发到飞书」，鼠标移上去 | 按钮不可用；提示写还没有连接飞书，请管理员在「商户设置 → 通知」连接后再转发 |
+| 2 | `api owner@demo.test "$B/api/v1/tickets/<K>/feishu"` | `HTTP 409`，`code` 为 `feishu_unavailable` |
+| 3 | `api owner@demo.test -X POST "$B/api/v1/tickets/<K>/feishu" -d '{"chatId":"oc_stub_service"}'` | `HTTP 409`，`code` 为 `feishu_unavailable` |
+
+后置：无。
+
+#### `TC-TKT-023` 工单卡链接带商户参数时先切商户 — 对应 `REQ-TKT-006` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login agent@demo.test`；`api agent@demo.test "$B/api/v1/me"` 记 Demo Store 的商户 ID DM、Other Store 的 OM；`api agent@demo.test -X POST $B/api/v1/me/active-merchant -d '{"merchantId":"<OM>"}'`，`api agent@demo.test "$B/api/v1/tickets?scope=all"` 取第一张工单 K2，再切回 DM；浏览器以 agent@demo.test 登录（当前商户 Demo Store）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/tickets/<K2>?m=<OM>` | 提示已切换到 Other Store，随后显示工单 K2；地址里的 `m` 参数已去掉；顶栏商户为 Other Store |
+| 2 | 再打开同一链接 | 不再提示切换，直接显示 K2，地址去掉 `m` |
+| 3 | 另开一个浏览器上下文，以 lead@demo.test（只在 Demo Store）登录后打开同一链接 | 显示「看不到这张工单」与「返回工单列表」；当前商户仍是 Demo Store |
+
+后置：`api agent@demo.test -X POST $B/api/v1/me/active-merchant -d '{"merchantId":"<DM>"}'`。
+
+#### `TC-TKT-024` 工单页的平台状态与异常说明显示中文 — 对应 `REQ-TKT-003` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；同 `TC-TKT-021` 前置造一张关联订单 O 的「物流异常」工单 K；浏览器以 owner@demo.test 打开 `/tickets/<K>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 看「进度」区 | 平台状态显示「需重新发货」，说明显示「订单需要重新发货」 |
+| 2 | 看时间线与右侧「关联」里的订单 | 订单状态显示中文；整页找不到 `RETRY_SHIP` |
 
 后置：无。
 
@@ -3300,7 +3538,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | Arif 打开 `/dashboard`，范围选「近 7 天」 | 会话段数、人工首响中位、草稿处置、按人统计、工单区都有数据或空态；平台指标分 Shopee、TikTok 两张表，各自写明口径，只出现 Demo Shopee MY、Demo TikTok MY |
+| 1 | Arif 打开 `/dashboard`，范围选「近 7 天」 | 会话段数、人工首响平均、草稿处置、按人统计、工单区都有数据或空态；平台指标分 Shopee、TikTok 两张表，各自写明口径，只出现 Demo Shopee MY、Demo TikTok MY |
 | 2 | `api lead@demo.test "$B/api/v1/dashboard?range=7d"` | `platformMetrics` 的店铺只有 Demo Shopee MY、Demo TikTok MY |
 | 3 | owner 打开同一范围的看板 | 平台指标出现 4 家店；会话段数不小于 Arif 看到的值 |
 
@@ -3362,11 +3600,13 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 1 | `api owner@demo.test "$B/api/v1/dashboard?range=7d"` | `HTTP 200`；`kpis.aiResolved` 为 a + 1 / b + 3，`kpis.handoffRate` 为 h + 2 / H + 3：7 段里只有自动 2 段、辅助 1 段是 AI 接待段；`handoffReasons` 的 `count` 合计等于 `kpis.handoffRate.num` |
 | 2 | 看同一响应 `trend` 里 `date` 为 D 的一行 | `segments` 7、`aiResolved` 1、`handedOff` 2、`shopilot` 3、`platform` 1、`pending` 0 |
 | 3 | 看同一响应的 `drafts` 与 `tickets` | `drafts.shadow` 为 W + 2；`tickets.noDue` 为 N + 1；`tickets.onTimeRate.den` 为 O + 1；`byType` 里内部确认一行的 `noDue` 至少为 1 |
-| 4 | `api owner@demo.test "$B/api/v1/dashboard?range=7d&format=csv"` | 首行为「日期,会话段,AI 独立解决,转人工,Shopilot 回复,平台后台回复,未回复或进行中,人工首响中位（秒）,辅助草稿,原样发送,改后发送,忽略,过期,影子回复,工单已解决,工单按时解决,工单无时限」；D 那一行为「D,7,1,2,3,1,0,450,0,0,0,0,0,2,2,1,1」 |
+| 4 | `api owner@demo.test "$B/api/v1/dashboard?range=7d&format=csv"` | 首行为「日期,会话段,AI 独立解决,转人工,Shopilot 回复,平台后台回复,未回复或进行中,人工首响平均（秒）,12 小时内回复,12 小时回复率分母,辅助草稿,原样发送,改后发送,忽略,过期,影子回复,工单已解决,工单按时解决,工单无时限」；D 那一行为「D,7,1,2,3,1,0,780,4,7,0,0,0,0,0,2,2,1,1」 |
 
 后置：重建基线（场景改了 Demo Store 的排班）。
 
-#### `TC-DASH-007` 人工首响按工作时段累计，含平台后台回复，团队页同口径 — 对应 `REQ-DASH-001`、`REQ-TEAM-005` · 级别: 回归 · 执行者: 皆可
+#### `TC-DASH-007` 人工首响按工作时段累计，含平台后台回复，团队页同口径（已废弃） — 对应 `REQ-DASH-001`、`REQ-TEAM-005` · 级别: 回归 · 执行者: 皆可
+
+已废弃，被 `TC-DASH-010` 取代：DESIGN v1.23 起看板首响按平均，CSV 列名改为「人工首响平均（秒）」，第 1、2 步的预期不再成立。
 
 前置：基线；终端执行 `pnpm scenario dashboard-metrics`，记输出的 `date` 为 D；`login owner@demo.test`。
 
@@ -3384,7 +3624,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 桌面宽度（1440）看「每日会话段去向」 | 图例 5 项：AI 独立解决、转人工、Shopilot 回复、平台后台回复、未回复或进行中；右侧「AI 独立解决」下写「分母：已结束的 AI 接待段 X」；「人工首响中位」下写「买家等人工到首次人工回复，含平台后台回复」与「只累计工作时段 · 样本 X 段」；「转人工」下写「占 AI 接待段 X%」或「样本 X，满 10 才计算」 |
+| 1 | 桌面宽度（1440）看「每日会话段去向」 | 图例 5 项：AI 独立解决、转人工、Shopilot 回复、平台后台回复、未回复或进行中；右侧「AI 独立解决」下写「分母：已结束的 AI 接待段 X」；「人工首响平均」下写「只累计工作时段 · 样本 X 段」，旁边有「12 小时回复率」；「转人工」下写「占 AI 接待段 X%」或「样本 X，满 10 才计算」 |
 | 2 | 看「辅助草稿处置」面板底部 | 一行「影子回复 X 份：只给管理员、组长看，不发送，不计入采纳率」，X 等于接口的 `drafts.shadow` |
 | 3 | 看工单区「按时完成率」与「按类型的时限达成」 | 按时完成率的说明里有「无时限 X 张不计」；类型图图例 4 项，含「无时限」 |
 | 4 | 把窗口改为 390 宽重看第 1–3 步 | 内容都在，图例换行显示，页面没有横向滚动条 |
@@ -3400,6 +3640,77 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 1 | `curl -s -X POST $B/api/mock/sim/create_buyer -H 'Content-Type: application/json' -d '{"platform":"shopee","shopId":"220001","name":"Mode Assist","language":"en"}'` 记 `conversationId` 为 X1，再对 X1 调 `POST $B/api/mock/sim/buyer_message`，正文「Is it in stock?」 | 两次都返回 `"ok":true` |
 | 2 | 同样给 Demo Shopee SG（`shopId` 为 220002，影子模式）建买家「Mode Shadow」并发一条「Is it in stock?」 | 两次都返回 `"ok":true` |
 | 3 | 等 20 秒，再取一次看板接口 | `kpis.segments` 为 S + 2；`kpis.handoffRate.den` 为 H + 1：辅助模式那段是 AI 接待段，影子模式那段不是 |
+
+后置：无。
+
+#### `TC-DASH-010` 人工首响平均与 12 小时回复率，团队页仍取中位 — 对应 `REQ-DASH-001`、`REQ-TEAM-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；终端执行 `pnpm scenario dashboard-metrics`，记输出的 `date` 为 D；执行「curl 会话」，`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api owner@demo.test "$B/api/v1/dashboard?range=7d&format=csv"`，看 D 那一行的「人工首响平均（秒）」「12 小时内回复」「12 小时回复率分母」 | 依次为 780、4、7：首响 6 个样本 600、2400、1200、300、120、60 取平均；12 小时内有回复的 4 段是 10:00、11:00 开段的两段（人工 10:20、11:40 回复）与 14:00、15:00 开段的两段（平台后台 14:02、15:01 回复）；场景里 AI 独立解决的段只打了标记、没有 AI 发出的消息，17:50 与 20:00 开段的两段次日才回复 |
+| 2 | `api owner@demo.test "$B/api/v1/dashboard?range=7d"`，看 `people` 里林晓一行 | `segments` 5；`firstReplyAvgSec` 1260（600、2400、1200、300、1800 的平均）；`replied12h` 为 `num` 3、`den` 5、`rate` null（样本不满 10） |
+| 3 | `api owner@demo.test "$B/api/v1/members?period=30d"`，看林晓的 `handled` | `segments` 5，`firstReplyMedianSec` 1200 |
+
+后置：重建基线。
+
+#### `TC-DASH-011` 工作时间外开始、上班前已回复的段不进首响 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-19 看板按人统计里多个客服首响显示 0 秒
+
+前置：基线；执行「curl 会话」，`login owner@demo.test`；按 §3「固定为工作时间外」把今天设为不工作；`api owner@demo.test "$B/api/v1/dashboard?range=7d"` 记 `kpis.firstReplySamples` 为 N0；浏览器以 agent@demo.test 登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「模拟器发消息」给 Demo Shopee MY 新买家发一条文字；Nur 打开这个会话，点「认领」，输入「您好，马上为您查询」发送 | 时间线里这条回复已发送 |
+| 2 | `api owner@demo.test "$B/api/v1/dashboard?range=7d"` | `kpis.firstReplySamples` 仍为 N0：这段在工作时间外开始、下一个上班时刻之前已回复，不进首响样本 |
+
+后置：按 §3「固定为工作时间内」恢复今天的排班。
+
+#### `TC-DASH-012` 看板范围：预设与自定义起止日 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login owner@demo.test`；浏览器以 owner@demo.test 打开 `/dashboard`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 看页头的范围 | 默认「本月」，地址不带范围参数 |
+| 2 | 打开范围选择器 | 左侧预设依次为今天、昨天、近 7 天、近 28 天、本周、本月、上月、近 90 天；右侧是双月日历 |
+| 3 | 点「近 28 天」，然后刷新页面 | 地址带 `range=28d`；页头写近 28 天的起止日；刷新后不变 |
+| 4 | 在日历里先点 7 天前，再点昨天，点「应用」 | 地址带 `from=<7 天前>&to=<昨天>`；刷新后不变 |
+| 5 | `api owner@demo.test "$B/api/v1/dashboard?range=this_week"` | `HTTP 200`；`range.preset` 为 `this_week`，`range.from` 是本周一（商户时区），`range.to` 是今天 |
+| 6 | `api owner@demo.test "$B/api/v1/dashboard?from=2026-01-01&to=2026-07-31"` | `HTTP 422`（超过 180 天） |
+| 7 | `api owner@demo.test "$B/api/v1/dashboard?from=2026-10-01"` | `HTTP 422`（只给了开始日） |
+| 8 | `api owner@demo.test "$B/api/v1/dashboard?range=7d&from=2026-10-01&to=2026-10-02"` | `HTTP 422`（预设与起止日同时给） |
+| 9 | 把窗口改为 390 宽，打开范围选择器 | 预设与日历完整显示，页面没有横向滚动条 |
+
+后置：无。
+
+#### `TC-DASH-013` 问题提取：AI 写一句问题并按类别统计 — 对应 `REQ-DASH-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「模拟器发消息」给 Demo Shopee MY 新买家 X 发「包裹三天没动了，帮我查下物流」；记今天的 UTC 日期 U（`date -u +%F`）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `pnpm job issue.extract`，然后 `q "select s.issue_extracted_at is null from segment s join conversation c on c.id = s.conversation_id where c.buyer_name = '<X>'"` | `t`：买家刚发言，不满 30 分钟，不提取 |
+| 2 | `pnpm issues:backfill --from <U> --to <U> --rate 10` | 末行「完成：共 N 段，成功 S，无买家消息 B，失败 0」，S ≥ 1 |
+| 3 | `q "select s.issue_summary, ic.name from segment s join conversation c on c.id = s.conversation_id join issue_category ic on ic.id = s.issue_category_id where c.buyer_name = '<X>'"` | 类别为「物流查询」；总结以「买家咨询：包裹三天没动了，帮我查下物流」开头（AI 替身取买家第一句，可能带着平台译文） |
+| 4 | 浏览器以 owner@demo.test 打开 `/dashboard?range=today`，看「问题与转人工原因」面板 | 当前是「全部问题」；类别列表里「物流查询」至少为 1；有按日趋势图与按日明细表 |
+| 5 | 点「物流查询」 | 抽屉打开，地址带 `issue=<类别 ID>`；列表里有买家 X 这一段，总结以「买家咨询：包裹三天没动了，帮我查下物流」开头，能点开会话 |
+| 6 | 关闭抽屉，切到「转人工的」 | 地址带 `issues=handoff`；X 这段不在其中 |
+
+后置：无。
+
+#### `TC-DASH-014` 管理问题类别 — 对应 `REQ-DASH-002` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login owner@demo.test`、`login lead@demo.test`；浏览器以 owner@demo.test 打开 `/dashboard`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api owner@demo.test "$B/api/v1/issue-categories"` | 8 个类别依次为物流查询、退换货与退款、产品使用与故障、商品咨询（库存、规格、价格）、优惠与活动、开票、订单修改与取消、其他；只有「其他」`builtin` 为 true |
+| 2 | 面板点「管理类别」，新增「保修」 | 列表里「保修」排在「其他」之前 |
+| 3 | `api owner@demo.test -X POST $B/api/v1/issue-categories -d '{"name":"保修"}'` | `HTTP 409`，`code` 为 `category_duplicate` |
+| 4 | 在「管理类别」里删除「保修」 | 提示其中的会话段归入「其他」；列表不再有「保修」 |
+| 5 | 取「其他」的 ID，`api owner@demo.test -X PATCH $B/api/v1/issue-categories/<ID> -d '{"name":"杂项"}'`，再 `api owner@demo.test -X DELETE $B/api/v1/issue-categories/<ID>` | 两次都 `HTTP 409`，`code` 为 `builtin` |
+| 6 | 以 lead@demo.test 打开 `/dashboard`；`api lead@demo.test -X POST $B/api/v1/issue-categories -d '{"name":"x"}'` | 面板有类别，没有「管理类别」；接口 `HTTP 403` |
 
 后置：无。
 
@@ -4019,6 +4330,17 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 后置：`api owner@demo.test -X POST $B/api/v1/members/<M>/enable` 恢复 Mei Lin。
 
+#### `TC-FEISHU-018` 待认领卡带常见问题记录里的对话 — 对应 `REQ-CONV-013`、`REQ-FEISHU-005` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「连上飞书替身」；按 §3「新建模拟买家」在 Demo Shopee SG（影子模式，新会话段进待认领）建买家 X，记模拟器会话 ID T。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 按 §3「问过 AI 助手后转人工」对 T 执行，`question` 为「Is the magnetic mount sold separately?」 | 返回 `"ok":true` |
+| 2 | 20 秒后打开 `/dev/outbox?tab=feishu`，看买家 X 的待认领卡 | 最近对话里有说话人标「Shopee AI」的助手发言，以及说话人标「买家」的「Is the magnetic mount sold separately?」，它们排在买家「Chat with shop staff」之前 |
+
+后置：重建基线（场景连了飞书）。
+
 ### 搜索
 
 #### `TC-SEARCH-001` 员工搜不到非负责店铺的订单 — 对应 `REQ-SEARCH-001` · 级别: 回归 · 执行者: 皆可
@@ -4187,6 +4509,9 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-050 | 2026-10-17 | 本地 | `ba4b462`（未修复） | AI（Claude Code 子会话；curl） | 局部（TC-AI-030） | 通过 0/1 · 失败 1 |
 | RUN-051 | 2026-10-17 | 本地 | `ba4b462` + 工作区改动（回复语言、出稿防抖、影子模式非文字不出稿、混合检索 5 秒、DeepSeek 调用日志） | AI（Claude Code 子会话；Playwright + Edge、curl） | 复测（RUN-050：TC-AI-030、TC-AI-031、TC-AI-032、TC-AI-033、TC-AI-001、TC-KB-024、TC-AI-005、TC-AI-012、TC-AI-018、TC-KB-028、TC-KB-030） | 通过 11/11 |
 | RUN-052 | 2026-10-17 | 本地 | `d464519` + 工作区改动（影子模式段内第一句文字出稿） | AI（Claude Code 子会话；curl） | 局部（TC-AI-034、TC-AI-031、TC-AI-032） | 通过 3/3 |
+| RUN-053 | 2026-10-20 | 本地 | `67dd209`（未修复） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-057、TC-DASH-011） | 通过 0/2 · 失败 2 |
+| RUN-054 | 2026-10-20 | 本地 | `c7deb15` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-056、TC-CONV-057、TC-CONV-058、TC-CONV-059、TC-CONV-060、TC-CONV-061、TC-CONV-062、TC-CONV-063、TC-CONV-064、TC-CONV-065、TC-CONV-066、TC-CONV-067、TC-CONV-068、TC-AI-035、TC-FEISHU-018、TC-TKT-021、TC-TKT-022、TC-TKT-023、TC-TKT-024、TC-DASH-006、TC-DASH-008、TC-DASH-010、TC-DASH-011、TC-DASH-012、TC-DASH-013、TC-DASH-014） | 通过 24/26 · 失败 1 · 待人工 1 |
+| RUN-055 | 2026-10-20 | 本地 | `d2660ca` | AI（Claude Code 主会话；Playwright + Edge） | 复测（RUN-054：TC-DASH-012） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -4295,6 +4620,10 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-040 | TC-CONV-055 | 失败 | 第 1 步 6 条系统提示都原样显示英文，如「Chat ended by customer service agent.」；第 2 步没有「客服已结束对话」可点；证据 `docs/test-runs/run-040-TC-CONV-055-1.png` | 实现修复（时间线按对照表显示中文，可点开看原文），RUN-041 复测 |
 | RUN-042 | TC-DASH-004 | 待人工 | 执行者为人工，AI 未执行 | 人工收口轮 |
 | RUN-050 | TC-AI-030 | 失败 | 第 2 步预期 `lang` 输出 `Thai`，实际 `null`：出稿请求没有 `reply_language`，`brand_voice` 是前置里那段中文，模型只能从品牌语气和对话里猜回复语言；第 3 步护栏只写「brand_voice 只调整语气」；证据 `docs/test-runs/run-050-TC-AI-030-2.json` | 实现修复，RUN-051 复测 |
+| RUN-053 | TC-CONV-057 | 失败 | 第 7 步查不到常见问题记录，第 8 步那条 `bundle_message` 入站事件为 `ignored`，原因「会话不存在的卖家侧消息」；证据 `docs/test-runs/run-053-TC-CONV-057-5.json`、`docs/test-runs/run-053-TC-CONV-057-8.txt` | 实现修复，RUN-054 复测 |
+| RUN-053 | TC-DASH-011 | 失败 | 第 2 步 `kpis.firstReplySamples` 由 7 变为 8，预期仍为 7；Nur 的 `firstReplyMedianSec` 为 0；证据 `docs/test-runs/run-053-TC-DASH-011-2.json` | 实现修复，RUN-054 复测 |
+| RUN-054 | TC-DASH-012 | 失败 | 第 4 步先点 7 天前（10-13）再点昨天（10-19）、点「应用」后地址为 `from=2026-09-23&to=2026-10-19`，预期 `from=2026-10-13&to=2026-10-19`：日历里已有选中范围时，第一下点在范围内只改了结束日，不能用两下点出一个新范围；从默认「本月」打开同样得到 `from=2026-10-01&to=2026-10-19`；证据 `docs/test-runs/run-054-TC-DASH-012-4.png`、`docs/test-runs/run-054-TC-DASH-012-4b.png` | 待修复后复测 |
+| RUN-054 | TC-CONV-068 | 待人工 | 执行者为人工，要在已接真实 Shopee、TikTok 店的环境里对真实会话执行 | 交用户在 shopilot.live 执行 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -4353,6 +4682,12 @@ RUN-050 证据：修复前那一轮，只跑源自缺陷的 `TC-AI-030`。环境
 RUN-051 证据：复测轮，承接 RUN-050，环境同 RUN-050，起跑前重建基线、重启 Web 与 Worker。`TC-AI-030` 六步依次为 `Thai`（品牌语气仍是那段中文）、护栏含「回复语言只由 reply_language 决定」且最后一行「本次回复语言：Thai。reply 只用 Thai 写，不夹用别的语言。」、`Vietnamese`、`Vietnamese`（👍 判不出，沿用前一条）、`Malay`（只有数字，用 MY 默认），每次出稿在买家消息后 8–10 秒出现（`docs/test-runs/run-051-TC-AI-030-2.json`）。`TC-AI-031` 只有一份影子回复，触发消息是那句文字，生成时间在文字到达后 7.4 秒（`docs/test-runs/run-051-TC-AI-031-2.txt`）。`TC-AI-032` 会话 `awaiting_human|shadow|0`，`lastQuery` 为 `[]`，用量 5 → 5。`TC-AI-033` 在 `AI_MODE=deepseek` 下跑，Worker 输出两行：`rewrite` 1,101 ms、195/15 token，`draft` 1,611 ms、649/141 token，都 `"ok":true`，两行都找不到 towel 与 colour（`docs/test-runs/run-051-TC-AI-033-2.log`），之后改回 `AI_MODE=stub`。`TC-AI-001`：草稿置信度 0.85，认领并发送后本方消息 1 条、10 秒后仍 1 条，模拟器收到同文，用量 0 → 1、assist 0 → 1（`docs/test-runs/run-051-TC-AI-001-3.png`）。`TC-KB-024`：员工看到「依据：《保修政策.md》」且不是链接，两路检索都是 `hybrid`，管理员点依据打开 `/reception/knowledge?doc=<ID>`，买家只收到正文（`docs/test-runs/run-051-TC-KB-024-2.png`）。`TC-AI-005` 第一次执行时脚本在管理员页面没加载完就计数，判成失败；改为等页面出现影子回复后重跑，员工看不到、接口 `shadowDrafts` 为 null，组长展开有正文与 0.85、没有发送按钮，管理员可见，shadow 用量 +1，模拟器没有卖家消息（`docs/test-runs/run-051-TC-AI-005-3.png`）。`TC-AI-012` 旧草稿 `superseded`，只剩 1 份待审草稿，最近一次请求的最后一条买家消息是第二问。`TC-AI-018` 会话 `awaiting_human|non_text`、没有草稿。`TC-KB-028` 新检索 2 条 `hybrid`、1 条 `vector`，改写路 `no_vector` 后紧接纯向量重试，`degraded` 为 false。`TC-KB-030` 会话仍在 AI 接待，没有依据，载荷没有 `knowledge`，`degradedReason` 为「检索失败（改写路：timeout；原话路：timeout）」（`docs/test-runs/run-051-TC-KB-030-2.png`）。冒烟级其余 12 条未跑：按 10-14 起的快速开发约定，只跑源自缺陷、新增与受影响的用例。vitest 全部 35 个文件 231 条通过，其中新增 `src/server/ai/draft.test.ts`（防抖重排、影子模式非文字不出稿、`reply_language`）、`language.test.ts`、`client.test.ts` 的日志用例与 `knowledge.test.ts`「混合检索每路 5 秒」。
 
 RUN-052 证据：局部轮，环境同 RUN-050（独立库 `shopilot_aiq`、端口 3381、`AI_MODE=stub`），起跑前重建基线。`TC-AI-034`：商品卡 20 秒后会话 `awaiting_human|shadow|0`；补文字后只有一份影子回复，触发消息是那句文字；再发「Thanks!」20 秒后仍 1 份（`docs/test-runs/run-052-TC-AI-034-4.txt`）。`TC-AI-031` 仍只有一份、按文字出，生成在文字到达后 7.9 秒。`TC-AI-032` 只发图片 20 秒后 `awaiting_human|shadow|0`，`lastQuery` 为 `[]`，用量 2 → 2。vitest 全部 35 个文件 233 条通过，新增 `draft.test.ts`「影子模式开段是图片、7 / 35 秒后补文字」两条，在去掉入站触发的版本上失败。
+
+RUN-053 证据：修复前那一轮，只跑两条源自缺陷的用例。被测版本 `67dd209` 用 `git worktree` 检出到独立目录，独立库 `shopilot_old`（同一 PostgreSQL 实例），Web 起在 3367，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 都改成 3367，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，按 §3 重建基线。`TC-CONV-057`：这个版本的模拟器还没有「问过 AI 助手后转人工」，第 2–6 步改为按线上 2026-10-20 实拉的字段手工拼一条 `bundle_message` 推送（载荷见 `run-053-TC-CONV-057-5.json`），签名后先推到 Shopilot，再用模拟器发买家第一条消息开会话；30 秒后库里没有这条记录，入站事件 `ignored`。`TC-DASH-011`：今天设为不工作后，新买家发消息、Nur 认领并回复（已发送），`firstReplySamples` 7 → 8，Nur 的首响中位为 0 秒，与 10-19 会议截图「多个客服首响 0 秒」一致。轮次结束删除了该目录与库。
+
+RUN-054 证据：局部轮，其中 `TC-CONV-057`、`TC-DASH-011` 是 RUN-053 两条失败的复测。被测版本是本地 main `c7deb15`（已合并 wt/faq、wt/product、wt/forward、wt/composer、wt/dash），工作区只改了 `docs/`。独立库 `shopilot_run`，Web 起在 3366，环境变量同 RUN-053 换成 3366，起跑前重建基线；看板三条（`TC-DASH-006`、`TC-DASH-008`、`TC-DASH-010`）前再重建一次基线并执行一次 `dashboard-metrics`，三条只读，共用这份数据。两条复测都通过：`TC-CONV-057` 第 3 步 Shopilot 里没有该会话，第 5–6 步各 200，30 秒后 `ok|4`、入站事件 `done`，回调已改回原地址；`TC-DASH-011` 前后 `firstReplySamples` 都是 0（新版本下种子里的段同样按新口径排除），Nur 的首响平均为 null（`run-054-TC-DASH-011-2.json`）。常见问题记录：卡片收起 2 条、展开 4 条，顺序与译文同预期，390 宽无横向滚动（`run-054-TC-CONV-056-3.png`）；`TC-AI-035` 用 `TC-CONV-056` 那个新买家，最近一次出稿请求的对话依次是助手欢迎语、推荐商品、买家提问、助手回答、买家「Chat with shop staff」（`run-054-TC-AI-035-2.json`）；伪造成员 ID 的记录 `failed`「平台没有返回记录里的消息」，卡片提示到卖家中心查看；补拉脚本拉到 1、取不到 1（`run-054-TC-CONV-059-1.txt`）。发商品：4 件商品与库存 87、67、47、27，三种搜索结果同预期；商品卡发出后处理人变为 Nur，模拟平台收到 `item {item_id: 24580011003}`（`run-054-TC-CONV-061-1.png`）；Shopee 链接 `https://shopee.com.my/product/220001/24580011004`；TikTok TH 没有「发链接」、`PRODUCT_CARD` 发出；TikTok MY 页签显示没有商品权限，接口 409 `product_scope_missing`；组长看 Nur 的会话时按钮不可用，强点也没有发出。粘贴：两张 PNG 弹确认框「发送 2 个」并发出；带文字的剪贴板用真实剪贴板加 ⌘V 验证，输入框得到「你好」、不弹框；PDF 提示原文与用例一致。视频：附件按钮 accept 含 `video/mp4`，发出前「发送中」，约 15 秒内已发送、可播放（`currentTime` 1.5 秒）；MOV 与 TikTok 视频提示原文一致，接口 409。快捷回复：菜单「通用 · 3 个版本 · 马来语版」，插入后「不翻译 · 已插入马来语版」，有文字时插默认版，发出的是马来语原文、`original_text` 为空。工单：未连飞书时按钮不可用、两个接口 409 `feishu_unavailable`；连上替身后转发 T-1007，卡片标题「工单 T-1007 · 物流异常 - 订单需要重新发货」，含订单号、店铺、商品与规格 Matte Black、数量、备注与带 `?m=` 的链接，投递 `sent`（`run-054-TC-TKT-021-3.json`）；`?m=` 落地先提示「已切换到「Other Store」」，组长看到「看不到这张工单」；工单页显示「需重新发货」「订单需要重新发货」、整页没有 `RETRY_SHIP`。飞书待认领卡里助手发言标「Shopee AI」、买家提问排在「Chat with shop staff」之前（`run-054-TC-FEISHU-018-2.json`）。看板：`TC-DASH-006` 四步都对，CSV 首行与 D 行为「…,780,4,7,…」；`TC-DASH-010` 林晓 `segments` 5、`firstReplyAvgSec` 1260、`replied12h` 3/5，团队页中位 1200；`TC-DASH-008` 桌面与 390 宽各项都在、无横向滚动；问题提取替身把新买家归到「物流查询」，`issue.extract` 在买家刚发言时不提取，补算脚本「共 15 段，成功 15」；类别管理各步同预期，组长没有「管理类别」、接口 403。
+
+本轮执行中发现用例本身写错、当轮原位修正的地方（都是这一轮新写的用例，修正前没有登记过结果）：`TC-CONV-059` 前置改按状态取拉到的那条（同一会话里还有 `TC-CONV-058` 造的取不到的记录）；`TC-TKT-021`、`TC-TKT-024` 前置改为先推进到 PROCESSED 再到 RETRY_SHIP（模拟平台不允许从 READY_TO_SHIP 直接到 RETRY_SHIP，`TC-TKT-004` 第 1 步同样受影响，本轮没跑）；`TC-DASH-012` 第 4 步按钮名为「应用」；`TC-DASH-013` 总结改为「以……开头」（AI 替身取买家第一句时带着平台译文）；`TC-FEISHU-018` 卡片里说话人是加粗的「Shopee AI」「买家」，不是「Shopee AI：」；`TC-DASH-006`、`TC-DASH-010` 的 12 小时内回复是 4 段不是 5 段，`dashboard-metrics` 场景里 AI 独立解决的段只打了标记、没有 AI 发出的消息。`TC-CONV-068` 要在真实平台执行，登记待人工。截图与数据放 `docs/test-runs/run-054-*`；本机库与进程在轮次结束后回收。
 
 ## 7. 遗留问题
 

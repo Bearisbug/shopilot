@@ -1,0 +1,4 @@
+$ tsx --env-file=.env scripts/shopee-bundles.ts --days 1
+最近 1 天待补的常见问题记录：2 条
+  失败 01a1592e-ef93-72db-9321-b6e3f01b2fd6：平台没有返回记录里的消息
+完成：拉到 1，取不到 1，出错 0（出错的可以再跑一次）

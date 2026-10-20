@@ -1,0 +1,124 @@
+{
+  "id": "01a15942-1d3b-7205-a850-06fbbd7f411c",
+  "merchantId": "01a1592b-0e14-718e-a783-9a3fc345c213",
+  "conversationId": "01a15942-1d26-7398-b696-a81309445fbd",
+  "ticketId": null,
+  "kind": "unclaimed",
+  "status": "sent",
+  "targetName": "Shopilot 客服群（替身）",
+  "attempts": 1,
+  "messageId": "om_stub_72de82e84ebb4afca9ec9162b30a5beb",
+  "stub": true,
+  "error": null,
+  "card": {
+    "body": {
+      "elements": [
+        {
+          "tag": "markdown",
+          "content": "**AI 总结**　AI 替身总结：买家发来新消息，正在等待客服认领。"
+        },
+        {
+          "tag": "markdown",
+          "content": "**平台** Shopee · 新加坡　**买家** Fs018　**已等** 不到 1 分钟"
+        },
+        {
+          "tag": "hr"
+        },
+        {
+          "tag": "markdown",
+          "content": "**最近对话**"
+        },
+        {
+          "tag": "markdown",
+          "content": "**Shopee AI** <font color='grey'>20:19</font>　Welcome to Demo Shopee SG! How can we help you today?\n<font color='grey'>译文：&#91;译文&#93; Welcome to Demo Shopee SG! How can we help you today?</font>"
+        },
+        {
+          "tag": "markdown",
+          "content": "**Shopee AI** <font color='grey'>20:19</font>　&#91;推荐了 3 个商品&#93;"
+        },
+        {
+          "tag": "markdown",
+          "content": "**买家** <font color='grey'>20:20</font>　Is the magnetic mount sold separately?\n<font color='grey'>译文：&#91;Shopee 机翻&#93; Is the magnetic mount sold separately?</font>"
+        },
+        {
+          "tag": "markdown",
+          "content": "**Shopee AI** <font color='grey'>20:20</font>　Thanks for asking! Our customer service team will check this for you shortly.\n<font color='grey'>译文：&#91;译文&#93; Thanks for asking! Our customer service team will check this for you shortly.</font>"
+        },
+        {
+          "tag": "markdown",
+          "content": "**买家** <font color='grey'>20:21</font>　Chat with shop staff\n<font color='grey'>译文：&#91;译文&#93; Chat with shop staff</font>"
+        },
+        {
+          "tag": "hr"
+        },
+        {
+          "tag": "column_set",
+          "columns": [
+            {
+              "tag": "column",
+              "width": "auto",
+              "elements": [
+                {
+                  "tag": "button",
+                  "text": {
+                    "tag": "plain_text",
+                    "content": "认领"
+                  },
+                  "type": "primary",
+                  "behaviors": [
+                    {
+                      "type": "open_url",
+                      "default_url": "http://127.0.0.1:3366/wb/01a15942-1d26-7398-b696-a81309445fbd?claim=1&m=01a1592b-0e14-718e-a783-9a3fc345c213"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "column",
+              "width": "auto",
+              "elements": [
+                {
+                  "tag": "button",
+                  "text": {
+                    "tag": "plain_text",
+                    "content": "打开会话"
+                  },
+                  "type": "default",
+                  "behaviors": [
+                    {
+                      "type": "open_url",
+                      "default_url": "http://127.0.0.1:3366/wb/01a15942-1d26-7398-b696-a81309445fbd?m=01a1592b-0e14-718e-a783-9a3fc345c213"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "flex_mode": "none",
+          "horizontal_spacing": "8px"
+        },
+        {
+          "tag": "markdown",
+          "content": "<font color='grey'>Shopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推</font>"
+        }
+      ]
+    },
+    "config": {
+      "summary": {
+        "content": "待认领 · Demo Shopee SG · Fs018"
+      },
+      "update_multi": true
+    },
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "待认领 · Demo Shopee SG"
+      },
+      "template": "orange"
+    },
+    "schema": "2.0"
+  },
+  "createdAt": "2026-10-20T12:21:07.514Z",
+  "sentAt": "2026-10-20T12:21:09.787Z"
+}

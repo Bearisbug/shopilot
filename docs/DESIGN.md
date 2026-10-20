@@ -8,7 +8,7 @@
 | 项目画像 | 生产产品（面向外部商户的多商户 SaaS）。本期只在本机跑通、没有生产环境，§21–§23 按场景级原因写 N/A，上线前由 deploy-pipeline 补齐 |
 | Owner | 产品负责人：用户；实现：「Shopilot 实现」会话 |
 | 评审人 | 用户 |
-| 最后更新 | 2026-10-17 |
+| 最后更新 | 2026-10-20 |
 | 关联 | 交接 [implementation-handoff.md](implementation-handoff.md) · 角色 [roles.md](roles.md) · 逐按钮清单 [ui-interactions.md](ui-interactions.md) · 功能与接口对照 [ui-feasibility.md](ui-feasibility.md) · 5 条需求 [requirements-ui-impact.md](requirements-ui-impact.md) · 平台接口 [platform-api/](platform-api/README.md) · Quilt 项目「Shopilot」`924976f9-2aa2-4b5d-9671-fe0f6f7d6587` · 现网参考 `~/Documents/Projects/Bots/Obsbot`（docs/DESIGN.md §11–§12） · 契约 `src/contracts/`（zod） · 测试 [TEST.md](TEST.md) · 视觉 `brand/` |
 | 链路层 | 部分 |
 
@@ -16,6 +16,17 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-20 | v1.23 | REQ-CONV-013、FLOW-AI-DRAFT、FLOW-FEISHU-CARD、ENT-Message | Shopee 常见问题记录拉回买家与商店 AI 助手的对话，工作台折叠显示，出稿与飞书卡片可见 | 功能 |
+| 2026-10-20 | v1.23 | REQ-CONV-013 | 常见问题记录先于会话建立到达时不再丢弃，改为稍后补拉入库 | 缺陷修复 |
+| 2026-10-20 | v1.23 | REQ-CONV-014、REQ-CONV-005、FLOW-WB-PRODUCT、API-CONV-017、API-CONV-007、PAGE-WB、PAGE-WB-CARDS | 工作台右栏新增「商品」页签，搜索本店在售商品发商品卡，Shopee 店还可发链接 | 功能 |
+| 2026-10-20 | v1.23 | REQ-TKT-006、FLOW-TICKET-FORWARD、API-TKT-009、API-TKT-010、ENT-FeishuDelivery、ENT-TicketEvent、PAGE-TICKET、PAGE-TICKET-FEISHU | 工单详情可一键转发到飞书群，卡片带订单、异常、商品与卖家后台链接 | 功能 |
+| 2026-10-20 | v1.23 | PAGE-TICKET | 工单页平台状态与物流异常说明显示中文；带商户参数打开时先切到该商户 | 功能 |
+| 2026-10-20 | v1.23 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-010、API-CONV-007、ENT-Message | 输入框可粘贴图片与视频，确认后逐个发出；Shopee 会话可发 MP4 视频 | 功能 |
+| 2026-10-20 | v1.23 | REQ-CONV-009、API-CONV-014、API-RCP-008、API-RCP-009 | 快捷回复可加多语言版本，插入时按会话发送语言选版本并改为不翻译 | 功能 |
+| 2026-10-20 | v1.23 | REQ-DASH-001、API-DASH-001 | 看板范围改成预设加自定义起止日，最长 180 天，默认本月 | 功能 |
+| 2026-10-20 | v1.23 | REQ-DASH-001、API-DASH-001 | 人工首响改按平均，新增 12 小时回复率，总体与按人都有 | 功能 |
+| 2026-10-20 | v1.23 | REQ-DASH-001、API-DASH-001、API-TEAM-001 | 工作时间外开始、上班前已回复的段不再以 0 秒计入首响 | 缺陷修复 |
+| 2026-10-20 | v1.23 | REQ-DASH-002、FLOW-DASHBOARD、API-DASH-001、API-DASH-002、API-DASH-003、API-DASH-004、API-DASH-005、API-DASH-006、ENT-IssueCategory、ENT-Segment | 看板新增问题提取：AI 给会话段写一句问题并归类，与转人工原因并成一块面板 | 功能 |
 | 2026-10-17 | v1.22 | FLOW-AI-DRAFT、REQ-AI-002 | AI 回复的语言按买家最近一条文字消息定，品牌语气、提示词与资料是中文也不改变；判不出时用店铺站点的默认语言 | 缺陷修复 |
 | 2026-10-17 | v1.22 | FLOW-AI-DRAFT、REQ-AI-001 | 买家停手 6 秒才出稿，连发的几条按最后一条出；影子模式下最后一条是图片、商品卡等非文字时不出影子回复 | 功能 |
 | 2026-10-17 | v1.22 | FLOW-AI-DRAFT、REQ-KB-006 | 混合检索每路等 5 秒（原 8 秒），超时立即改纯向量重试 | 功能 |
@@ -87,20 +98,23 @@
 
 | 链路 | 名称 | 领域 | 状态 | 涉及需求 |
 | --- | --- | --- | --- | --- |
-| FLOW-DASHBOARD | 查看看板 | 运营 | 已实现 | REQ-DASH-001 |
+| FLOW-DASHBOARD | 查看看板 | 运营 | 已实现 | REQ-DASH-001、REQ-DASH-002 |
 
 ### 角色：员工
 
 | 链路 | 名称 | 领域 | 状态 | 涉及需求 |
 | --- | --- | --- | --- | --- |
-| FLOW-INBOUND | 接收买家消息 | 接待 | 已实现 | REQ-CONV-001、REQ-CONV-006、REQ-CONV-007、REQ-CONV-010、REQ-CONV-011 |
+| FLOW-INBOUND | 接收买家消息 | 接待 | 已实现 | REQ-CONV-001、REQ-CONV-006、REQ-CONV-007、REQ-CONV-010、REQ-CONV-011、REQ-CONV-013 |
 | FLOW-AI-DRAFT | AI 出稿 | 接待 | 已实现 | REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、REQ-KB-006、REQ-AI-007 |
 | FLOW-WB-HANDLE | 接待会话 | 接待 | 已实现 | REQ-CONV-002、REQ-CONV-003、REQ-CONV-004、REQ-CONV-005、REQ-CONV-008、REQ-CONV-009、REQ-AI-003、REQ-CONV-012 |
+| FLOW-WB-PRODUCT | 发送店铺商品 | 接待 | 已实现 | REQ-CONV-014 |
+| FLOW-WB-MEDIA | 发送图片与视频 | 接待 | 已实现 | REQ-CONV-015 |
 | FLOW-FEISHU-CARD | 飞书待认领卡 | 接待 | 已实现 | REQ-FEISHU-003、REQ-FEISHU-004、REQ-FEISHU-005、REQ-FEISHU-006 |
 | FLOW-SEARCH | 全局搜索 | 接待 | 已实现 | REQ-SEARCH-001 |
 | FLOW-ORDER | 订单与售后 | 售后 | 已实现 | REQ-ORD-001、REQ-ORD-002、REQ-ORD-003、REQ-ORD-004、REQ-ORD-005 |
 | FLOW-INVOICE | 开票 | 售后 | 已实现 | REQ-ORD-006、REQ-AI-006 |
 | FLOW-TICKET | 跟进工单 | 工单 | 已实现 | REQ-TKT-001、REQ-TKT-002、REQ-TKT-003、REQ-TKT-004、REQ-TKT-005 |
+| FLOW-TICKET-FORWARD | 转发工单到飞书 | 工单 | 已实现 | REQ-TKT-006 |
 | FLOW-NOTIFY | 站内通知 | 运营 | 已实现 | REQ-NOTIF-001 |
 
 ### 角色：全部成员
@@ -411,6 +425,8 @@
 | 边界 | 模型判定资料不足 | 不论阈值一律转人工，原因记「置信度低于阈值」 | RULE-KB-003；场景「资料不足时转人工」 | TC-KB-027 |
 | 边界 | 模型给的编号不在检索结果里 | 忽略该编号，不显示为依据 | 字段 draft.citations | 不测：单元测试 retrieve.test.ts 覆盖 |
 | 边界 | 品牌语气、提示词或资料是中文，买家用外语 | 按买家最近一条判得出语言的文字消息回复，都判不出用店铺站点的默认语言 | 场景「回复语言跟随买家」；字段 reception_settings.brand_voice | TC-AI-030 |
+| 边界 | 买家先和 Shopee 商店 AI 助手聊过再转人工 | 常见问题记录展开成逐条发言交给模型，还在拉取的最多等 4 秒 | 字段 message.payload；场景「出稿看到常见问题记录里的买家原话」；§15 出稿与飞书构卡前最多等 4 秒 | TC-AI-035 |
+| 边界 | 常见问题记录没拉到 | 告诉模型买家聊过但记录没取到，照常出稿 | 字段 message.payload；场景「常见问题记录拉不到」 | 无用例 |
 
 ##### S8 按模式存草稿或发送
 
@@ -517,6 +533,7 @@
 | 边界 | 应用接法下的买家图片 | 上传到飞书，卡里显示缩略图，最多 3 张 | 场景「卡片里的图片」；字段 feishu_integration.method | TC-FEISHU-010 |
 | 失败 | 图片上传失败，或用群自定义机器人 | 显示图片占位与「在 Shopilot 查看」链接 | 场景「卡片里的图片」；§15 每张图片上传 ≤ 12 秒 | TC-FEISHU-010 |
 | 边界 | 视频、表情、商品卡、订单卡 | 显示中文占位，订单带单号与状态 | 场景「卡片只放有意义的消息」 | TC-FEISHU-010 |
+| 边界 | 买家先和 Shopee 商店 AI 助手聊过 | 常见问题记录展开成逐条发言，助手标「Shopee AI」，最多等 4 秒 | 字段 message.payload；§15 出稿与飞书构卡前最多等 4 秒 | TC-FEISHU-018 |
 
 ##### S5 写总结
 
@@ -579,6 +596,251 @@
 | S6 | `src/server/feishu/deliver.ts#sendCard`；`src/server/feishu/client.ts#liveFeishu` |
 | S8 | `src/app/(auth)/login/login-form.tsx#LoginForm`；`src/app/(app)/account/security/account-security-client.tsx#SetupSteps` |
 | S9–S10 | `src/app/(app)/wb/card-landing.tsx#CardLanding` |
+
+### FLOW-WB-PRODUCT · 发送店铺商品
+
+#### 概要
+
+- **执行者**：处理这个会话的成员（ROLE-Agent）
+- **触发**：在工作台右栏打开「商品」页签
+- **进入条件**：店铺授予了商品读取权限
+- **结果**：买家在聊天里收到本店商品的商品卡或商品链接
+- **不管**：商品上下架与改价、别家店铺的商品、优惠券
+
+#### 主流程
+
+1. S1 打开右栏「商品」页签（API-CONV-017） 〔界面：Web 工作台右栏｜src/app/(app)/wb/products-tab.tsx、src/app/(app)/wb/buyer-panel.tsx〕
+2. S2 服务端取店铺在售商品目录，10 分钟内复用 〔无界面〕
+3. S3 按名称、商品 ID 或卖家 SKU 搜索 〔界面：Web 工作台右栏｜src/app/(app)/wb/products-tab.tsx〕
+4. S4 点「发商品卡」或 Shopee 店的「发链接」（API-CONV-007） 〔界面：Web 工作台右栏｜src/app/(app)/wb/products-tab.tsx〕
+5. S5 平台发出，时间线出现商品卡或链接 〔界面：Web 工作台对话栏｜src/app/(app)/wb/timeline.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S1–S5
+
+##### S1 打开商品页签
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 店铺没有授予商品读取权限 | 页签说明原因，不列商品 | API-CONV-002；`/errors/not-allowed` | TC-CONV-063 |
+| 失败 | 绕过页签直接取没有商品权限的店 | 409 `/errors/not-allowed` | `/errors/not-allowed`；API-CONV-017 | 无用例 |
+| 失败 | 店铺授权已失效 | 409 `/errors/not-allowed`〔提示：店铺授权已失效〕 | `/errors/not-allowed`；API-CONV-017 | 无用例 |
+| 失败 | 平台报错或超时 | 502 `/errors/platform`，页签给「重试」 | `/errors/platform`；`/errors/platform-timeout`；API-CONV-017 | 无用例 |
+
+##### S2 取商品目录
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 在售商品超过 500 件 | 列表截到上限并注明还有更多 | API-CONV-017；§15 每店最多列 500 件在售商品 | 无用例 |
+| 边界 | 点「重新获取」 | 不用缓存，重新向平台取 | API-CONV-017 | 无用例 |
+| 边界 | 多规格商品 | 价格显示最低到最高，库存为各规格之和 | API-CONV-017 | TC-CONV-060 |
+| 边界 | 单个商品的规格或主图取不到 | 只缺这几项，列表照常显示 | API-CONV-017 | 无用例 |
+
+##### S3 搜索
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 输入多个词 | 每个词都要命中名称、商品 ID 或卖家 SKU | API-CONV-017 | TC-CONV-060 |
+| 边界 | 搜不到 | 显示没有匹配的商品 | API-CONV-017 | TC-CONV-060 |
+
+##### S4 发送
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 会话不能再回复买家 | 发送按钮置灰并写明原因，仍可搜索查看 | API-CONV-002；`/errors/not-allowed` | TC-CONV-063 |
+| 失败 | 会话由同事处理中 | 发送按钮置灰，只有处理人能发 | API-CONV-002；`/errors/conflict` | TC-CONV-063 |
+| 边界 | 会话待认领 | 发送前自动认领 | API-CONV-004；API-CONV-007 | TC-CONV-061 |
+| 边界 | TikTok 店 | 没有「发链接」，只发商品卡 | API-CONV-007 | TC-CONV-062 |
+| 并发 | 双击发送 | 只发一次 | 竞态「双击发送」 | 无用例 |
+
+##### S5 平台发出
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 平台拒绝 | 消息标发送失败，可重试 | 迁移 ENT-Message sending→failed「platform_error」；`/errors/platform` | 无用例 |
+| 失败 | 平台 10 秒没响应 | 消息标发送失败，先刷新确认再重试 | 迁移 ENT-Message sending→failed「timeout」；`/errors/platform-timeout` | 无用例 |
+| 边界 | 发出的商品卡 | 时间线显示图、名与价格，取自商品目录 | 字段 message.payload | TC-CONV-061 |
+
+#### 待决策
+
+无。
+
+另见：§28 商品卡与商品链接没在真实平台发过
+
+#### 关联
+
+- **契约锚点**：API-CONV-017；API-CONV-007；API-CONV-002；迁移 ENT-Message [*]→sending；迁移 ENT-Message sending→sent
+- **上游**：FLOW-WB-HANDLE
+- **下游**：—
+- **守住的不变量**：—
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/app/(app)/wb/products-tab.tsx#ProductsTab`；`src/app/api/v1/shops/[id]/products/route.ts#GET` |
+| S2 | `src/server/products/catalog.ts#shopProducts`；`src/server/platforms/shopee.ts#shopeeItemsBase`；`src/server/platforms/tiktok.ts#tiktokCatalog` |
+| S3 | `src/lib/product-search.ts#searchProducts` |
+| S4 | `src/app/(app)/wb/products-tab.tsx#ProductRow`；`src/server/conversations/actions.ts#sendMessage` |
+| S5 | `src/server/conversations/send.ts#sendOutbound`；`src/server/platforms/shopee.ts#shopeeSendItem`；`src/server/platforms/tiktok.ts#tiktokSendProductCard` |
+
+### FLOW-WB-MEDIA · 发送图片与视频
+
+#### 概要
+
+- **执行者**：处理这个会话的成员（ROLE-Agent）
+- **触发**：在输入框粘贴图片或视频，或用附件按钮选文件
+- **进入条件**：会话能回复买家，发视频只限 Shopee 会话
+- **结果**：买家收到图片或视频，时间线可预览与播放
+- **不管**：PDF 等文件、TikTok 会话的视频、图片编辑
+
+#### 主流程
+
+1. S1 粘贴剪贴板里的图片或视频，弹出确认框预览 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
+2. S2 确认后逐个上传（API-CONV-010） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
+3. S3 逐个提交发送（API-CONV-007） 〔无界面〕
+4. S4 图片直接调平台发出，视频先显示发送中并排后台任务 〔无界面〕
+5. S5 后台任务把视频传到 Shopee，等平台处理完再发出 〔无界面〕
+6. S6 时间线显示图片或可播放的视频 〔界面：Web 工作台对话栏｜src/app/(app)/wb/timeline.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S1–S6
+
+##### S1 粘贴
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 剪贴板同时带文字 | 按文字粘贴，不弹确认框 | API-CONV-007 | TC-CONV-064 |
+| 失败 | 粘贴 PDF 等文件 | 提示平台接口不支持这类文件，不发送 | `/errors/unsupported-type`；API-CONV-010 | TC-CONV-064 |
+| 失败 | TikTok 会话粘贴视频 | 提示 TikTok 接口暂不支持发视频，不发送 | `/errors/not-allowed`；API-CONV-007 | TC-CONV-065 |
+| 边界 | 一次粘贴超过 9 个 | 只取前 9 个 | API-CONV-010 | 无用例 |
+| 边界 | 用附件按钮选文件 | 选完直接发，不弹确认框 | API-CONV-010 | 无用例 |
+
+##### S2 上传
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 图片超过 10 MB 或视频超过 30 MB | 413 `/errors/too-large`〔提示：视频不能超过 30 MB，图片不能超过 10 MB〕 | `/errors/too-large`；API-CONV-010 | 无用例 |
+| 失败 | 视频不是 MP4 | 415 `/errors/unsupported-type`〔提示：只支持 JPG、PNG、WebP 图片和 MP4 视频〕 | `/errors/unsupported-type`；API-CONV-010 | 无用例 |
+
+##### S5 传视频到 Shopee
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 上传或处理失败，或 120 秒没处理完 | 消息标发送失败，可在气泡点重试 | 迁移 ENT-Message sending→failed「platform_error」；§15 视频传到 Shopee 后等平台处理 ≤ 120 秒 | 不测：模拟平台处理不会失败，代码仓 video.test.ts 覆盖 |
+| 边界 | 任务执行时消息已不在发送中 | 不再发送 | 字段 message.send_status | 不测：代码仓 video.test.ts 覆盖 |
+
+##### S6 时间线显示
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 视频发出后 | 播放地址与封面换成 Shopee 返回的地址 | 字段 message.payload | TC-CONV-065 |
+| 边界 | 店铺站点认不出 | 继续用 Shopilot 存的文件播放 | 字段 message.payload | 无用例 |
+
+#### 待决策
+
+无。
+
+另见：§28 Shopee 聊天视频上限与 CDN 地址拼法未实测
+
+#### 关联
+
+- **契约锚点**：API-CONV-010；API-CONV-007；API-CONV-015；迁移 ENT-Message [*]→sending；迁移 ENT-Message sending→sent
+- **上游**：FLOW-WB-HANDLE
+- **下游**：—
+- **守住的不变量**：—
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1–S2 | `src/app/(app)/wb/composer.tsx#Composer`；`src/app/(app)/wb/composer.tsx#checkMedia`；`src/app/(app)/wb/composer.tsx#PastedPreview`；`src/app/api/v1/files/route.ts#POST` |
+| S3–S4 | `src/server/conversations/actions.ts#sendMessage`；`src/server/conversations/send.ts#queueVideo` |
+| S5 | `src/server/conversations/send.ts#deliverQueuedVideo`；`src/server/platforms/shopee.ts#shopeeSendVideo`；`src/server/conversations/send.ts#shopeeVideoMedia` |
+| S6 | `src/app/(app)/wb/timeline.tsx#Timeline` |
+
+### FLOW-TICKET-FORWARD · 转发工单到飞书
+
+#### 概要
+
+- **执行者**：能看这张工单的成员（ROLE-Agent）
+- **触发**：在工单详情点「转发到飞书」
+- **进入条件**：商户连了飞书，凭证有效，群机器人接法至少设了一个群
+- **结果**：选中的飞书群收到这张工单的卡片，工单时间线记一条转发
+- **不管**：卡片状态回写、在飞书里处理工单、私聊转发
+
+#### 主流程
+
+1. S1 工单详情点「转发到飞书」，取可选的群（API-TKT-009） 〔界面：Web 工单详情｜src/app/(app)/tickets/[id]/ticket-detail-client.tsx〕
+2. S2 选群、填备注后发送（API-TKT-010） 〔界面：Web 转发到飞书对话框｜src/app/(app)/tickets/[id]/ticket-detail-client.tsx〕
+3. S3 当场构卡，写投递记录与时间线，排推送任务 〔无界面〕
+4. S4 推送任务按选的群发出卡片 〔无界面〕
+5. S5 成员在飞书点「在 Shopilot 打开」，落到工单详情 〔界面：Web 工单详情｜src/app/(app)/tickets/[id]/merchant-landing.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S1–S5
+
+##### S1 打开转发
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 商户没连飞书 | 按钮置灰，悬停写原因 | API-TKT-002；`/errors/not-allowed` | TC-TKT-022 |
+| 失败 | 飞书应用凭证已失效 | 按钮置灰，提示管理员重新连接 | 字段 feishu_integration.status；`/errors/not-allowed` | 无用例 |
+| 失败 | 群机器人接法一个群都没设 | 按钮置灰，提示先添加群机器人 | 字段 feishu_target.kind；`/errors/not-allowed` | 无用例 |
+| 失败 | 取机器人所在的群时飞书报错 | 502 `/errors/platform`〔提示：取不到机器人所在的群〕 | `/errors/platform`；API-TKT-009 | 不测：飞书替身的群列表不会出错 |
+| 边界 | 店铺单独设了群 | 预选店铺的群，没有就预选默认群 | 字段 feishu_target.shop_id；API-TKT-009 | TC-TKT-021 |
+
+##### S2 选群发送
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 机器人已不在选的群里 | 422 `/errors/validation`〔提示：机器人不在这个群里〕 | `/errors/validation`；API-TKT-010 | 不测：飞书替身的群列表固定 |
+| 失败 | 选的群设置已被删除 | 422 `/errors/validation`〔提示：这个群设置已不存在〕 | `/errors/validation`；API-TKT-010 | 无用例 |
+| 失败 | 备注超过 200 字 | 422 `/errors/validation` | `/errors/validation`；API-TKT-010 | 无用例 |
+| 并发 | 双击发送 | 同一幂等键只转发一次 | 竞态「重复转发同一工单」；API-TKT-010 | 无用例 |
+
+##### S3 构卡
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 工单没有关联订单 | 卡片不写订单内容与卖家后台链接 | 字段 ticket.order_id；API-TKT-010 | 无用例 |
+| 边界 | 订单商品超过 10 行 | 卡片只列前 10 行 | API-TKT-010 | 无用例 |
+| 边界 | 平台状态码认不出 | 原样显示状态码 | API-TKT-002 | 无用例 |
+
+##### S4 发出卡片
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 连不上飞书、超时或被限流 | 退避重试，共 6 次仍失败，时间线显示没有发出与原因 | 迁移 ENT-FeishuDelivery queued→queued；§15 连不上、超时、限流时退避重试 5 次 | 不测：发送替身不出网，代码仓 forward.test.ts 覆盖 |
+| 失败 | 机器人不在群里或凭证失效 | 不重试，记失败，时间线显示原因 | 迁移 ENT-FeishuDelivery queued→failed；§15 凭证、权限、机器人不在群里、签名错误直接记失败 | 不测：替身凭证不会失效，代码仓 forward.test.ts 覆盖 |
+| 并发 | 发出前商户换了接法或删了群设置 | 记跳过，不发 | 迁移 ENT-FeishuDelivery queued→skipped；竞态「转发卡排队时换了飞书接法」 | 不测：本地造不出排队与改设置精确交错 |
+
+##### S5 打开工单
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 当前商户不是卡片所属商户 | 先切到该商户再显示工单，地址里去掉商户参数 | API-AUTH-007 | TC-TKT-023 |
+| 失败 | 本人不是该商户的启用成员 | 显示「看不到这张工单」，当前商户不变 | `/errors/forbidden`；API-AUTH-007 | TC-TKT-023 |
+| 边界 | 没登录 | 先登录，登录后回到卡片链接 | API-AUTH-002 | 无用例 |
+
+#### 待决策
+
+无。
+
+另见：§28 卖家后台订单链接的格式没在真实平台核对过
+
+#### 关联
+
+- **契约锚点**：API-TKT-009；API-TKT-010；API-TKT-002；API-AUTH-007；ENT-FeishuDelivery；ENT-TicketEvent；迁移 ENT-FeishuDelivery [*]→queued；迁移 ENT-FeishuDelivery queued→sent
+- **上游**：FLOW-TICKET、FLOW-FEISHU-SETUP
+- **下游**：—
+- **守住的不变量**：—
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/app/(app)/tickets/[id]/ticket-detail-client.tsx#ForwardDialog`；`src/server/feishu/forward.ts#forwardTargets`；`src/server/feishu/forward.ts#forwardAvailability` |
+| S2–S3 | `src/server/tickets/forward.ts#forwardTicket`；`src/server/feishu/forward.ts#resolveForwardDestination`；`src/server/feishu/card.ts#ticketCard`；`src/lib/ticket-text.ts#anomalyText` |
+| S4 | `src/server/feishu/deliver.ts#deliverStoredCard` |
+| S5 | `src/app/(app)/tickets/[id]/merchant-landing.tsx#MerchantLanding` |
 
 ## L3. 业务规则
 
@@ -664,7 +926,8 @@
 | 指标 | 定义 | 当前 | 目标 | 由哪些事件算 |
 | --- | --- | --- | --- | --- |
 | 接入完成率 | 30 天内完成接入的商户 / 开始接入的商户 | —（未上线） | ≥ 70% | `EVT:connect_started`、`EVT:shop_connected` |
-| 人工首响中位时长 | 买家开始等人工到首条人工回复的中位数，只累计工作时段，起止见表下 | Obsbot v2 未统计 | ≤ 15 分钟 | `EVT:conversation_opened`、`EVT:agent_reply_sent`、`EVT:handoff` |
+| 人工首响平均时长 | 买家开始等人工到首条人工回复的平均数，只累计工作时段，起止见表下 | Obsbot v2 未统计 | ≤ 15 分钟 | `EVT:conversation_opened`、`EVT:agent_reply_sent`、`EVT:handoff` |
+| 12 小时回复率 | 首条买家消息后 12 小时内有回复的会话段 / 已有结论的会话段，口径见表下 | Shopee 卖家中心同名指标 | —（只观测） | `EVT:conversation_opened`、`EVT:agent_reply_sent` |
 | AI 独立解决率 | AI 独立解决的段 / 已结束的 AI 接待段 | 线上全部店铺是影子模式，没有 AI 接待段 | —（只观测） | `EVT:conversation_closed` |
 | 转人工率 | 转人工的 AI 接待段 / AI 接待段 | 同上 | —（只观测） | `EVT:handoff` |
 | 草稿采纳率 | assist 草稿中（原样发送 + 改后发送）/（原样发送 + 改后发送 + 忽略）；过期、被替代不进分母 | Obsbot v2 3 张中 1 张 | ≥ 40% | `EVT:draft_disposed` |
@@ -680,7 +943,12 @@
 - 人工首响的终点：第一条人工回复，Shopilot 成员与平台后台的回复都算，店铺自动回复不算
 - 平台后台回复只取开段之后发出的消息，回补挂进本段的旧消息不算
 - 工作时段按商户时区与排班累计，每天的时段是 [开始, 结束)，节假日整天不计
-- 工作时间外开始的段从下一个上班时刻起算，也进样本
+- 工作时间外开始的段从下一个上班时刻起算；在下一个上班时刻之前就已回复的段不进样本
+- 工作时间内开始、当场回复的段照常记 0 秒
+- 12 小时回复率以会话段为单位，起点是段内首条买家消息
+- 12 小时内的人工、AI、平台后台回复都算，安抚句、发送失败、店铺自动回复不算
+- 12 小时回复率的分母只含已有结论的段：已等满 12 小时，或 12 小时内已回复
+- 按人统计的 12 小时回复率只算本人首个认领的段，回复只算本人的
 - 按人统计的首响只算该成员首个认领的段里 Shopilot 成员的首条回复，平台后台回复只进总体
 
 ## 4. 术语表 / 统一语言
@@ -782,14 +1050,17 @@
 | REQ-CONV-002 | 会话列表：按接待状态分组，可按平台与店铺筛选 | G2 | P0 |
 | REQ-CONV-003 | 会话详情：时间线（文字、图片、订单卡、商品卡、退货卡、物流卡、优惠券卡、译文与译文来源、系统事件）；右栏买家与订单、工单小节；工作台宽度放不下「会话列表 + 400px 对话栏 + 右栏」时右栏收成抽屉，对话栏最小 400px | G2 | P0 |
 | REQ-CONV-004 | 认领（原子，先到先得）、转交 / 改派（可勾选关联工单一并转交）、结束（TikTok 同步结束会话）；员工只能转交、结束自己的会话 | G2 | P0 |
-| REQ-CONV-005 | 发送：文字、图片（幂等 `client_request_id`）；TikTok 会话另可发订单卡、物流卡、退货退款卡、优惠券卡；商品卡按能力表置灰；文字上限两个平台都按 2,000 字（TikTok 官方文档；Shopee 文档不公开，沿用 Obsbot v2 现网口径） | G2 | P0 |
+| REQ-CONV-005 | 发送文字、图片与各类卡片，按店铺平台能力开放 | G2 | P0 |
 | REQ-CONV-006 | 已结束会话收到买家消息时开新会话段，按当时接待模式进入 AI 或待认领，并置顶 | G2 | P0 |
 | REQ-CONV-007 | 阶段：按订单与售后状态自动判定（规则见 §11 下「阶段判定」）；人工改判只改当前段并留痕；下一段重新自动判定 | G2 | P0 |
 | REQ-CONV-008 | 翻译：Shopee 消息显示平台译文（推送与拉取的文字消息都带 `content.translation`）；TikTok 买家消息由 Shopilot 译成商户语言；发送前可选译成买家语言，时间线同时显示原文与译文 | G2 | P1 |
-| REQ-CONV-009 | 快捷回复：弹层按阶段筛选、点选插入输入框；管理员在「语气与提示词」页维护 | G2 | P1 |
+| REQ-CONV-009 | 快捷回复按阶段筛选，按会话发送语言插入对应版本 | G2 | P1 |
 | REQ-CONV-010 | 待认领提醒：待认领超过商户设定分钟数（5 / 10 / 15 / 不提醒），站内通知负责该店的组长一次（无对外 API，见 11.1 文末内部任务 `unclaimed.remind`） | G2 | P1 |
 | REQ-CONV-011 | 空闲结束：会话 72 小时无新消息自动结束本段（无对外 API，见 11.1 `idle_close`） | G2 | P0 |
 | REQ-CONV-012 | 处理人可以取消认领，把会话放回待认领 | G2 | P1 |
+| REQ-CONV-013 | Shopee 常见问题记录拉回买家与商店 AI 助手的对话并在时间线显示 | G2 | P1 |
+| REQ-CONV-014 | 工作台搜索本店在售商品发商品卡，Shopee 店还可发商品链接 | G2 | P1 |
+| REQ-CONV-015 | 输入框粘贴图片与视频确认后发出，Shopee 会话还可发 MP4 视频 | G2 | P1 |
 | REQ-AI-001 | 按店铺与工作时间内外的接待模式出稿 | G2 | P0 |
 | REQ-AI-002 | 出稿输入含最近 20 条对话、订单事实、提示词、护栏与检索到的资料 | G2 | P0 |
 | REQ-AI-003 | 草稿处置：原样发送、改后发送、忽略；24 小时未处置过期；新买家消息到达时旧草稿作废并重新出稿；发送失败转人工 | G2 | P0 |
@@ -808,6 +1079,7 @@
 | REQ-TKT-003 | 工单列表、看板、详情：筛选、我的 / 全部、时间线、备注、手动类改状态、改派、作废、改单张时限、导出 CSV | G4 | P0 |
 | REQ-TKT-004 | 到期与超时：到期前按阈值提醒负责人一次；超时标记并通知；已解决 N 天后自动关闭（无对外 API，见 11.4 `auto_close` 与文末 `ticket.scan`） | G4 | P0 |
 | REQ-TKT-005 | 跨班交接：工作时间结束时扫描「我处理中、最后一条是买家消息、已超接待时限」的会话自动建单给店铺组长（无对外 API，见 11.4 `create`、内部任务 `handover.scan`） | G4 | P1 |
+| REQ-TKT-006 | 工单详情一键转发到飞书群，卡片带订单、异常、商品与卖家后台链接 | G4 | P1 |
 | REQ-RCP-001 | 店铺模式：每店工作时间内 / 外各选 off、shadow、assist、auto；Shopee 店 auto 置灰并说明待评审；TikTok 店设为 off 时同步关闭坐席接单 | G2 | P0 |
 | REQ-RCP-002 | 工作时间与转人工：时区（商户级）、周排班、节假日、转人工关键词（≤ 30 个）、置信度阈值、待认领提醒 | G2 | P0 |
 | REQ-RCP-003 | 语气与提示词：品牌语气、三个阶段的提示词正文，保存保留最近 10 个版本、可恢复默认；护栏锁定不可改；未确认阶段用固定正文 | G2 | P0 |
@@ -819,6 +1091,7 @@
 | REQ-KB-005 | 测试问答：按出稿同一链路回答，显示引用与检索明细 | G7 | P0 |
 | REQ-KB-006 | 出稿检索：出稿前检索资料，草稿下方给客服显示依据 | G7 | P0 |
 | REQ-DASH-001 | 看板按时间范围统计会话、AI、人工、草稿与工单，可导出 | G6 | P0 |
+| REQ-DASH-002 | 看板问题提取：AI 给会话段写一句问题，按类别与日期统计 | G6 | P1 |
 | REQ-BILL-001 | 用量：本期出稿（按日、按店、按模式堆叠）、额度与剩余、AI 独立解决段、账单列表 | G6 | P0 |
 | REQ-BILL-002 | 套餐：全部套餐、月付 / 年付、改套餐（仅所有者；店铺数超新套餐上限时不可降级）、联系销售（记线索） | G6 | P1 |
 | REQ-BILL-003 | 加购出稿包：模拟支付成功后当期额度立即增加，生成账单 | G6 | P1 |
@@ -862,8 +1135,25 @@
 - REQ-KB-006：无对外 API，见 12.8，依据经 `API-CONV-002` 返回工作台
 - REQ-AI-007：只译影子回复；已是商户语言的不译，翻译失败只显示原文
 - REQ-AI-007：「复制」复制的是原文，即要发给买家的那段；译文经 `API-CONV-002` 返回
+- REQ-CONV-005：文字与图片按 `client_request_id` 幂等
+- REQ-CONV-005：文字上限两个平台都按 2,000 字，TikTok 依官方文档，Shopee 沿用 Obsbot v2 现网口径
+- REQ-CONV-005：TikTok 会话另可发订单卡、物流卡、退货退款卡、优惠券卡
+- REQ-CONV-005：商品卡两个平台都能发，店铺须授予商品读取权限，入口见 REQ-CONV-014
+- REQ-CONV-009：弹层按阶段筛选，点选插入输入框，不直接发送
+- REQ-CONV-009：管理员在「语气与提示词」页维护，每条可加 ms、en、th、vi、id、tl、zh 语言版本
+- REQ-CONV-009：输入框为空时按会话发送目标语言插入对应版本，本条改为不翻译
+- REQ-CONV-009：输入框已有文字时插默认版，与原有文字一起按发送前翻译处理
 - REQ-CONV-012：只有当前处理人能取消；组长、管理员要换人用改派（`API-CONV-005`）
 - REQ-CONV-012：未处置的草稿保留，关联工单的负责人不变，见 11.1 `unclaim`
+- REQ-CONV-013：推送只带成员消息 ID，入库后由内部任务 `shopee.bundle` 按 ID 拉回，见 12.11
+- REQ-CONV-013：拉不到时卡片提示到卖家中心查看，不影响会话处理
+- REQ-CONV-013：AI 出稿与飞书卡片把记录展开成逐条发言，见 FLOW-AI-DRAFT、FLOW-FEISHU-CARD
+- REQ-CONV-014：每店最多列 500 件在售商品，可按名称、商品 ID、卖家 SKU 搜索，见 FLOW-WB-PRODUCT
+- REQ-CONV-014：TikTok 客服接口不支持超链接，TikTok 店只发商品卡
+- REQ-CONV-015：一次最多 9 个，剪贴板同时带文字时按文字粘贴
+- REQ-CONV-015：PDF 等文件不能发，TikTok 会话不能发视频，都给出原因
+- REQ-CONV-015：视频只收 MP4、≤ 30 MB，由内部任务 `message.video_send` 上传后发出，见 12.12
+- REQ-TKT-006：能看这张工单的成员都能转发，见 FLOW-TICKET-FORWARD
 - REQ-SHOP-006：每店显示平台、站点、授权到期、平台口径客服指标（不跨平台合并）、接待模式、最近入站、7 天零入站
 - REQ-SHOP-006：Shopee 应用回调状态不是 `set` 或 `already_ours` 时，该应用下的店标「需处理 · 推送未订阅」
 - REQ-SHOP-006：「推送未订阅」与订单页 `API-ORD-001` 的 `pushOk` 是同一判定
@@ -883,10 +1173,14 @@
 - REQ-MOCK-002：页面显示卖家发出的消息与卡片，每个动作按平台格式向 Shopilot 回调地址发推送
 - REQ-MOCK-003：邮件含邀请、重置密码、发票与各类提醒
 - REQ-MOCK-004：发送替身的约定见 §17 飞书接口与卡片，发件箱见 `API-MOCK-011`
-- REQ-DASH-001：指标有会话段数、AI 独立解决、人工首响、转人工原因、每日去向、草稿处置、按人统计、工单区
+- REQ-DASH-001：指标有会话段数、AI 独立解决、人工首响平均、12 小时回复率、转人工原因、每日去向、草稿处置、按人统计、工单区
 - REQ-DASH-001：平台口径单列，不与 Shopilot 口径合并
-- REQ-DASH-001：组长只看负责店铺；范围可选近 7 天、本月、上月、近 90 天，可导出 CSV
+- REQ-DASH-001：组长只看负责店铺，可导出 CSV
+- REQ-DASH-001：范围可选今天、昨天、近 7 天、近 28 天、本周、本月、上月、近 90 天，或自定义起止日，最长 180 天
 - REQ-DASH-001：各指标口径见 §3 与 §8.9 `API-DASH-001` 表下说明
+- REQ-DASH-002：类别由管理员维护，内置「其他」，新商户带 8 个默认类别
+- REQ-DASH-002：买家停止发言 30 分钟后由内部任务 `issue.extract` 提取，不计商户出稿用量
+- REQ-DASH-002：与转人工原因并成「问题与转人工原因」面板，可切「全部问题 / 转人工的」
 
 ## 6. 总体架构
 
@@ -981,6 +1275,7 @@ flowchart LR
 | `ENT-ReceptionSettings` | 接待设置 | 商户级：排班、关键词、阈值、提醒、品牌语气 |
 | `ENT-PromptTemplate` | 阶段提示词 | 商户 × 阶段，保留 10 个版本 |
 | `ENT-QuickReply` | 快捷回复 | 商户级 |
+| `ENT-IssueCategory` | 问题类别 | 商户级；内置「其他」，看板问题提取用 |
 | `ENT-KnowledgeIndex` | 检索服务实例 | 每商户一个，首次入库时创建 |
 | `ENT-KnowledgeCategory` | 资料分类 | 商户级；内置「未分类」 |
 | `ENT-KnowledgeDocument` | 资料 | 处理状态、AI 可用、适用站点、原文件 |
@@ -1151,6 +1446,7 @@ erDiagram
 erDiagram
   SHOP ||--o{ CONVERSATION : "有"
   CONVERSATION ||--o{ SEGMENT : "分段"
+  ISSUE_CATEGORY ||--o{ SEGMENT : "问题归类"
   CONVERSATION ||--o{ MESSAGE : "含"
   SEGMENT ||--o{ MESSAGE : "含"
   CONVERSATION ||--o{ DRAFT : "出稿"
@@ -1189,6 +1485,16 @@ erDiagram
     timestamptz handed_off_at
     boolean ai_resolved
     boolean backfilled
+    text issue_summary
+    uuid issue_category_id FK
+    timestamptz issue_extracted_at
+  }
+  ISSUE_CATEGORY {
+    uuid id PK
+    uuid merchant_id FK
+    text name
+    boolean builtin
+    int position
   }
   MESSAGE {
     uuid id PK
@@ -1357,6 +1663,7 @@ erDiagram
     text title
     text stage
     text text
+    jsonb variants
   }
   TICKET_TYPE_CONFIG {
     uuid merchant_id PK
@@ -1511,6 +1818,8 @@ erDiagram
   CONVERSATION ||--o{ FEISHU_DELIVERY : "卡片"
   SEGMENT ||--o{ FEISHU_DELIVERY : "每段每种一张，取消认领再推"
   FEISHU_TARGET ||--o{ FEISHU_DELIVERY : "发往"
+  TICKET ||--o{ FEISHU_DELIVERY : "转发"
+  MEMBERSHIP ||--o{ FEISHU_DELIVERY : "转发人"
   FEISHU_INTEGRATION {
     uuid merchant_id PK
     text method
@@ -1541,6 +1850,9 @@ erDiagram
     text kind
     int seq
     uuid target_id FK
+    uuid ticket_id FK
+    text chat_id
+    uuid actor_id FK
     text target_name
     text status
     int attempts
@@ -1554,6 +1866,7 @@ erDiagram
 
 - 默认群每商户最多一个（`shop_id` 为空），每家店最多一个店铺群；`(segment_id, kind, seq)` 在 `segment_id` 非空时唯一（INV-FEISHU-003）。
 - 投递记录随会话、会话段删除（数据保存期限清理、删除买家数据）；目标群删掉后投递记录保留，`target_id` 置空，群名留在 `target_name`。
+- 工单转发卡（`kind = ticket`）带 `ticket_id`、转发人 `actor_id`，随工单删除；应用接法下记选中群的 `chat_id`，按它发出，不看 `target_id`。
 
 模拟平台（`mock_` 前缀，只服务 §8「模拟平台接口」与模拟器；Shopilot 业务代码不得直接读写这些表，只能经 HTTP）：
 
@@ -1690,9 +2003,9 @@ erDiagram
 | `API-TEAM-011` | `GET /api/v1/login-events` | REQ-TEAM-006 | `?result=success\|failure&from=&to=&format=csv` | `{ items[{ email, name?, result, reason, ip, userAgent, createdAt }] }` | — | no-store |
 | `API-TEAM-012` | `GET /api/v1/members/options` | REQ-CONV-004、REQ-TKT-002 | `?shopId=` | `{ items[{ membershipId, name, role }] }`：负责该店的启用组长、员工 + 全部启用管理员 | — | no-store |
 
-- `API-TEAM-001` 成员与 `stats` 的 `firstReplyMedianSec` 口径同 §3「人工首响中位时长」。
-- `stats.firstReplyMedianSec` 与看板总体首响同口径，含平台后台回复
-- 成员的 `firstReplyMedianSec` 与看板按人统计同口径，只算 Shopilot 成员的回复
+- `API-TEAM-001` 成员与 `stats` 的 `firstReplyMedianSec` 起止与样本同 §3「人工首响平均时长」，取中位数。
+- `stats.firstReplyMedianSec` 的样本与看板总体首响相同，含平台后台回复
+- 成员的 `firstReplyMedianSec` 的样本与看板按人统计相同，只算 Shopilot 成员的回复
 
 ### 8.3 店铺与接入
 
@@ -1732,16 +2045,17 @@ erDiagram
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
 | `API-CONV-006` | `POST /api/v1/conversations/{id}/close` | REQ-CONV-004 | `{ reason?, version }` | 200 会话；TikTok 结束会话失败只记录，不阻断 | 409 `/errors/conflict` | 已结束再结束返回 200 |
-| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|order_card\|logistics_card\|return_card\|coupon_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, translateTo?, draftId?, disposition?: sent\|edited_sent }`；待认领会话发送 = 先认领再发送 | 201 `{ message{ id, sendStatus } }` | 409 `/errors/conflict`（会话已被他人认领或已结束）；409 `/errors/not-allowed`（能力表不支持该类型、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
+| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, draftId?, disposition?: sent\|edited_sent }`；待认领会话发送 = 先认领再发送；`video` 只限 Shopee 店，先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 409 `/errors/conflict`（会话已被他人认领或已结束）；409 `/errors/not-allowed`（能力表不支持该类型、TikTok 店发视频、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
 | `API-CONV-008` | `POST /api/v1/conversations/{id}/drafts/{draftId}/ignore` | REQ-AI-003 | — | 200 | 409 `/errors/conflict`（草稿已处置或过期） | 已忽略再忽略返回 200 |
 | `API-CONV-009` | `PATCH /api/v1/conversations/{id}/segment` | REQ-CONV-007 | `{ stage: presale\|insale\|aftersale\|unknown }` | 200 段 | — | 幂等 |
-| `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005 | multipart `file`（JPG / PNG / WebP，≤ 10 MB） | 201 `{ id, url, width, height }` | 413 `/errors/too-large`；415 `/errors/unsupported-type` | — |
+| `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005、REQ-CONV-015 | multipart `file`（JPG / PNG / WebP ≤ 10 MB，或 MP4 ≤ 30 MB） | 201 `{ id, url, width, height, kind: image\|video }`；视频存 `file.kind = chat_video` | 413 `/errors/too-large`；415 `/errors/unsupported-type` | — |
 | `API-CONV-011` | `GET /api/v1/files/{id}` | REQ-CONV-005、REQ-ORD-006、REQ-SET-004、REQ-KB-002 | — | 文件流；按所属对象鉴权（知识库原文件要求 `knowledge.manage`）；PDF 与图片 `inline`，其余 `attachment` | — | `private, max-age=300` |
 | `API-CONV-012` | `POST /api/v1/translate` | REQ-CONV-008 | `{ text, target: ms\|en\|th\|vi\|id\|tl\|zh }` | 200 `{ text }` | 502 / 504 `/errors/ai-unavailable` | 可重试 |
 | `API-CONV-013` | `GET /api/v1/shops/{id}/coupons` | REQ-CONV-005 | — | `{ items[{ couponId, title, discount, endsAt }] }`（只返回可在聊天发送的券） | 409 `/errors/not-allowed`（Shopee 店） | no-store |
-| `API-CONV-014` | `GET /api/v1/quick-replies` | REQ-CONV-009 | `?stage=` | `{ items[{ id, title, stage, text }] }` | — | no-store |
+| `API-CONV-014` | `GET /api/v1/quick-replies` | REQ-CONV-009 | `?stage=` | `{ items[{ id, title, stage, text, variants[{ lang, text }] }] }` | — | no-store |
 | `API-CONV-015` | `POST /api/v1/conversations/{id}/messages/{messageId}/retry` | REQ-CONV-005、REQ-AI-003 | — | 200 `{ message }` | 409 `/errors/conflict`（不是 failed） | 只对 `send_status=failed` 生效 |
 | `API-CONV-016` | `POST /api/v1/conversations/{id}/unclaim` | REQ-CONV-012、REQ-FEISHU-003 | `{ version }` | 200 `{ id, handlingState, claimedBy, version }`：会话回到待认领、处理人为空，草稿与关联工单不变；提交后推飞书待认领卡 | 409 `/errors/conflict`（会话不是本人处理中，或版本不一致；附 `claimedBy`、`handlingState`、`version`） | 无幂等键；重复提交第二次 409 |
+| `API-CONV-017` | `GET /api/v1/shops/{id}/products` | REQ-CONV-014 | `?refresh=1`（不用缓存） | `{ items[{ productId, name, imageUrl, priceMin, priceMax, currency, stock, skus[], url }], truncated, fetchedAt }`：在售商品，每店最多 500 件，进程内缓存 10 分钟 | 409 `/errors/not-allowed`（`code: product_scope_missing` 没有商品读取权限；`shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | no-store |
 
 ### 8.6 订单、售后、发票
 
@@ -1766,13 +2080,15 @@ erDiagram
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `API-TKT-001` | `GET /api/v1/tickets` | REQ-TKT-003 | `?type=&status=&platform=&scope=mine\|all&view=list\|board&format=csv&cursor=` | list：`{ items[{ id, number, type, origin, status, waitingOn, phase, platformStatus, shop, buyerName, orderId, assignee, dueAt, dueSource, overdue, remainingSec, updatedAt }], stats{ open, due6h, overdue, resolvedThisWeek, resolveMedianSec }, byType[], platformFeed[] }`；board：`{ columns{ open, in_progress, waiting, resolved_today } }` | — | no-store |
-| `API-TKT-002` | `GET /api/v1/tickets/{id}` | REQ-TKT-003 | — | `{ ticket{ ..., version, manualStatusAllowed, phases[], nextActions[] }, events[], links{ conversationId?, orderId?, afterSaleId? } }` | — | no-store |
+| `API-TKT-002` | `GET /api/v1/tickets/{id}` | REQ-TKT-003、REQ-TKT-006 | — | `{ ticket{ ..., version, manualStatusAllowed, phases[], nextActions[] }, events[]（`type = feishu` 为转发记录）, links{ conversationId?, orderId?, afterSaleId? }, feishu{ available, reason } }` | — | no-store |
 | `API-TKT-003` | `POST /api/v1/tickets` | REQ-TKT-002 | `{ type, shopId, orderId?, afterSaleId?, conversationId?, assigneeId?, dueAt?(仅商户时限类可改), note? }` | 201 工单 | 409 `/errors/duplicate`（附 `existingTicketId`、`number`）；403 `/errors/forbidden`（员工指定他人为负责人，`code: assignee_not_allowed`） | 去重键即幂等 |
 | `API-TKT-004` | `POST /api/v1/tickets/{id}/status` | REQ-TKT-003 | `{ status: in_progress\|waiting\|resolved, waitingOn?: buyer\|platform\|internal, version }` | 200 工单 | 409 `/errors/not-allowed`（平台类工单、非法迁移）；409 `/errors/conflict`（版本） | 目标状态相同返回 200 |
 | `API-TKT-005` | `POST /api/v1/tickets/{id}/assign` | REQ-TKT-003 | `{ assigneeId }` | 200 工单 | 422（目标不负责该店） | 幂等 |
 | `API-TKT-006` | `POST /api/v1/tickets/{id}/notes` | REQ-TKT-003 | `{ text(1..2000) }` | 201 事件 | — | 幂等键 |
 | `API-TKT-007` | `POST /api/v1/tickets/{id}/void` | REQ-TKT-003 | `{ reason }` | 200 工单 | 409 `/errors/not-allowed`（已解决 / 已关闭） | 已作废返回 200 |
 | `API-TKT-008` | `PATCH /api/v1/tickets/{id}/due` | REQ-TKT-003 | `{ dueAt }` | 200 工单 | 409 `/errors/not-allowed`（时限来源为平台） | 幂等 |
+| `API-TKT-009` | `GET /api/v1/tickets/{id}/feishu` | REQ-TKT-006 | — | `{ method: app\|webhook, targets[{ key, name, scope }], defaultKey }`：应用接法列机器人所在的群，群机器人接法列设过的群；预选店铺群，否则默认群 | 409 `/errors/not-allowed`（`code: feishu_unavailable`）；422 `/errors/platform-credentials`；502 `/errors/platform`；504 `/errors/platform-timeout` | no-store |
+| `API-TKT-010` | `POST /api/v1/tickets/{id}/feishu` | REQ-TKT-006 | `{ chatId? \| targetId?（二选一）, note?(≤200) }` | 201 `{ deliveryId, targetName, event }`：卡片当场构好写进投递记录，提交后排 `feishu.send`；时间线记一条，审计 `ticket_forwarded_feishu` | 409 `/errors/not-allowed`（`code: feishu_unavailable`）；422 `/errors/validation`（机器人不在群里、群设置已删除、备注过长）；同 API-TKT-009 的飞书错误 | 幂等键 |
 
 ### 8.8 接待设置
 
@@ -1785,8 +2101,8 @@ erDiagram
 | `API-RCP-005` | `POST /api/v1/reception/prompts/{stage}/reset` | REQ-RCP-003 | — | 200 | — | 幂等 |
 | `API-RCP-006` | `GET /api/v1/reception/ticket-types` | REQ-RCP-004 | — | `{ types[{ type, trigger, dueSourceLabel, autoCreate, merchantDue, defaultAssignee, remind, platformDriven }], autoCloseDays, numberPrefix }` | — | no-store |
 | `API-RCP-007` | `PUT /api/v1/reception/ticket-types` | REQ-RCP-004 | `{ types[{ type, autoCreate?, merchantDue?, defaultAssignee?, remind? }], autoCloseDays: 3\|7\|14\|null }` | 200 | 409 `/errors/not-allowed`（改平台类时限） | 幂等 |
-| `API-RCP-008` | `POST /api/v1/quick-replies` | REQ-CONV-009 | `{ title, stage, text(≤2000) }` | 201 | — | 幂等键 |
-| `API-RCP-009` | `PATCH /api/v1/quick-replies/{id}` | REQ-CONV-009 | `{ title?, stage?, text? }` | 200 | — | 幂等 |
+| `API-RCP-008` | `POST /api/v1/quick-replies` | REQ-CONV-009 | `{ title, stage, text(≤2000), variants?[{ lang: ms\|en\|th\|vi\|id\|tl\|zh, text(1..2000) }] }`（同一语言只能一个版本） | 201 | — | 幂等键 |
+| `API-RCP-009` | `PATCH /api/v1/quick-replies/{id}` | REQ-CONV-009 | `{ title?, stage?, text?, variants? }`（`variants` 整组替换） | 200 | — | 幂等 |
 | `API-RCP-010` | `DELETE /api/v1/quick-replies/{id}` | REQ-CONV-009 | — | 204 | — | 幂等 |
 | `API-KB-001` | `GET /api/v1/knowledge/documents` | REQ-KB-002、REQ-KB-003 | `?categoryId=&market=ALL\|MY\|TH\|VN\|PH\|SG\|ID&status=queued\|processing\|ready\|failed&aiEnabled=&q=&cursor=`（`q` 按文件名包含匹配；`market` 选具体站点时也列出适用全部站点的资料，选 `ALL` 只列适用全部站点的资料） | `{ items[{ id, name, mime, size, categoryId, markets[], status, aiEnabled, failureReason?, partsCount, chunksCount, uploadedByName, createdAt, readyAt? }], counts{ total, limit }, nextCursor }`；`limit` 为 500 | — | no-store；有排队或解析中的资料时前端 5 秒轮询 |
 | `API-KB-002` | `POST /api/v1/knowledge/documents` | REQ-KB-001 | multipart：`file`（一次一个文件，前端逐个上传并逐个显示结果）、`categoryId?`（默认「未分类」）、`markets[]`（默认 `ALL`） | 201 `{ document }`（`status = queued`），排 `knowledge.ingest`；审计 `EVT:knowledge_uploaded` | 413 `/errors/too-large`（`code: file_limit` 超过 20 MB；`code: retrieval_limit` PDF 以外超过 4 MB）；415 `/errors/unsupported-type`（`code: ppt_export_pdf` 为 PPT，提示先导出为 PDF）；409 `/errors/not-allowed`（`code: document_quota`，已有 500 份）；409 `/errors/duplicate`（内容与已有资料相同，附 `existingId`、`existingName`）；422 `/errors/validation`（分类不存在、站点为空） | 幂等键；同内容由唯一约束兜底 |
@@ -1805,7 +2121,12 @@ erDiagram
 
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `API-DASH-001` | `GET /api/v1/dashboard` | REQ-DASH-001 | `?range=7d\|this_month\|last_month\|90d&format=csv` | `{ kpis{ segments, aiResolved, firstReplyMedianSec, handoffRate }, trend[], handoffReasons[], drafts{ generated, sent, editedSent, ignored, expired, shadow, adoptionRate }, people[{ name, segments, firstReplyMedianSec, ticketsOnTimeRate }], tickets{ open, onTimeRate, noDue, resolveMedianSec, platformAutoHandled, byType[] }, platformMetrics[{ shopId, platform, label, value, target? }] }` | — | no-store |
+| `API-DASH-001` | `GET /api/v1/dashboard` | REQ-DASH-001、REQ-DASH-002 | `?range=today\|yesterday\|7d\|28d\|this_week\|this_month\|last_month\|90d` 或 `?from=YYYY-MM-DD&to=YYYY-MM-DD`；都不给为本月；`&format=csv` | `{ range{ preset, from, to, label }, kpis{ segments, aiResolved, firstReplyAvgSec, firstReplySamples, replied12h, handoffRate }, trend[], handoffReasons[], issues{ categories[], views{ all, handoff } }, drafts{ generated, sent, editedSent, ignored, expired, shadow, adoptionRate }, people[{ name, segments, firstReplyAvgSec, replied12h, transferRate, ticketsOnTimeRate }], tickets{ open, onTimeRate, noDue, resolveMedianSec, platformAutoHandled, byType[] }, platformMetrics[{ shopId, platform, label, value, target? }] }` | 422 `/errors/validation`（只给一端、与预设同给、开始晚于结束、结束晚于今天、超过 180 天） | no-store |
+| `API-DASH-002` | `GET /api/v1/dashboard/issues` | REQ-DASH-002 | 范围参数同 `API-DASH-001`；`&view=all\|handoff&categoryId=` | `{ categoryId, categoryName, total, items[{ segmentId, conversationId, startedAt, shopName, buyerName, summary }] }`：按段开始时间倒序，最多 100 条 | 404 `/errors/not-found`（类别不属于本商户） | no-store |
+| `API-DASH-003` | `GET /api/v1/issue-categories` | REQ-DASH-002 | — | `{ items[{ id, name, builtin, segmentCount }] }` | — | no-store |
+| `API-DASH-004` | `POST /api/v1/issue-categories` | REQ-DASH-002 | `{ name(1..20 字) }` | 201 类别，排在「其他」之前 | 409 `/errors/duplicate`（`code: category_duplicate`）；409 `/errors/not-allowed`（`code: category_quota` 已满 30 个） | 幂等键 |
+| `API-DASH-005` | `PATCH /api/v1/issue-categories/{id}` | REQ-DASH-002 | `{ name(1..20 字) }` | 200 类别 | 409 `/errors/duplicate`；409 `/errors/not-allowed`（`code: builtin`，「其他」不能改名） | 幂等 |
+| `API-DASH-006` | `DELETE /api/v1/issue-categories/{id}` | REQ-DASH-002 | — | 200 `{ movedSegments }`：其中的会话段归入「其他」，不重新提取 | 409 `/errors/not-allowed`（`code: builtin`） | 幂等 |
 | `API-BILL-001` | `GET /api/v1/billing` | REQ-BILL-001 | `?daily=7d\|period&shopsMonth=YYYY-MM&statements=3m\|12m` | `{ plan, period{ start, end }, usage{ used, quota, topup, remaining, byMode{ auto, assist, shadow } }, daily[], byShop[], aiResolvedSegments, overage{ policy, budget }, alerts, statements[], paymentMethod?, autoRenew, invoiceInfo }`；`usage.used` 是计费口径，删除买家数据（`API-SET-009`）不退回，`byMode` 按现存草稿统计，二者差额在页面上单独注明 | — | no-store |
 | `API-BILL-002` | `GET /api/v1/billing/plans` | REQ-BILL-002 | — | `{ items[{ code, name, monthlyPrice, yearlyPrice, draftQuota, shopLimit, seatLimit }], current, downgradeBlockedReason? }` | — | no-store |
 | `API-BILL-003` | `POST /api/v1/billing/plan` | REQ-BILL-002 | `{ planCode, cycle: monthly\|yearly }` | 200 订阅（升级立即生效；降级与改年付下周期生效） | 403 `/errors/owner-only`；409 `/errors/not-allowed`（店铺数超上限）；402 `/errors/payment-failed` | 幂等键 |
@@ -1817,6 +2138,11 @@ erDiagram
 | `API-BILL-009` | `POST /api/v1/billing/sales-leads` | REQ-BILL-002 | `{ contactName, contact, note? }` | 201 | — | 幂等键 |
 
 - `API-DASH-001` 的比率与首响按 §3「指标口径补充」计算
+- 预设按商户时区切日：近 N 天含今天，本周从周一起，本月从 1 日到今天，上月整月
+- `kpis.firstReplyAvgSec` 是首响样本的算术平均，`firstReplySamples` 是样本数
+- `issues.views` 的 `all` 统计有买家发言的段，`handoff` 统计转人工的 AI 接待段
+- 每个视图给 `segments`、`pending`（还没提取）、`byCategory[]`、`trend[]`（按段开始日、各类别段数）
+- CSV 的首响列为「人工首响平均（秒）」，另加「12 小时内回复」「12 小时回复率分母」两列
 - `kpis.aiResolved` 的分母是已结束的 AI 接待段
 - `kpis.handoffRate` 的分母是全部 AI 接待段
 - `handoffReasons` 只统计转人工的 AI 接待段，合计等于 `kpis.handoffRate` 的分子
@@ -1974,6 +2300,12 @@ erDiagram
 | 开段模式 | — | `segment.open_mode` | enum | 否 | `off` / `shadow` / `assist` / `auto`：开段时该店的当前接待模式；为空是迁移 0010 推断不了的旧段 | — | — |
 | 转人工时刻 | — | `segment.handed_off_at` | timestamptz | 否 | 本段转人工（11.1 handoff）的时刻 | — | — |
 | AI 独立解决 | — | `segment.ai_resolved` | boolean | 是 | 段结束时：没有人工消息、没有转人工、至少一条 AI 发出的消息 | — | — |
+| 问题总结 | `summary` | `segment.issue_summary` | text | 否 | AI 写的一句中文问题，≤ 60 字 | — | 中 |
+| 问题类别 | `categoryId` | `segment.issue_category_id` | uuid | 否 | 类别删除时由接口改归「其他」；AI 归不进任何类别时也落「其他」 | — | — |
+| 问题提取时间 | — | `segment.issue_extracted_at` | timestamptz | 否 | 为空或早于段内最后一条买家消息时，`issue.extract` 会再提取 | — | — |
+| 问题类别名 | `name` | `issue_category.name` | text | 是 | 1..20 字，同商户唯一；每商户最多 30 个 | — | — |
+| 内置类别 | `builtin` | `issue_category.builtin` | boolean | 是 | 每商户一个内置「其他」，不能改名、删除 | — | — |
+| 类别顺序 | — | `issue_category.position` | int | 是 | 新类别排在「其他」之前的最后 | — | — |
 | 回补段 | — | `segment.backfilled` | boolean | 是 | 回补入库的段为 true，不进任何统计 | — | — |
 | 消息方向 | `direction` | `message.direction` | enum | 是 | `in` / `out` | — | — |
 | 发送方 | `senderRole` | `message.sender_role` | enum | 是 | `buyer` / `agent` / `ai` / `platform_human`（卖家后台直接回复）/ `platform_bot`（平台或店铺的自动回复：TikTok `ROBOT`；Shopee 补拉到的、距前一条买家消息不超过 2 秒的店铺消息）/ `system`；平台系统消息不管发送方字段是谁都记 `system`，不算买家发言、不触发出稿、不改处理状态：Shopee `notification`、`bundle_message`、`chatbot_msg`、`live_agent_transfer`，TikTok `NOTIFICATION`、`OTHER`、`ALLOCATED_SERVICE`、`BUYER_ENTER_FROM_TRANSFER`、`USER_ENTER_FROM_*`、`GOODS_CARD`、`SESSION_CLOSE`（原始类型存 `payload.platformType`） | — | — |
@@ -1982,7 +2314,7 @@ erDiagram
 | 译文 | `translation` | `message.translation` | text | 否 | — | — | 中 |
 | 译文来源 | `translationSource` | `message.translation_source` | enum | 否 | `platform`（Shopee 文字消息的 `content.translation.text`，推送 code 10 与 `get_message` 拉取都带，与原文相同时不存）/ `shopilot` | — | — |
 | 出站原文 | `originalText` | `message.original_text` | text | 否 | 发送前译成买家语言时保存客服写的原文 | — | 中 |
-| 卡片载荷 | `payload` | `message.payload` | jsonb | 否 | 订单卡 `{ orderId }`、物流卡 `{ orderId, packageId? }`、退货卡 `{ orderId, skuId }`、券 `{ couponId }`、图片 `{ fileId?, url, width, height }` | — | — |
+| 卡片载荷 | `payload` | `message.payload` | jsonb | 否 | 订单卡 `{ orderId }`、物流卡 `{ orderId, packageId? }`、退货卡 `{ orderId, skuId }`、券 `{ couponId }`、商品卡 `{ productId }`、图片 `{ fileId?, url, width, height }`、视频 `{ fileId?, url, cover?, duration? }`；Shopee 常见问题记录 `{ platformType: bundle_message, bundle{ ids, status: pending\|ok\|failed, items?, error?, fetchedAt? } }`，`ids` 按原样数字串保存，`items[]` 每条带 `role: buyer\|bot`、`kind`、`text`、`translation`、`sentAt` | — | 中 |
 | 客户端请求 ID | `clientRequestId` | `message.client_request_id` | text | 否 | 出站必填；`(conversation_id, client_request_id)` 唯一 | — | — |
 | 发送状态 | `sendStatus` | `message.send_status` | enum | 否 | 出站：`sending` / `sent` / `failed`；入站为 null | — | — |
 | 发送失败原因 | `sendError` | `message.send_error` | text | 否 | 平台错误码 + 中文说明 | — | — |
@@ -1996,7 +2328,7 @@ erDiagram
 | 检索快照 | — | `draft.retrieval` | jsonb | 否 | 商户有对该店可用的资料时写入：`{ rewrittenQuery, routes[{ kind, mode, latencyMs, error?, hits[{ chunkId, documentId, score }] }], merged[{ n, chunkId, documentId }], degraded, degradedReason?, latencyMs }`；只存分块 ID 与分数，不存正文 | — | — |
 | 依据 | `citations` | `draft.citations` | jsonb | 否 | 模型声明用到的资料 `[{ n, documentId, name }]`，只收 `merged` 里有的编号；`name` 是出稿时的文件名快照；只返回给成员，不随消息发给买家 | — | — |
 | 影子回复译文 | `translation` | `draft.translation` | text | 否 | 只有影子回复有：正文不是商户语言时由内部任务 `draft.translate` 写入；不需要译、还没译好或翻译失败时为空 | — | 中 |
-| 文件类别 | — | `file.kind` | enum | 是 | `chat_image` / `invoice_pdf` / `invoice_png` / `export_zip` / `knowledge_source`（知识库原文件） | — | — |
+| 文件类别 | — | `file.kind` | enum | 是 | `chat_image` / `chat_video`（MP4，≤ 30 MB）/ `invoice_pdf` / `invoice_png` / `export_zip` / `knowledge_source`（知识库原文件） | — | — |
 
 ### 9.4 订单、售后、发票、工单
 
@@ -2035,7 +2367,7 @@ erDiagram
 | 时限来源 | `dueSource` | `ticket.due_source` | enum | 否 | `platform` / `merchant` | — | — |
 | 超时 | `overdue` | 派生 | boolean | 是 | `now > due_at` 且 `status ∉ {resolved, closed, void}`；是标记不是状态 | — | — |
 | 已发提醒 | — | `ticket.reminders_sent` | jsonb | 是 | `["remind", "overdue"]`，同一阈值只发一次 | — | — |
-| 时间线类型 | `type` | `ticket_event.type` | enum | 是 | `created` / `status` / `assign` / `note` / `platform_event` / `due_change` / `action` / `void` | — | — |
+| 时间线类型 | `type` | `ticket_event.type` | enum | 是 | `created` / `status` / `assign` / `note` / `platform_event` / `due_change` / `action` / `void` / `feishu`（转发到飞书，`data` 带投递 ID 与群名） | — | — |
 | 时间线来源 | `source` | `ticket_event.source` | enum | 是 | `page` / `system` / `webhook` | — | — |
 
 ### 9.5 配置、计量、运营
@@ -2064,6 +2396,7 @@ erDiagram
 | 提示词正文 | `text` | `prompt_template.text` | text | 是 | ≤ 6,000 字；空串 = 用内置默认 | — | — |
 | 提示词版本 | `versions` | `prompt_template.versions` | jsonb | 是 | 最近 10 个 `{ savedAt, text }` | — | — |
 | 快捷回复阶段 | `stage` | `quick_reply.stage` | enum | 是 | `presale` / `insale` / `aftersale` / `any` | — | — |
+| 快捷回复语言版本 | `variants` | `quick_reply.variants` | jsonb | 是 | `[{ lang, text }]`，默认 `[]`；`lang` 取 `ms` / `en` / `th` / `vi` / `id` / `tl` / `zh`，同一语言一个版本，`text` 1..2,000 字 | — | — |
 | 工单默认负责人 | `defaultAssignee` | `ticket_type_config.default_assignee` | enum | 是 | `claimer`（会话认领人，没有会话时落店铺组长）/ `shop_lead` / `creator` | — | — |
 | 商户时限 | `merchantDue` | `ticket_type_config.merchant_due` | jsonb | 否 | `{ hours }` 或 `{ businessDays }` 或 `{ afterShiftStartMinutes }`；平台类仅作平台无截止字段时的兜底 | 小时 / 工作日 / 分钟 | — |
 | 提醒阈值 | `remind` | `ticket_type_config.remind` | jsonb | 是 | 平台来源 `{ hoursBefore: 3\|6\|12 }`；商户来源 `{ remainingPercent: 10\|20\|30 }` | — | — |
@@ -2144,7 +2477,10 @@ erDiagram
 | 机器人地址 | — | `feishu_target.webhook_enc` | text | 否 | 自定义机器人必填；只收飞书或 Lark 的 `/open-apis/bot/v2/hook/<token>` 地址，存密文 | — | — |
 | 签名密钥 | — | `feishu_target.secret_enc` | text | 否 | 自定义机器人必填，机器人安全设置里「签名校验」的密钥，存密文 | — | — |
 | 地址末 4 位 | `webhookHint` | `feishu_target.webhook_hint` | text | 否 | 界面上区分不同机器人用 | — | — |
-| 卡种 | `kind` | `feishu_delivery.kind` | enum | 是 | `unclaimed` 待认领卡 / `overdue` 超时卡 / `test` 测试卡片（没有会话） | — | — |
+| 卡种 | `kind` | `feishu_delivery.kind` | enum | 是 | `unclaimed` 待认领卡 / `overdue` 超时卡 / `test` 测试卡片（没有会话）/ `ticket` 工单转发卡 | — | — |
+| 转发的工单 | — | `feishu_delivery.ticket_id` | uuid | 否 | 工单转发卡必填，随工单删除 | — | — |
+| 转发的群 ID | — | `feishu_delivery.chat_id` | text | 否 | 应用接法下转发时选的群，可以不是设过的推送群；有值时按它发 | — | — |
+| 转发人 | — | `feishu_delivery.actor_id` | uuid | 否 | 工单转发卡的成员，成员删除时置空 | — | — |
 | 投递会话段 | — | `feishu_delivery.segment_id` | uuid | 否 | 与 `kind`、`seq` 一起唯一（INV-FEISHU-003）；测试卡片为空 | — | — |
 | 同段序号 | — | `feishu_delivery.seq` | int | 是 | 默认 0；处理人取消认领时取本段同种卡的最大序号 + 1（本段还没推过时为 0），其余触发都写 0 | — | — |
 | 投递状态 | `status` | `feishu_delivery.status` | enum | 是 | `queued` / `sent` / `failed` / `skipped`，见 11.15 | — | — |
@@ -2184,15 +2520,19 @@ erDiagram
 | `API-CONV-008` | ✓ | 范围 | 范围 + 本人 | 能看到草稿的人能忽略 |
 | `API-CONV-010`、`API-CONV-011`、`API-CONV-012`、`API-CONV-014` | ✓ | ✓ | ✓ | `API-CONV-011` 另按文件所属对象鉴权，知识库原文件只给有 `knowledge.manage` 的管理员与组长 |
 | `API-CONV-013` | ✓ | 范围 | 范围 | — |
+| `API-CONV-017` | ✓ | 范围 | 范围 | 「商品」页签列店铺商品，发送仍按 `API-CONV-007` 判处理人 |
 | `API-ORD-001`、`API-ORD-002`、`API-ORD-003`、`API-ORD-004`、`API-ORD-005`、`API-ORD-006`、`API-ORD-007`、`API-ORD-008` | ✓ | 范围 | 范围 | 订单与开票三种角色都有，按负责店铺收窄 |
 | `API-INV-001`、`API-INV-002`、`API-INV-003`、`API-INV-004`、`API-INV-005` | ✓ | 范围 | 范围 | 同上 |
 | `API-TKT-001`、`API-TKT-002`、`API-TKT-006` | ✓ | 范围 | 本人 | 员工只看指派给自己的工单 |
+| `API-TKT-009`、`API-TKT-010` | ✓ | 范围 | 本人 | 能看这张工单就能转发到飞书 |
 | `API-TKT-003` | ✓ | 范围 | 范围 | 员工建单的负责人固定为本人，不能指定他人 |
 | `API-TKT-004` | ✓ | 范围 | 本人 | 只对手动类；员工只能改指派给自己的 |
 | `API-TKT-005`、`API-TKT-007`、`API-TKT-008` | ✓ | 范围 | — | 改派、作废、改单张时限 |
 | `API-RCP-001`、`API-RCP-002`、`API-RCP-003`、`API-RCP-004`、`API-RCP-005`、`API-RCP-006`、`API-RCP-007`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | ✓ | — | — | 接待设置只对管理员开放 |
 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012` | ✓ | ✓ | — | `knowledge.manage`；资料全商户共享，组长可管理全部资料；测试问答的店铺下拉只列本人可见的店铺 |
 | `API-DASH-001` | ✓ | 范围 | — | 看板 |
+| `API-DASH-002`、`API-DASH-003` | ✓ | 范围 | — | 看板问题提取，组长只看负责店铺的段 |
+| `API-DASH-004`、`API-DASH-005`、`API-DASH-006` | ✓ | — | — | 改问题类别与接待设置同权限，只对管理员开放 |
 | `API-BILL-001`、`API-BILL-002`、`API-BILL-004`、`API-BILL-005`、`API-BILL-006`、`API-BILL-008`、`API-BILL-009` | ✓ | — | — | 用量与套餐 |
 | `API-BILL-003`、`API-BILL-007` | Admin·Owner | — | — | 其他管理员返回 403 `/errors/owner-only` |
 | `API-SET-001`、`API-SET-002`、`API-SET-003`、`API-SET-004`、`API-SET-005`、`API-SET-006`、`API-SET-007`、`API-SET-008`、`API-SET-009`、`API-SET-010`、`API-SET-011`、`API-SET-012` | ✓ | — | — | 商户设置 |
@@ -2512,7 +2852,7 @@ stateDiagram-v2
 
 | 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
 | --- | --- | --- | --- | --- | --- |
-| [*] → sending | submit | `(conversation_id, client_request_id)` 不存在 且 操作人是处理人 且 能力表支持该类型 | 写出站消息（译文发送时同时存原文），调平台发送 | 成员 / 内部任务 `draft.generate` | `API-CONV-007` / 内部任务 `draft.generate` |
+| [*] → sending | submit | `(conversation_id, client_request_id)` 不存在 且 操作人是处理人 且 能力表支持该类型 | 写出站消息（译文发送时同时存原文），调平台发送；视频排 `message.video_send` 由 Worker 上传后发送 | 成员 / 内部任务 `draft.generate` | `API-CONV-007` / 内部任务 `draft.generate` |
 | sending → sent | platform_ok | 平台返回消息 ID | 写 `external_message_id`、`sent_at`；更新会话 `last_agent_at`；段 `first_human_reply_at` 为空且发送方为成员时写入；审计 `EVT:agent_reply_sent` | 成员 / Worker | `API-CONV-007` / 内部任务 `draft.generate` |
 | sending → failed | platform_error | 平台返回错误 | 写 `send_error`；Shopee 返回聊天分配类错误时更新店铺能力表 `chat = false` | 成员 / Worker | `API-CONV-007` / 内部任务 `draft.generate` |
 | sending → failed | timeout | 10 秒内无响应 | 写 `send_error = timeout`（可能已送达，提示先刷新再重试） | 成员 / Worker | `API-CONV-007` / 内部任务 `draft.generate` |
@@ -2675,7 +3015,7 @@ stateDiagram-v2
 
 ### 11.15 飞书投递 `ENT-FeishuDelivery.status`
 
-一张飞书卡片的发送状态。同一会话段同一种卡只有一行，处理人每次取消认领另起一行（INV-FEISHU-003）；测试卡片在同一个请求里写入并发出，不经队列。
+一张飞书卡片的发送状态。同一会话段同一种卡只有一行，处理人每次取消认领另起一行（INV-FEISHU-003）；测试卡片在同一个请求里写入并发出，不经队列；工单转发卡每转发一次一行，卡片在请求里构好。
 
 ```mermaid
 stateDiagram-v2
@@ -2690,11 +3030,11 @@ stateDiagram-v2
 
 | 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
 | --- | --- | --- | --- | --- | --- |
-| [*] → queued | queue | 商户已连飞书 且 这类推送开着 且 店铺有群 且 本段没有同种卡（处理人取消认领时不看这条；测试卡片不看后三条） | 写投递记录与目标群名，排 `feishu.send`；测试卡片当场构卡发出 | 系统 / 管理员 | 11.1 open_to_queue、handoff、release、unclaim、reopen_to_queue；内部任务 `unclaimed.remind`；`API-SET-024` |
+| [*] → queued | queue | 商户已连飞书 且 这类推送开着 且 店铺有群 且 本段没有同种卡（处理人取消认领时不看这条；测试卡片不看后三条；工单转发卡只看接法可用） | 写投递记录与目标群名，排 `feishu.send`；测试卡片当场构卡发出 | 系统 / 管理员 / 成员 | 11.1 open_to_queue、handoff、release、unclaim、reopen_to_queue；内部任务 `unclaimed.remind`；`API-SET-024`；`API-TKT-010` |
 | queued → queued | retry | 可重试的失败（连不上、超时、限流、飞书其他错误）且 尝试次数 < 6 | 记失败原因，保留已构好的卡片，交给队列退避重试 | Worker | 内部任务 `feishu.send` |
-| queued → sent | send | 会话仍是本段待认领 且 飞书接受 | 记 `message_id` 与发出时间；接入状态为失效时改回已校验 | Worker / 管理员 | 内部任务 `feishu.send`；`API-SET-024` |
+| queued → sent | send | 会话仍是本段待认领（工单转发卡不看会话）且 飞书接受 | 记 `message_id` 与发出时间；接入状态为失效时改回已校验 | Worker / 管理员 | 内部任务 `feishu.send`；`API-SET-024` |
 | queued → failed | fail | 不可重试的失败（凭证、权限、机器人不在群里、签名、请求被拒）或 第 6 次仍失败 | 记失败原因；凭证失效时把接入标为失效 | Worker / 管理员 | 内部任务 `feishu.send`；`API-SET-024` |
-| queued → skipped | skip | 会话已被认领、已结束、回到 AI 或开了新段，或 商户已断开飞书，或 店铺已没有群 | 记跳过原因，不发 | Worker | 内部任务 `feishu.send` |
+| queued → skipped | skip | 会话已被认领、已结束、回到 AI 或开了新段，或 商户已断开飞书，或 店铺已没有群，或 工单转发卡的接法已换、群设置已删除 | 记跳过原因，不发 | Worker | 内部任务 `feishu.send` |
 
 ## 12. 关键流程时序
 
@@ -3134,6 +3474,117 @@ sequenceDiagram
   end
 ```
 
+### 12.11 Shopee 常见问题记录 → 按 ID 拉回成员（REQ-CONV-013）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as 买家
+  participant SP as Shopee 开放平台
+  participant API as Shopilot API
+  participant DB as PostgreSQL
+  participant W as Worker（inbound.process、shopee.bundle、draft.generate、feishu.send）
+  B->>SP: 先和 Shopee 商店 AI 助手聊，再点「找卖家客服」
+  SP->>API: 推送 code 10 bundle_message，只带成员消息 ID (API-HOOK-001)
+  API->>DB: 验签，幂等写 inbound_event
+  API-->>SP: 200（2 秒内）
+  alt 会话已建立
+    W->>DB: 存系统消息，payload.bundle 记 pending 与成员 ID，排 shopee.bundle
+  else 会话还没建立（推送先于买家消息到达）
+    W->>DB: 排 inbound.refetch，会话建好后从拉取页入库再排 shopee.bundle
+  end
+  W->>SP: v2.sellerchat.get_message（conversation_id、message_id_list=[原样数字串]）
+  alt 拉到成员
+    W->>DB: 成员按时间排好写回 payload.bundle，status = ok
+  else 超时或 5xx
+    W->>W: 退避重试，共 4 次
+  else 授权失效、无权限、参数错、查不到
+    W->>DB: status = failed，记原因
+  end
+  par 出稿与构卡（async）
+    W->>DB: draft.generate、feishu.send 构建前最多等 4 秒刚收到的记录，展开成逐条发言
+  end
+```
+
+### 12.12 Shopee 会话发视频（REQ-CONV-015）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant FE as 工作台
+  participant API as Shopilot API
+  participant DB as PostgreSQL
+  participant W as Worker（message.video_send）
+  participant SP as Shopee 开放平台
+  FE->>API: 上传 MP4 (API-CONV-010)
+  API->>DB: 存 chat_video 文件
+  API-->>FE: 201 文件
+  FE->>API: 发送 type = video (API-CONV-007)
+  API->>DB: 写出站消息 sending，排 message.video_send
+  API-->>FE: 201 消息（发送中）
+  W->>SP: v2.sellerchat.upload_video
+  SP-->>W: vid
+  loop 每 3 秒，最多 120 秒
+    W->>SP: v2.sellerchat.get_video_upload_result
+  end
+  alt successful
+    W->>SP: v2.sellerchat.send_message（video_url、thumb_url、时长、宽高）
+    W->>DB: sent，播放地址换成 Shopee 视频地址
+  else 失败、取消或 120 秒没处理完
+    W->>DB: failed，记原因，客服可点重试 (API-CONV-015)
+  end
+```
+
+### 12.13 工作台发送店铺商品（REQ-CONV-014）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant FE as 工作台「商品」页签
+  participant API as Shopilot API
+  participant P as Shopee / TikTok 开放平台
+  participant DB as PostgreSQL
+  FE->>API: 取店铺商品 (API-CONV-017)
+  alt 10 分钟内取过
+    API-->>FE: 缓存的目录
+  else 首次或点「重新获取」
+    API->>P: Shopee get_item_list、get_item_base_info、get_model_list；TikTok 商品搜索与详情
+    API->>DB: 写商品卡缓存（名称、主图、价格）
+    API-->>FE: 在售商品（≤ 500 件）
+  end
+  FE->>FE: 按名称、商品 ID、卖家 SKU 本地搜索
+  FE->>API: 发送 type = product_card 或 Shopee 链接文字 (API-CONV-007)
+  API->>P: Shopee send_message item {item_id}；TikTok PRODUCT_CARD {product_id}
+  API->>DB: 出站消息 sent 或 failed
+  API-->>FE: 201 消息
+```
+
+### 12.14 工单转发到飞书（REQ-TKT-006）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant FE as 工单详情
+  participant API as Shopilot API
+  participant DB as PostgreSQL
+  participant W as Worker（feishu.send）
+  participant FS as 飞书开放平台
+  FE->>API: 取可选的群 (API-TKT-009)
+  API->>FS: 应用接法列机器人所在的群
+  API-->>FE: 群列表与预选
+  FE->>API: 选群与备注，发送 (API-TKT-010)
+  API->>FS: 再取一次群列表，确认机器人还在群里
+  API->>DB: 同一事务写投递记录（卡片已构好）、时间线、审计
+  API-->>FE: 201 时间线记录（发送中）
+  W->>DB: 读投递记录
+  alt 接法已换或群设置已删除
+    W->>DB: skipped
+  else 照常
+    W->>FS: 发卡片
+    W->>DB: sent；可重试的失败退避重试，共 6 次
+  end
+```
+
 ## 13. 页面与跳转地图
 
 视觉来源：品牌目录 `brand/`（`brand/DESIGN.md`；配色、字体、标志「叠信」都取自 Quilt 项目「Shopilot」设计系统 v5「奶油 / 可可 / 芒果 / 焦糖」，与原型一致）；页面结构与交互以 Quilt 原型 73 屏为准（ACRU 仪表盘结构：白侧栏可收起、顶栏搜索 + 图标按钮 + 账号卡、白色圆角面板网格；图表一律 Chart.js）。原型里知识库模块的屏（经验卡、更新审核、AI 核验、产品目录）与助手的屏不实现；知识库一期是接待设置里的「知识库」标签页，侧栏不单列「知识库」，顶栏不显示「助手」。
@@ -3148,27 +3599,28 @@ sequenceDiagram
 | `PAGE-INVITE` | `/invite/<token>` | 公开 | `API-TEAM-005`、`API-TEAM-006` | 过期 / 撤销 / 已用；已有账号需先登录 |
 | `PAGE-OWNERSHIP` | `/ownership/<token>` | 受让管理员 | `API-SET-014` | 过期；登录账号不是受让人 |
 | `PAGE-ACCOUNT-SECURITY` | `/account/security` | 全部成员（本人） | `API-AUTH-008`、`API-AUTH-009`、`API-AUTH-010`、`API-AUTH-011` | 两步验证开启（二维码，扫不了时手动输入密钥）/ 关闭、本人登录设备与退出、个人偏好（桌面通知、提示音）；商户策略要求两步验证而未开启时登录后强制进入，开启前其他页面不可用；带 `?next=` 进来时开启后回到 `next` |
-| `PAGE-WB` | `/wb`、`/wb/<id>` | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-016`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-NAV-001` | 分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」：有 `knowledge.manage` 的管理员与组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名，资料已删除时所有人只看到文件名；影子回复不显示「资料不足」标记；影子回复有译文时原文下方显示「译 · Shopilot」译文，展开后可复制原文；从飞书卡片带 `?claim=1&m=` 或 `?m=` 进来时按下方「卡片落地」处理 |
+| `PAGE-WB` | `/wb`、`/wb/<id>`（右栏页签 `?side=products` 为「商品」） | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-016`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-CONV-017`、`API-NAV-001` | 「商品」页签：加载、出错可重试、没有在售商品、搜不到、没有商品读取权限、不能发送时写原因；粘贴图片或视频先弹确认框预览；分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」：有 `knowledge.manage` 的管理员与组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名，资料已删除时所有人只看到文件名；影子回复不显示「资料不足」标记；影子回复有译文时原文下方显示「译 · Shopilot」译文，展开后可复制原文；从飞书卡片带 `?claim=1&m=` 或 `?m=` 进来时按下方「卡片落地」处理 |
 | `PAGE-WB-TRANSFER` | `/wb/<id>?dialog=transfer` | 同上（员工只对自己的会话） | `API-TEAM-012`、`API-CONV-005` | 无可选同事 |
 | `PAGE-WB-END` | `?dialog=end` | 同上 | `API-CONV-006` | 有未结工单时提示工单不受影响 |
 | `PAGE-WB-UNCLAIM` | `?dialog=unclaim` | 同上（只对本人处理中的会话） | `API-CONV-016` | 确认框说明会话回到待认领、草稿与工单不变；会话已不在本人名下时 409 并刷新 |
 | `PAGE-WB-CANCEL` | `?dialog=cancel` | 同上 | `API-ORD-004` | 已发货不可取消 |
 | `PAGE-WB-INVOICE` | `?dialog=invoice` | 同上 | `API-INV-001`、`API-INV-002` | 只列本买家的订单（没有时说明）；订单没有关联会话时「发送到聊天」置灰并写原因；提取失败；两路发送部分失败 |
-| `PAGE-WB-CARDS` | `?dialog=cards`（仅 TikTok） | 同上 | `API-CONV-007` | 商品卡本期一律置灰附原因（`API-CONV-007` 不含商品卡类型；没授商品权限的店写「未授予商品读取权限」） |
+| `PAGE-WB-CARDS` | `?dialog=cards`（仅 TikTok） | 同上 | `API-CONV-007` | 订单卡、物流卡、退货退款卡；商品卡改在右栏「商品」页签发，弹窗里只写一句去处 |
 | `PAGE-WB-COUPONS` | `?dialog=coupons`（仅 TikTok） | 同上 | `API-CONV-013`、`API-CONV-007` | 无可发券 |
 | `PAGE-WB-REPLIES` | `?dialog=replies` | 同上 | `API-CONV-014` | 空（管理员可去设置页添加） |
 | `PAGE-WB-RETURN` | `?dialog=return-review` | 同上 | `API-ORD-005`、`API-ORD-008`、`API-ORD-007` | 平台截止倒计时；Shopee 只给同意退款 / 发起争议 |
 | `PAGE-WB-TICKET` | `?dialog=ticket` | 同上 | `API-TEAM-012`、`API-TKT-003` | 同去重键已有工单时链到它 |
 | `PAGE-TICKETS` | `/tickets` | 管理员、组长、员工 | `API-TKT-001` | 空；员工默认「我的」且不可切「全部」 |
 | `PAGE-TICKETS-BOARD` | `/tickets/board` | 管理员、组长、员工 | `API-TKT-001`、`API-TKT-004` | 平台驱动卡片显示锁图标，无改状态菜单 |
-| `PAGE-TICKET` | `/tickets/<id>` | 管理员、组长、员工（员工只看自己的） | `API-TKT-002`、`API-TKT-004`、`API-TKT-005`、`API-TKT-006`、`API-TKT-007`、`API-TKT-008`、`API-ORD-005`、`API-ORD-006`、`API-ORD-007` | 平台类「关闭工单」置灰附原因；平台类工单有「处理申请」，打开与订单页相同的售后处理弹层；时间线的平台事件来源一律标「平台」（成员处理后回读到的平台状态也算平台事件，成员动作另记一条） |
+| `PAGE-TICKET` | `/tickets/<id>`（飞书卡片带 `?m=<商户 ID>`：先切到该商户，再去掉参数） | 管理员、组长、员工（员工只看自己的） | `API-TKT-002`、`API-TKT-004`、`API-TKT-005`、`API-TKT-006`、`API-TKT-007`、`API-TKT-008`、`API-ORD-005`、`API-ORD-006`、`API-ORD-007`、`API-AUTH-007` | 平台状态与物流异常说明显示中文，认不出的状态码原样显示；「转发到飞书」不能用时置灰并写原因；不是卡片所属商户的成员显示「看不到这张工单」；平台类「关闭工单」置灰附原因；平台类工单有「处理申请」，打开与订单页相同的售后处理弹层；时间线的平台事件来源一律标「平台」（成员处理后回读到的平台状态也算平台事件，成员动作另记一条） |
+| `PAGE-TICKET-FEISHU` | `/tickets/<id>?dialog=feishu` | 同上 | `API-TKT-009`、`API-TKT-010` | 群列表加载中、飞书报错；预选店铺群或默认群；机器人不在群里或群设置已删除时提示重选；按钮不可用时不打开 |
 | `PAGE-ORDERS` | `/orders` | 管理员、组长、员工 | `API-ORD-001`、`API-ORD-002`、`API-ORD-003` | 推送未订阅提示（管理员看到的 Shopee 店链接直达应用凭证页重新校验）；同步中 |
 | `PAGE-ORDERS-CANCEL` | `/orders?dialog=cancel-request` | 同上 | `API-ORD-005`、`API-ORD-006` | 订单已不在 IN_CANCEL |
 | `PAGE-INVOICES` | `/orders/invoices` | 管理员、组长、员工 | `API-INV-003`、`API-INV-004`、`API-INV-005` | 退信已建工单 |
-| `PAGE-DASHBOARD` | `/dashboard` | 管理员、组长 | `API-DASH-001` | 数据不足（比率的分母小于 10 时不显示比率，写出样本数） |
+| `PAGE-DASHBOARD` | `/dashboard`（`?range=` 或 `?from=&to=`；问题面板 `?issues=handoff`、类别抽屉 `?issue=<类别 ID>`） | 管理员、组长 | `API-DASH-001`、`API-DASH-002`、`API-DASH-003`、`API-DASH-004`、`API-DASH-005`、`API-DASH-006` | 数据不足（比率的分母小于 10 时不显示比率，写出样本数）；范围选择器左侧预设、右侧双月日历；问题面板还有段未提取时注明数量；「管理类别」只有管理员看得到 |
 | `PAGE-RECEPTION` | `/reception` | 管理员 | `API-RCP-001`、`API-RCP-002` | Shopee 店 auto 置灰附原因 |
 | `PAGE-RECEPTION-HOURS` | `/reception/hours` | 管理员 | `API-RCP-001`、`API-RCP-003` | 关键词满 30 个 |
-| `PAGE-RECEPTION-PROMPTS` | `/reception/prompts` | 管理员 | `API-RCP-001`、`API-RCP-004`、`API-RCP-005`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | 护栏只读 |
+| `PAGE-RECEPTION-PROMPTS` | `/reception/prompts` | 管理员 | `API-RCP-001`、`API-RCP-004`、`API-RCP-005`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | 护栏只读；快捷回复编辑弹窗按语言分页签增删版本，同一语言只能一个 |
 | `PAGE-RECEPTION-TICKETS` | `/reception/tickets` | 管理员 | `API-RCP-006`、`API-RCP-007` | 平台类时限只读 |
 | `PAGE-RECEPTION-KB` | `/reception/knowledge`（含 `?doc=<id>` 资料抽屉、`?docTab=parsed` 抽屉停在「解析内容」标签、`?dialog=upload \| categories`，筛选 `?category=&market=&state=&q=`） | 管理员、组长 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
 | `PAGE-SHOPS` | `/shops`（含详情抽屉、`?dialog=rotate-key \| reauth \| disconnect`） | 管理员 | `API-SHOP-008`、`API-SHOP-009`、`API-SHOP-010`、`API-SHOP-011`、`API-SHOP-004`、`API-SHOP-012`、`API-SHOP-013` | 无店铺时引导去接入；授权失效；Shopee 推送未订阅（应用卡与详情抽屉给「重新校验」）；窄屏回复率图表横轴只写站点 |
@@ -3294,6 +3746,8 @@ flowchart LR
     PAGE_TICKETS_BOARD -->|点卡片| PAGE_TICKET
     PAGE_TICKET -->|打开会话| PAGE_WB
     PAGE_TICKET -->|处理申请| WBD
+    PAGE_TICKET -->|转发到飞书| PAGE_TICKET_FEISHU[转发到飞书对话框]
+    FEISHU -->|工单卡 在 Shopilot 打开| PAGE_TICKET
     PAGE_ORDERS[订单与开票 /orders] --> PAGE_INVOICES[发票记录]
     PAGE_ORDERS -->|处理取消申请| PAGE_ORDERS_CANCEL[处理取消申请]
     PAGE_ORDERS -->|开票| WBD
@@ -3379,12 +3833,12 @@ flowchart LR
 | `/errors/not-found` | 404 | 资源不存在或不属于当前商户 | 显示「找不到或已删除」，返回上级 |
 | `/errors/conflict` | 409 | 状态已被他人改变（认领冲突、版本不一致、草稿已处置、资料正在解析时重新解析） | 提示 `detail` 并刷新该对象，不自动重试 |
 | `/errors/duplicate` | 409 | 已存在同一对象（邮箱已注册、已是成员、同去重键工单、同名资料分类、内容相同的资料） | 提示并给出已存在对象的链接（`extra.existingId`；工单另带 `existingTicketId`、`number`） |
-| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制、资料满 500 份、分类满 50 个、改动「未分类」、还没连飞书、群自定义机器人接法不列群） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
+| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制、资料满 500 份、分类满 50 个、改动「未分类」、还没连飞书、群自定义机器人接法不列群、店铺没有商品读取权限、TikTok 店发视频、现在不能转发到飞书） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
 | `/errors/callback-occupied` | 409 | Shopee 应用回调已指向其他系统，需商户确认覆盖 | 凭证页展开确认勾选 |
 | `/errors/expired` | 410 | 邀请、重置、转让令牌过期或已用；`code` 区分 `expired` / `revoked` / `used` / `invalid`（令牌不存在，含重发后作废的旧链接） | 提示原因与下一步 |
 | `/errors/locked` | 423 | 同一邮箱连续输错 10 次，锁 15 分钟 | 显示剩余分钟（`extra.retryAfter`） |
 | `/errors/payment-failed` | 402 | 模拟支付失败 | 提示换卡 |
-| `/errors/too-large` | 413 | 上传超过大小上限：聊天图片 10 MB；资料 20 MB，PDF 以外的资料 4 MB（`code` 区分 `file_limit` / `retrieval_limit`） | 提示 `detail` 里的大小上限 |
+| `/errors/too-large` | 413 | 上传超过大小上限：聊天图片 10 MB、聊天视频 30 MB；资料 20 MB，PDF 以外的资料 4 MB（`code` 区分 `file_limit` / `retrieval_limit`） | 提示 `detail` 里的大小上限 |
 | `/errors/unsupported-type` | 415 | 上传类型不支持；PPT 资料带 `code: ppt_export_pdf` | 提示 `detail` 里列出的支持类型；PPT 提示先导出为 PDF |
 | `/errors/platform-credentials` | 422 | 平台或飞书凭证校验不通过；平台的 `extra.attempts[]` 列出每个区域主机的结果，飞书的 `extra.feishuCode` 是飞书错误码 | 凭证页逐区域显示原因；飞书一节在 App Secret 下标红 |
 | `/errors/rate-limited` | 429 | 超过限流（§15）；带 `Retry-After` | 提示稍后再试；轮询按 `Retry-After` 退避 |
@@ -3409,6 +3863,11 @@ flowchart LR
 | 延迟 | 飞书卡片（`feishu.send`） | 会话进入待认领到卡片发出 P95 < 30 秒：AI 总结与补译文并行，各 ≤ 6 秒，每张图片上传 ≤ 12 秒，发送 ≤ 10 秒 |
 | 容错 | 飞书卡片发送 | 连不上、超时、限流时退避重试 5 次，起步 30 秒；凭证、权限、机器人不在群里、签名错误直接记失败 |
 | 容错 | 影子回复译文（`draft.translate`） | 出稿后异步翻译，失败重试 1 次，仍失败只显示原文，影子回复不受影响 |
+| 延迟 | 出稿与飞书构卡等常见问题记录 | 出稿与飞书构卡前最多等 4 秒，只等 20 秒内收到、还在拉取的记录 |
+| 容错 | 常见问题记录拉取（`shopee.bundle`） | 超时与 5xx 退避重试 4 次；授权失效、无权限、参数错、查不到直接记取不到；拉取中超过 10 分钟按取不到显示 |
+| 延迟 | Shopee 发视频（`message.video_send`） | 视频传到 Shopee 后等平台处理 ≤ 120 秒，每 3 秒查一次；2026-10-20 生产实测 6.2 MB 视频约 15 秒处理完；任务不自动重试，失败后客服点重试 |
+| 容量 | 店铺商品目录（`API-CONV-017`） | 每店最多列 500 件在售商品，整店目录在 Web 进程内存缓存 10 分钟，同一店同时只取一次；逐个补规格或主图并发 6 |
+| 容量 | 问题提取（`issue.extract`） | 每 10 分钟一轮，只看 8 天内、买家停止发言满 30 分钟、非回补非达人的段；每轮 ≤ 50 段，并发 4，每段 15 秒，失败下轮再提取 |
 | 刷新 | 工作台列表 / 会话详情 / 导航摘要轮询 | 3 秒 / 2 秒 / 10 秒；标签页不可见时暂停 |
 | 刷新 | 知识库资料列表 | 有排队或解析中的资料时 5 秒轮询，没有时不轮询 |
 | 容量 | 入站峰值 | 10 条/秒持续 5 分钟不积压：`inbound.process` 并发 10，单条处理 P95 < 500 ms（不含出稿） |
@@ -3423,7 +3882,7 @@ flowchart LR
 | 限流 | 平台调用 | TikTok 客服接口每店每天 10,000 次，回补最多占 30%；Shopee 按平台返回的限流错误退避 |
 | 数据增长 | 消息、草稿、会话、订单镜像 | 12 个月增长见 §2；`data.retention_purge` 每天按商户保存期限删除早于期限的会话段、消息、草稿、订单镜像与聊天图片 |
 | 数据增长 | 审计日志、登录记录 | 审计日志保留 2 年、登录记录保留 1 年，与商户保存期限无关（安全追溯） |
-| 数据增长 | 文件 | 聊天图片 ≤ 10 MB/张；发票 PDF + PNG ≈ 300 KB/张；导出包 24 小时后删除 |
+| 数据增长 | 文件 | 聊天图片 ≤ 10 MB/张、聊天视频 ≤ 30 MB/个；发票 PDF + PNG ≈ 300 KB/张；导出包 24 小时后删除 |
 | 数据增长 | 知识库原文件与分块 | 按 §2 假设全站原文件约 10 GB、分块约 50 万行；不随数据保存期限清理，删除资料或商户时删除；原文件全站 > 50 GB 时重估存放方式 |
 | 安全 | 平台密钥、token | AES-256-GCM 加密存储；日志、审计、API 响应零明文 |
 | 安全 | 飞书凭证 | App Secret、机器人地址与签名密钥 AES-256-GCM 加密存储，接口只给地址末 4 位 |
@@ -3466,6 +3925,9 @@ flowchart LR
 | 断开飞书时有卡片在排队 | `API-SET-020` 与 `feishu.send` | 排队的卡片记跳过 | 发送前重读接入与目标群，没有就跳过 |
 | 从卡片认领时同事刚认领 | 卡片落地页与 `API-CONV-004` | 同「两人同时认领同一会话」；员工看不到会话时不带版本认领，靠 409 拿到处理人 | 同「两人同时认领同一会话」的条件更新 |
 | 删除分类时有资料正上传到它 | `API-KB-011` 与 `API-KB-002` | 上传先到则资料随后归入「未分类」；删除先到则上传 422 `/errors/validation` | 分类删除与改归属在同一事务；上传在插入事务内校验分类存在 |
+| 常见问题记录先于会话建立到达 | `inbound.process`（bundle_message）与开段的买家消息推送 | 不丢弃：排 `inbound.refetch`，会话建好后从拉取页入库，再排 `shopee.bundle` | 补拉对这类记录放宽到本段开始前 2 分钟；入库靠唯一索引 `(conversation_id, external_message_id)` 去重；`shopee.bundle` 的 `singletonKey` = 消息 ID |
+| 重复转发同一工单 | `API-TKT-010` × 2 | 同一幂等键只转发一次，返回首次结果；不带幂等键的两次请求各发一张 | header `Idempotency-Key` |
+| 转发卡排队时换了飞书接法 | `API-SET-018`、`API-SET-020`、`API-SET-023` 与 `feishu.send` | 记跳过，不发 | 发送前重读接法与群设置：应用接法要求仍是应用，群机器人要求群设置还在 |
 
 一致性承诺：
 
@@ -3481,10 +3943,10 @@ flowchart LR
 | --- | --- | --- | --- | --- | --- |
 | DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译、飞书卡片的总结 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒）；卡片总结 6 秒、不重试 | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
 | Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 混合检索每路 5 秒，无向量分、超时或返回 HTTP 错误时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
-| 飞书开放平台（应用接法）与群自定义机器人 | 发待认领卡与超时卡；校验应用凭证、列机器人所在的群、上传图片、发测试卡片 | 未公布 SLA；自定义机器人每个每分钟 100 次、每秒 5 次 | 10 秒、图片上传 15 秒；token 按 App ID 缓存约 2 小时，鉴权失败换一次；`feishu.send` 重试 5 次指数退避 | 卡片晚到或发不出 | 失败写原因，设置页显示最近一次失败；会话照常在工作台待认领里 |
-| 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息、订单、售后、店铺指标 | 未公布 SLA | 10 秒；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
+| 飞书开放平台（应用接法）与群自定义机器人 | 发待认领卡、超时卡与工单转发卡；校验应用凭证、列机器人所在的群、上传图片、发测试卡片 | 未公布 SLA；自定义机器人每个每分钟 100 次、每秒 5 次 | 10 秒、图片上传 15 秒；token 按 App ID 缓存约 2 小时，鉴权失败换一次；`feishu.send` 重试 5 次指数退避 | 卡片晚到或发不出 | 失败写原因，设置页显示最近一次失败；会话照常在工作台待认领里 |
+| 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息与视频、按 ID 拉常见问题记录、订单、售后、店铺指标、在售商品目录 | 未公布 SLA | 10 秒；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
 | PostgreSQL 17（含 pgvector 扩展，本期不用向量） | 全部业务数据、任务队列 | 单实例，本机 | 连接池 20；查询超时 5 秒（报表 30 秒） | 全站不可用 | 无降级，返回 503 |
-| 本地磁盘 `DATA_DIR` | 聊天图片、发票、导出包、知识库原文件 | 本机 | — | 图片与发票不可用；资料无法预览与重新解析 | 发送图片失败提示；发票生成失败返回 500 不建记录；资料原文件读不到时抽屉提示「文件已不存在」 |
+| 本地磁盘 `DATA_DIR` | 聊天图片与视频、发票、导出包、知识库原文件 | 本机 | — | 图片与发票不可用；资料无法预览与重新解析 | 发送图片失败提示；发票生成失败返回 500 不建记录；资料原文件读不到时抽屉提示「文件已不存在」 |
 | 发件箱（`email_outbox` 表） | 代替真实发信 | 同数据库 | — | 同数据库 | — |
 
 内部后台任务（pg-boss；Worker 进程单独运行，`pnpm worker`）。Web 与 Worker 启动时按下表同步已有队列的超时与重试参数；队列的投递策略建好后不能改，不在同步之列。
@@ -3498,6 +3960,9 @@ flowchart LR
 | `knowledge.ingest` | `API-KB-002`、`API-KB-006` | `singletonKey = document_id`；全局并发 4、单商户 2 | 20 分钟 | 条目级删除后同名重传最多 2 次；任务异常或超时把资料标 `failed`，管理员可重新解析 | 同上 |
 | `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库（改分类、站点、AI 可用都会重新计时），`processing` 超过 25 分钟没有更新的标失败，原因「入库任务中断，请重新解析」；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
 | `message.translate` | TikTok 买家消息落库后入队 | 并发 10 | 15 秒 | 重试 1 次，仍失败保留原文 | 同上 |
+| `shopee.bundle` | Shopee 常见问题记录入库后入队；历史补拉脚本 `scripts/shopee-bundles.ts` | `singletonKey = 消息 ID` | 1 分钟 | 超时与 5xx 重试 4 次指数退避（起步 15 秒）；授权失效、无权限、参数错、查不到直接记取不到 | 同上 |
+| `message.video_send` | `API-CONV-007` 发视频后入队 | `singletonKey = 消息 ID` | 5 分钟 | 不重试，失败记发送失败，客服点重试（`API-CONV-015`） | 同上 |
+| `issue.extract` | 每 10 分钟；历史补算脚本 `scripts/issues-backfill.ts --from --to [--merchant] [--rate] [--force]` | 单实例；每轮 ≤ 50 段，并发 4 | 10 分钟 | 不重试，没提取上的段下轮再取；不计商户出稿用量 | 同上 |
 | `draft.translate` | 影子回复落库后入队 | 并发 2 | 20 秒 | 重试 1 次，仍失败不存译文 | 同上 |
 | `order.sync` | 每小时每店；`API-ORD-003` 手动 | `singletonKey = shop_id`；每批 50 单；时间窗 ≤ 15 天（平台上限） | 5 分钟 | 重试 2 次，下轮补 | 同上 |
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
@@ -3507,7 +3972,7 @@ flowchart LR
 | `conversation.idle_close` | 每 10 分钟 | 批 500 | 2 分钟 | 下轮补（幂等） | 同上 |
 | `draft.expire` | 每小时 | 批 1,000 | 2 分钟 | 下轮补 | 同上 |
 | `unclaimed.remind` | 每分钟 | 批 500；段内只提醒一次，同时排飞书超时卡 | 1 分钟 | 下轮补 | 同上 |
-| `feishu.send` | 会话进入待认领（11.1）、`unclaimed.remind` | 单张卡片；全局并发 2 | 90 秒（总结 6 + 图片上传 + 发送 10 + 余量） | 可重试的失败重试 5 次指数退避（起步 30 秒），不可重试的直接记失败（11.15） | 同上 |
+| `feishu.send` | 会话进入待认领（11.1）、`unclaimed.remind`、工单转发（`API-TKT-010`） | 单张卡片；全局并发 2 | 90 秒（总结 6 + 图片上传 + 发送 10 + 余量） | 可重试的失败重试 5 次指数退避（起步 30 秒），不可重试的直接记失败（11.15） | 同上 |
 | `ticket.scan` | 每 5 分钟 | 批 1,000；同阈值只提醒一次 | 2 分钟 | 下轮补 | 同上 |
 | `ticket.auto_close` | 每小时 | 批 1,000 | 2 分钟 | 下轮补 | 同上 |
 | `handover.scan` | 每 15 分钟（命中刚结束工作时段的商户） | 每商户一次 | 2 分钟 | 下轮补；去重键防重复建单 | 同上 |
@@ -4020,6 +4485,61 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When conversation.idle_close 运行
   Then 会话变为已结束，段结束原因为 idle
 
+场景: 快捷回复按会话语言插入对应版本 (REQ-CONV-009)
+  Given 快捷回复「问候语」有默认版与越南语版，越南站会话的发送目标语言是越南语
+  When 处理人在空输入框里用「/」选「问候语」
+  Then 插入越南语版，本条的发送前翻译改为「不翻译」
+  When 输入框已有文字时再插入
+  Then 插入默认版，与原有文字一起按发送前翻译处理
+
+场景: 常见问题记录拉回并折叠显示 (REQ-CONV-013)
+  Given 买家先和 Shopee 商店 AI 助手问了两句，再点「找卖家客服」
+  When Shopilot 收到 bundle_message 推送
+  Then shopee.bundle 按成员 ID 拉回对话，时间线显示「常见问题记录 · Shopee 商店 AI 助手」
+  And 收起时显示最后 2 条，展开看全部，买家原话下带平台译文
+
+场景: 常见问题记录先于会话建立到达 (REQ-CONV-013)
+  Given 买家的第一条消息还没到，会话还没建立
+  When 常见问题记录的推送先到
+  Then 不丢弃，排补拉；会话建好后记录入库并拉回成员
+
+场景: 常见问题记录拉不到 (REQ-CONV-013)
+  Given 按成员 ID 拉取时平台返回授权失效
+  Then 记录标为取不到，卡片提示到卖家中心查看，会话照常处理
+
+场景: 在商品页签发商品卡 (REQ-CONV-014)
+  Given 店铺授予了商品读取权限，会话由本人处理或待认领
+  When 处理人打开右栏「商品」，搜「tripod」，点某件商品的「发商品卡」
+  Then 待认领会话先认领，买家收到商品卡，时间线显示商品图、名与价格
+
+场景: Shopee 店发商品链接 (REQ-CONV-014)
+  Given Shopee 店的会话
+  When 点某件商品的「发链接」
+  Then 买家收到一条带商品页地址的文字消息
+  And TikTok 店的会话里没有「发链接」
+
+场景: 店铺没有商品读取权限 (REQ-CONV-014)
+  Given 店铺没有授予商品读取权限
+  When 打开右栏「商品」
+  Then 页签说明原因并提示续期授权，不列商品
+
+场景: 粘贴图片确认后发出 (REQ-CONV-015)
+  Given 剪贴板里有两张图片
+  When 处理人在输入框粘贴
+  Then 弹出确认框预览两张图，确认后逐张发出
+  When 剪贴板同时带文字
+  Then 按文字粘贴，不弹确认框
+  When 粘贴的是 PDF
+  Then 提示平台接口不支持这类文件，不发送
+
+场景: Shopee 会话发视频 (REQ-CONV-015)
+  Given Shopee 会话，处理人选了一个 MP4 视频
+  When 确认发送
+  Then 时间线先显示发送中，后台把视频传到 Shopee、处理完后发出，可播放
+  Given TikTok 会话
+  When 粘贴视频
+  Then 提示 TikTok 接口暂不支持发视频
+
 功能: AI 出稿
 
 场景: assist 模式出草稿 (REQ-AI-001, REQ-AI-002)
@@ -4091,6 +4611,12 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Given 买家在会话里发了公司名、地址与邮箱
   When 员工在开票弹层点「从对话提取」
   Then 抬头、地址、邮箱被填入，可修改；用量不变
+
+场景: 出稿看到常见问题记录里的买家原话 (REQ-CONV-013)
+  Given 买家先问了 Shopee 商店 AI 助手「磁吸底座单卖吗」，再转人工
+  When 出稿任务运行
+  Then 模型收到的对话里按时间排着买家的原话与助手的回复
+  And 记录还在拉取时最多等 4 秒，拉不到时告诉模型记录没取到
 
 功能: 知识库
 
@@ -4314,6 +4840,23 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 18:00 后 handover.scan 运行
   Then 自动建「跨班交接」工单给店铺组长，时限为下个工作时段开始后 1 小时；再次扫描不重复建
 
+场景: 转发工单到飞书群 (REQ-TKT-006)
+  Given 商户用飞书应用接法，默认群「客服群」，工单关联了订单
+  When 成员在工单详情点「转发到飞书」，保持预选的「客服群」，填备注后发送
+  Then 时间线出现「转发到飞书 · 客服群」，群里收到卡片：异常说明、订单号、商品与规格、截止时间、备注
+  And 卡片上有「在 Shopilot 打开」与「打开卖家后台订单」
+
+场景: 没连飞书时不能转发 (REQ-TKT-006)
+  Given 商户没有连接飞书
+  Then 工单详情的「转发到飞书」置灰，悬停写明先在通知设置里连接
+
+场景: 从工单卡打开另一个商户的工单 (REQ-TKT-006)
+  Given 账号同时是商户 A 与商户 B 的成员，当前商户是 A
+  When 点商户 B 的工单卡上的「在 Shopilot 打开」
+  Then 先切到商户 B，再显示工单，地址里的商户参数去掉
+  Given 账号不是商户 B 的成员
+  Then 显示「看不到这张工单」，当前商户不变
+
 功能: 接待设置
 
 场景: 店铺模式与 Shopee auto 限制 (REQ-RCP-001)
@@ -4348,10 +4891,40 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 场景: 看板按角色收窄 (REQ-DASH-001)
   Given 组长负责 2 家店
   When 组长打开看板选「近 7 天」
-  Then 会话段、首响中位、草稿处置、按人统计、工单区只含这 2 家店
+  Then 会话段、首响平均、草稿处置、按人统计、工单区只含这 2 家店
   And Shopee 与 TikTok 平台指标分两张表，各自写明口径
   When 员工访问 /dashboard
   Then 显示「这个页面只对管理员、组长开放」
+
+场景: 看板自定义起止日 (REQ-DASH-001)
+  When 管理员在范围选择器的日历里选 10 月 1 日到 10 月 18 日
+  Then 地址带 from=2026-10-01&to=2026-10-18，刷新后范围不变，标题写这段日期
+  When 起止跨了 181 天，或只给了开始日
+  Then 接口返回 422，页面不改范围
+
+场景: 首响平均与 12 小时回复率 (REQ-DASH-001)
+  Given 范围内 3 个已有结论的段：两段 12 小时内有人工回复，一段等满 12 小时没人回复
+  Then 12 小时回复率为 2/3，按人统计里各成员只算自己首个认领的段
+  And 人工首响按工作时段秒数取平均
+
+场景: 工作时间外开始、上班前已回复的段不进首响 (REQ-DASH-001)
+  Given 排班 09:00–18:00，一段 21:00 开始、21:05 有人工回复
+  Then 这段不进首响样本，首响平均与样本数都不变
+  Given 一段 10:00 开始、10:00 当场回复
+  Then 这段记 0 秒，进首响样本
+
+场景: 问题提取并按类别统计 (REQ-DASH-002)
+  Given 一段会话买家问「包裹三天没动了」，之后 30 分钟没再发言
+  When issue.extract 运行
+  Then 这段写上一句问题总结，归到「物流查询」
+  And 看板「问题与转人工原因」面板的「全部问题」里物流查询 +1，点开能看到这段并打开会话
+
+场景: 管理问题类别 (REQ-DASH-002)
+  When 管理员新增类别「保修」，再把它删掉
+  Then 新增后排在「其他」之前；删除时其中的会话段归入「其他」
+  When 管理员改名或删除「其他」
+  Then 返回 409，「其他」不变
+  And 组长看得到类别，没有「管理类别」入口
 
 场景: 用量页 (REQ-BILL-001)
   Given 本期 assist 出稿 30 次、shadow 12 次、auto 8 次
@@ -4592,10 +5165,10 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 | `EVT:shop_connected` | 店铺授权成功（11.6 authorize） | platform, market, shop_id | 接入完成率 |
 | `EVT:member_invited` | 发出邀请 | role, shop_count | 团队运营（诊断） |
 | `EVT:invitation_accepted` | 接受邀请 | role, hours_to_accept | 团队运营（诊断） |
-| `EVT:conversation_opened` | 会话开段（11.1 open / open_to_queue / reopen / reopen_to_queue） | shop_id, platform, stage, mode | 人工首响中位时长 |
-| `EVT:conversation_claimed` | 认领（11.1 claim） | wait_sec | 人工首响中位时长（诊断） |
+| `EVT:conversation_opened` | 会话开段（11.1 open / open_to_queue / reopen / reopen_to_queue） | shop_id, platform, stage, mode | 人工首响平均时长 |
+| `EVT:conversation_claimed` | 认领（11.1 claim） | wait_sec | 人工首响平均时长（诊断） |
 | `EVT:conversation_unclaimed` | 处理人取消认领（11.1 unclaim） | — | 团队运营（诊断） |
-| `EVT:agent_reply_sent` | 成员发出消息成功 | segment_id, is_first_human_reply, seconds_since_segment_start, in_hours | 人工首响中位时长 |
+| `EVT:agent_reply_sent` | 成员发出消息成功 | segment_id, is_first_human_reply, seconds_since_segment_start, in_hours | 人工首响平均时长 |
 | `EVT:draft_generated` | 草稿生成（11.2 create / create_shadow） | mode, confidence, latency_ms, stage, insufficient, retrieval_ms, retrieval_degraded, vector_retry, sources_used | 草稿采纳率（分母诊断）、用量、检索耗时与降级、资料不足率 |
 | `EVT:draft_disposed` | 草稿被发送、改后发送、忽略 | disposition, edit_distance, mode | 草稿采纳率 |
 | `EVT:handoff` | 转人工（11.1 handoff） | reason, mode, insufficient, retrieval_degraded（后两项只在模型出稿后转人工时有） | 看板转人工原因、资料不足率 |
@@ -4686,7 +5259,12 @@ N/A — 本期不上线。
 | Open Question | 部署位置、真实发信服务、支付服务商 | 用户 | 上线前 |
 | 风险 | 2026-10-13 用 OBSBOT 现网 token 只读实测（Shopee 6 店、TikTok 5 店）：店铺信息、平台指标、会话与消息、订单列表与详情、物流轨迹、退货与取消、拒绝原因、聊天券、坐席接单状态都能由 Shopilot 适配器读通并正确归一。写接口（发消息、改推送、登记 webhook、换 token、售后同意或拒绝、取消订单、结束会话、改坐席接单）没有实测：现网 Obsbot v2 在用同一套应用，写操作会影响真实买家或现网回调；TikTok 售后写接口与 Send Message（202606）仍是「推断可调」 | 实现 | 接入第一家试点店时，用测试买家账号逐个实测写接口 |
 | 风险 | Shopee Chat 接口文档不公开，模拟平台按 Obsbot v2 现网代码实现，字段可能不全 | 实现 | 接真实平台时 |
-| 风险 | 已知限制：Shopee 打包消息（`bundle_message`）是买家转人工前与 Shopee 助手的对话，推送只列消息 ID。2026-10-16 线上核对：经 `get_message` 回补的 976 条打包消息里，941 条前 10 分钟内没有任何别的消息，接口不单列包内消息，补拉也取不到；这段对话 Shopilot 看不到，只记一条系统事件 | 用户 | 需要时先用测试店确认平台有没有按消息 ID 取内容的接口 |
+| 已决 | Shopee 常见问题记录（`bundle_message`）的成员能拉回：2026-10-20 生产实测 `get_message` 带 `message_id_list=[原样数字串]` 返回成员，会话分页里读不到；按此实现 REQ-CONV-013 | 实现 | 已定（v1.23） |
+| 风险 | 常见问题记录从收到到拉完的耗时没量过；出稿与飞书构卡只等 4 秒，超出时这两处缺买家原话 | 实现 | 上线后看两周 `shopee.bundle` 日志 |
+| 风险 | 商品卡与商品链接没在真实平台发过：Shopee `item` 的字段名经 2026-10-20 生产参数校验确认，TikTok 商品搜索与 `PRODUCT_CARD` 只按文档实现 | 实现 | 上线后第一次真发时核对 |
+| 风险 | Shopee 聊天视频上限与 CDN 地址拼法未实测：30 MB 是自定上限，6.2 MB 实测通过；时间线播放地址按站点拼 `cvf.`、`cf.` 域名 | 实现 | 上线后第一次发大视频时核对 |
+| 风险 | 卖家后台订单链接的格式没在真实平台核对过（Shopee 按订单号搜索、TikTok 跨境店订单详情） | 实现 | 第一次转发真实工单时核对 |
+| 风险 | 已知限制：店铺商品目录缓存在 Web 进程内存里，多实例部署时各自缓存，改价与上下架最多晚 10 分钟可见 | 实现 | Web 扩到多实例时 |
 | 风险 | 已知限制：Shopee 同一轮里接着发的后台回复不再通知，要等下一次 `mark_as_replied` 补拉才进 Shopilot；店铺自动回复按「距买家消息 ≤ 2 秒」判断，买家与店员恰好同时发时会把人工回复记成自动回复 | 实现 | 上线后看两周补拉日志 |
 | 风险 | 已知限制：TikTok 会话建立前到达的卖家侧消息不入库。2026-10-16 线上核对近 22 小时被丢的 78 条：65 条是店铺机器人的问候与问题菜单，13 条是平台通知，没有人工回复；其中只有 9 条所在的会话后来建立 | 实现 | 出现人工回复被丢时 |
 | 风险 | 商户没上传资料、或资料没覆盖买家问的内容时，AI 对产品参数类问题仍会因资料不足转人工，草稿采纳率随资料覆盖面变化 | 用户 | 知识库上线后看两周数据 |
@@ -4716,3 +5294,5 @@ N/A — 本期不上线。
 | 已决 | 删除买家数据时订单镜像不删、只去掉买家身份（订单与售后是交易记录，工单与看板还在用）；平台上该订单之后再变化时同步会带回平台给的买家信息 | 用户 | 交付时确认（v1.5） |
 | 已决 | TikTok 退货到 `RETURN_OR_REFUND_REQUEST_SUCCESS` 时工单「等待中 · 退款中」，`_COMPLETE` 才解决（平台文档：SUCCESS 是退款批准，打款后转 COMPLETE） | 实现 | 已定（v1.5） |
 | 已决 | 看板人工首响只算从工作时间内开始等待的段（`segment.first_reply_in_hours`，首次人工回复时按首条买家消息时刻判定）；平台口径指标存 7 天、30 天、本月、上月四个窗口，「近 90 天」显示近 30 天并注明 | 实现 | 已定（v1.4） |
+| 已决 | 工作时间外开始、上班前已回复的段不进首响样本：按 v1.21「也进样本」的写法，默认排班下晚上、周末的秒回都记 0 秒，把平均与中位拉低 | 协调会话 | 已定（v1.23，2026-10-20 代用户按此实现，待用户确认） |
+| 风险 | 问题提取每段调一次 DeepSeek，费用由 Shopilot 承担、不计商户出稿用量；按 §2 日均约 2,000 段每天约 2,000 次 | 用户 | 定价时 |

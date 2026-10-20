@@ -1,0 +1,108 @@
+{
+  "id": "01a15943-4fe1-7145-a6e0-79b7d86504a6",
+  "merchantId": "01a1592b-0e14-718e-a783-9a3fc345c213",
+  "conversationId": null,
+  "ticketId": "01a15943-175b-7723-91c0-5c6cc3a9fc1d",
+  "kind": "ticket",
+  "status": "sent",
+  "targetName": "Shopilot 客服群（替身）",
+  "attempts": 1,
+  "messageId": "om_stub_c3a5fbf285ab4b62b4f7fd85b38cda8e",
+  "stub": true,
+  "error": null,
+  "card": {
+    "body": {
+      "elements": [
+        {
+          "tag": "markdown",
+          "content": "**异常** 物流异常 - 订单需要重新发货"
+        },
+        {
+          "tag": "markdown",
+          "content": "**订单号** 261020FTB1ELAC\n**店铺** Demo Shopee MY　<font color='grey'>Shopee · 马来西亚</font>\n**买家** Tkt021\n**状态** 待处理 · 物流异常　**平台状态** 需重新发货\n**截止** 2026-10-22 20:22，剩 1 天 23 小时\n**负责人** Arif Rahman"
+        },
+        {
+          "tag": "hr"
+        },
+        {
+          "tag": "markdown",
+          "content": "**订单内容**\n· Stainless Steel Vacuum Tumbler 900ml　<font color='grey'>规格 Matte Black</font>　×2"
+        },
+        {
+          "tag": "markdown",
+          "content": "**备注** 请仓库核对"
+        },
+        {
+          "tag": "hr"
+        },
+        {
+          "tag": "column_set",
+          "columns": [
+            {
+              "tag": "column",
+              "width": "auto",
+              "elements": [
+                {
+                  "tag": "button",
+                  "text": {
+                    "tag": "plain_text",
+                    "content": "在 Shopilot 打开"
+                  },
+                  "type": "primary",
+                  "behaviors": [
+                    {
+                      "type": "open_url",
+                      "default_url": "http://127.0.0.1:3366/tickets/01a15943-175b-7723-91c0-5c6cc3a9fc1d?m=01a1592b-0e14-718e-a783-9a3fc345c213"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "column",
+              "width": "auto",
+              "elements": [
+                {
+                  "tag": "button",
+                  "text": {
+                    "tag": "plain_text",
+                    "content": "打开卖家后台订单"
+                  },
+                  "type": "default",
+                  "behaviors": [
+                    {
+                      "type": "open_url",
+                      "default_url": "https://seller.shopee.com.my/portal/sale/order?keyword=261020FTB1ELAC"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "flex_mode": "none",
+          "horizontal_spacing": "8px"
+        },
+        {
+          "tag": "markdown",
+          "content": "<font color='grey'>Shopilot · 林晓 从工单详情页转发</font>"
+        }
+      ]
+    },
+    "config": {
+      "summary": {
+        "content": "工单 T-1007 · 物流异常 - 订单需要重新发货 · Demo Shopee MY"
+      },
+      "update_multi": true
+    },
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "工单 T-1007 · 物流异常 - 订单需要重新发货"
+      },
+      "template": "wathet"
+    },
+    "schema": "2.0"
+  },
+  "createdAt": "2026-10-20T12:22:26.016Z",
+  "sentAt": "2026-10-20T12:22:27.385Z"
+}
