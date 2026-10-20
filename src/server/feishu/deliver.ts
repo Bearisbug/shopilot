@@ -145,7 +145,6 @@ export async function deliverFeishuCard(data: Record<string, unknown>): Promise<
   }
 }
 
-type DeliveryRow = typeof d.$inferSelect;
 type Finish = (patch: Partial<typeof d.$inferInsert>) => Promise<unknown>;
 
 /** 一次发送失败：应用凭证不对时把接法标为失效；可重试且没到次数上限的抛出交给队列，否则记为失败 */
@@ -160,7 +159,7 @@ async function failAttempt(e: unknown, merchantId: string, appChat: boolean, att
 }
 
 /** 工单转发卡：发到转发时选的群（应用接法按 chat_id，自定义机器人按 target_id）；接法换了或群设置删了记为跳过 */
-async function deliverStoredCard(row: DeliveryRow, integration: IntegrationRow, attempt: number, finish: Finish): Promise<void> {
+async function deliverStoredCard(row: typeof d.$inferSelect, integration: IntegrationRow, attempt: number, finish: Finish): Promise<void> {
   if (!row.card) return void (await finish({ status: "failed", error: "投递记录里没有卡片" }));
   let send: () => Promise<string | null>;
   if (row.chatId) {

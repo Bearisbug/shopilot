@@ -1,10 +1,10 @@
-// 手动转发到飞书（工单详情页）：能不能转、可选哪些群、按选的群落一行投递记录。卡片在请求里构好存进记录，
+// 手动转发到飞书（工单详情页）：能不能转、可选哪些群、校验选的群。卡片在请求里构好存进记录，
 // feishu.send 只负责发出与重试（见 deliver.ts deliverStoredCard）。
 import { and, eq } from "drizzle-orm";
 import type { TicketForwardTargets } from "@/contracts/tickets";
-import { db, schema, type Executor } from "@/server/db/client";
+import { db, schema } from "@/server/db/client";
 import { Problem, validation } from "@/server/http/problem";
-import { feishuApi, FeishuError, type FeishuCard } from "./client";
+import { feishuApi, FeishuError } from "./client";
 import { appOf, resolveTarget, type IntegrationRow } from "./deliver";
 
 const fi = schema.feishuIntegration;
@@ -42,8 +42,8 @@ export async function forwardAvailability(merchantId: string): Promise<{ availab
 async function usableIntegration(merchantId: string): Promise<IntegrationRow> {
   const integration = await integrationOf(merchantId);
   const reason = await unavailableReason(merchantId, integration);
-  if (reason || !integration) throw new Problem("not-allowed", { detail: reason ?? "现在不能转发到飞书。", code: "feishu_unavailable" });
-  return integration;
+  if (reason) throw new Problem("not-allowed", { detail: reason, code: "feishu_unavailable" });
+  return integration!;
 }
 
 /** 飞书出错转成接口错误：凭证不对时顺带把接法标为失效，与通知设置页一致 */
@@ -61,12 +61,9 @@ export async function forwardTargets(merchantId: string, shopId: string): Promis
   const integration = await usableIntegration(merchantId);
   const preferred = await resolveTarget(merchantId, shopId, integration.method);
   if (integration.method === "app") {
-    let chats;
-    try {
-      chats = await feishuApi().listChats(appOf(integration)!);
-    } catch (e) {
+    const chats = await feishuApi().listChats(appOf(integration)!).catch(async (e) => {
       throw await feishuProblem(e, merchantId);
-    }
+    });
     const saved = await db().select({ chatId: t.chatId, shopName: schema.shop.name }).from(t).leftJoin(schema.shop, eq(schema.shop.id, t.shopId)).where(and(eq(t.merchantId, merchantId), eq(t.kind, "app_chat")));
     const scopeOf = (chatId: string) => {
       const names = saved.filter((s) => s.chatId === chatId).map((s) => (s.shopName ? `${s.shopName} 的群` : "默认群"));
@@ -84,19 +81,14 @@ export async function forwardTargets(merchantId: string, shopId: string): Promis
   };
 }
 
-export type ForwardDestination = { chatId: string | null; targetId: string | null; name: string };
-
 /** 校验选的群：应用接法要求机器人在群里（重新取一次群列表），自定义机器人要求是本商户设过的群 */
-export async function resolveForwardDestination(merchantId: string, pick: { chatId?: string; targetId?: string }): Promise<ForwardDestination> {
+export async function resolveForwardDestination(merchantId: string, pick: { chatId?: string; targetId?: string }): Promise<{ chatId: string | null; targetId: string | null; name: string }> {
   const integration = await usableIntegration(merchantId);
   if (integration.method === "app") {
     if (!pick.chatId) throw validation("请选择群。", { chatId: "请选择群" });
-    let chats;
-    try {
-      chats = await feishuApi().listChats(appOf(integration)!);
-    } catch (e) {
+    const chats = await feishuApi().listChats(appOf(integration)!).catch(async (e) => {
       throw await feishuProblem(e, merchantId);
-    }
+    });
     const chat = chats.find((c) => c.chatId === pick.chatId);
     if (!chat) throw validation("机器人不在这个群里，刷新群列表后重选。", { chatId: "机器人不在这个群里" });
     const [saved] = await db().select({ id: t.id }).from(t).where(and(eq(t.merchantId, merchantId), eq(t.kind, "app_chat"), eq(t.chatId, chat.chatId))).limit(1);
@@ -106,25 +98,4 @@ export async function resolveForwardDestination(merchantId: string, pick: { chat
   const [target] = await db().select().from(t).where(and(eq(t.id, pick.targetId), eq(t.merchantId, merchantId), eq(t.kind, "webhook"))).limit(1);
   if (!target) throw validation("这个群设置已不存在，刷新后重选。", { chatId: "这个群设置已不存在" });
   return { chatId: null, targetId: target.id, name: target.name };
-}
-
-/** 落一行工单转发的投递记录（卡片已构好），由调用方在事务提交后入队 feishu.send */
-export async function insertTicketDelivery(
-  ex: Executor,
-  input: { merchantId: string; ticketId: string; actorId: string | null; destination: ForwardDestination; card: FeishuCard },
-): Promise<string> {
-  const [row] = await ex
-    .insert(schema.feishuDelivery)
-    .values({
-      merchantId: input.merchantId,
-      kind: "ticket",
-      ticketId: input.ticketId,
-      actorId: input.actorId,
-      chatId: input.destination.chatId,
-      targetId: input.destination.targetId,
-      targetName: input.destination.name,
-      card: input.card,
-    })
-    .returning({ id: schema.feishuDelivery.id });
-  return row.id;
 }
