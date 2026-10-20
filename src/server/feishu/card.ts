@@ -180,7 +180,7 @@ export type TicketCardInput = {
   market: string;
   buyerName: string | null;
   externalOrderId: string | null;
-  items: Array<{ name: string; sku: string | null; qty: number }>;
+  items: Array<{ name: string; sku?: string; qty: number }>;
   /** 截止时间，已按商户时区格式化；剩余时长另给 */
   dueText: string | null;
   remainingSec: number | null;
@@ -201,8 +201,7 @@ export function ticketCard(input: TicketCardInput): FeishuCard {
   const where = platformText(input.platform, input.market);
   facts.push(`**店铺** ${escapeMd(truncate(input.shopName, 30))}${where ? `　${grey(where)}` : ""}`);
   if (input.buyerName) facts.push(`**买家** ${escapeMd(truncate(input.buyerName, 40))}`);
-  const state = [`**状态** ${escapeMd(input.statusText)}`, input.platformStatus ? `**平台状态** ${escapeMd(input.platformStatus)}` : null].filter(Boolean).join("　");
-  facts.push(state);
+  facts.push([`**状态** ${escapeMd(input.statusText)}`, input.platformStatus ? `**平台状态** ${escapeMd(input.platformStatus)}` : null].filter(Boolean).join("　"));
   if (input.dueText) {
     const left = input.remainingSec === null ? "" : input.remainingSec < 0 ? `，已超时 ${waitedText(-input.remainingSec)}` : `，剩 ${waitedText(input.remainingSec)}`;
     facts.push(`**截止** ${escapeMd(input.dueText)}${left}`);

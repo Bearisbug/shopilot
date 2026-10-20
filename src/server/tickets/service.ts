@@ -354,7 +354,7 @@ function deliveryText(state: DeliveryState | undefined): string | null {
   return `没有发出：${state.error ?? "原因未知"}`;
 }
 
-function eventText(e: typeof schema.ticketEvent.$inferSelect, actor: string | null, names: Map<string, string>, x: TicketRow, tz: string, deliveries: Map<string, DeliveryState> = new Map()): { title: string; detail: string | null } {
+function eventText(e: typeof schema.ticketEvent.$inferSelect, actor: string | null, names: Map<string, string>, x: TicketRow, tz: string, deliveries: Map<string, DeliveryState>): { title: string; detail: string | null } {
   const d = e.data as Record<string, unknown>;
   const fmt = (v: unknown) => (typeof v === "string" ? inTz(v, tz) : "无");
   const who = actor ?? (e.source === "webhook" ? "平台" : "系统");

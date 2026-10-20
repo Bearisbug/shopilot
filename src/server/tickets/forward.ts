@@ -9,7 +9,7 @@ import { audit } from "@/server/core/audit";
 import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 import { ticketCard } from "@/server/feishu/card";
-import { forwardTargets, insertTicketDelivery, resolveForwardDestination } from "@/server/feishu/forward";
+import { forwardTargets, resolveForwardDestination } from "@/server/feishu/forward";
 import { enqueue } from "@/server/jobs/boss";
 import { shopAppRegion } from "@/server/platforms/clients";
 import { itemById, loadVisible } from "./service";
@@ -25,8 +25,8 @@ export async function forwardTicket(ctx: MemberContext, id: string, body: Ticket
   const item = await itemById(row.id);
   const [shop] = await db().select().from(schema.shop).where(eq(schema.shop.id, row.shopId)).limit(1);
   const [order] = row.orderId ? await db().select().from(schema.order).where(eq(schema.order.id, row.orderId)).limit(1) : [];
-  const forwardedBy = ctx.actor.kind === "member" ? ctx.actor.name : "成员";
-  const note = body.note?.trim() || null;
+  const forwardedBy = ctx.user.name;
+  const note = body.note || null;
   const card = ticketCard({
     number: row.number,
     anomaly: anomalyText(row),
@@ -37,7 +37,7 @@ export async function forwardTicket(ctx: MemberContext, id: string, body: Ticket
     market: shop?.market ?? "",
     buyerName: row.buyerName,
     externalOrderId: order?.externalOrderId ?? null,
-    items: (order?.items ?? []).map((i) => ({ name: i.name, sku: i.sku ?? null, qty: i.qty })),
+    items: order?.items ?? [],
     dueText: row.dueAt ? inTz(row.dueAt, ctx.merchant.timezone, "yyyy-MM-dd HH:mm") : null,
     remainingSec: item.remainingSec,
     assigneeName: item.assignee?.name ?? null,
@@ -48,7 +48,10 @@ export async function forwardTicket(ctx: MemberContext, id: string, body: Ticket
   });
 
   const { deliveryId, event } = await db().transaction(async (tx) => {
-    const deliveryId = await insertTicketDelivery(tx, { merchantId: row.merchantId, ticketId: row.id, actorId: ctx.membership.id, destination, card });
+    const [{ id: deliveryId }] = await tx
+      .insert(schema.feishuDelivery)
+      .values({ merchantId: row.merchantId, kind: "ticket", ticketId: row.id, actorId: ctx.membership.id, chatId: destination.chatId, targetId: destination.targetId, targetName: destination.name, card })
+      .returning({ id: schema.feishuDelivery.id });
     const [event] = await tx
       .insert(schema.ticketEvent)
       .values({ merchantId: row.merchantId, ticketId: row.id, type: "feishu", actorId: ctx.membership.id, source: "page", data: { deliveryId, targetName: destination.name, ...(note ? { note } : {}) } })
