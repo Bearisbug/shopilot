@@ -29,12 +29,13 @@ function log(line: Record<string, unknown>) {
 }
 
 export async function pollReadOnlyShops(): Promise<void> {
-  await pollRound();
+  // 没有只读接入的店就不等第二轮，免得每分钟白占一个 worker 槽 30 秒
+  if ((await pollRound()) === 0) return;
   await new Promise((r) => setTimeout(r, ROUND_GAP_MS));
   await pollRound();
 }
 
-async function pollRound() {
+async function pollRound(): Promise<number> {
   const rows = await db()
     .select({ id: schema.shop.id })
     .from(schema.shop)
@@ -59,6 +60,7 @@ async function pollRound() {
       }
     }
   }
+  return rows.length;
 }
 
 /** 拉一家店游标之后的新消息并入库，返回新入库的消息数 */

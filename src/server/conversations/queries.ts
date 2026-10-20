@@ -1,5 +1,5 @@
 // 会话读取：列表（API-CONV-001）、详情（API-CONV-002）、买家与订单（API-CONV-003）、商品卡信息（API-CONV-016）。全部经 visibleConversations 收窄（ADR-003）。
-import { and, asc, count, desc, eq, gte, inArray, ne, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import type { BuyerOrder, BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConversationsQuery, DraftItem, MessageItem, ProductCardInfo, TicketChip } from "@/contracts/conversations";
 import type { MemberContext } from "@/server/auth/context";
 import { db, schema, type Executor } from "@/server/db/client";
@@ -48,13 +48,11 @@ function decodeCursor(cur?: string): ListCursor | null {
   throw new Problem("validation", { detail: "分页参数无效，请刷新后重试。" });
 }
 
+/** 五个视图的会话数：一次扫描按视图条件分别计数（工作台列表 3 秒、导航摘要 10 秒各调一次） */
 export async function viewCounts(ctx: MemberContext, extra?: SQL): Promise<Record<ConvView, number>> {
-  const counts: Record<ConvView, number> = { queue: 0, ai: 0, mine: 0, team: 0, done: 0 };
-  for (const v of Object.keys(counts) as ConvView[]) {
-    const [r] = await db().select({ n: count() }).from(c).where(and(visibleConversations(ctx), viewCondition(ctx, v), extra));
-    counts[v] = r.n;
-  }
-  return counts;
+  const n = (v: ConvView) => sql<number>`(count(*) filter (where ${viewCondition(ctx, v)}))::int`;
+  const [r] = await db().select({ queue: n("queue"), ai: n("ai"), mine: n("mine"), team: n("team"), done: n("done") }).from(c).where(and(visibleConversations(ctx), extra));
+  return r;
 }
 
 async function ticketChips(conversationIds: string[]): Promise<Map<string, TicketChip[]>> {
@@ -192,7 +190,8 @@ export async function segmentHistory(conversationId: string, exec: Executor = db
   return exec
     .select({ seg: schema.segment, messages: sql<number>`count(${schema.message.id})::int` })
     .from(schema.segment)
-    .leftJoin(schema.message, and(eq(schema.message.segmentId, schema.segment.id), ne(schema.message.senderRole, "system")))
+    // 带上会话 ID 才能走消息的会话索引；只按 segment_id 关联会全表扫描消息
+    .leftJoin(schema.message, and(eq(schema.message.conversationId, schema.segment.conversationId), eq(schema.message.segmentId, schema.segment.id), ne(schema.message.senderRole, "system")))
     .where(eq(schema.segment.conversationId, conversationId))
     .groupBy(schema.segment.id)
     .orderBy(desc(schema.segment.startedAt))
