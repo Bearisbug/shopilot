@@ -99,8 +99,8 @@ export function AiTag({ className }: { className?: string }) {
 }
 
 /**
- * 草稿依据（REQ-KB-006）：「依据：《A》、《B》」，只给成员看。
- * 能管理知识库的成员（knowledge.manage）点开在新标签打开资料抽屉看原文件；资料已删除、或没有知识库权限时只显示文件名
+ * 草稿依据（REQ-KB-006）：「依据：问答「…」、《A》」，只给成员看。
+ * 能管理知识库的成员（knowledge.manage）点开在新标签打开问答或资料抽屉；问答已下架或删除、资料已删除、或没有知识库权限时只显示名字
  */
 export function Citations({ items, className }: { items: DraftCitationItem[]; className?: string }) {
   const can = useCan();
@@ -109,20 +109,26 @@ export function Citations({ items, className }: { items: DraftCitationItem[]; cl
   return (
     <p className={cn("text-xs text-muted-foreground [overflow-wrap:anywhere]", className)}>
       依据：
-      {items.map((c, i) => (
-        <Fragment key={c.documentId}>
-          {i > 0 && "、"}
-          {c.available && canOpen ? (
-            <a href={`/reception/knowledge?doc=${c.documentId}`} target="_blank" rel="noopener" className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link)">
-              《{c.name}》<span className="sr-only">（在新标签打开）</span>
-            </a>
-          ) : (
-            <span className="text-foreground">
-              《{c.name}》{!c.available && <span className="sr-only">（资料已删除）</span>}
-            </span>
-          )}
-        </Fragment>
-      ))}
+      {items.map((c, i) => {
+        const qa = c.kind === "qa";
+        const label = qa ? `问答「${c.name}」` : `《${c.name}》`;
+        return (
+          <Fragment key={`${c.kind}:${c.qaId ?? c.documentId}`}>
+            {i > 0 && "、"}
+            {c.available && canOpen ? (
+              <a href={qa ? `/reception/knowledge?tab=qa&qa=${c.qaId}` : `/reception/knowledge?tab=docs&doc=${c.documentId}`} target="_blank" rel="noopener" className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link)">
+                {label}
+                <span className="sr-only">（在新标签打开）</span>
+              </a>
+            ) : (
+              <span className="text-foreground">
+                {label}
+                {!c.available && (qa ? <span className="text-muted-foreground">（已下架）</span> : <span className="sr-only">（资料已删除）</span>)}
+              </span>
+            )}
+          </Fragment>
+        );
+      })}
     </p>
   );
 }

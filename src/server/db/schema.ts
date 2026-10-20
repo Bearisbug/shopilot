@@ -14,6 +14,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 import { v7 as uuidv7 } from "uuid";
 import type { KnowledgeMarket } from "../../contracts/knowledge";
@@ -521,8 +522,11 @@ export type DraftRetrieval = {
   degraded: boolean;
   degradedReason?: string;
   latencyMs: number;
+  /** 问答检索：两路命中（余弦距离）与合并后的编号；问答排在资料前面 */
+  qa?: { latencyMs: number; error?: string; productIds: string[]; hits: Array<{ route: "rewritten" | "original"; qaId: string; distance: number }>; merged: Array<{ n: number; qaId: string }> };
 };
-export type DraftCitation = { n: number; documentId: string; name: string };
+/** 依据：资料（documentId）或问答（kind = qa、qaId，name 取第一个问法）；没有 kind 的旧行都是资料 */
+export type DraftCitation = { n: number; kind?: "document" | "qa"; documentId?: string; qaId?: string; name: string };
 
 export const draft = pgTable(
   "draft",
@@ -573,7 +577,8 @@ export const file = pgTable("file", {
 // ---------- 订单、售后、发票 ----------
 
 /** image：商品图地址；补图任务取过但平台没给图时记为空串，不再重取 */
-export type OrderItem = { name: string; sku?: string; productId?: string; skuId?: string; qty: number; unitPrice: string; image?: string };
+/** sku 是规格名（如 Black）；sellerSku 是卖家 SKU 原文（物料编码），对应产品清单的 code */
+export type OrderItem = { name: string; sku?: string; sellerSku?: string; productId?: string; skuId?: string; qty: number; unitPrice: string; image?: string };
 /** 付款信息（开票用）：shippingFee 买家付的运费（Shopee 订单详情不给，缺省）；paidAt 付款时间 ISO */
 export type OrderPayment = { shippingFee?: string; method?: string; paidAt?: string };
 
@@ -1038,6 +1043,11 @@ export const knowledgeDocument = pgTable(
     failureReason: text("failure_reason"),
     uploadedBy: uuid("uploaded_by").references(() => membership.id, { onDelete: "set null" }),
     readyAt: ts("ready_at"),
+    /** 整理成问答（API-KB-015）：状态、生成的候选数、失败原因、完成时间 */
+    qaExtractStatus: text("qa_extract_status", { enum: ["idle", "running", "done", "failed"] }).notNull().default("idle"),
+    qaExtractCount: integer("qa_extract_count").notNull().default(0),
+    qaExtractError: text("qa_extract_error"),
+    qaExtractedAt: ts("qa_extracted_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -1087,6 +1097,78 @@ export const knowledgeChunk = pgTable(
     text: text("text").notNull(),
   },
   (t) => [uniqueIndex("knowledge_chunk_document_no_uq").on(t.documentId, t.no), index("knowledge_chunk_remote_idx").on(t.merchantId, t.remoteId)],
+);
+
+// ---------- 产品清单与问答 ----------
+
+/** 产品清单：官方产品名称与物料编码一一对应；平台商品按卖家 SKU = code 对应到产品 */
+export const product = pgTable(
+  "product",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("product_merchant_code_uq").on(t.merchantId, t.code)],
+);
+
+/** 平台商品的卖家 SKU 与产品的对应：拉商品目录时写入，产品清单变更时按 sku = code 重算 product_id */
+export const productListing = pgTable(
+  "product_listing",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    shopId: uuid("shop_id")
+      .notNull()
+      .references(() => shop.id, { onDelete: "cascade" }),
+    externalProductId: text("external_product_id").notNull(),
+    sku: text("sku").notNull(),
+    productId: uuid("product_id").references(() => product.id, { onDelete: "set null" }),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("product_listing_uq").on(t.shopId, t.externalProductId, t.sku), index("product_listing_merchant_sku_idx").on(t.merchantId, t.sku)],
+);
+
+export const QA_EMBED_DIMS = 1024;
+
+/** 问答：手写的保存即发布；资料整理出的先是待审核候选，审核通过才发布（只有 published 参与检索） */
+export const knowledgeQa = pgTable(
+  "knowledge_qa",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    questions: text("questions").array().notNull(),
+    answer: text("answer").notNull(),
+    /** 空数组 = 通用，适用全部产品 */
+    productIds: uuid("product_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    stage: text("stage", { enum: ["presale", "insale", "aftersale", "any"] }).notNull(),
+    markets: jsonb("markets").$type<KnowledgeMarket[]>().notNull().default(["ALL"]),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    status: text("status", { enum: ["pending", "published", "rejected", "archived"] }).notNull(),
+    source: text("source", { enum: ["manual", "import"] }).notNull(),
+    sourceDocumentId: uuid("source_document_id").references(() => knowledgeDocument.id, { onDelete: "set null" }),
+    sourceExcerpt: text("source_excerpt"),
+    duplicateOf: uuid("duplicate_of"),
+    rejectReason: text("reject_reason"),
+    embedding: vector("embedding", { dimensions: QA_EMBED_DIMS }),
+    embeddingModel: text("embedding_model"),
+    createdBy: uuid("created_by").references(() => membership.id, { onDelete: "set null" }),
+    reviewedBy: uuid("reviewed_by").references(() => membership.id, { onDelete: "set null" }),
+    reviewedAt: ts("reviewed_at"),
+    publishedAt: ts("published_at"),
+    version: integer("version").notNull().default(1),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("knowledge_qa_merchant_status_idx").on(t.merchantId, t.status),
+    index("knowledge_qa_document_idx").on(t.sourceDocumentId),
+    index("knowledge_qa_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
+  ],
 );
 
 // ---------- 飞书推送 ----------

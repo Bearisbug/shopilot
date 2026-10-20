@@ -498,11 +498,11 @@ describe.skipIf(!process.env.DATABASE_URL)("知识库（需要数据库）", asy
 
       const cited = draft.citations![0];
       let detail = await getConversation(ctx, conv.id);
-      expect(detail.draft?.citations).toEqual([{ documentId: cited.documentId, name: cited.name, available: true }]);
-      await db().update(schema.knowledgeDocument).set({ status: "deleting" }).where(eq(schema.knowledgeDocument.id, cited.documentId));
+      expect(detail.draft?.citations).toEqual([{ kind: "document", documentId: cited.documentId, qaId: null, name: cited.name, available: true }]);
+      await db().update(schema.knowledgeDocument).set({ status: "deleting" }).where(eq(schema.knowledgeDocument.id, cited.documentId!));
       detail = await getConversation(ctx, conv.id);
       expect(detail.draft?.citations[0].available).toBe(false);
-      await db().update(schema.knowledgeDocument).set({ status: "ready" }).where(eq(schema.knowledgeDocument.id, cited.documentId));
+      await db().update(schema.knowledgeDocument).set({ status: "ready" }).where(eq(schema.knowledgeDocument.id, cited.documentId!));
     });
 
     it("模型判定资料不足时不论阈值一律转人工，原因记 low_confidence，审计带资料不足标记（RULE-KB-003）", async () => {

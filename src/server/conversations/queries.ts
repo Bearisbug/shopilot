@@ -209,20 +209,33 @@ function toDraft(d: typeof schema.draft.$inferSelect, live: Set<string>): DraftI
     triggerMessageId: d.triggerMessageId,
     createdAt: d.createdAt.toISOString(),
     insufficient: d.insufficient,
-    citations: (d.citations ?? []).map((c) => ({ documentId: c.documentId, name: c.name, available: live.has(c.documentId) })),
+    citations: (d.citations ?? []).map((c) =>
+      c.kind === "qa"
+        ? { kind: "qa" as const, documentId: null, qaId: c.qaId ?? null, name: c.name, available: !!c.qaId && live.has(c.qaId) }
+        : { kind: "document" as const, documentId: c.documentId ?? null, qaId: null, name: c.name, available: !!c.documentId && live.has(c.documentId) },
+    ),
     translation: d.translation,
   };
 }
 
-/** 草稿依据里仍存在（未删除）的资料 */
+/** 草稿依据里仍存在（未删除）的资料与仍是已发布的问答（两类 ID 都是 uuid，放进同一个集合） */
 async function liveDocuments(merchantId: string, drafts: Array<typeof schema.draft.$inferSelect>): Promise<Set<string>> {
-  const ids = [...new Set(drafts.flatMap((d) => (d.citations ?? []).map((c) => c.documentId)))];
-  if (ids.length === 0) return new Set();
-  const rows = await db()
-    .select({ id: schema.knowledgeDocument.id })
-    .from(schema.knowledgeDocument)
-    .where(and(eq(schema.knowledgeDocument.merchantId, merchantId), inArray(schema.knowledgeDocument.id, ids), ne(schema.knowledgeDocument.status, "deleting")));
-  return new Set(rows.map((r) => r.id));
+  const cites = drafts.flatMap((d) => d.citations ?? []);
+  const docIds = [...new Set(cites.filter((c) => c.kind !== "qa" && c.documentId).map((c) => c.documentId!))];
+  const qaIds = [...new Set(cites.filter((c) => c.kind === "qa" && c.qaId).map((c) => c.qaId!))];
+  const docs = docIds.length
+    ? await db()
+        .select({ id: schema.knowledgeDocument.id })
+        .from(schema.knowledgeDocument)
+        .where(and(eq(schema.knowledgeDocument.merchantId, merchantId), inArray(schema.knowledgeDocument.id, docIds), ne(schema.knowledgeDocument.status, "deleting")))
+    : [];
+  const qas = qaIds.length
+    ? await db()
+        .select({ id: schema.knowledgeQa.id })
+        .from(schema.knowledgeQa)
+        .where(and(eq(schema.knowledgeQa.merchantId, merchantId), inArray(schema.knowledgeQa.id, qaIds), eq(schema.knowledgeQa.status, "published")))
+    : [];
+  return new Set([...docs, ...qas].map((r) => r.id));
 }
 
 export async function getConversation(ctx: MemberContext, id: string, before?: string): Promise<ConversationDetail> {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { FolderCogIcon, LibraryBigIcon, RotateCcwIcon, SearchIcon, UploadIcon } from "lucide-react";
+import { FolderCogIcon, LibraryBigIcon, RotateCcwIcon, SearchIcon, SparklesIcon, UploadIcon } from "lucide-react";
+import { Tabs as TabsPrimitive } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Me } from "@/contracts/auth";
@@ -16,13 +17,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { ApiError, api, errorText } from "@/lib/api";
 import { inTz } from "@/lib/format";
+import { kbTab, type KbTab } from "@/lib/qa-form";
 import { cn } from "@/lib/utils";
 import { ReceptionFrame } from "../reception-frame";
 import { CategoriesDialog } from "./categories-dialog";
 import { DocumentDrawer } from "./document-drawer";
 import { ACCEPT, DOC_STATE_LABEL, DOC_STATE_QUERY, DOC_STATES, DocStatus, docsKey, inProgress, MARKET_LABEL, marketsText, UPLOAD_FORMATS, UPLOAD_LIMITS, useCategories, useUrlParams, type DocState } from "./knowledge-ui";
+import { ProductsTab } from "./products-tab";
+import { QaDialog } from "./qa-dialog";
+import { QaTab, useQaDialog } from "./qa-tab";
+import { qaKey, usePendingCount } from "./qa-ui";
+import { RejectDialog, ReviewTab } from "./review-tab";
 import { TestPanel } from "./test-panel";
 import { UploadDialog } from "./upload-dialog";
 
@@ -68,7 +76,86 @@ export function useToggleAi() {
   });
 }
 
+/** 整理成问答（API-KB-028）：资料解析完成后排队，AI 把它整理成待审核的候选问答 */
+function useQaExtract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<KnowledgeDocumentResult>(`/api/v1/knowledge/documents/${id}/qa-extract`, {}),
+    onSuccess: (r) => {
+      patchDocInCache(qc, r.document);
+      toast.success(`《${r.document.name}》已开始整理成问答`, { description: "整理完的候选在「待审核」页签，审核通过才发布。" });
+      qc.invalidateQueries({ queryKey: docsKey });
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 409) qc.invalidateQueries({ queryKey: docsKey });
+      toast.error(errorText(e));
+    },
+  });
+}
+
+const extracting = (d: Pick<KnowledgeDocument, "qaExtract">) => d.qaExtract.status === "running";
+
 export function KnowledgePage({ me }: { me: Me }) {
+  const { params, update } = useUrlParams();
+  const tab = kbTab(params.get("tab"), params.has("doc"));
+  const pending = usePendingCount();
+  const qaDialog = useQaDialog();
+  const go = (t: KbTab) => update({ tab: t === "qa" ? null : t }, "push");
+  const TABS: Array<{ value: KbTab; label: React.ReactNode }> = [
+    { value: "qa", label: "问答" },
+    {
+      value: "review",
+      label: (
+        <>
+          待审核{pending ? <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-(--semantic-color-text-link) tabular-nums">{pending}</span> : null}
+        </>
+      ),
+    },
+    { value: "docs", label: "资料" },
+    { value: "products", label: "产品" },
+    { value: "test", label: "测试问答" },
+  ];
+  return (
+    <ReceptionFrame facts="AI 出稿前先查已发布的问答，再查可用资料；客服在草稿下方看到依据。知识库全商户共享">
+      <Tabs value={tab} onValueChange={(v) => go(v as KbTab)} className="gap-4">
+        {/* 页签多时横向滚动、不露滚动条（RESP-016）；共享 TabsTrigger 的 line 变体与 state-layer 的 ::after 冲突，直接用 Radix 触发器画底边线 */}
+        <TabsList variant="line" aria-label="知识库" className="scroll-nav w-full justify-start gap-5 overflow-x-auto rounded-none border-b border-border p-0 group-data-[orientation=horizontal]/tabs:h-auto">
+          {TABS.map((t) => (
+            <TabsPrimitive.Trigger
+              key={t.value}
+              value={t.value}
+              className="state-layer focus-ring -mb-px inline-flex h-10 items-center rounded-t-sm border-b-2 border-transparent px-1 text-sm whitespace-nowrap text-muted-foreground data-[state=active]:border-(--semantic-color-text-link) data-[state=active]:font-semibold data-[state=active]:text-(--semantic-color-text-link)"
+            >
+              {t.label}
+            </TabsPrimitive.Trigger>
+          ))}
+        </TabsList>
+        <TabsContent value="qa">
+          <QaTab me={me} onNew={qaDialog.openNew} onOpen={qaDialog.openFor} />
+        </TabsContent>
+        <TabsContent value="review">
+          <ReviewTab onEdit={qaDialog.openFor} onReject={qaDialog.reject} onGoDocs={() => go("docs")} />
+        </TabsContent>
+        <TabsContent value="docs">
+          <DocsTab me={me} onGoReview={() => go("review")} />
+        </TabsContent>
+        <TabsContent value="products">
+          <ProductsTab />
+        </TabsContent>
+        <TabsContent value="test">
+          <div className="max-w-3xl">
+            <TestPanel me={me} onOpenDoc={(id) => update({ tab: "docs", doc: id, docTab: null }, "push")} onOpenQa={qaDialog.openFor} />
+          </div>
+        </TabsContent>
+      </Tabs>
+      <QaDialog open={qaDialog.open} qaId={qaDialog.qaId} onClose={qaDialog.close} onReject={(qa) => qaDialog.reject(qa.id)} />
+      <RejectDialog open={params.get("dialog") === "qa-reject"} qaId={qaDialog.qaId} onClose={qaDialog.close} />
+      <DocumentDrawer me={me} />
+    </ReceptionFrame>
+  );
+}
+
+function DocsTab({ me, onGoReview }: { me: Me; onGoReview: () => void }) {
   const { params, update } = useUrlParams();
   const categories = useCategories();
   const upload = useDialogParam("upload");
@@ -119,7 +206,7 @@ export function KnowledgePage({ me }: { me: Me }) {
     // 有排队或解析中的资料时每 5 秒刷新（§15），标签页在后台时不刷
     refetchInterval: (q) => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
-      return q.state.data?.pages.some((p) => p.items.some(inProgress)) ? POLL_MS : false;
+      return q.state.data?.pages.some((p) => p.items.some((d) => inProgress(d) || extracting(d))) ? POLL_MS : false;
     },
   });
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
@@ -127,6 +214,15 @@ export function KnowledgePage({ me }: { me: Me }) {
   const full = counts ? counts.total >= counts.limit : false;
   const filtered = category !== "all" || market !== "all" || state !== "all" || qParam !== "";
   const processing = items.filter(inProgress).length;
+  const extractingCount = items.filter(extracting).length;
+  // 整理完成或失败时，待审核的候选变了：刷新问答查询（页签上的待审核数）
+  const qc = useQueryClient();
+  const extractSig = items.map((d) => `${d.id}:${d.qaExtract.status}:${d.qaExtract.extractedAt ?? ""}`).join("|");
+  const lastSig = useRef(extractSig);
+  useEffect(() => {
+    if (lastSig.current !== extractSig) qc.invalidateQueries({ queryKey: qaKey });
+    lastSig.current = extractSig;
+  }, [extractSig, qc]);
 
   const openWithFiles = (files: File[]) => {
     if (full) return toast.error("资料已满，请先删除不用的");
@@ -139,9 +235,8 @@ export function KnowledgePage({ me }: { me: Me }) {
   };
 
   return (
-    <ReceptionFrame facts="AI 出稿前先查这里的可用资料，客服在草稿下方看到依据；资料全商户共享">
+    <>
       <div className="@container">
-        <div className="grid grid-cols-1 items-start gap-4 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,21.25rem)]">
           <DocumentsPanel
             me={me}
             onFiles={openWithFiles}
@@ -159,7 +254,11 @@ export function KnowledgePage({ me }: { me: Me }) {
                     )}
                   </h2>
                   <p className="mt-0.5 text-xs text-muted-foreground" aria-live="polite">
-                    {processing > 0 ? `${processing} 份在排队或解析，列表每 5 秒刷新` : items.length > 0 ? "点一行看原文件与解析内容；文件可以直接拖进来" : "上传后在后台解析，完成后 AI 才会引用"}
+                    {processing + extractingCount > 0
+                      ? `${processing > 0 ? `${processing} 份在排队或解析` : ""}${processing > 0 && extractingCount > 0 ? "，" : ""}${extractingCount > 0 ? `${extractingCount} 份在整理成问答` : ""}，列表每 5 秒刷新`
+                      : items.length > 0
+                        ? "点一行看原文件与解析内容；解析好的资料可以「整理成问答」，审核后发布"
+                        : "上传后在后台解析，完成后 AI 才会引用"}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -246,7 +345,7 @@ export function KnowledgePage({ me }: { me: Me }) {
               <FirstUpload onFiles={openWithFiles} />
             ) : (
               <>
-                <DocumentsTable me={me} items={items} categoryName={(id) => categories.data?.items.find((c) => c.id === id)?.name ?? "—"} onOpen={(id) => update({ doc: id, docTab: null }, "push")} />
+                <DocumentsTable me={me} items={items} categoryName={(id) => categories.data?.items.find((c) => c.id === id)?.name ?? "—"} onOpen={(id) => update({ doc: id, docTab: null }, "push")} onGoReview={onGoReview} />
                 <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
                   <span className="tabular-nums">
                     已显示 {items.length} 份{filtered ? "（筛选后）" : ""}
@@ -263,13 +362,10 @@ export function KnowledgePage({ me }: { me: Me }) {
               </>
             )}
           </DocumentsPanel>
-          <TestPanel me={me} onOpenDoc={(id) => update({ doc: id, docTab: null }, "push")} />
-        </div>
       </div>
       <UploadDialog initialFiles={dropped} remaining={counts ? counts.limit - counts.total : null} onOpenDoc={(id) => update({ dialog: null, doc: id, docTab: null })} />
       <CategoriesDialog />
-      <DocumentDrawer me={me} />
-    </ReceptionFrame>
+    </>
   );
 }
 
@@ -383,9 +479,10 @@ function ListSkeleton() {
  * 资料表：面板宽时分类、站点、上传时间各占一列；窄时（测试问答在右侧、手机）合进文件名下方的说明行。
  * 失败行直接写原因并给「重新解析」
  */
-function DocumentsTable({ me, items, categoryName, onOpen }: { me: Me; items: KnowledgeDocument[]; categoryName: (id: string) => string; onOpen: (id: string) => void }) {
+function DocumentsTable({ me, items, categoryName, onOpen, onGoReview }: { me: Me; items: KnowledgeDocument[]; categoryName: (id: string) => string; onOpen: (id: string) => void; onGoReview: () => void }) {
   const toggle = useToggleAi();
   const reparse = useReparse();
+  const extract = useQaExtract();
   const tz = me.active.timezone;
   return (
     <Table>
@@ -403,6 +500,7 @@ function DocumentsTable({ me, items, categoryName, onOpen }: { me: Me; items: Kn
         {items.map((d) => {
           const cat = categoryName(d.categoryId);
           const busy = reparse.isPending && reparse.variables === d.id;
+          const extractBusy = extract.isPending && extract.variables === d.id;
           return (
             <TableRow key={d.id} className="state-layer cursor-pointer align-top" onClick={() => onOpen(d.id)}>
               <TableCell className="py-3 whitespace-normal">
@@ -433,6 +531,7 @@ function DocumentsTable({ me, items, categoryName, onOpen }: { me: Me; items: Kn
                     </Button>
                   </div>
                 )}
+                {d.status === "ready" && <QaExtractLine doc={d} busy={extractBusy} onExtract={() => extract.mutate(d.id)} onGoReview={onGoReview} />}
               </TableCell>
               <TableCell className="hidden py-3 whitespace-normal text-muted-foreground [overflow-wrap:anywhere] @3xl:table-cell">
                 {cat}
@@ -453,5 +552,40 @@ function DocumentsTable({ me, items, categoryName, onOpen }: { me: Me; items: Kn
         })}
       </TableBody>
     </Table>
+  );
+}
+
+/**
+ * 资料行里的「整理成问答」：整理中显示进度（列表每 5 秒刷新），完成写候选数并可去审核，失败写原因可重试；
+ * 已有问答发布、资料仍 AI 可用时提示可以关掉这份资料（不自动关）
+ */
+function QaExtractLine({ doc, busy, onExtract, onGoReview }: { doc: KnowledgeDocument; busy: boolean; onExtract: () => void; onGoReview: () => void }) {
+  const x = doc.qaExtract;
+  const running = x.status === "running";
+  return (
+    <div className="mt-1.5 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {running ? (
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Spinner className="size-3.5" />
+            正在整理成问答
+          </span>
+        ) : (
+          <Button variant="outline" size="xs" aria-disabled={busy || undefined} onClick={() => !busy && onExtract()}>
+            {busy ? <Spinner /> : <SparklesIcon />}
+            {x.status === "idle" ? "整理成问答" : "重新整理"}
+          </Button>
+        )}
+        {x.status === "done" && (
+          <button type="button" className="focus-ring rounded-sm text-xs text-(--semantic-color-text-link)" onClick={onGoReview}>
+            整理出 {x.count} 条候选，去审核
+          </button>
+        )}
+        {x.status === "failed" && <span className="min-w-0 text-xs text-destructive [overflow-wrap:anywhere]">整理失败：{x.error ?? "原因未知"}</span>}
+      </div>
+      {doc.publishedQaCount > 0 && doc.aiEnabled && (
+        <p className="text-xs text-muted-foreground">已有 {doc.publishedQaCount} 条问答由它整理发布，可以关掉这份资料的「AI 可用」，让 AI 只引用审核过的问答。</p>
+      )}
+    </div>
   );
 }

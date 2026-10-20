@@ -10,7 +10,7 @@ import { inScope, type MemberContext } from "@/server/auth/context";
 import { receptionContext } from "@/server/conversations/hours";
 import { db, schema } from "@/server/db/client";
 import { Problem, notFound } from "@/server/http/problem";
-import { knowledgePayload, retrievalDetail, retrieveForDraft } from "./retrieve";
+import { knowledgePayload, qaDetail, retrievalDetail, retrieveForDraft } from "./retrieve";
 
 export const TEST_RATE_PER_MINUTE = 20;
 const SNIPPET_CHARS = 300;
@@ -58,7 +58,15 @@ export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody):
     replyLanguage: lang,
   });
   const conversation = [{ from: "buyer", type: "text", text: body.question, at: new Date().toISOString() }];
-  const retrieval = await retrieveForDraft({ merchantId, market: shop?.market ?? null, original: body.question, conversation, orderFacts: [] });
+  if (body.productId) {
+    const [p] = await db()
+      .select({ id: schema.product.id })
+      .from(schema.product)
+      .where(and(eq(schema.product.id, body.productId), eq(schema.product.merchantId, merchantId)))
+      .limit(1);
+    if (!p) throw notFound("产品不存在或已删除。");
+  }
+  const retrieval = await retrieveForDraft({ merchantId, market: shop?.market ?? null, original: body.question, conversation, orderFacts: [], stage: body.stage ?? null, productIds: body.productId ? [body.productId] : [] });
   const knowledge = knowledgePayload(retrieval);
   const userPayload = { reply_language: lang, brand_voice: rc.brandVoice ?? "", order_facts: [], conversation, latest_buyer_message: body.question, ...(knowledge ? { knowledge } : {}) };
 
@@ -83,6 +91,7 @@ export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody):
   const sources = (retrieval?.merged ?? [])
     .filter((m) => parsed.usedSources.includes(m.n))
     .map((m) => ({ n: m.n, documentId: m.chunk.documentId, name: m.chunk.name, snippet: [...m.chunk.text].slice(0, SNIPPET_CHARS).join(""), fileUrl: `/api/v1/files/${m.chunk.fileId}` }));
+  const qaSources = (retrieval?.qa?.merged ?? []).filter((m) => parsed.usedSources.includes(m.n)).map((m) => ({ n: m.n, qaId: m.hit.qaId, question: m.hit.questions[0], answer: m.hit.answer }));
   return {
     answer: parsed.reply,
     confidence: parsed.confidence,
@@ -90,7 +99,9 @@ export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody):
     wouldHandoff: verdict !== null,
     handoffReason: verdict,
     sources,
+    qaSources,
     retrieval: retrieval ? retrievalDetail(retrieval) : null,
+    qa: retrieval?.qa ? qaDetail(retrieval.qa) : null,
     latencyMs: Date.now() - started,
   };
 }

@@ -20,6 +20,9 @@ import { backfillOrderImages } from "@/server/orders/images";
 import { fetchProduct, prefetchAllProducts } from "@/server/products/info";
 import { ingestDocument } from "@/server/knowledge/ingest";
 import { purgeJob } from "@/server/knowledge/purge";
+import { embedMissing } from "@/server/knowledge/qa";
+import { extractQa, failStaleExtracts } from "@/server/knowledge/qa-extract";
+import { syncListings } from "@/server/products/dictionary";
 
 type Handler = (data: Record<string, unknown>) => Promise<void>;
 
@@ -67,4 +70,11 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "invitation.expire": () => expireInvitations(),
   "knowledge.ingest": (data) => ingestDocument(data),
   "knowledge.purge": purgeJob,
+  "knowledge.qa_extract": extractQa,
+  "knowledge.qa_embed": async () => {
+    const stale = await failStaleExtracts();
+    const r = await embedMissing();
+    if (r.picked || stale) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "qa embed sweep", ...r, staleExtracts: stale }));
+  },
+  "product.listing_sync": syncListings,
 };

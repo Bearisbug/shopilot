@@ -25,8 +25,8 @@ describe("依据与转人工判定", () => {
 
   it("依据只收合并结果里的编号，按资料去重", () => {
     expect(citationsFrom(outcome, [2, 1, 9, 3])).toEqual([
-      { n: 2, documentId: "型号", name: "型号.pdf" },
-      { n: 1, documentId: "保修", name: "保修.pdf" },
+      { n: 2, kind: "document", documentId: "型号", name: "型号.pdf" },
+      { n: 1, kind: "document", documentId: "保修", name: "保修.pdf" },
     ]);
     expect(citationsFrom(null, [1])).toEqual([]);
   });

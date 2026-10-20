@@ -4,7 +4,7 @@ import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary" | "issue" | "compare";
+export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary" | "issue" | "compare" | "qa_extract";
 
 export class AiError extends Error {
   constructor(public kind: "timeout" | "model_error" | "invalid_json", message: string) {
@@ -14,7 +14,7 @@ export class AiError extends Error {
 
 export type AiResult = { content: string; model: string; latencyMs: number };
 
-const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000, compare: 15_000 };
+const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000, compare: 15_000, qa_extract: 90_000 };
 
 export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?: boolean; maxTokens?: number; stubHint?: string } = {}): Promise<AiResult> {
   const e = env();
@@ -167,6 +167,32 @@ function stubCompare(rest: Array<{ role: string; content: string }>): string {
   return JSON.stringify({ edit_class: cls, consistency, reason: "替身：按字面比较", evidence: (p.human ?? "").slice(0, 40) });
 }
 
+/**
+ * 替身整理问答：资料片段按句切开，取前 3 句（每句 ≥ 8 个字）各出一条候选；问法是「关于「句子前 30 字」？」，回复是整句；
+ * 句子里出现了产品清单里的物料编码或名称就带上那个编码；阶段一律「全部阶段」。
+ */
+function stubQaExtract(rest: Array<{ role: string; content: string }>): string {
+  let payload: { text?: string; products?: Array<{ code: string; name: string; aliases?: string[] }> } = {};
+  try {
+    payload = JSON.parse(rest.find((m) => m.role === "user")?.content ?? "{}");
+  } catch {
+    // 落到空载荷
+  }
+  const sentences = (payload.text ?? "")
+    .split(/[。！？!?\n]+/)
+    .map((x) => x.trim())
+    .filter((x) => [...x].length >= 8)
+    .slice(0, 3);
+  const items = sentences.map((x) => ({
+    questions: [`关于「${[...x].slice(0, 30).join("")}」？`],
+    answer: x,
+    stage: "any",
+    product_codes: (payload.products ?? []).filter((pr) => [pr.code, pr.name, ...(pr.aliases ?? [])].some((w) => w && x.toLowerCase().includes(w.toLowerCase()))).map((pr) => pr.code),
+    excerpt: x,
+  }));
+  return JSON.stringify({ items });
+}
+
 /** 出稿请求 user 载荷里有没有资料片段 */
 function stubHasKnowledge(rest: Array<{ role: string; content: string }>): boolean {
   try {
@@ -198,6 +224,7 @@ async function stubChat(kind: AiKind, messages: ChatMessage[], hint: string | un
   if (kind === "summary") return done(STUB_SUMMARY);
   if (kind === "issue") return done(stubIssue(system, hint ?? ""));
   if (kind === "compare") return done(stubCompare(rest));
+  if (kind === "qa_extract") return done(stubQaExtract(rest));
   if (kind === "extract") return done(JSON.stringify({ buyerName: "PT Contoh Sdn Bhd", address: "12 Jalan Contoh, 50000 Kuala Lumpur", email: "finance@contoh.example", taxId: "C1234567890" }));
   const reply = STUB_REPLIES[next];
   if (!reply) throw new AiError("timeout", "替身：超时");
