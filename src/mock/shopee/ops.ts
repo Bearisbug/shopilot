@@ -135,7 +135,7 @@ export async function addShopeeMessage(
  * 买家先和 Shopee 商店 AI 助手聊、再点「找卖家客服」：助手欢迎语、买家提问、助手回答写成不可见消息（会话分页读不到），
  * 随后推送买家的 faq_liveagent（转人工那句）和 bundle_message（常见问题记录，content.messages 只带成员 ID）。字段按 2026-10-20 线上实拉。
  */
-export async function addShopeeFaqTransfer(shop: ShopeeShop, t: Thread, question: string): Promise<{ bundleId: string; pushes: PendingPush[] }> {
+export async function addShopeeFaqTransfer(shop: ShopeeShop, t: Thread, question: string): Promise<{ pushes: PendingPush[] }> {
   const at = (msAgo: number) => new Date(Date.now() - msAgo);
   const members: Array<{ sender: "buyer" | "robot"; type: string; content: Record<string, unknown>; createdAt: Date }> = [
     { sender: "robot", type: "extended_markdown", content: { text: `Welcome to ${shop.name}! How can we help you today?`, item_cards: [], inline_components: [] }, createdAt: at(90_000) },
@@ -153,7 +153,7 @@ export async function addShopeeFaqTransfer(shop: ShopeeShop, t: Thread, question
   }
   const transfer = await addShopeeMessage(shop, t, "buyer", "faq_liveagent", { text: "Chat with shop staff", category_id: 0, question_id: 0, trigger_source: 0, pass_through_data: "{}" });
   const bundle = await addShopeeMessage(shop, t, "buyer", "bundle_message", { type: 1, messages: ids, shopee_chatbot_replied: false });
-  return { bundleId: bundle.message.messageId, pushes: [...transfer.pushes, ...bundle.pushes] };
+  return { pushes: [...transfer.pushes, ...bundle.pushes] };
 }
 
 /**

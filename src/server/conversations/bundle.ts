@@ -35,7 +35,7 @@ export function enqueueBundle(messageId: string) {
 }
 
 /** 会话里还没拉到内容的常见问题记录全部排任务（历史回补入库后调用：回补在事务里，提交后才能排） */
-export async function enqueuePendingBundles(shopId: string, externalConversationId: string): Promise<number> {
+export async function enqueuePendingBundles(shopId: string, externalConversationId: string): Promise<void> {
   const rows = await db()
     .select({ id: schema.message.id })
     .from(schema.message)
@@ -50,19 +50,11 @@ export async function enqueuePendingBundles(shopId: string, externalConversation
       ),
     );
   for (const r of rows) await enqueueBundle(r.id);
-  return rows.length;
 }
 
 /** 重试也不会好的错误：店铺不可调、授权失效、无权限、参数错、平台查不到 */
 function permanent(e: unknown): boolean {
   return e instanceof ShopUnavailableError || (e instanceof PlatformError && (e.kind === "auth" || e.kind === "forbidden" || e.kind === "not_found" || e.kind === "param"));
-}
-
-async function save(row: MessageRow, record: FaqRecord) {
-  await db()
-    .update(schema.message)
-    .set({ payload: { ...((row.payload ?? {}) as Record<string, unknown>), bundle: record } })
-    .where(eq(schema.message.id, row.id));
 }
 
 /**
@@ -71,8 +63,7 @@ async function save(row: MessageRow, record: FaqRecord) {
  * 返回写回后的记录（脚本用来打印结果）；消息不存在或不是这类消息返回 null。
  */
 export async function fillBundle(data: Record<string, unknown>): Promise<FaqRecord | null> {
-  const messageId = String(data.messageId ?? "");
-  const [row] = await db().select().from(schema.message).where(eq(schema.message.id, messageId)).limit(1);
+  const [row] = await db().select().from(schema.message).where(eq(schema.message.id, String(data.messageId ?? ""))).limit(1);
   const current = row ? faqRecordOf(row) : null;
   if (!row || !current) return null;
   if (current.status === "ok" && !data.force) return current;
@@ -100,12 +91,15 @@ export async function fillBundle(data: Record<string, unknown>): Promise<FaqReco
     if (!permanent(e)) throw e;
     record = { ids: current.ids, status: "failed", error: e instanceof Error ? e.message.slice(0, 200) : String(e) };
   }
-  await save(row, record);
+  await db()
+    .update(schema.message)
+    .set({ payload: { ...((row.payload ?? {}) as Record<string, unknown>), bundle: record } })
+    .where(eq(schema.message.id, row.id));
   return record;
 }
 
 /** 出稿与飞书构卡前最多等多久：等刚收到、还在拉取的常见问题记录，让它们看得到买家原话 */
-export const BUNDLE_WAIT_MS = 4_000;
+const BUNDLE_WAIT_MS = 4_000;
 /** 多新的 pending 才值得等（更早的说明任务在重试或已放弃，不再等） */
 const BUNDLE_FRESH_MS = 20_000;
 
