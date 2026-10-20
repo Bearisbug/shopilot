@@ -9,7 +9,7 @@ import { cachedImages, productUrl, rememberProducts } from "./info";
 
 const TTL_MS = 10 * 60_000;
 /** 每店最多列多少个商品 */
-export const MAX_PRODUCTS = 500;
+const MAX_PRODUCTS = 500;
 /** 逐个补规格（Shopee）或主图（TikTok）时的并发数 */
 const CONCURRENCY = 6;
 
