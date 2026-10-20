@@ -182,13 +182,13 @@ const TWELVE_HOURS_MS = 12 * 3600_000;
  * 分母只含已有结论的段：12 小时内已回复，或首条买家消息已过去 12 小时。
  * 按人：只算本人首个认领的段，回复只算本人发出的。
  */
-async function replied12hStats(ctx: MemberContext, b: Span, now = new Date()) {
-  const tz = ctx.merchant.timezone;
+async function replied12hStats(ctx: MemberContext, b: Span) {
+  const now = Date.now();
   const sent = sql`${M.direction} = 'out' and (${M.sendStatus} is null or ${M.sendStatus} = 'sent') and coalesce((${M.payload}->>'soothing')::boolean, false) = false and ${M.sentAt} >= ${G.firstBuyerAt}`;
   const anyReply = sql<Date | null>`(select min(${M.sentAt}) from ${M} where ${M.conversationId} = ${G.conversationId} and ${M.segmentId} = ${G.id} and ${M.senderRole} in ('agent', 'ai', 'platform_human') and ${sent})`.mapWith(M.sentAt);
   const ownReply = sql<Date | null>`(select min(${M.sentAt}) from ${M} where ${M.conversationId} = ${G.conversationId} and ${M.segmentId} = ${G.id} and ${M.senderRole} = 'agent' and ${M.sentBy} = ${G.firstClaimedBy} and ${sent})`.mapWith(M.sentAt);
   const rows = await db()
-    .select({ day: dayOf(G.startedAt, tz), claimedBy: G.firstClaimedBy, firstBuyerAt: G.firstBuyerAt, anyReply, ownReply })
+    .select({ day: dayOf(G.startedAt, ctx.merchant.timezone), claimedBy: G.firstClaimedBy, firstBuyerAt: G.firstBuyerAt, anyReply, ownReply })
     .from(G)
     .innerJoin(C, eq(C.id, G.conversationId))
     .where(and(segmentWhere(ctx, b), isNotNull(G.firstBuyerAt)));
@@ -199,7 +199,7 @@ async function replied12hStats(ctx: MemberContext, b: Span, now = new Date()) {
   const count = (t: { num: number; den: number }, from: Date, reply: Date | null) => {
     const deadline = from.getTime() + TWELVE_HOURS_MS;
     const within = !!reply && reply.getTime() <= deadline;
-    if (!within && deadline > now.getTime()) return; // 还没等满 12 小时、也还没回：结论未定
+    if (!within && deadline > now) return; // 还没等满 12 小时、也还没回：结论未定
     t.den += 1;
     if (within) t.num += 1;
   };
@@ -231,9 +231,6 @@ async function handoffReasons(ctx: MemberContext, b: Bounds) {
   return res.rows.map((r) => ({ reason: r.reason ?? "unknown", label: r.reason ? (HANDOFF_LABEL[r.reason] ?? `未知（${r.reason}）`) : "未记录原因", count: Number(r.n) }));
 }
 
-/** 问题提取的视图：全部 = 有买家发言的段；转人工的 = 转人工的 AI 接待段（与转人工原因同口径） */
-const issueViewWhere = (view: IssueView): SQL => (view === "handoff" ? sql`(${HANDED} and ${AI_RECEIVED})` : sql`true`);
-
 /** 问题提取：两个视图下各类别的段数与按日趋势；提取后类别被删（外键置空）的段计入「其他」 */
 async function issueStats(ctx: MemberContext, b: Bounds) {
   const categories = await categoriesOf(ctx.merchant.id);
@@ -252,12 +249,11 @@ async function issueStats(ctx: MemberContext, b: Bounds) {
     .where(and(segmentWhere(ctx, b), isNotNull(G.firstBuyerAt)))
     .groupBy(sql`1`, sql`2`, sql`3`, sql`4`);
   const view = (only: (r: (typeof rows)[number]) => boolean): DashboardIssueStats => {
-    const mine = rows.filter(only);
     const byCategory = new Map<string, number>();
     const trend = new Map<string, Record<string, number>>();
     let segments = 0;
     let pending = 0;
-    for (const r of mine) {
+    for (const r of rows.filter(only)) {
       segments += r.n;
       if (!r.extracted) {
         pending += r.n;
@@ -287,7 +283,7 @@ export async function issueList(ctx: MemberContext, spec: DashRangeSpec, view: I
     segmentWhere(ctx, b),
     isNotNull(G.firstBuyerAt),
     isNotNull(G.issueExtractedAt),
-    issueViewWhere(view),
+    view === "handoff" ? sql`(${HANDED} and ${AI_RECEIVED})` : undefined,
     cat.builtin ? or(eq(G.issueCategoryId, cat.id), isNull(G.issueCategoryId)) : eq(G.issueCategoryId, cat.id),
   );
   const [{ total }] = await db().select({ total: sql<number>`count(*)::int` }).from(G).innerJoin(C, eq(C.id, G.conversationId)).where(where);

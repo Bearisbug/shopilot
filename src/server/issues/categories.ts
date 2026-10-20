@@ -27,9 +27,9 @@ export async function otherCategoryId(merchantId: string, tx: Executor = db()): 
 }
 
 /** 类别表：「其他」最后，其余按位置与创建先后 */
-export async function categoriesOf(merchantId: string, tx: Executor = db()): Promise<IssueCategory[]> {
-  await otherCategoryId(merchantId, tx);
-  const rows = await tx.select().from(c).where(eq(c.merchantId, merchantId)).orderBy(asc(c.builtin), asc(c.position), asc(c.createdAt), asc(c.id));
+export async function categoriesOf(merchantId: string): Promise<IssueCategory[]> {
+  await otherCategoryId(merchantId);
+  const rows = await db().select().from(c).where(eq(c.merchantId, merchantId)).orderBy(asc(c.builtin), asc(c.position), asc(c.createdAt), asc(c.id));
   return rows.map((r) => ({ id: r.id, name: r.name, builtin: r.builtin }));
 }
 
@@ -63,8 +63,8 @@ export async function createIssueCategory(ctx: MemberContext, name: string): Pro
     const [same] = await tx.select({ id: c.id }).from(c).where(and(eq(c.merchantId, merchantId), eq(c.name, name))).limit(1);
     if (same) throw duplicate(same.id);
     const [n] = await tx.select({ n: count(), max: sql<number>`coalesce(max(${c.position}) filter (where not ${c.builtin}), -1)::int` }).from(c).where(eq(c.merchantId, merchantId));
-    if ((n?.n ?? 0) >= ISSUE_CATEGORY_LIMIT) throw notAllowed(`问题类别最多 ${ISSUE_CATEGORY_LIMIT} 个。`, "category_quota");
-    const [row] = await tx.insert(c).values({ merchantId, name, position: (n?.max ?? -1) + 1 }).returning();
+    if (n.n >= ISSUE_CATEGORY_LIMIT) throw notAllowed(`问题类别最多 ${ISSUE_CATEGORY_LIMIT} 个。`, "category_quota");
+    const [row] = await tx.insert(c).values({ merchantId, name, position: n.max + 1 }).returning();
     await audit(ctx.actor, { module: "reception", action: "issue_category_created", summary: `新增问题类别「${name}」`, targetType: "issue_category", targetId: row.id }, tx);
     return { id: row.id, name: row.name, builtin: false };
   });

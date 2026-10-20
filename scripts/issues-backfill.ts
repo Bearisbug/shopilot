@@ -20,7 +20,7 @@ async function main() {
     process.exit(2);
   }
   console.log(`补算 ${values.from} 至 ${values.to}（UTC）${values.merchant ? `，商户 ${values.merchant}` : ""}，每秒 ${perSecond} 段${values.force ? "，全部重算" : "，只补还没提取的"}`);
-  const r = await backfillIssues({ from, to, merchantId: values.merchant, force: values.force, perSecond, log: (line) => console.log(line) });
+  const r = await backfillIssues({ from, to, merchantId: values.merchant, force: values.force, perSecond, log: console.log });
   console.log(`完成：共 ${r.total} 段，成功 ${r.done}，无买家消息 ${r.no_buyer}，失败 ${r.failed}（失败的段会由定时补扫在 8 天内重试，更早的可再跑一次本脚本）`);
 }
 
