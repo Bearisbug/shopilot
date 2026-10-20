@@ -442,8 +442,27 @@ export const segment = pgTable(
     backfilled: boolean("backfilled").notNull().default(false),
     remindedAt: ts("reminded_at"),
     handoverTicketed: boolean("handover_ticketed").notNull().default(false),
+    /** 看板「问题提取」：AI 写的一句中文问题总结与归到的问题类别；提取时刻早于段内最后一条买家消息时会重新提取 */
+    issueSummary: text("issue_summary"),
+    issueCategoryId: uuid("issue_category_id").references(() => issueCategory.id, { onDelete: "set null" }),
+    issueExtractedAt: ts("issue_extracted_at"),
   },
   (t) => [index("segment_conversation_idx").on(t.conversationId), index("segment_merchant_started_idx").on(t.merchantId, t.startedAt)],
+);
+
+/** 看板问题类别：商户内名称唯一；内置「其他」不能改名、删除，删除别的类别时其中会话段归到「其他」 */
+export const issueCategory = pgTable(
+  "issue_category",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    name: text("name").notNull(),
+    builtin: boolean("builtin").notNull().default(false),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("issue_category_name_uq").on(t.merchantId, t.name), uniqueIndex("issue_category_builtin_uq").on(t.merchantId).where(sql`builtin`)],
 );
 
 export type MessagePayload = {

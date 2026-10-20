@@ -13,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { inTz } from "@/lib/format";
 import { DashRangePicker } from "./range-picker";
-import { DraftsPanel, HandoffReasonsPanel, PeoplePanel, PlatformPanel, TicketStats, TicketTypesPanel, TrendPanel } from "./dashboard-panels";
+import { DraftsPanel, PeoplePanel, PlatformPanel, TicketStats, TicketTypesPanel, TrendPanel } from "./dashboard-panels";
+import { IssuesPanel } from "./issues-panel";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const PERIOD_LABEL = { "7d": "近 7 天", "30d": "近 30 天", this_month: "本月", last_month: "上月" } as const;
@@ -92,10 +93,8 @@ export function DashboardClient({ me }: { me: Me }) {
             <PlatformPanel d={d} platform="tiktok" tz={tz} />
           </div>
           <Section title="处理质量" description="只统计经 Shopilot 处理的会话段；回补的历史会话与达人会话不计。" />
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <HandoffReasonsPanel d={d} />
-            <PeoplePanel d={d} canSeeTeam={me.active.permissions.includes("team.manage")} />
-          </div>
+          <IssuesPanel d={d} tz={tz} rangeQs={qs} canManage={me.active.permissions.includes("reception.manage")} />
+          <PeoplePanel d={d} canSeeTeam={me.active.permissions.includes("team.manage")} />
           <Section title="工单" description="时限来源分平台截止与商户时限，超时是标记、不是状态。" />
           <TicketStats d={d} />
           <TicketTypesPanel d={d} />

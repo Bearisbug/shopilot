@@ -3,10 +3,10 @@
 // 组长只算负责店铺（visibleConversations / visibleTickets / visibleShops 收窄），按商户时区切日。
 import { TZDate } from "@date-fns/tz";
 import { addDays, addMonths, differenceInCalendarDays, format, parseISO, startOfWeek } from "date-fns";
-import { and, asc, eq, gte, inArray, isNotNull, lt, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
-import type { DashboardPerson, DashboardPlatformMetric, DashboardResponse, DashboardTrendDay, DashPreset, DashRangeSpec, PlatformMetricStatus, Ratio } from "@/contracts/dashboard";
-import { MAX_RANGE_DAYS, MIN_SAMPLE, PRESET_LABEL } from "@/contracts/dashboard";
+import type { DashboardIssueList, DashboardIssueStats, DashboardPerson, DashboardPlatformMetric, DashboardResponse, DashboardTrendDay, DashPreset, DashRangeSpec, IssueView, PlatformMetricStatus, Ratio } from "@/contracts/dashboard";
+import { ISSUE_LIST_LIMIT, MAX_RANGE_DAYS, MIN_SAMPLE, PRESET_LABEL } from "@/contracts/dashboard";
 import type { ShopMetric, ShopPeriod } from "@/contracts/shops";
 import { TYPE_LABEL } from "@/contracts/tickets";
 import { HANDOFF_LABEL } from "@/server/ai/draft";
@@ -14,7 +14,8 @@ import type { MemberContext } from "@/server/auth/context";
 import { isInHours, receptionContext, workSeconds } from "@/server/conversations/hours";
 import { visibleConversations } from "@/server/conversations/scope";
 import { db, schema } from "@/server/db/client";
-import { Problem } from "@/server/http/problem";
+import { Problem, notFound } from "@/server/http/problem";
+import { categoriesOf } from "@/server/issues/categories";
 import { csv } from "@/server/http/route";
 import { visibleShops } from "@/server/orders/scope";
 import type { StoredMetrics } from "@/server/shops/jobs";
@@ -230,6 +231,77 @@ async function handoffReasons(ctx: MemberContext, b: Bounds) {
   return res.rows.map((r) => ({ reason: r.reason ?? "unknown", label: r.reason ? (HANDOFF_LABEL[r.reason] ?? `未知（${r.reason}）`) : "未记录原因", count: Number(r.n) }));
 }
 
+/** 问题提取的视图：全部 = 有买家发言的段；转人工的 = 转人工的 AI 接待段（与转人工原因同口径） */
+const issueViewWhere = (view: IssueView): SQL => (view === "handoff" ? sql`(${HANDED} and ${AI_RECEIVED})` : sql`true`);
+
+/** 问题提取：两个视图下各类别的段数与按日趋势；提取后类别被删（外键置空）的段计入「其他」 */
+async function issueStats(ctx: MemberContext, b: Bounds) {
+  const categories = await categoriesOf(ctx.merchant.id);
+  const other = categories.find((x) => x.builtin)!.id;
+  const known = new Set(categories.map((x) => x.id));
+  const rows = await db()
+    .select({
+      day: dayOf(G.startedAt, ctx.merchant.timezone),
+      category: G.issueCategoryId,
+      extracted: sql<boolean>`${G.issueExtractedAt} is not null`,
+      handoff: sql<boolean>`(${HANDED} and ${AI_RECEIVED})`,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(G)
+    .innerJoin(C, eq(C.id, G.conversationId))
+    .where(and(segmentWhere(ctx, b), isNotNull(G.firstBuyerAt)))
+    .groupBy(sql`1`, sql`2`, sql`3`, sql`4`);
+  const view = (only: (r: (typeof rows)[number]) => boolean): DashboardIssueStats => {
+    const mine = rows.filter(only);
+    const byCategory = new Map<string, number>();
+    const trend = new Map<string, Record<string, number>>();
+    let segments = 0;
+    let pending = 0;
+    for (const r of mine) {
+      segments += r.n;
+      if (!r.extracted) {
+        pending += r.n;
+        continue;
+      }
+      const cat = r.category && known.has(r.category) ? r.category : other;
+      byCategory.set(cat, (byCategory.get(cat) ?? 0) + r.n);
+      const day = trend.get(r.day) ?? trend.set(r.day, {}).get(r.day)!;
+      day[cat] = (day[cat] ?? 0) + r.n;
+    }
+    return {
+      segments,
+      pending,
+      byCategory: [...byCategory].map(([categoryId, count]) => ({ categoryId, count })).sort((x, y) => y.count - x.count),
+      trend: b.days.map((date) => ({ date, counts: trend.get(date) ?? {} })),
+    };
+  };
+  return { categories, views: { all: view(() => true), handoff: view((r) => r.handoff) } };
+}
+
+/** 某类别下的会话段（按开始时间倒序，最多 ISSUE_LIST_LIMIT 条）；「其他」含类别被删后置空的段 */
+export async function issueList(ctx: MemberContext, spec: DashRangeSpec, view: IssueView, categoryId: string): Promise<DashboardIssueList> {
+  const b = rangeBounds(spec, ctx.merchant.timezone);
+  const cat = (await categoriesOf(ctx.merchant.id)).find((x) => x.id === categoryId);
+  if (!cat) throw notFound("这个问题类别不存在或已删除。");
+  const where = and(
+    segmentWhere(ctx, b),
+    isNotNull(G.firstBuyerAt),
+    isNotNull(G.issueExtractedAt),
+    issueViewWhere(view),
+    cat.builtin ? or(eq(G.issueCategoryId, cat.id), isNull(G.issueCategoryId)) : eq(G.issueCategoryId, cat.id),
+  );
+  const [{ total }] = await db().select({ total: sql<number>`count(*)::int` }).from(G).innerJoin(C, eq(C.id, G.conversationId)).where(where);
+  const items = await db()
+    .select({ segmentId: G.id, conversationId: G.conversationId, startedAt: G.startedAt, shopName: schema.shop.name, buyerName: C.buyerName, summary: G.issueSummary })
+    .from(G)
+    .innerJoin(C, eq(C.id, G.conversationId))
+    .innerJoin(schema.shop, eq(schema.shop.id, C.shopId))
+    .where(where)
+    .orderBy(desc(G.startedAt), desc(G.id))
+    .limit(ISSUE_LIST_LIMIT);
+  return { categoryId: cat.id, categoryName: cat.name, total, items: items.map((r) => ({ ...r, startedAt: r.startedAt.toISOString() })) };
+}
+
 async function draftStats(ctx: MemberContext, b: Bounds) {
   const day = dayOf(D.createdAt, ctx.merchant.timezone);
   const st = (s: string) => sql<number>`count(*) filter (where ${D.mode} = 'assist' and ${D.status} = ${s})::int`;
@@ -387,15 +459,16 @@ type Loaded = Awaited<ReturnType<typeof load>>;
 async function load(ctx: MemberContext, spec: DashRangeSpec) {
   const b = rangeBounds(spec, ctx.merchant.timezone);
   const [replies, r12] = await Promise.all([firstReplyStats(ctx, b), replied12hStats(ctx, b)]);
-  const [seg, reasons, drafts, tickets, ppl, metrics] = await Promise.all([
+  const [seg, reasons, issues, drafts, tickets, ppl, metrics] = await Promise.all([
     segmentStats(ctx, b),
     handoffReasons(ctx, b),
+    issueStats(ctx, b),
     draftStats(ctx, b),
     ticketStats(ctx, b),
     people(ctx, b, replies, r12),
     platformMetrics(ctx, platformPeriodOf(b)),
   ]);
-  return { b, seg, replies, r12, reasons, drafts, tickets, people: ppl, metrics };
+  return { b, seg, replies, r12, reasons, issues, drafts, tickets, people: ppl, metrics };
 }
 
 function trendOf(l: Loaded): DashboardTrendDay[] {
@@ -432,6 +505,7 @@ export async function dashboard(ctx: MemberContext, spec: DashRangeSpec): Promis
     },
     trend: trendOf(l),
     handoffReasons: l.reasons,
+    issues: l.issues,
     drafts: {
       ...d,
       other: d.generated - d.sent - d.editedSent - d.ignored - d.expired,

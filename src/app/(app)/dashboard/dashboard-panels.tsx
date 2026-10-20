@@ -18,9 +18,10 @@ const SERIES_BG = [
   "bg-(--semantic-color-data-viz-series-3)",
   "bg-(--semantic-color-data-viz-series-4)",
   "bg-(--semantic-color-data-viz-series-5)",
+  "bg-(--semantic-color-data-viz-series-6)",
 ];
 
-function Legend({ items, className }: { items: string[]; className?: string }) {
+export function Legend({ items, className }: { items: string[]; className?: string }) {
   return (
     <ul className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", className)} aria-label="图例">
       {items.map((label, i) => (
@@ -327,30 +328,24 @@ export function PlatformPanel({ d, platform, tz }: { d: DashboardResponse; platf
 
 // ---------- 转人工原因 ----------
 
-export function HandoffReasonsPanel({ d }: { d: DashboardResponse }) {
+/** 转人工的 AI 接待段按原因（每段取最后一次转人工的原因），在「问题与转人工原因」面板的「转人工的」视图里显示 */
+export function HandoffReasonsChart({ rows }: { rows: DashboardResponse["handoffReasons"] }) {
   const colors = useBrandColors();
-  const rows = d.handoffReasons;
   const total = rows.reduce((s, r) => s + r.count, 0);
+  if (total === 0) return <EmptyState icon={HeadsetIcon} title="这个范围内没有转人工的会话段" description="AI 接待中的会话因关键词、置信度低、买家要求人工等原因交给人工时计入。" />;
   return (
-    <Panel className="min-w-0">
-      <PanelHeader title="转人工原因" description={`${num(total)} 段 · 每段取最后一次转人工的原因`} />
-      {total === 0 ? (
-        <EmptyState icon={HeadsetIcon} title="这个范围内没有转人工的会话段" description="AI 接待中的会话因关键词、置信度低、买家要求人工等原因交给人工时计入。" />
-      ) : (
-        colors && (
-          <BrandChart
-            type="bar"
-            height={Math.max(140, rows.length * 36 + 40)}
-            label={`转人工原因：${rows.map((r) => `${r.label} ${r.count} 段`).join("，")}`}
-            data={{
-              labels: rows.map((r) => r.label),
-              datasets: [{ label: "会话段", data: rows.map((r) => r.count), backgroundColor: rows.map((_, i) => (i === 0 ? stripes(colors.link, colors.surface) : colors.link)), borderRadius: 4, barPercentage: 0.7 }],
-            }}
-            options={{ indexAxis: "y", scales: axes(colors, { horizontal: true }) }}
-          />
-        )
-      )}
-    </Panel>
+    colors && (
+      <BrandChart
+        type="bar"
+        height={Math.max(140, rows.length * 36 + 40)}
+        label={`转人工原因：${rows.map((r) => `${r.label} ${r.count} 段`).join("，")}`}
+        data={{
+          labels: rows.map((r) => r.label),
+          datasets: [{ label: "会话段", data: rows.map((r) => r.count), backgroundColor: rows.map((_, i) => (i === 0 ? stripes(colors.link, colors.surface) : colors.link)), borderRadius: 4, barPercentage: 0.7 }],
+        }}
+        options={{ indexAxis: "y", scales: axes(colors, { horizontal: true }) }}
+      />
+    )
   );
 }
 

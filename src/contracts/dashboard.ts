@@ -41,6 +41,49 @@ export const dashboardQuery = z
   .transform(({ range, from, to, format }) => ({ spec: (from && to ? { from, to } : { preset: range ?? DEFAULT_PRESET }) as DashRangeSpec, format }));
 export type DashboardQuery = z.infer<typeof dashboardQuery>;
 
+/** 问题提取的两个视图：全部有买家发言的会话段；转人工的 AI 接待段（与转人工原因同口径） */
+export const ISSUE_VIEWS = ["all", "handoff"] as const;
+export type IssueView = (typeof ISSUE_VIEWS)[number];
+
+/** 某类别下的会话段列表：范围同看板，另给视图与类别 */
+export const dashboardIssuesQuery = z
+  .object({
+    range: z.enum(DASH_PRESETS).optional(),
+    from: ymd.optional(),
+    to: ymd.optional(),
+    view: z.enum(ISSUE_VIEWS).default("all"),
+    categoryId: z.string().uuid(),
+  })
+  .superRefine((q, c) => {
+    if (!q.from !== !q.to) c.addIssue({ code: "custom", path: [q.from ? "to" : "from"], message: "自定义范围要同时给出起止日期" });
+    if (q.from && q.range) c.addIssue({ code: "custom", path: ["range"], message: "预设范围与自定义起止日期只能给一种" });
+  })
+  .transform(({ range, from, to, view, categoryId }) => ({ spec: (from && to ? { from, to } : { preset: range ?? DEFAULT_PRESET }) as DashRangeSpec, view, categoryId }));
+
+/** 列表最多返回的条数（按会话段开始时间倒序） */
+export const ISSUE_LIST_LIMIT = 100;
+
+export type DashboardIssueItem = {
+  segmentId: string;
+  conversationId: string;
+  startedAt: string;
+  shopName: string;
+  buyerName: string;
+  summary: string | null;
+};
+export type DashboardIssueList = { categoryId: string; categoryName: string; total: number; items: DashboardIssueItem[] };
+
+export type DashboardIssueStats = {
+  /** 范围内的会话段数（全部：有买家发言的段；转人工的：转人工的 AI 接待段） */
+  segments: number;
+  /** 其中还没提取问题的段（买家停止发言 30 分钟后才提取） */
+  pending: number;
+  /** 已提取的段按类别计数，类别删除后的段计入「其他」；只列有段的类别，按数量从多到少 */
+  byCategory: Array<{ categoryId: string; count: number }>;
+  /** 按会话段开始日期（商户时区），每天各类别的段数；没有段的类别不出现 */
+  trend: Array<{ date: string; counts: Record<string, number> }>;
+};
+
 /** 把范围写成查询串（页面链接与导出共用）；默认的本月不写参数 */
 export function rangeSearch(spec: DashRangeSpec): string {
   if ("from" in spec) return `from=${spec.from}&to=${spec.to}`;
@@ -127,6 +170,8 @@ export type DashboardResponse = {
   trend: DashboardTrendDay[];
   /** 转人工的 AI 接待段按原因计数，合计等于 kpis.handoffRate.num */
   handoffReasons: Array<{ reason: string; label: string; count: number }>;
+  /** 问题提取：类别表（「其他」最后）与两个视图的统计 */
+  issues: { categories: Array<{ id: string; name: string; builtin: boolean }>; views: Record<IssueView, DashboardIssueStats> };
   drafts: {
     /** 范围内生成的辅助草稿 */
     generated: number;

@@ -4,7 +4,7 @@ import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary";
+export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary" | "issue";
 
 export class AiError extends Error {
   constructor(public kind: "timeout" | "model_error" | "invalid_json", message: string) {
@@ -14,7 +14,7 @@ export class AiError extends Error {
 
 export type AiResult = { content: string; model: string; latencyMs: number };
 
-const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000 };
+const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000 };
 
 export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?: boolean; maxTokens?: number; stubHint?: string } = {}): Promise<AiResult> {
   const e = env();
@@ -131,6 +131,23 @@ export const STUB_REPLIES: Record<string, StubReply | string | null> = {
 /** 替身模式下飞书卡片的一句话总结（固定文案） */
 export const STUB_SUMMARY = "AI 替身总结：买家发来新消息，正在等待客服认领。";
 
+/** 替身问题提取：按关键词归到默认类别（类别表里没有就归「其他」），总结取买家第一句 */
+const STUB_ISSUE_RULES: Array<[RegExp, string]> = [
+  [/物流|快递|发货|到货|tracking|ship|deliver/i, "物流查询"],
+  [/退款|退货|换货|refund|return/i, "退换货与退款"],
+  [/发票|开票|invoice/i, "开票"],
+  [/取消|改地址|修改订单|cancel/i, "订单修改与取消"],
+  [/优惠|券|折扣|coupon|voucher|discount/i, "优惠与活动"],
+  [/坏|故障|连不上|不能用|识别不到|broken|not working/i, "产品使用与故障"],
+  [/库存|现货|有货|价格|规格|stock|price/i, "商品咨询（库存、规格、价格）"],
+];
+function stubIssue(system: string, transcript: string): string {
+  const firstBuyer = transcript.split("\n").find((l) => l.startsWith("买家："))?.slice(3).trim() ?? "";
+  const listed = new Set((system.match(/类别：(.*)/)?.[1] ?? "").split("、").map((x) => x.trim()));
+  const hit = STUB_ISSUE_RULES.find(([re]) => re.test(transcript))?.[1];
+  return JSON.stringify({ summary: `买家咨询：${firstBuyer.slice(0, 30) || "（无文字）"}`, category: hit && listed.has(hit) ? hit : "其他" });
+}
+
 /** 出稿请求 user 载荷里有没有资料片段 */
 function stubHasKnowledge(rest: Array<{ role: string; content: string }>): boolean {
   try {
@@ -160,6 +177,7 @@ async function stubChat(kind: AiKind, messages: ChatMessage[], hint: string | un
   if (kind === "rewrite") return done(JSON.stringify({ query: hint ?? "" }));
   if (kind === "translate") return done(`[译文] ${hint ?? ""}`.trim());
   if (kind === "summary") return done(STUB_SUMMARY);
+  if (kind === "issue") return done(stubIssue(system, hint ?? ""));
   if (kind === "extract") return done(JSON.stringify({ buyerName: "PT Contoh Sdn Bhd", address: "12 Jalan Contoh, 50000 Kuala Lumpur", email: "finance@contoh.example", taxId: "C1234567890" }));
   const reply = STUB_REPLIES[next];
   if (!reply) throw new AiError("timeout", "替身：超时");
