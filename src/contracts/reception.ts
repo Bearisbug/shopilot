@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { zTimezone, zUuid } from "./common";
+import { TRANSLATE_TARGETS } from "./conversations";
 
 // 接待设置（DESIGN §8.8、§9.2、§9.5）与快捷回复（API-CONV-014、API-RCP-008 至 API-RCP-010）
 
@@ -188,9 +189,7 @@ export type QuickReplyStage = (typeof QUICK_REPLY_STAGES)[number];
 export const QUICK_REPLY_TEXT_MAX = 2000;
 export const QUICK_REPLY_TITLE_MAX = 40;
 
-/** 语言版本可选的语言，与工作台「发送前翻译」的目标语言一致 */
-export const QUICK_REPLY_LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
-export type QuickReplyLang = (typeof QUICK_REPLY_LANGS)[number];
+export type QuickReplyLang = (typeof TRANSLATE_TARGETS)[number];
 export type QuickReplyVariant = { lang: QuickReplyLang; text: string };
 
 const quickReplyText = (empty: string) => zText(QUICK_REPLY_TEXT_MAX, `回复内容最多 ${QUICK_REPLY_TEXT_MAX.toLocaleString("en-US")} 字`).refine((s) => s.length > 0, empty);
@@ -200,8 +199,8 @@ export const quickReplyBody = z.object({
   stage: z.enum(QUICK_REPLY_STAGES),
   text: quickReplyText("请填写回复内容"),
   variants: z
-    .array(z.object({ lang: z.enum(QUICK_REPLY_LANGS), text: quickReplyText("请填写这个语言版本的内容，不需要就删掉这个版本") }))
-    .max(QUICK_REPLY_LANGS.length)
+    .array(z.object({ lang: z.enum(TRANSLATE_TARGETS), text: quickReplyText("请填写这个语言版本的内容，不需要就删掉这个版本") }))
+    .max(TRANSLATE_TARGETS.length)
     .refine((list) => new Set(list.map((v) => v.lang)).size === list.length, "同一种语言只能有一个版本")
     .optional(),
 });

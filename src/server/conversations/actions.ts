@@ -238,13 +238,11 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
   const caps = shop.capabilities;
   // 视频只有 Shopee 能发（sellerchat/upload_video）；TikTok 客服接口发视频要平台视频 ID，没有上传接口
   if (body.type === "video" && shop.platform !== "shopee") throw notAllowed("TikTok 接口暂不支持发视频。", "unsupported_type");
-  if (body.type !== "text" && body.type !== "image" && body.type !== "video") {
-    // 商品卡两个平台都能发，前提是店铺授予了商品读取权限（能列出商品）
-    const supported = body.type === "coupon_card" ? caps.coupons : body.type === "product_card" ? caps.productScope : caps.cards.includes(body.type);
-    if (!supported) {
-      if (body.type === "product_card") throw notAllowed("店铺没有授予商品读取权限，不能发商品卡。", "unsupported_type");
-      throw notAllowed(`${shop.platform === "shopee" ? "Shopee" : "TikTok"} 店不支持发送这种卡片。`, "unsupported_type");
-    }
+  // 商品卡两个平台都能发，前提是店铺授予了商品读取权限（能列出商品）
+  if (body.type === "product_card" && !caps.productScope) throw notAllowed("店铺没有授予商品读取权限，不能发商品卡。", "unsupported_type");
+  if (body.type !== "text" && body.type !== "image" && body.type !== "video" && body.type !== "product_card") {
+    const supported = body.type === "coupon_card" ? caps.coupons : caps.cards.includes(body.type);
+    if (!supported) throw notAllowed(`${shop.platform === "shopee" ? "Shopee" : "TikTok"} 店不支持发送这种卡片。`, "unsupported_type");
   }
   if (body.type === "image" || body.type === "video") {
     const what = body.type === "image" ? "图片" : "视频";

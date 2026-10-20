@@ -75,8 +75,7 @@ export async function uploadRow(id: string) {
 }
 
 export async function readUpload(id: string): Promise<{ data: Buffer; mime: string } | null> {
-  if (!/^[0-9a-f]{24}$/.test(id)) return null;
-  const [row] = await mockDb().select().from(mockUpload).where(eq(mockUpload.id, id)).limit(1);
+  const row = await uploadRow(id);
   if (!row) return null;
   try {
     return { data: await readFile(path.join(uploadDir(), id)), mime: row.mime };

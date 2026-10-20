@@ -25,7 +25,6 @@ const MEDIA_RULE = "JPG、PNG、WebP 图片不超过 10 MB，MP4 视频不超过
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 const VIDEO_MAX_BYTES = 30 * 1024 * 1024;
-/** 一次粘贴最多发几个文件 */
 const PASTE_MAX = 9;
 const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
 const size = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${mb(n)} MB`);
@@ -170,13 +169,12 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const slash = useSlashReplies({ text, stage: detail.segment?.stage, resolve: resolveReply, onPicked: setDraftLang });
   const shopee = c.shop.platform === "shopee";
   const mediaRule = shopee ? MEDIA_RULE : IMAGE_RULE;
-  const upload = useMutation({ mutationFn: (m: Media) => sendMedia(m) });
+  const upload = useMutation({ mutationFn: sendMedia });
   // 粘贴的图片、视频先确认再发（误粘贴发出去收不回）；sent 是已发出的个数，running 表示正在逐个发
   const [pasted, setPasted] = useState<{ items: (Media & { preview: string })[]; sent: number; running: boolean } | null>(null);
 
   /** 上传后发送；视频较大，上传进度显示在提示条上。视频发送在后台进行，时间线先显示「发送中」 */
   async function sendMedia(m: Media) {
-    const what = m.kind === "image" ? "图片" : "视频";
     const form = new FormData();
     form.set("file", m.file);
     const tid = m.kind === "video" ? toast.loading("视频上传中 0%") : undefined;
@@ -186,7 +184,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
         ? await api.uploadWithProgress<UploadedFile>("/api/v1/files", form, (r) => toast.loading(`视频上传中 ${Math.round(r * 100)}%`, { id: tid }))
         : await api.upload<UploadedFile>("/api/v1/files", form);
     } catch (e) {
-      toast.error(`${what}没有发出`, { description: errorText(e) });
+      toast.error(`${m.kind === "image" ? "图片" : "视频"}没有发出`, { description: errorText(e) });
       throw e;
     } finally {
       if (tid) toast.dismiss(tid);

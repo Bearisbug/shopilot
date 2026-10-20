@@ -26,12 +26,10 @@ export const POST = route({
     if (file.size > VIDEO_MAX) throw new Problem("too-large", { detail: "视频不能超过 30 MB，图片不能超过 10 MB。" });
     const buf = Buffer.from(await file.arrayBuffer());
     const image = imageInfo(buf);
-    const video = !image && isMp4(buf);
-    if (!image && !video) throw new Problem("unsupported-type", { detail: "只支持 JPG、PNG、WebP 图片和 MP4 视频。" });
+    if (!image && !isMp4(buf)) throw new Problem("unsupported-type", { detail: "只支持 JPG、PNG、WebP 图片和 MP4 视频。" });
     if (image && buf.length > IMAGE_MAX) throw new Problem("too-large", { detail: "图片不能超过 10 MB。" });
     const id = randomUUID();
-    const ext = image ? image.ext : "mp4";
-    const path = `chat/${ctx.merchant.id}/${new Date().toISOString().slice(0, 7)}/${id}.${ext}`;
+    const path = `chat/${ctx.merchant.id}/${new Date().toISOString().slice(0, 7)}/${id}.${image ? image.ext : "mp4"}`;
     await writeDataFile(path, buf);
     const [row] = await db()
       .insert(schema.file)
