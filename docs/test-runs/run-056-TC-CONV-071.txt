@@ -1,0 +1,12 @@
+1:
+HTTP 422 {"translatedText":"译文只能随文字消息和翻译目标语言一起提交"}
+2:
+HTTP 422 {"translatedText":"译文只能随文字消息和翻译目标语言一起提交"}
+3:
+HTTP 422 {"translatedText":"译文不能为空"}
+4:
+HTTP 422 {"translatedText":"译文最多 2,000 字"}
+5:
+HTTP 201 "sent"
+6:
+{"text":"Hello there","originalText":"你好","sendStatus":"sent"}

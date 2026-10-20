@@ -1,0 +1,8 @@
+{
+  "tc069": { "L": "译成马来语", "h1": 106, "s1": "译成马来语 将发送 翻译中… 8 / 2,000", "h2": 106, "previewButtons": 1, "T1": "[译文] 您好，今天会发货", "h3": 106, "T2": "[译文] 您好，明天会发货", "previewAfterNone": 0, "h5": 106 },
+  "tc070": { "L": "译成马来语", "T": "[译文] 好的，马上为您处理", "status2": 201,
+    "body2": { "type": "text", "text": "好的，马上为您处理", "translateTo": "ms", "translatedText": "[译文] 好的，马上为您处理" },
+    "timelineHasT": true, "timelineHasOrig": true, "status4": 201,
+    "body4": { "type": "text", "text": "请稍等", "translateTo": "ms" }, "timelineHasWait": true },
+  "consoleErrors": []
+}

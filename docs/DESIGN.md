@@ -8,7 +8,7 @@
 | 项目画像 | 生产产品（面向外部商户的多商户 SaaS）。本期只在本机跑通、没有生产环境，§21–§23 按场景级原因写 N/A，上线前由 deploy-pipeline 补齐 |
 | Owner | 产品负责人：用户；实现：「Shopilot 实现」会话 |
 | 评审人 | 用户 |
-| 最后更新 | 2026-10-20 |
+| 最后更新 | 2026-10-21 |
 | 关联 | 交接 [implementation-handoff.md](implementation-handoff.md) · 角色 [roles.md](roles.md) · 逐按钮清单 [ui-interactions.md](ui-interactions.md) · 功能与接口对照 [ui-feasibility.md](ui-feasibility.md) · 5 条需求 [requirements-ui-impact.md](requirements-ui-impact.md) · 平台接口 [platform-api/](platform-api/README.md) · Quilt 项目「Shopilot」`924976f9-2aa2-4b5d-9671-fe0f6f7d6587` · 现网参考 `~/Documents/Projects/Bots/Obsbot`（docs/DESIGN.md §11–§12） · 契约 `src/contracts/`（zod） · 测试 [TEST.md](TEST.md) · 视觉 `brand/` |
 | 链路层 | 部分 |
 
@@ -16,6 +16,8 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-21 | v1.24 | REQ-CONV-016、FLOW-WB-PRETRANSLATE、API-CONV-007、API-CONV-012 | 客服停止输入后先预翻译，工具栏显示「将发送」译文，发送时直接用预译文，不再等翻译 | 功能 |
+| 2026-10-21 | v1.24 | REQ-SHOP-006、API-ORD-003 | TikTok 读接口按应用、店铺、接口排队，被限流时退避后重试一次，店铺指标与订单同步少被限流打断 | 功能 |
 | 2026-10-20 | v1.23 | REQ-CONV-013、FLOW-AI-DRAFT、FLOW-FEISHU-CARD、ENT-Message | Shopee 常见问题记录拉回买家与商店 AI 助手的对话，工作台折叠显示，出稿与飞书卡片可见 | 功能 |
 | 2026-10-20 | v1.23 | REQ-CONV-013 | 常见问题记录先于会话建立到达时不再丢弃，改为稍后补拉入库 | 缺陷修复 |
 | 2026-10-20 | v1.23 | REQ-CONV-014、REQ-CONV-005、FLOW-WB-PRODUCT、API-CONV-017、API-CONV-007、PAGE-WB、PAGE-WB-CARDS | 工作台右栏新增「商品」页签，搜索本店在售商品发商品卡，Shopee 店还可发链接 | 功能 |
@@ -109,6 +111,7 @@
 | FLOW-WB-HANDLE | 接待会话 | 接待 | 已实现 | REQ-CONV-002、REQ-CONV-003、REQ-CONV-004、REQ-CONV-005、REQ-CONV-008、REQ-CONV-009、REQ-AI-003、REQ-CONV-012 |
 | FLOW-WB-PRODUCT | 发送店铺商品 | 接待 | 已实现 | REQ-CONV-014 |
 | FLOW-WB-MEDIA | 发送图片与视频 | 接待 | 已实现 | REQ-CONV-015 |
+| FLOW-WB-PRETRANSLATE | 发送前预翻译 | 接待 | 已实现 | REQ-CONV-016 |
 | FLOW-FEISHU-CARD | 飞书待认领卡 | 接待 | 已实现 | REQ-FEISHU-003、REQ-FEISHU-004、REQ-FEISHU-005、REQ-FEISHU-006 |
 | FLOW-SEARCH | 全局搜索 | 接待 | 已实现 | REQ-SEARCH-001 |
 | FLOW-ORDER | 订单与售后 | 售后 | 已实现 | REQ-ORD-001、REQ-ORD-002、REQ-ORD-003、REQ-ORD-004、REQ-ORD-005 |
@@ -757,6 +760,74 @@
 | S5 | `src/server/conversations/send.ts#deliverQueuedVideo`；`src/server/platforms/shopee.ts#shopeeSendVideo`；`src/server/conversations/send.ts#shopeeVideoMedia` |
 | S6 | `src/app/(app)/wb/timeline.tsx#Timeline` |
 
+### FLOW-WB-PRETRANSLATE · 发送前预翻译
+
+#### 概要
+
+- **执行者**：处理这个会话的成员（ROLE-Agent）
+- **触发**：在输入框写好回复后停止输入 800 毫秒
+- **进入条件**：发送目标语言不是「不翻译」，输入框有文字且不超过 2,000 字
+- **结果**：发送前就能看到译文，点发送直接发出译文，不再等翻译
+- **不管**：核对译文是否对应原文、预翻译失败后的自动重试、图片与卡片消息
+
+#### 主流程
+
+1. S1 停止输入 800 毫秒后预翻译当前文字（API-CONV-012） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
+2. S2 工具栏显示「将发送」与单行译文，点开浮层看全文 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
+3. S3 点发送，文字与目标语言命中预译文时随请求带上（API-CONV-007） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
+4. S4 服务端直接把预译文发给平台，时间线显示原文与译文 〔界面：Web 工作台对话栏｜src/app/(app)/wb/timeline.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S1–S4
+
+##### S1 预翻译
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 停顿前又改了字 | 作废上一次请求，按新文字重新等 800 毫秒 | API-CONV-012 | TC-CONV-069 |
+| 边界 | 同一文字与目标语言已翻过 | 直接用缓存的译文，不再请求 | API-CONV-012 | 无用例 |
+| 边界 | 切到「不翻译」或清空输入框 | 预览消失，不预翻译 | API-CONV-012 | TC-CONV-069 |
+| 边界 | 插入了语言版本的快捷回复 | 本条不翻译，不预翻译 | API-RCP-008 | 无用例 |
+| 边界 | 文字超过 2,000 字 | 不预翻译，发送时由服务端翻译 | API-CONV-007 | 无用例 |
+| 失败 | 翻译服务报错或超时 | 502 `/errors/ai-unavailable`〔提示：预翻译没成功，发送时再翻译〕 | `/errors/ai-unavailable`；API-CONV-012 | 不测：本地 AI 替身不会失败 |
+
+##### S2 显示预览
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 预览出现、消失或切换状态 | 输入框与时间线高度不变 | §15 预翻译 | TC-CONV-069 |
+| 边界 | 工具栏放不下译文 | 只显示「将发送」，点开看全文 | §15 预翻译 | TC-CONV-069 |
+
+##### S3 发送
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 还在翻译或文字刚改 | 不带预译文，服务端照旧同步翻译后发送 | API-CONV-007 | TC-CONV-070 |
+| 失败 | 带了译文却没选目标语言，或不是文字消息 | 422 `/errors/validation` | `/errors/validation`；API-CONV-007 | TC-CONV-071 |
+| 失败 | 译文为空或超过 2,000 字 | 422 `/errors/validation` | `/errors/validation`；API-CONV-007 | TC-CONV-071 |
+| 失败 | 译文超过店铺字数上限 | 422 `/errors/validation` | `/errors/validation`；API-CONV-007 | 不测：代码仓 pretranslate.test.ts 覆盖 |
+
+#### 待决策
+
+无。
+
+另见：§15 预翻译
+
+#### 关联
+
+- **契约锚点**：API-CONV-012；API-CONV-007；迁移 ENT-Message [*]→sending；迁移 ENT-Message sending→sent
+- **上游**：FLOW-WB-HANDLE
+- **下游**：—
+- **守住的不变量**：—
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/app/(app)/wb/use-pretranslate.ts#usePretranslate`；`src/lib/pretranslate.ts#canPretranslate`；`src/lib/pretranslate.ts#rememberTranslation` |
+| S2 | `src/app/(app)/wb/composer.tsx#SendPreview` |
+| S3 | `src/app/(app)/wb/composer.tsx#Composer`；`src/contracts/conversations.ts#sendBody` |
+| S4 | `src/server/conversations/actions.ts#sendMessage` |
+
 ### FLOW-TICKET-FORWARD · 转发工单到飞书
 
 #### 概要
@@ -1061,6 +1132,7 @@
 | REQ-CONV-013 | Shopee 常见问题记录拉回买家与商店 AI 助手的对话并在时间线显示 | G2 | P1 |
 | REQ-CONV-014 | 工作台搜索本店在售商品发商品卡，Shopee 店还可发商品链接 | G2 | P1 |
 | REQ-CONV-015 | 输入框粘贴图片与视频确认后发出，Shopee 会话还可发 MP4 视频 | G2 | P1 |
+| REQ-CONV-016 | 发送前翻译时，客服停止输入就先翻好并在工具栏预览，发送直接用预译文 | G2 | P1 |
 | REQ-AI-001 | 按店铺与工作时间内外的接待模式出稿 | G2 | P0 |
 | REQ-AI-002 | 出稿输入含最近 20 条对话、订单事实、提示词、护栏与检索到的资料 | G2 | P0 |
 | REQ-AI-003 | 草稿处置：原样发送、改后发送、忽略；24 小时未处置过期；新买家消息到达时旧草稿作废并重新出稿；发送失败转人工 | G2 | P0 |
@@ -1153,6 +1225,8 @@
 - REQ-CONV-015：一次最多 9 个，剪贴板同时带文字时按文字粘贴
 - REQ-CONV-015：PDF 等文件不能发，TikTok 会话不能发视频，都给出原因
 - REQ-CONV-015：视频只收 MP4、≤ 30 MB，由内部任务 `message.video_send` 上传后发出，见 12.12
+- REQ-CONV-016：停止输入 800 毫秒后预翻译，按文字与目标语言缓存最近 50 条，见 FLOW-WB-PRETRANSLATE
+- REQ-CONV-016：服务端不核对预译文是否对应原文，与客服直接输入的内容同样对待
 - REQ-TKT-006：能看这张工单的成员都能转发，见 FLOW-TICKET-FORWARD
 - REQ-SHOP-006：每店显示平台、站点、授权到期、平台口径客服指标（不跨平台合并）、接待模式、最近入站、7 天零入站
 - REQ-SHOP-006：Shopee 应用回调状态不是 `set` 或 `already_ours` 时，该应用下的店标「需处理 · 推送未订阅」
@@ -2045,12 +2119,12 @@ erDiagram
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
 | `API-CONV-006` | `POST /api/v1/conversations/{id}/close` | REQ-CONV-004 | `{ reason?, version }` | 200 会话；TikTok 结束会话失败只记录，不阻断 | 409 `/errors/conflict` | 已结束再结束返回 200 |
-| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, draftId?, disposition?: sent\|edited_sent }`；待认领会话发送 = 先认领再发送；`video` 只限 Shopee 店，先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 409 `/errors/conflict`（会话已被他人认领或已结束）；409 `/errors/not-allowed`（能力表不支持该类型、TikTok 店发视频、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
+| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, translatedText?, draftId?, disposition?: sent\|edited_sent }`；`translatedText` 是输入框的预译文（1–2,000 字），只能随文字消息与 `translateTo` 一起提交，带了就直接发出、不再同步翻译，原文仍记在 `original_text`；待认领会话发送 = 先认领再发送；`video` 只限 Shopee 店，先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 422 `/errors/validation`（`translatedText` 没有 `translateTo`、不是文字消息、为空或超过 2,000 字、超过店铺字数上限）；409 `/errors/conflict`（会话已被他人认领或已结束）；409 `/errors/not-allowed`（能力表不支持该类型、TikTok 店发视频、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
 | `API-CONV-008` | `POST /api/v1/conversations/{id}/drafts/{draftId}/ignore` | REQ-AI-003 | — | 200 | 409 `/errors/conflict`（草稿已处置或过期） | 已忽略再忽略返回 200 |
 | `API-CONV-009` | `PATCH /api/v1/conversations/{id}/segment` | REQ-CONV-007 | `{ stage: presale\|insale\|aftersale\|unknown }` | 200 段 | — | 幂等 |
 | `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005、REQ-CONV-015 | multipart `file`（JPG / PNG / WebP ≤ 10 MB，或 MP4 ≤ 30 MB） | 201 `{ id, url, width, height, kind: image\|video }`；视频存 `file.kind = chat_video` | 413 `/errors/too-large`；415 `/errors/unsupported-type` | — |
 | `API-CONV-011` | `GET /api/v1/files/{id}` | REQ-CONV-005、REQ-ORD-006、REQ-SET-004、REQ-KB-002 | — | 文件流；按所属对象鉴权（知识库原文件要求 `knowledge.manage`）；PDF 与图片 `inline`，其余 `attachment` | — | `private, max-age=300` |
-| `API-CONV-012` | `POST /api/v1/translate` | REQ-CONV-008 | `{ text, target: ms\|en\|th\|vi\|id\|tl\|zh }` | 200 `{ text }` | 502 / 504 `/errors/ai-unavailable` | 可重试 |
+| `API-CONV-012` | `POST /api/v1/translate` | REQ-CONV-008、REQ-CONV-016 | `{ text, target: ms\|en\|th\|vi\|id\|tl\|zh }` | 200 `{ text }` | 502 / 504 `/errors/ai-unavailable` | 可重试 |
 | `API-CONV-013` | `GET /api/v1/shops/{id}/coupons` | REQ-CONV-005 | — | `{ items[{ couponId, title, discount, endsAt }] }`（只返回可在聊天发送的券） | 409 `/errors/not-allowed`（Shopee 店） | no-store |
 | `API-CONV-014` | `GET /api/v1/quick-replies` | REQ-CONV-009 | `?stage=` | `{ items[{ id, title, stage, text, variants[{ lang, text }] }] }` | — | no-store |
 | `API-CONV-015` | `POST /api/v1/conversations/{id}/messages/{messageId}/retry` | REQ-CONV-005、REQ-AI-003 | — | 200 `{ message }` | 409 `/errors/conflict`（不是 failed） | 只对 `send_status=failed` 生效 |
@@ -3585,6 +3659,30 @@ sequenceDiagram
   end
 ```
 
+### 12.15 发送前预翻译（REQ-CONV-016）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant FE as 工作台输入框
+  participant API as Shopilot API
+  participant DS as DeepSeek
+  participant PF as 平台
+  FE->>FE: 停止输入 800 毫秒，按文字与目标语言查缓存
+  FE->>API: 预翻译 (API-CONV-012)
+  API->>DS: 翻译
+  DS-->>API: 译文
+  API-->>FE: 200 译文，工具栏显示「将发送」
+  FE->>API: 发送 text + translateTo + translatedText (API-CONV-007)
+  alt 带了预译文
+    API->>PF: 直接发出预译文
+  else 没带（还在翻译或文字刚改）
+    API->>DS: 同步翻译
+    API->>PF: 发出译文
+  end
+  API-->>FE: 201 消息
+```
+
 ## 13. 页面与跳转地图
 
 视觉来源：品牌目录 `brand/`（`brand/DESIGN.md`；配色、字体、标志「叠信」都取自 Quilt 项目「Shopilot」设计系统 v5「奶油 / 可可 / 芒果 / 焦糖」，与原型一致）；页面结构与交互以 Quilt 原型 73 屏为准（ACRU 仪表盘结构：白侧栏可收起、顶栏搜索 + 图标按钮 + 账号卡、白色圆角面板网格；图表一律 Chart.js）。原型里知识库模块的屏（经验卡、更新审核、AI 核验、产品目录）与助手的屏不实现；知识库一期是接待设置里的「知识库」标签页，侧栏不单列「知识库」，顶栏不显示「助手」。
@@ -3857,6 +3955,7 @@ flowchart LR
 | 延迟 | 回调应答（`API-HOOK-001`、`API-HOOK-002`） | P99 < 1 秒（Shopee 聊天推送超时 2 秒） |
 | 延迟 | 会话列表、会话详情、工单列表、订单列表 | 服务端 P95 < 300 ms（280 次/秒读负载下） |
 | 延迟 | 发送消息（不含平台耗时） | 服务端 P95 < 300 ms；含平台调用的总超时 10 秒 |
+| 延迟 | 预翻译 | 停止输入 800 毫秒后发起；带预译文的发送不再同步调 DeepSeek。2026-10-16 至 20 日线上发送 355 次 P50 1.46 秒、P95 2.0 秒（翻译约 0.8 秒、平台发送约 0.6 秒），上线后核对 P50 降到约 0.6–0.7 秒；预览出现、消失、状态切换不改变输入框高度 |
 | 延迟 | 买家消息到草稿出现在工作台 | P95 < 20 秒，含等买家停手 6 秒与知识检索（2026-10-15 至 16 日线上检索含改写 P50 5.6 秒、P95 11.3 秒，混合检索改 5 秒后推算 P95 约 8.5 秒）；每跳超时：改写 6 秒、混合检索每路 5 秒加纯向量重试 5 秒、出稿 25 秒，入队与轮询 ≤ 5 秒；出稿超时转人工，检索超时只降级 |
 | 延迟 | 买家消息到出现在工作台 | 会话列表 P95 < 6 秒，已打开会话的时间线 P95 < 4 秒：平台推送到入库实测 P90 1.4–2.3 秒（2026-10-15 至 16 日线上 587 条聊天推送），再加一次轮询间隔 |
 | 延迟 | 测试问答（`API-KB-012`） | P95 < 25 秒，同出稿链路但同步返回；前端超时 60 秒 |
@@ -3879,7 +3978,7 @@ flowchart LR
 | 限流 | 测试问答 | 每商户每分钟 20 次，超出 429；计数在 Web 进程内存里，多实例部署时上限按实例数放大（§28 已知限制） |
 | 限流 | 飞书 | 群自定义机器人每个每分钟 100 次、每秒 5 次（飞书的限制）；被限流时按「容错」行重试 |
 | 容量 | 飞书卡片 | 每会话段最多 2 张；按 §2 日均约 2,000 个会话段，每天 ≤ 4,000 张 |
-| 限流 | 平台调用 | TikTok 客服接口每店每天 10,000 次，回补最多占 30%；Shopee 按平台返回的限流错误退避 |
+| 限流 | 平台调用 | TikTok 客服接口每店每天 10,000 次，回补最多占 30%；TikTok 限流按应用 × 店铺 × 接口计，读接口按这三者排队，客服绩效每店两次至少隔 1.1 秒、其他读接口隔 0.2 秒，遇 HTTP 429 或业务码 36009002 等 1.5–2.5 秒重试一次，仍失败按原逻辑降级；排队记录在各进程内存，多实例时间隔按实例数放大；Shopee 按平台返回的限流错误退避 |
 | 数据增长 | 消息、草稿、会话、订单镜像 | 12 个月增长见 §2；`data.retention_purge` 每天按商户保存期限删除早于期限的会话段、消息、草稿、订单镜像与聊天图片 |
 | 数据增长 | 审计日志、登录记录 | 审计日志保留 2 年、登录记录保留 1 年，与商户保存期限无关（安全追溯） |
 | 数据增长 | 文件 | 聊天图片 ≤ 10 MB/张、聊天视频 ≤ 30 MB/个；发票 PDF + PNG ≈ 300 KB/张；导出包 24 小时后删除 |
@@ -3968,7 +4067,7 @@ flowchart LR
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
 | `token.refresh` | 每 10 分钟 | 批 100 店；单实例 | 2 分钟 | 鉴权失败即 11.6 `refresh_failed`；网络错误下轮重试 | 同上 |
 | `shop.backfill` | `API-SHOP-007` 完成接入后 | `singletonKey = shop_id`，同商户串行 | 30 分钟（可分段续跑） | 分段续跑，3 次失败标 `failed` 并在店铺页显示 | 同上 |
-| `shop.metrics` | 每小时 | 每店一次 | 1 分钟 | 下轮补；显示上次成功时间 | 同上 |
+| `shop.metrics` | 每小时 | 每店一次；TikTok 店 4 个统计周期按 §15 平台调用排队，5 家 TikTok 店每轮约多 17 秒 | 2 分钟 | 限流时重试一次；仍失败下轮补，显示上次成功时间 | 同上 |
 | `conversation.idle_close` | 每 10 分钟 | 批 500 | 2 分钟 | 下轮补（幂等） | 同上 |
 | `draft.expire` | 每小时 | 批 1,000 | 2 分钟 | 下轮补 | 同上 |
 | `unclaimed.remind` | 每分钟 | 批 500；段内只提醒一次，同时排飞书超时卡 | 1 分钟 | 下轮补 | 同上 |
@@ -4539,6 +4638,13 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Given TikTok 会话
   When 粘贴视频
   Then 提示 TikTok 接口暂不支持发视频
+
+场景: 发送前预翻译 (REQ-CONV-016)
+  Given 越南站会话，发送目标语言是越南语
+  When 处理人写中文后停止输入
+  Then 工具栏显示「将发送」与越南语译文，输入框高度不变
+  When 点发送
+  Then 请求带预译文，买家收到越南语，时间线同时显示原文与译文
 
 功能: AI 出稿
 

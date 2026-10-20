@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-21 | 按 DESIGN v1.24 新增 `TC-CONV-069` 至 `TC-CONV-071`（发送前预翻译：预览与高度不变、带预译文发送、提交校验）；TikTok 读接口排队与限流重试只在代码仓 `pace.test.ts` 覆盖，模拟平台不产生限流，不新增用例 | 实现会话 |
 | 2026-10-20 | 按 DESIGN v1.23 新增：会话 `TC-CONV-056` 至 `TC-CONV-068`（常见问题记录、发商品、粘贴与发视频、快捷回复语言版本，其中 `TC-CONV-057` 源自缺陷：常见问题记录早于买家首条消息到达时整条丢失，`TC-CONV-068` 人工在真实平台执行）、`TC-AI-035`、`TC-FEISHU-018`、工单 `TC-TKT-021` 至 `TC-TKT-024`、看板 `TC-DASH-010` 至 `TC-DASH-014`（`TC-DASH-011` 源自缺陷：多个客服首响显示 0 秒）；`TC-DASH-007` 废弃，被 `TC-DASH-010` 取代（首响改按平均）；原位修改 `TC-DASH-001` 第 1 步与 `TC-DASH-008` 第 1 步的「人工首响中位」为「人工首响平均」、`TC-DASH-006` 第 4 步的 CSV 列；§3 加「新建模拟买家」「问过 AI 助手后转人工」与测试视频 | 实现会话 |
 | 2026-10-17 | 按 DESIGN v1.22 新增 `TC-AI-034`（影子模式开段是商品卡、之后补文字时按第一句文字出一份影子回复） | 实现会话 |
 | 2026-10-17 | 按 DESIGN v1.22 新增 `TC-AI-030`（源自缺陷：品牌语气改成中文后影子回复用中文回外语买家）、`TC-AI-031`（买家先发商品卡、2 秒后补文字，只出一份影子回复）、`TC-AI-032`（影子模式下只发图片不出稿、不检索）、`TC-AI-033`（DeepSeek 调用日志）；`TC-KB-042` 废弃，被 `TC-AI-032` 取代（只发图片在影子模式下已不出稿，走不到检索） | 实现会话 |
@@ -1963,6 +1964,48 @@ q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -
 | 2 | 同一会话点「发链接」 | 买家收到能打开的商品页地址 |
 | 3 | TikTok 会话发商品卡 | Shopilot 时间线已发送；卖家中心出现商品卡 |
 | 4 | Shopee 会话发一个 30 MB 以内的 MP4 | 2 分钟内变已发送；卖家中心可播放；Shopilot 时间线能播放 |
+
+后置：无。
+
+#### `TC-CONV-069` 停止输入后预翻译：预览出现、改字刷新、切「不翻译」消失，输入框高度不变 — 对应 `REQ-CONV-016` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发「Boleh saya tahu bila barang sampai?」；浏览器窗口 1440×900，以 agent@demo.test 登录，打开这个会话并点「认领」；记翻译下拉的当前目标语言 L（不是「不翻译」）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 在输入框输入「您好，今天会发货」，输入完立刻量输入框外框高度 h | 工具栏显示「将发送」与「翻译中…」 |
+| 2 | 停止输入，等 2 秒 | 「将发送」后面换成译文（或只显示「将发送」标签）；输入框外框高度仍为 h |
+| 3 | 点「将发送」 | 浮层显示 L 语言的完整译文；输入框外框高度仍为 h |
+| 4 | 关掉浮层，把文字改成「您好，明天会发货」，停止输入等 2 秒，再点「将发送」 | 浮层显示的是新文字的译文，与第 3 步不同 |
+| 5 | 翻译下拉切到「不翻译」 | 「将发送」消失；输入框外框高度仍为 h |
+
+后置：无。
+
+#### `TC-CONV-070` 发送时带上预译文，没翻好就由服务端照旧翻译 — 对应 `REQ-CONV-016` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发「Boleh saya tahu bila barang sampai?」；浏览器以 agent@demo.test 登录，打开这个会话并点「认领」；记翻译下拉的当前目标语言 L（不是「不翻译」）；记录浏览器发出的请求（开发者工具网络面板或脚本拦截）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 输入「好的，马上为您处理」，停止输入，等到点「将发送」能看到译文 T | 浮层显示译文 T |
+| 2 | 点发送 | `POST /api/v1/conversations/<id>/messages` 请求体含 `"translateTo":"<L>"` 与 `"translatedText":"<T>"`；返回 `201` |
+| 3 | 看时间线最新一条本方消息 | 正文为 T，下方「原文」为「好的，马上为您处理」；状态已发送 |
+| 4 | 输入「请稍等」后不停顿，立刻点发送 | 请求体有 `translateTo`、没有 `translatedText`；返回 `201`；时间线最新一条有「原文 请稍等」对照 |
+
+后置：无。
+
+#### `TC-CONV-071` 预译文的提交校验 — 对应 `REQ-CONV-016` · 级别: 边缘 · 执行者: 皆可
+
+前置：基线；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发「hello」；执行「curl 会话」，`login agent@demo.test`；`api agent@demo.test "$B/api/v1/conversations?view=queue"` 取这个买家的会话 ID 记为 C；`api agent@demo.test -X POST $B/api/v1/conversations/C/claim -d '{}'` 返回 `HTTP 200`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api agent@demo.test -X POST $B/api/v1/conversations/C/messages -d '{"clientRequestId":"pt-tc071-1","type":"text","text":"你好","translatedText":"Hello"}'` | `HTTP 422`，`fields.translatedText` 写着译文只能随文字消息和翻译目标语言一起提交 |
+| 2 | 同上，body 换成 `{"clientRequestId":"pt-tc071-2","type":"image","fileId":"00000000-0000-0000-0000-000000000000","translateTo":"en","translatedText":"Hello"}` | `HTTP 422`，`fields.translatedText` 同第 1 步 |
+| 3 | 同上，body 为 `{"clientRequestId":"pt-tc071-3","type":"text","text":"你好","translateTo":"en","translatedText":"   "}` | `HTTP 422`，`fields.translatedText` 为「译文不能为空」 |
+| 4 | 同上，`translatedText` 为 2,001 个字母 a，`clientRequestId` 为 `pt-tc071-4` | `HTTP 422`，`fields.translatedText` 为「译文最多 2,000 字」 |
+| 5 | 同上，body 为 `{"clientRequestId":"pt-tc071-5","type":"text","text":"你好","translateTo":"en","translatedText":"Hello there"}` | `HTTP 201` |
+| 6 | `api agent@demo.test "$B/api/v1/conversations/C"` | 最后一条本方消息 `text` 为「Hello there」、`originalText` 为「你好」 |
 
 后置：无。
 
@@ -4512,6 +4555,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-053 | 2026-10-20 | 本地 | `67dd209`（未修复） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-057、TC-DASH-011） | 通过 0/2 · 失败 2 |
 | RUN-054 | 2026-10-20 | 本地 | `c7deb15` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-056、TC-CONV-057、TC-CONV-058、TC-CONV-059、TC-CONV-060、TC-CONV-061、TC-CONV-062、TC-CONV-063、TC-CONV-064、TC-CONV-065、TC-CONV-066、TC-CONV-067、TC-CONV-068、TC-AI-035、TC-FEISHU-018、TC-TKT-021、TC-TKT-022、TC-TKT-023、TC-TKT-024、TC-DASH-006、TC-DASH-008、TC-DASH-010、TC-DASH-011、TC-DASH-012、TC-DASH-013、TC-DASH-014） | 通过 24/26 · 失败 1 · 待人工 1 |
 | RUN-055 | 2026-10-20 | 本地 | `d2660ca` | AI（Claude Code 主会话；Playwright + Edge） | 复测（RUN-054：TC-DASH-012） | 通过 1/1 |
+| RUN-056 | 2026-10-21 | 本地 | `e4ac880` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-069、TC-CONV-070、TC-CONV-071） | 通过 3/3 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -4686,6 +4730,8 @@ RUN-052 证据：局部轮，环境同 RUN-050（独立库 `shopilot_aiq`、端�
 RUN-053 证据：修复前那一轮，只跑两条源自缺陷的用例。被测版本 `67dd209` 用 `git worktree` 检出到独立目录，独立库 `shopilot_old`（同一 PostgreSQL 实例），Web 起在 3367，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 都改成 3367，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，按 §3 重建基线。`TC-CONV-057`：这个版本的模拟器还没有「问过 AI 助手后转人工」，第 2–6 步改为按线上 2026-10-20 实拉的字段手工拼一条 `bundle_message` 推送（载荷见 `run-053-TC-CONV-057-5.json`），签名后先推到 Shopilot，再用模拟器发买家第一条消息开会话；30 秒后库里没有这条记录，入站事件 `ignored`。`TC-DASH-011`：今天设为不工作后，新买家发消息、Nur 认领并回复（已发送），`firstReplySamples` 7 → 8，Nur 的首响中位为 0 秒，与 10-19 会议截图「多个客服首响 0 秒」一致。轮次结束删除了该目录与库。
 
 RUN-054 证据：局部轮，其中 `TC-CONV-057`、`TC-DASH-011` 是 RUN-053 两条失败的复测。被测版本是本地 main `c7deb15`（已合并 wt/faq、wt/product、wt/forward、wt/composer、wt/dash），工作区只改了 `docs/`。独立库 `shopilot_run`，Web 起在 3366，环境变量同 RUN-053 换成 3366，起跑前重建基线；看板三条（`TC-DASH-006`、`TC-DASH-008`、`TC-DASH-010`）前再重建一次基线并执行一次 `dashboard-metrics`，三条只读，共用这份数据。两条复测都通过：`TC-CONV-057` 第 3 步 Shopilot 里没有该会话，第 5–6 步各 200，30 秒后 `ok|4`、入站事件 `done`，回调已改回原地址；`TC-DASH-011` 前后 `firstReplySamples` 都是 0（新版本下种子里的段同样按新口径排除），Nur 的首响平均为 null（`run-054-TC-DASH-011-2.json`）。常见问题记录：卡片收起 2 条、展开 4 条，顺序与译文同预期，390 宽无横向滚动（`run-054-TC-CONV-056-3.png`）；`TC-AI-035` 用 `TC-CONV-056` 那个新买家，最近一次出稿请求的对话依次是助手欢迎语、推荐商品、买家提问、助手回答、买家「Chat with shop staff」（`run-054-TC-AI-035-2.json`）；伪造成员 ID 的记录 `failed`「平台没有返回记录里的消息」，卡片提示到卖家中心查看；补拉脚本拉到 1、取不到 1（`run-054-TC-CONV-059-1.txt`）。发商品：4 件商品与库存 87、67、47、27，三种搜索结果同预期；商品卡发出后处理人变为 Nur，模拟平台收到 `item {item_id: 24580011003}`（`run-054-TC-CONV-061-1.png`）；Shopee 链接 `https://shopee.com.my/product/220001/24580011004`；TikTok TH 没有「发链接」、`PRODUCT_CARD` 发出；TikTok MY 页签显示没有商品权限，接口 409 `product_scope_missing`；组长看 Nur 的会话时按钮不可用，强点也没有发出。粘贴：两张 PNG 弹确认框「发送 2 个」并发出；带文字的剪贴板用真实剪贴板加 ⌘V 验证，输入框得到「你好」、不弹框；PDF 提示原文与用例一致。视频：附件按钮 accept 含 `video/mp4`，发出前「发送中」，约 15 秒内已发送、可播放（`currentTime` 1.5 秒）；MOV 与 TikTok 视频提示原文一致，接口 409。快捷回复：菜单「通用 · 3 个版本 · 马来语版」，插入后「不翻译 · 已插入马来语版」，有文字时插默认版，发出的是马来语原文、`original_text` 为空。工单：未连飞书时按钮不可用、两个接口 409 `feishu_unavailable`；连上替身后转发 T-1007，卡片标题「工单 T-1007 · 物流异常 - 订单需要重新发货」，含订单号、店铺、商品与规格 Matte Black、数量、备注与带 `?m=` 的链接，投递 `sent`（`run-054-TC-TKT-021-3.json`）；`?m=` 落地先提示「已切换到「Other Store」」，组长看到「看不到这张工单」；工单页显示「需重新发货」「订单需要重新发货」、整页没有 `RETRY_SHIP`。飞书待认领卡里助手发言标「Shopee AI」、买家提问排在「Chat with shop staff」之前（`run-054-TC-FEISHU-018-2.json`）。看板：`TC-DASH-006` 四步都对，CSV 首行与 D 行为「…,780,4,7,…」；`TC-DASH-010` 林晓 `segments` 5、`firstReplyAvgSec` 1260、`replied12h` 3/5，团队页中位 1200；`TC-DASH-008` 桌面与 390 宽各项都在、无横向滚动；问题提取替身把新买家归到「物流查询」，`issue.extract` 在买家刚发言时不提取，补算脚本「共 15 段，成功 15」；类别管理各步同预期，组长没有「管理类别」、接口 403。
+
+RUN-056 证据：局部轮，被测版本本地 main `e4ac880`（已合并预翻译 586c478、24e839d），工作区只改了 `docs/`。独立库 `shopilot_run_pt`（同一 PostgreSQL 实例），Web 起在 3373、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3373，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前迁移加种子。三个新买家都按 §3「模拟器发消息」在 Demo Shopee MY 建，会话落在「AI 接待中」，Nur 在该视图打开后认领；目标语言 L 为马来语。`TC-CONV-069`：输入后工具栏为「将发送 翻译中…」，输入框外框高度在输入后、译文出现后、打开浮层时、切到「不翻译」后都是 106 px；两次浮层译文分别为「[译文] 您好，今天会发货」「[译文] 您好，明天会发货」（AI 替身译文）；切「不翻译」后没有「将发送」。`TC-CONV-070`：带预译文那次请求体含 `"translateTo":"ms"` 与 `"translatedText":"[译文] 好的，马上为您处理"`，返回 201，时间线有译文与原文；不停顿那次请求体只有 `translateTo`，返回 201（`run-056-TC-CONV-069-070.json`，截图 `run-056-TC-CONV-069-1.png`、`-3.png`、`-5.png`、`run-056-TC-CONV-070-3.png`、`-4.png`）。`TC-CONV-071` 六步同预期：前四步 422，`fields.translatedText` 依次为「译文只能随文字消息和翻译目标语言一起提交」×2、「译文不能为空」「译文最多 2,000 字」；第 5 步 201；最后一条本方消息 `text` 为「Hello there」、`originalText` 为「你好」（`run-056-TC-CONV-071.txt`）。控制台无报错。轮次结束停掉 3373 的 Web 与 Worker，删除库与临时文件。
 
 本轮执行中发现用例本身写错、当轮原位修正的地方（都是这一轮新写的用例，修正前没有登记过结果）：`TC-CONV-059` 前置改按状态取拉到的那条（同一会话里还有 `TC-CONV-058` 造的取不到的记录）；`TC-TKT-021`、`TC-TKT-024` 前置改为先推进到 PROCESSED 再到 RETRY_SHIP（模拟平台不允许从 READY_TO_SHIP 直接到 RETRY_SHIP，`TC-TKT-004` 第 1 步同样受影响，本轮没跑）；`TC-DASH-012` 第 4 步按钮名为「应用」；`TC-DASH-013` 总结改为「以……开头」（AI 替身取买家第一句时带着平台译文）；`TC-FEISHU-018` 卡片里说话人是加粗的「Shopee AI」「买家」，不是「Shopee AI：」；`TC-DASH-006`、`TC-DASH-010` 的 12 小时内回复是 4 段不是 5 段，`dashboard-metrics` 场景里 AI 独立解决的段只打了标记、没有 AI 发出的消息。`TC-CONV-068` 要在真实平台执行，登记待人工。截图与数据放 `docs/test-runs/run-054-*`；本机库与进程在轮次结束后回收。
 
