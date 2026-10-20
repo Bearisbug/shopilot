@@ -1172,6 +1172,46 @@ export const feishuDelivery = pgTable(
   ],
 );
 
+// ---------- 会话分析：AI 草稿与人工回复对比 ----------
+
+/** 修改分类（架构文档 4.1）：语义一致、仅语言润色、补充信息、事实更正、流程改变、弃用重写 */
+export type DraftEditClass = "same" | "polish" | "supplement" | "correction" | "process" | "rewrite";
+export type DraftConsistency = "same" | "partial" | "different";
+
+/** 每份草稿对比一次（draft.compare）：辅助草稿比发出内容，影子回复比人工另行发出的回复 */
+export const draftReview = pgTable(
+  "draft_review",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .unique()
+      .references(() => draft.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    segmentId: uuid("segment_id").references(() => segment.id, { onDelete: "set null" }),
+    kind: text("kind", { enum: ["assist", "shadow"] }).notNull(),
+    /** 对比时草稿的状态：sent、edited_sent、ignored、shadow */
+    draftStatus: text("draft_status").notNull(),
+    /** 人工最终回复（原语言，最多 3 条按时间拼接） */
+    humanText: text("human_text").notNull(),
+    humanMessageIds: uuid("human_message_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    editClass: text("edit_class", { enum: ["same", "polish", "supplement", "correction", "process", "rewrite"] }).notNull(),
+    consistency: text("consistency", { enum: ["same", "partial", "different"] }).notNull(),
+    /** 中文一句话理由（≤100 字） */
+    reason: text("reason"),
+    /** 人工回复里的关键句（≤200 字） */
+    evidence: text("evidence"),
+    /** DeepSeek 模型名；原样发送不调 AI，记 rule */
+    model: text("model").notNull(),
+    comparedAt: ts("compared_at").notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("draft_review_merchant_idx").on(t.merchantId, t.kind, t.editClass)],
+);
+
 export const idempotencyKey = pgTable(
   "idempotency_key",
   {

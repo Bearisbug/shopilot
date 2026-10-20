@@ -13,6 +13,7 @@ import { handoverScan, ticketAutoClose, ticketScan } from "@/server/tickets/jobs
 import { expireDrafts, expireInvitations, idleClose, remindUnclaimed } from "@/server/conversations/jobs";
 import { deliverQueuedVideo } from "@/server/conversations/send";
 import { sweepIssues } from "@/server/issues/extract";
+import { sweepDraftReviews } from "@/server/analysis/compare";
 import { deliverEmail } from "@/server/core/mailer";
 import { deliverFeishuCard } from "@/server/feishu/deliver";
 import { backfillOrderImages } from "@/server/orders/images";
@@ -58,6 +59,10 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "issue.extract": async () => {
     const r = await sweepIssues();
     if (r.picked) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "issue sweep", ...r }));
+  },
+  "draft.compare": async () => {
+    const r = await sweepDraftReviews();
+    if (r.picked) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "draft compare sweep", ...r }));
   },
   "invitation.expire": () => expireInvitations(),
   "knowledge.ingest": (data) => ingestDocument(data),

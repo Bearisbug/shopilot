@@ -81,6 +81,69 @@ export type DashboardIssueStats = {
   trend: Array<{ date: string; counts: Record<string, number> }>;
 };
 
+/** AI 草稿与人工回复对比（会话分析层）：修改分类与一致性 */
+export const DRAFT_EDIT_CLASSES = ["same", "polish", "supplement", "correction", "process", "rewrite"] as const;
+export type DraftEditClass = (typeof DRAFT_EDIT_CLASSES)[number];
+export const DRAFT_EDIT_LABEL: Record<DraftEditClass, string> = {
+  same: "语义一致",
+  polish: "仅语言润色",
+  supplement: "补充信息",
+  correction: "事实更正",
+  process: "流程改变",
+  rewrite: "弃用重写",
+};
+export const DRAFT_CONSISTENCIES = ["same", "partial", "different"] as const;
+export type DraftConsistency = (typeof DRAFT_CONSISTENCIES)[number];
+export const DRAFT_REVIEW_KINDS = ["shadow", "assist"] as const;
+export type DraftReviewKind = (typeof DRAFT_REVIEW_KINDS)[number];
+
+export type DraftReviewStats = {
+  /** 影子回复：已对比的份数与一致性；一致率 = 语义一致 / 已对比 */
+  shadow: { compared: number; same: number; partial: number; different: number; consistency: Ratio };
+  /** 辅助草稿：已对比的份数，按客服的处置分 */
+  assist: { compared: number; sent: number; editedSent: number; ignored: number };
+  /** 两类草稿各自的修改分类计数（六类都列，按固定顺序） */
+  byClass: Record<DraftReviewKind, Array<{ editClass: DraftEditClass; count: number }>>;
+};
+
+/** 样例列表：范围同看板，另给类型与修改分类 */
+export const dashboardDraftReviewsQuery = z
+  .object({
+    range: z.enum(DASH_PRESETS).optional(),
+    from: ymd.optional(),
+    to: ymd.optional(),
+    kind: z.enum(DRAFT_REVIEW_KINDS).default("shadow"),
+    class: z.enum(DRAFT_EDIT_CLASSES).optional(),
+  })
+  .superRefine((q, c) => {
+    if (!q.from !== !q.to) c.addIssue({ code: "custom", path: [q.from ? "to" : "from"], message: "自定义范围要同时给出起止日期" });
+    if (q.from && q.range) c.addIssue({ code: "custom", path: ["range"], message: "预设范围与自定义起止日期只能给一种" });
+  })
+  .transform(({ range, from, to, kind, class: editClass }) => ({ spec: (from && to ? { from, to } : { preset: range ?? DEFAULT_PRESET }) as DashRangeSpec, kind, editClass: editClass ?? null }));
+
+/** 样例最多返回的条数（按草稿生成时间倒序） */
+export const DRAFT_REVIEW_LIST_LIMIT = 50;
+
+export type DashboardDraftReviewList = {
+  kind: DraftReviewKind;
+  editClass: DraftEditClass | null;
+  total: number;
+  items: Array<{
+    draftId: string;
+    conversationId: string;
+    createdAt: string;
+    shopName: string;
+    buyerName: string;
+    draftStatus: string;
+    editClass: DraftEditClass;
+    consistency: DraftConsistency;
+    draftText: string;
+    humanText: string;
+    reason: string | null;
+    evidence: string | null;
+  }>;
+};
+
 /** 把范围写成查询串（页面链接与导出共用）；默认的本月不写参数 */
 export function rangeSearch(spec: DashRangeSpec): string {
   if ("from" in spec) return `from=${spec.from}&to=${spec.to}`;
@@ -185,6 +248,8 @@ export type DashboardResponse = {
     /** 改后 / (原样 + 改后) */
     editRate: Ratio;
   };
+  /** AI 草稿与人工回复对比，按草稿生成日期统计 */
+  draftReview: DraftReviewStats;
   people: DashboardPerson[];
   tickets: {
     open: number;

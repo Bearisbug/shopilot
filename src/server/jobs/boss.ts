@@ -45,6 +45,8 @@ export const QUEUES = {
   "merchant.purge": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 0 },
   // 看板问题提取：每轮最多 50 段、4 路并发，每段 AI 限时 15 秒
   "issue.extract": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
+  // AI 草稿与人工回复对比：每轮最多 50 份、4 路并发，每份 AI 限时 15 秒
+  "draft.compare": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
 } as const;
 
 export type QueueName = keyof typeof QUEUES;
@@ -68,6 +70,7 @@ export const SCHEDULES: Partial<Record<QueueName, string>> = {
   "merchant.purge": "30 3 * * *",
   "knowledge.purge": "40 * * * *",
   "issue.extract": "*/10 * * * *",
+  "draft.compare": "3-59/10 * * * *",
 };
 
 /** pg-boss 定时投递用的内部队列名（pg-boss 未导出该常量） */
