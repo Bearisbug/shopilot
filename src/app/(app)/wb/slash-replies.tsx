@@ -14,7 +14,7 @@ import { REPLY_TAB_LABEL } from "./wb-dialogs";
 import { LANG_LABEL } from "./wb-shared";
 
 /** 选中一条时插入哪一版：hasText 表示输入框里除了 `/查询词` 还有别的字（规则见 src/lib/quick-reply.ts） */
-export type ReplyResolver = (r: QuickReply, hasText: boolean) => { text: string; draftLang: QuickReplyLang | null };
+type ReplyResolver = (r: QuickReply, hasText: boolean) => { text: string; draftLang: QuickReplyLang | null };
 
 /** 光标所在的 `/` 片段的起点：`/` 在开头或紧跟空白之后，且 `/` 到光标之间没有空白；`a/b`、网址里的 `/` 不算 */
 function slashAt(text: string, caret: number): number | null {

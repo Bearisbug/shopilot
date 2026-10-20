@@ -16,13 +16,6 @@ export function quickReplyInsert(
   r: Pick<QuickReply, "text" | "variants">,
   { target, draftLang, hasText }: { target: string; draftLang: QuickReplyLang | null; hasText: boolean },
 ): { text: string; draftLang: QuickReplyLang | null } {
-  if (!hasText) {
-    const v = quickReplyVersion(r, target);
-    return { text: v.text, draftLang: v.lang };
-  }
-  if (draftLang) {
-    const v = quickReplyVersion(r, draftLang);
-    return v.lang ? { text: v.text, draftLang } : { text: r.text, draftLang: null };
-  }
-  return { text: r.text, draftLang: null };
+  const v = quickReplyVersion(r, hasText ? (draftLang ?? "none") : target);
+  return { text: v.text, draftLang: v.lang };
 }

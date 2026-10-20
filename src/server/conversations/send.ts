@@ -70,7 +70,7 @@ async function queueVideo(msg: MessageRow): Promise<SendOutcome> {
 /** message.video_send：发出一条排队中的视频；消息不在「发送中」（已发出、已失败或已删除）就什么都不做 */
 export async function deliverQueuedVideo(data: Record<string, unknown>): Promise<void> {
   const [msg] = await db().select().from(schema.message).where(eq(schema.message.id, String(data.messageId))).limit(1);
-  if (!msg || msg.type !== "video" || msg.sendStatus !== "sending") return;
+  if (!msg || msg.sendStatus !== "sending") return;
   const [conv] = await db().select().from(schema.conversation).where(eq(schema.conversation.id, msg.conversationId)).limit(1);
   if (conv) await deliver(conv, msg);
 }

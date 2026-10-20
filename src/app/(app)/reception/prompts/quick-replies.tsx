@@ -7,8 +7,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { TRANSLATE_TARGETS } from "@/contracts/conversations";
 import {
-  QUICK_REPLY_LANGS,
   QUICK_REPLY_STAGES,
   QUICK_REPLY_TEXT_MAX,
   charCount,
@@ -181,12 +181,10 @@ function ReplyForm({ reply, close }: { reply?: QuickReply; close: () => void }) 
   const watched = useWatch({ control: form.control, name: ["text", "variants"] });
   // 当前编辑的版本：default 或语言代码
   const [tab, setTab] = useState<string>("default");
-  const used = new Set(variants.fields.map((f) => f.lang));
-  const addable = QUICK_REPLY_LANGS.filter((l) => !used.has(l));
+  const addable = TRANSLATE_TARGETS.filter((l) => !variants.fields.some((f) => f.lang === l));
   const errors = form.formState.errors;
   const tabError = (t: string) => (t === "default" ? !!errors.text : !!errors.variants?.[variants.fields.findIndex((f) => f.lang === t)]?.text);
-  const textOf = (t: string) => (t === "default" ? watched[0] : watched[1]?.find((v) => v.lang === t)?.text) ?? "";
-  const n = charCount(textOf(tab));
+  const n = charCount((tab === "default" ? watched[0] : watched[1]?.find((v) => v.lang === tab)?.text) ?? "");
 
   const save = useMutation({
     mutationFn: (v: QuickReplyBody) => (reply ? api.patch<QuickReply>(`/api/v1/quick-replies/${reply.id}`, v) : api.post<QuickReply>("/api/v1/quick-replies", v, key)),

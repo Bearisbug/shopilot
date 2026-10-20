@@ -434,7 +434,7 @@ async function quickReplyOf(ctx: MemberContext, id: string) {
 
 export async function createQuickReply(ctx: MemberContext, body: QuickReplyBody): Promise<QuickReply> {
   return db().transaction(async (tx) => {
-    const [row] = await tx.insert(qr).values({ merchantId: ctx.merchant.id, ...body, variants: body.variants ?? [] }).returning();
+    const [row] = await tx.insert(qr).values({ merchantId: ctx.merchant.id, ...body }).returning();
     await audit(
       ctx.actor,
       { module: "reception", action: "quick_reply_created", summary: `新增快捷回复「${body.title}」`, targetType: "quick_reply", targetId: row.id, data: { stage: body.stage, langs: row.variants.map((v) => v.lang) } },
