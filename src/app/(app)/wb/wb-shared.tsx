@@ -116,14 +116,14 @@ export function Citations({ items, className }: { items: DraftCitationItem[]; cl
           <Fragment key={`${c.kind}:${c.qaId ?? c.documentId}`}>
             {i > 0 && "、"}
             {c.available && canOpen ? (
-              <a href={qa ? `/reception/knowledge?qa=${c.qaId}` : `/reception/knowledge?doc=${c.documentId}`} target="_blank" rel="noopener" className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link)">
+              <a href={qa ? `/reception/knowledge?tab=qa&qa=${c.qaId}` : `/reception/knowledge?tab=docs&doc=${c.documentId}`} target="_blank" rel="noopener" className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link)">
                 {label}
                 <span className="sr-only">（在新标签打开）</span>
               </a>
             ) : (
               <span className="text-foreground">
                 {label}
-                {!c.available && <span className="sr-only">{qa ? "（问答已下架或删除）" : "（资料已删除）"}</span>}
+                {!c.available && (qa ? <span className="text-muted-foreground">（已下架）</span> : <span className="sr-only">（资料已删除）</span>)}
               </span>
             )}
           </Fragment>
