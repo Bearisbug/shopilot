@@ -80,6 +80,16 @@ export const ticketNoteBody = z.object({ text: z.string().trim().min(1, "备注�
 export const ticketVoidBody = z.object({ reason: z.string().trim().min(1, "请填写作废原因").max(200, "原因最多 200 字") });
 export const ticketDueBody = z.object({ dueAt: zIsoTime });
 
+// API-TKT-010：转发到飞书。应用接法传 chatId（机器人所在的群），群自定义机器人接法传 targetId（通知设置里设过的群）
+export const ticketForwardBody = z
+  .object({
+    chatId: z.string().trim().min(1).max(100).optional(),
+    targetId: zUuid.optional(),
+    note: z.string().trim().max(200, "备注最多 200 字").optional(),
+  })
+  .refine((b) => !!b.chatId !== !!b.targetId, { message: "请选择一个群", path: ["chatId"] });
+export type TicketForwardBody = z.infer<typeof ticketForwardBody>;
+
 // ── 响应 ──
 
 export type TicketItem = {
@@ -158,7 +168,7 @@ export type TicketBoard = {
 
 export type TicketEventItem = {
   id: string;
-  type: "created" | "status" | "assign" | "note" | "platform_event" | "due_change" | "action" | "void";
+  type: "created" | "status" | "assign" | "note" | "platform_event" | "due_change" | "action" | "void" | "feishu";
   source: "page" | "system" | "webhook";
   actorName: string | null;
   at: string;
@@ -169,6 +179,16 @@ export type TicketEventItem = {
 export type TicketNextAction =
   | { kind: "status"; status: "in_progress" | "waiting" | "resolved"; waitingOn?: WaitingOn; label: string }
   | { kind: "platform"; code: string | null; label: string };
+
+/** API-TKT-009：转发弹窗里可选的群；key 是应用接法的 chatId 或自定义机器人的 targetId */
+export type TicketForwardTargets = {
+  method: "app" | "webhook";
+  targets: Array<{ key: string; name: string; /** 「默认群」「OBSBOT.th 的群」；应用接法里没设过的群为 null */ scope: string | null }>;
+  /** 预选：这家店另指定的群，否则默认群；不在列表里时为 null */
+  defaultKey: string | null;
+};
+
+export type TicketForwardResult = { deliveryId: string; targetName: string; event: TicketEventItem };
 
 export type TicketDetail = {
   ticket: TicketItem & {
@@ -187,4 +207,6 @@ export type TicketDetail = {
     afterSale: { id: string; kind: "return" | "cancel"; externalId: string; platformStatus: string; nextAction: string | null; sellerDueAt: string | null; dueField: string | null; reason: string | null } | null;
   };
   permissions: { canChangeStatus: boolean; canAssign: boolean; canVoid: boolean; canChangeDue: boolean; canNote: boolean };
+  /** 「转发到飞书」能不能用；不能用时 reason 写原因 */
+  feishu: { available: boolean; reason: string | null };
 };

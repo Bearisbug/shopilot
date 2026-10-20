@@ -15,6 +15,7 @@ import {
   LockIcon,
   PlusIcon,
   RadioTowerIcon,
+  SendIcon,
   StickyNoteIcon,
   TriangleAlertIcon,
   UserRoundPlusIcon,
@@ -27,7 +28,17 @@ import { toast } from "sonner";
 import { z } from "zod";
 import type { Me } from "@/contracts/auth";
 import type { MemberOption } from "@/contracts/team";
-import { OPEN_TICKET_STATUSES, TYPE_LABEL, WAITING_LABEL, statusText, type TicketDetail, type TicketEventItem, type TicketItem } from "@/contracts/tickets";
+import {
+  OPEN_TICKET_STATUSES,
+  TYPE_LABEL,
+  WAITING_LABEL,
+  statusText,
+  type TicketDetail,
+  type TicketEventItem,
+  type TicketForwardResult,
+  type TicketForwardTargets,
+  type TicketItem,
+} from "@/contracts/tickets";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CancelRequestDialog } from "@/components/orders/cancel-request-dialog";
 import { ReturnReviewSheet } from "@/components/orders/return-review-sheet";
@@ -46,6 +57,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ApiError, api, errorText, newKey } from "@/lib/api";
 import { inTz } from "@/lib/format";
 import { ROLE_LABEL } from "@/lib/permissions";
+import { platformStatusText, ticketDescriptionText } from "@/lib/ticket-text";
 import { cn } from "@/lib/utils";
 import { LIST_URL_KEY, ticketsPoll, useChangeStatus } from "../tickets-shared";
 
@@ -58,6 +70,7 @@ const EVENT_ICON: Record<TicketEventItem["type"], LucideIcon> = {
   due_change: CalendarClockIcon,
   action: HandIcon,
   void: BanIcon,
+  feishu: SendIcon,
 };
 const PLATFORM_NAME = { shopee: "Shopee", tiktok: "TikTok" } as const;
 const HANDLING_LABEL = { bot: "AI 接待中", awaiting_human: "待认领", human: "处理中", closed: "已结束" } as const;
@@ -132,6 +145,7 @@ export function TicketDetailClient({ me, id }: { me: Me; id: string }) {
   return (
     <PageScroll>
       <PageHeader title={`${t.number} · ${TYPE_LABEL[t.type]}`} facts={facts}>
+        <ForwardButton d={d} />
         <Button asChild variant="ghost" size="sm">
           <Link href={listHref}>返回列表</Link>
         </Button>
@@ -148,6 +162,7 @@ export function TicketDetailClient({ me, id }: { me: Me; id: string }) {
         </div>
       </div>
       <DueDialog d={d} tz={tz} />
+      <ForwardDialog d={d} />
     </PageScroll>
   );
 }
@@ -159,7 +174,7 @@ function ProgressPanel({ d }: { d: TicketDetail }) {
     : t.origin === "platform"
       ? "由平台事件建单，之后由负责人手动推进"
       : "由负责人手动改状态";
-  const footer = [t.platformStatus ? `平台状态 ${t.platformStatus}` : null, d.related.afterSale?.nextAction ? `卖家下一步 ${d.related.afterSale.nextAction}` : null].filter(Boolean).join(" · ");
+  const footer = [t.platformStatus ? `平台状态 ${platformStatusText(t.shop.platform, t.platformStatus)}` : null, d.related.afterSale?.nextAction ? `卖家下一步 ${d.related.afterSale.nextAction}` : null].filter(Boolean).join(" · ");
   return (
     <Panel>
       <PanelHeader title="进度" description={desc}>
@@ -189,7 +204,7 @@ function ProgressPanel({ d }: { d: TicketDetail }) {
       {(footer || t.voidReason || t.description) && (
         <div className="mt-4 flex flex-col gap-1 text-xs text-muted-foreground">
           {footer && <p className="break-all">{footer}</p>}
-          {t.description && <p>说明：{t.description}</p>}
+          {t.description && <p>说明：{ticketDescriptionText(t.description)}</p>}
           {t.voidReason && <p>作废原因：{t.voidReason}</p>}
         </div>
       )}
@@ -363,11 +378,11 @@ function RelatedPanel({ d, tz }: { d: TicketDetail; tz: string }) {
             action="打开会话"
           />
         )}
-        {o && <RelatedRow title={`订单 ${o.externalOrderId}`} sub={[o.itemsText, `${o.currency} ${o.total}`, o.platformStatus].filter(Boolean).join(" · ")} href={`/orders?order=${o.id}`} action="订单" />}
+        {o && <RelatedRow title={`订单 ${o.externalOrderId}`} sub={[o.itemsText, `${o.currency} ${o.total}`, platformStatusText(d.ticket.shop.platform, o.platformStatus)].filter(Boolean).join(" · ")} href={`/orders?order=${o.id}`} action="订单" />}
         {a && (
           <RelatedRow
             title={`${a.kind === "return" ? "退货单" : "取消申请"} ${a.externalId}`}
-            sub={[a.platformStatus, a.reason ? `原因「${a.reason}」` : null].filter(Boolean).join(" · ")}
+            sub={[platformStatusText(d.ticket.shop.platform, a.platformStatus), a.reason ? `原因「${a.reason}」` : null].filter(Boolean).join(" · ")}
           />
         )}
       </ul>
@@ -670,3 +685,141 @@ function DueForm({ t, tz, close }: { t: TicketDetail["ticket"]; tz: string; clos
   );
 }
 
+
+/** 页头「转发到飞书」：没连飞书等不能用时置灰，悬停说明原因 */
+function ForwardButton({ d }: { d: TicketDetail }) {
+  const { openIt } = useDialogParam("feishu");
+  if (d.feishu.available) {
+    return (
+      <Button variant="outline" size="sm" onClick={openIt}>
+        <SendIcon />
+        转发到飞书
+      </Button>
+    );
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="outline" size="sm" aria-disabled="true" aria-label={`转发到飞书（不可用：${d.feishu.reason ?? "现在不能转发"}）`}>
+          <SendIcon />
+          转发到飞书
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64">{d.feishu.reason}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+const FORWARD_NOTE_MAX = 200;
+
+function ForwardDialog({ d }: { d: TicketDetail }) {
+  const t = d.ticket;
+  const { open, close } = useDialogParam("feishu");
+  // 地址里带 ?dialog=feishu 也只在能转发时打开
+  useEffect(() => {
+    if (open && !d.feishu.available) close();
+  }, [open, d.feishu.available, close]);
+  return (
+    <Dialog open={open && d.feishu.available} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>转发 {t.number} 到飞书</DialogTitle>
+          <DialogDescription>发成一张飞书卡片：订单号、异常与说明、订单内容、截止时间，附「在 Shopilot 打开」与卖家后台订单链接。</DialogDescription>
+        </DialogHeader>
+        <ForwardForm ticketId={t.id} number={t.number} close={close} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ForwardForm({ ticketId, number, close }: { ticketId: string; number: string; close: () => void }) {
+  const qc = useQueryClient();
+  const [key] = useState(newKey);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const options = useQuery({ queryKey: ["ticket-feishu-targets", ticketId], queryFn: () => api.get<TicketForwardTargets>(`/api/v1/tickets/${ticketId}/feishu`), staleTime: 0, gcTime: 0 });
+  const targets = options.data?.targets ?? [];
+  // 没手动选过时用接口给的预选（这家店的群，否则默认群）
+  const value = picked ?? options.data?.defaultKey ?? "";
+  const noteLength = note.trim().length;
+  const send = useMutation({
+    mutationFn: () => {
+      const body = options.data?.method === "webhook" ? { targetId: value } : { chatId: value };
+      return api.post<TicketForwardResult>(`/api/v1/tickets/${ticketId}/feishu`, { ...body, ...(note.trim() ? { note: note.trim() } : {}) }, key);
+    },
+    onSuccess: (r) => {
+      toast.success(`${number} 已转发到「${r.targetName}」`, { description: "卡片排队发出，发送结果显示在时间线" });
+      qc.invalidateQueries({ queryKey: ["ticket", ticketId] });
+      close();
+    },
+    onError: (e) => {
+      if (isNotFound(e)) {
+        qc.invalidateQueries({ queryKey: ["ticket", ticketId] });
+        close();
+        return;
+      }
+      toast.error("没有转发出去", { description: errorText(e) });
+      if (e instanceof ApiError && e.problem.extra?.fields) options.refetch();
+    },
+  });
+  const loading = options.isPending;
+  return (
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (value && noteLength <= FORWARD_NOTE_MAX) send.mutate();
+      }}
+      className="flex flex-col gap-4"
+    >
+      <Field data-invalid={options.isError}>
+        <FieldLabel htmlFor="forward-target">发到哪个群</FieldLabel>
+        {/* 列表到达前 Radix 会回调一次空值，忽略它，否则预选被空值顶掉 */}
+        <Select value={value} onValueChange={(v) => v && setPicked(v)} disabled={loading || options.isError || !targets.length}>
+          <SelectTrigger id="forward-target" className="w-full" aria-invalid={options.isError}>
+            <SelectValue placeholder={loading ? "正在读取群列表" : "选择群"} />
+          </SelectTrigger>
+          <SelectContent>
+            {targets.map((x) => (
+              <SelectItem key={x.key} value={x.key}>
+                {x.name}
+                {x.scope && <span className="text-muted-foreground"> · {x.scope}</span>}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {options.isError ? (
+          <FieldError>
+            {errorText(options.error)}{" "}
+            <button type="button" className="focus-ring rounded-sm font-semibold underline underline-offset-4" onClick={() => options.refetch()}>
+              重试
+            </button>
+          </FieldError>
+        ) : !loading && !targets.length ? (
+          <FieldDescription>{options.data?.method === "webhook" ? "还没有设置群机器人，请管理员在「商户设置 → 通知」添加。" : "机器人还没有加入任何群，把飞书应用机器人拉进群后再试。"}</FieldDescription>
+        ) : (
+          <FieldDescription>{options.data?.method === "webhook" ? "列出通知设置里设过的群机器人" : "列出飞书应用机器人所在的群；预选这家店的推送群"}</FieldDescription>
+        )}
+      </Field>
+      <Field data-invalid={noteLength > FORWARD_NOTE_MAX}>
+        <FieldLabel htmlFor="forward-note">备注（选填）</FieldLabel>
+        <Textarea id="forward-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="例如：请仓库今天内联系物流商" aria-invalid={noteLength > FORWARD_NOTE_MAX} aria-describedby="forward-note-count" />
+        <div className="flex items-start justify-between gap-3">
+          {noteLength > FORWARD_NOTE_MAX ? <FieldError>备注最多 {FORWARD_NOTE_MAX} 字</FieldError> : <FieldDescription>显示在卡片里</FieldDescription>}
+          <p id="forward-note-count" className={cn("shrink-0 text-xs tabular-nums", noteLength > FORWARD_NOTE_MAX ? "text-destructive" : "text-muted-foreground")}>
+            {noteLength} / {FORWARD_NOTE_MAX}
+          </p>
+        </div>
+      </Field>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={close}>
+          取消
+        </Button>
+        <Button type="submit" disabled={!value || send.isPending || noteLength > FORWARD_NOTE_MAX}>
+          {send.isPending ? <Spinner /> : <SendIcon />}
+          发送
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}

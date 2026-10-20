@@ -24,11 +24,13 @@ import {
   type WaitingOn,
 } from "@/contracts/tickets";
 import { inTz } from "@/lib/format";
+import { platformStatusText } from "@/lib/ticket-text";
 import { inScope, type MemberContext } from "@/server/auth/context";
 import { audit } from "@/server/core/audit";
 import { notify } from "@/server/core/notify";
 import { visibleConversations } from "@/server/conversations/scope";
 import { db, schema, type Executor } from "@/server/db/client";
+import { forwardAvailability } from "@/server/feishu/forward";
 import { Problem, conflict, notAllowed, notFound } from "@/server/http/problem";
 import { createTicket, moveTicket, platformDriven, ticketTypeConfig, type TicketRow, type TicketStatus } from "./engine";
 import { mapAfterSale } from "./platform";
@@ -92,7 +94,7 @@ function toItem(r: ItemRow, now = Date.now()): TicketItem {
   };
 }
 
-async function itemById(id: string): Promise<TicketItem> {
+export async function itemById(id: string): Promise<TicketItem> {
   const [r] = await itemSelect().where(eq(t.id, id)).limit(1);
   return toItem(r);
 }
@@ -343,7 +345,16 @@ async function memberNames(ids: string[]): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]));
 }
 
-function eventText(e: typeof schema.ticketEvent.$inferSelect, actor: string | null, names: Map<string, string>, x: TicketRow, tz: string): { title: string; detail: string | null } {
+type DeliveryState = { status: "queued" | "sent" | "failed" | "skipped"; error: string | null };
+
+/** 转发卡发送状态：发出前写「发送中」，没发出写原因，发出后不写 */
+function deliveryText(state: DeliveryState | undefined): string | null {
+  if (!state || state.status === "sent") return null;
+  if (state.status === "queued") return "发送中";
+  return `没有发出：${state.error ?? "原因未知"}`;
+}
+
+function eventText(e: typeof schema.ticketEvent.$inferSelect, actor: string | null, names: Map<string, string>, x: TicketRow, tz: string, deliveries: Map<string, DeliveryState> = new Map()): { title: string; detail: string | null } {
   const d = e.data as Record<string, unknown>;
   const fmt = (v: unknown) => (typeof v === "string" ? inTz(v, tz) : "无");
   const who = actor ?? (e.source === "webhook" ? "平台" : "系统");
@@ -351,7 +362,7 @@ function eventText(e: typeof schema.ticketEvent.$inferSelect, actor: string | nu
   switch (e.type) {
     case "created": {
       const assignee = typeof d.assigneeId === "string" ? names.get(d.assigneeId) : null;
-      const title = e.source === "page" ? `${who} 建单 ${x.number}` : x.origin === "platform" ? `平台事件建单 ${x.number}${d.platformStatus ? ` · ${d.platformStatus}` : ""}` : `系统建单 ${x.number}`;
+      const title = e.source === "page" ? `${who} 建单 ${x.number}` : x.origin === "platform" ? `平台事件建单 ${x.number}${d.platformStatus ? ` · ${platformStatusText(x.platform, String(d.platformStatus))}` : ""}` : `系统建单 ${x.number}`;
       const parts = [assignee ? `指派 ${assignee}` : "未指派", st(d.status, null, d.phase), d.dueAt ? `截止 ${fmt(d.dueAt)}` : null];
       return { title, detail: parts.filter(Boolean).join(" · ") };
     }
@@ -360,8 +371,8 @@ function eventText(e: typeof schema.ticketEvent.$inferSelect, actor: string | nu
       return { title: `${who} 改为 ${st(d.to, d.waitingOn, d.phase)}`, detail: `${st(d.from, d.fromWaitingOn)} → ${st(d.to, d.waitingOn, d.phase)}` };
     case "platform_event":
       return {
-        title: `平台事件 · ${typeof d.phase === "string" && d.phase ? d.phase : (d.platformStatus ?? "状态更新")}`,
-        detail: [st(d.to, d.waitingOn, d.phase), typeof d.platformStatus === "string" ? d.platformStatus : null, d.dueAt ? `截止 ${fmt(d.dueAt)}` : "无平台截止"].filter(Boolean).join(" · "),
+        title: `平台事件 · ${typeof d.phase === "string" && d.phase ? d.phase : typeof d.platformStatus === "string" ? platformStatusText(x.platform, d.platformStatus) : "状态更新"}`,
+        detail: [st(d.to, d.waitingOn, d.phase), typeof d.platformStatus === "string" ? platformStatusText(x.platform, d.platformStatus) : null, d.dueAt ? `截止 ${fmt(d.dueAt)}` : "无平台截止"].filter(Boolean).join(" · "),
       };
     case "assign": {
       const to = typeof d.to === "string" ? (names.get(d.to) ?? "—") : "—";
@@ -381,10 +392,15 @@ function eventText(e: typeof schema.ticketEvent.$inferSelect, actor: string | nu
       const detail = [reason ? `原因：${reason}` : null, typeof d.comment === "string" ? `备注：${d.comment}` : null].filter(Boolean).join(" · ");
       return { title: typeof d.text === "string" ? d.text : `${who} ${label}`, detail: typeof d.detail === "string" ? d.detail : detail || null };
     }
+    case "feishu": {
+      const state = typeof d.deliveryId === "string" ? deliveries.get(d.deliveryId) : undefined;
+      const detail = [typeof d.note === "string" && d.note ? `备注：${d.note}` : null, deliveryText(state)].filter(Boolean).join(" · ");
+      return { title: `${who} 转发到飞书 · ${typeof d.targetName === "string" ? d.targetName : "飞书群"}`, detail: detail || null };
+    }
   }
 }
 
-async function loadVisible(ctx: MemberContext, id: string, ex: Executor = db(), lock = false): Promise<TicketRow> {
+export async function loadVisible(ctx: MemberContext, id: string, ex: Executor = db(), lock = false): Promise<TicketRow> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound();
   const q = ex.select().from(t).where(and(eq(t.id, id), visibleTickets(ctx)));
   const [row] = lock ? await q.for("update") : await q;
@@ -410,7 +426,14 @@ export async function getTicket(ctx: MemberContext, id: string): Promise<TicketD
     for (const k of ["assigneeId", "from", "to"]) if (typeof d[k] === "string" && /^[0-9a-f-]{36}$/i.test(d[k] as string)) ids.push(d[k] as string);
   }
   const names = await memberNames(ids);
-  const events: TicketEventItem[] = evRows.map((r) => ({ id: r.e.id, type: r.e.type, source: r.e.source, actorName: r.actorName, at: r.e.createdAt.toISOString(), ...eventText(r.e, r.actorName, names, x, tz) }));
+  const deliveryRows = evRows.some((r) => r.e.type === "feishu")
+    ? await db()
+        .select({ id: schema.feishuDelivery.id, status: schema.feishuDelivery.status, error: schema.feishuDelivery.error })
+        .from(schema.feishuDelivery)
+        .where(and(eq(schema.feishuDelivery.ticketId, x.id), eq(schema.feishuDelivery.merchantId, ctx.merchant.id)))
+    : [];
+  const deliveries = new Map(deliveryRows.map((r) => [r.id, { status: r.status, error: r.error }]));
+  const events: TicketEventItem[] = evRows.map((r) => ({ id: r.e.id, type: r.e.type, source: r.e.source, actorName: r.actorName, at: r.e.createdAt.toISOString(), ...eventText(r.e, r.actorName, names, x, tz, deliveries) }));
 
   let conversation: TicketDetail["related"]["conversation"] = null;
   if (x.conversationId) {
@@ -450,6 +473,7 @@ export async function getTicket(ctx: MemberContext, id: string): Promise<TicketD
       canChangeDue: manage && open && x.dueSource !== "platform",
       canNote: ctx.can("tickets.own"),
     },
+    feishu: await forwardAvailability(ctx.merchant.id),
   };
 }
 
