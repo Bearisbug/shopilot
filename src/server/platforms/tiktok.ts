@@ -1,6 +1,7 @@
 // TikTok Shop Open API 适配器：签名请求、授权、客服、订单、取消与退货、webhook 登记。字段按官方文档（DESIGN §8.11 列的子集）。
 import { env } from "@/server/env";
 import { platformFetch } from "./http";
+import { pace, retryOnRateLimit } from "./pace";
 import { assertTiktokRead, ReadOnlyPlatformError } from "./readonly";
 import { nowSec, tiktokSign } from "./signing";
 import { PlatformError, type NormalizedAfterSale, type NormalizedMessage, type NormalizedOrder, type CatalogProduct, type ProductDetail, type TokenGrant } from "./types";
@@ -36,8 +37,25 @@ function classify(code: number, httpStatus: number): PlatformError["kind"] {
 
 type CallOpts = { shop?: TiktokShopAuth; accessToken?: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; form?: FormData };
 
+/** 同一应用、同一店、同一接口两次读调用的最小间隔；客服绩效属于分析类接口，平台建议每店每秒不超过 1 次 */
+const READ_GAP_MS = 200;
+const ANALYTICS_GAP_MS = 1_100;
+const ANALYTICS_PATHS = new Set(["/customer_service/202407/performance"]);
+/** 被限流（HTTP 429 或业务码 36009002）后等 1.5–2.5 秒重试一次 */
+const RATE_LIMIT_WAIT_MS = 1_500;
+const isRateLimited = (e: unknown) => e instanceof PlatformError && (e.code === "36009002" || e.httpStatus === 429);
+
 async function call(app: TiktokApp, method: "GET" | "POST" | "PUT" | "DELETE", path: string, opts: CallOpts = {}): Promise<Record<string, unknown>> {
   if (app.readOnly) assertTiktokRead(method, path);
+  if (method === "GET") {
+    // 订单号这类长数字 ID 归成 :id；路径里 6 位的接口版本号（202309）保留
+    const endpoint = path.replace(/\/\d{10,}(?=\/|$)/g, "/:id");
+    await pace(`tiktok:${app.appKey}:${opts.shop?.cipher ?? "-"}:${endpoint}`, ANALYTICS_PATHS.has(endpoint) ? ANALYTICS_GAP_MS : READ_GAP_MS);
+  }
+  return retryOnRateLimit(() => request(app, method, path, opts), isRateLimited, RATE_LIMIT_WAIT_MS + Math.random() * 1_000);
+}
+
+async function request(app: TiktokApp, method: "GET" | "POST" | "PUT" | "DELETE", path: string, opts: CallOpts): Promise<Record<string, unknown>> {
   const query: Record<string, string> = { app_key: app.appKey, timestamp: String(nowSec()) };
   if (opts.shop) query.shop_cipher = opts.shop.cipher;
   for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== "") query[k] = String(v);
