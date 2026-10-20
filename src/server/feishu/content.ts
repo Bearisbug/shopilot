@@ -184,15 +184,26 @@ export async function cardContent(
   return { lines, summary, waitedSec };
 }
 
-/** AI 一句话总结（1–2 句中文）；替身模式返回固定文案 */
-async function summarize(conv: ConversationRow, msgs: MessageRow[], facts: Awaited<ReturnType<typeof cardFacts>>, waitedSec: number | null): Promise<string | null> {
-  const transcript = msgs
+/** 给 AI 看的对话稿：每条一行「角色：占位 原文（译文）」；卡片总结与看板问题提取共用 */
+function transcriptOf(msgs: MessageRow[], facts: Awaited<ReturnType<typeof cardFacts>>): string {
+  return msgs
     .map((m) => {
       const ph = placeholder(m, facts);
       const body = [ph?.text, m.text?.trim(), m.translation ? `（译文：${m.translation}）` : null].filter(Boolean).join(" ");
       return `${roleOf(m)}：${body}`;
     })
     .join("\n");
+}
+
+/** 有意义消息（按时间先后）的对话稿，商品名与订单状态取本店缓存 */
+export async function transcript(shopId: string, msgs: MessageRow[]): Promise<string> {
+  const rows = msgs.filter(meaningful);
+  return transcriptOf(rows, await cardFacts(shopId, rows));
+}
+
+/** AI 一句话总结（1–2 句中文）；替身模式返回固定文案 */
+async function summarize(conv: ConversationRow, msgs: MessageRow[], facts: Awaited<ReturnType<typeof cardFacts>>, waitedSec: number | null): Promise<string | null> {
+  const transcript = transcriptOf(msgs, facts);
   const waited = waitedSec === null ? "" : `买家已等 ${Math.max(1, Math.round(waitedSec / 60))} 分钟。`;
   const res = await chat(
     "summary",
