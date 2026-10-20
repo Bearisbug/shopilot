@@ -39,7 +39,7 @@ function classify(error: string, httpStatus: number): PlatformError["kind"] {
   return "param";
 }
 
-type CallOpts = { shop?: ShopeeShopAuth; query?: Record<string, string | number | undefined>; body?: unknown; form?: FormData };
+type CallOpts = { shop?: ShopeeShopAuth; query?: Record<string, string | number | undefined>; body?: unknown; form?: FormData; timeoutMs?: number };
 
 async function call(app: ShopeeApp, method: "GET" | "POST", apiPath: string, opts: CallOpts = {}): Promise<Record<string, unknown>> {
   if (app.readOnly) assertShopeeRead(method, apiPath);
@@ -63,7 +63,7 @@ async function call(app: ShopeeApp, method: "GET" | "POST", apiPath: string, opt
     init.body = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body ?? {});
     init.headers = { "content-type": "application/json" };
   }
-  const { status, json } = await platformFetch("shopee", `${app.host}${path}?${q}`, init);
+  const { status, json } = await platformFetch("shopee", `${app.host}${path}?${q}`, init, opts.timeoutMs);
   const error = typeof json.error === "string" ? json.error : "";
   if (error || status >= 400) {
     const code = error || `http_${status}`;
@@ -444,6 +444,51 @@ export async function shopeeSendImage(app: ShopeeApp, shop: ShopeeShopAuth, buye
   const url = String(up.url);
   const sent = await send(app, shop, buyerId, "image", { image_url: url, thumb_width: up.thumb_width, thumb_height: up.thumb_height });
   return { ...sent, url };
+}
+
+export type ShopeeChatVideo = { video: string; thumbnail: string; durationMs: number; width: number; height: number };
+
+/** 聊天视频处理结果轮询：上传后先是 reported，约 15 秒后 successful（2026-10-20 生产实测）；默认最多等 120 秒 */
+const VIDEO_POLL_MS = 3000;
+const VIDEO_WAIT_MS = 120_000;
+
+/**
+ * 发聊天视频（2026-10-20 生产实测，Chat 文档不公开）：upload_video 拿 vid → 轮询 get_video_upload_result 到 successful →
+ * send_message video，content 用处理结果里的相对路径原样（只传 vid 报 invalid_content）。返回的 video、thumbnail 是相对路径。
+ */
+export async function shopeeSendVideo(
+  app: ShopeeApp,
+  shop: ShopeeShopAuth,
+  buyerId: string,
+  file: { bytes: Buffer; filename: string; mime: string },
+  opts: { pollMs?: number; waitMs?: number } = {},
+): Promise<{ messageId: string; sentAt: Date; video: ShopeeChatVideo }> {
+  const form = new FormData();
+  form.set("file", new Blob([new Uint8Array(file.bytes)], { type: file.mime }), file.filename);
+  // 30 MB 的视频上传要几十秒，不套用默认的 10 秒超时
+  const vid = String(resp(await call(app, "POST", "sellerchat/upload_video", { shop, form, timeoutMs: 90_000 })).vid ?? "");
+  if (!vid) throw new PlatformError("shopee", "upload_video", "上传视频没有返回 vid", "server");
+  const deadline = Date.now() + (opts.waitMs ?? VIDEO_WAIT_MS);
+  let video: ShopeeChatVideo | null = null;
+  while (!video) {
+    const r = resp(await call(app, "GET", "sellerchat/get_video_upload_result", { shop, query: { vid } }));
+    const status = String(r.status ?? "").toLowerCase();
+    if (status === "successful") {
+      video = { video: String(r.video ?? ""), thumbnail: String(r.thumbnail ?? ""), durationMs: Number(r.duration) || 0, width: Number(r.width) || 0, height: Number(r.height) || 0 };
+      break;
+    }
+    if (/fail|error|cancel|reject/.test(status)) throw new PlatformError("shopee", "video_process_failed", `平台处理视频失败（${status}）`, "server");
+    if (Date.now() >= deadline) throw new PlatformError("shopee", "video_process_timeout", "平台处理视频超时，消息没有发出", "server");
+    await new Promise((r) => setTimeout(r, opts.pollMs ?? VIDEO_POLL_MS));
+  }
+  const sent = await send(app, shop, buyerId, "video", {
+    video_url: video.video,
+    thumb_url: video.thumbnail,
+    duration_seconds: Math.round(video.durationMs / 1000),
+    thumb_width: video.width,
+    thumb_height: video.height,
+  });
+  return { ...sent, video };
 }
 
 export async function shopeeSendOrderCard(app: ShopeeApp, shop: ShopeeShopAuth, buyerId: string, orderSn: string) {

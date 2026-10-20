@@ -415,7 +415,7 @@ export async function saveTicketTypes(ctx: MemberContext, body: TicketTypesBody)
 
 // ---------- 快捷回复：API-CONV-014、API-RCP-008 至 API-RCP-010 ----------
 
-const toQuickReply = (r: typeof qr.$inferSelect): QuickReply => ({ id: r.id, title: r.title, stage: r.stage, text: r.text });
+const toQuickReply = (r: typeof qr.$inferSelect): QuickReply => ({ id: r.id, title: r.title, stage: r.stage, text: r.text, variants: r.variants });
 
 /** 按阶段筛选时连同「通用」一起返回；不带 stage 返回全部 */
 export async function listQuickReplies(ctx: MemberContext, stage?: QuickReplyStage): Promise<QuickReplyList> {
@@ -434,8 +434,12 @@ async function quickReplyOf(ctx: MemberContext, id: string) {
 
 export async function createQuickReply(ctx: MemberContext, body: QuickReplyBody): Promise<QuickReply> {
   return db().transaction(async (tx) => {
-    const [row] = await tx.insert(qr).values({ merchantId: ctx.merchant.id, ...body }).returning();
-    await audit(ctx.actor, { module: "reception", action: "quick_reply_created", summary: `新增快捷回复「${body.title}」`, targetType: "quick_reply", targetId: row.id, data: { stage: body.stage } }, tx);
+    const [row] = await tx.insert(qr).values({ merchantId: ctx.merchant.id, ...body, variants: body.variants ?? [] }).returning();
+    await audit(
+      ctx.actor,
+      { module: "reception", action: "quick_reply_created", summary: `新增快捷回复「${body.title}」`, targetType: "quick_reply", targetId: row.id, data: { stage: body.stage, langs: row.variants.map((v) => v.lang) } },
+      tx,
+    );
     return toQuickReply(row);
   });
 }

@@ -24,7 +24,7 @@ import { useMe } from "@/hooks/use-me";
 import { api, errorText } from "@/lib/api";
 import { money } from "@/lib/format";
 import { ROLE_LABEL } from "@/lib/permissions";
-import { focusReply, STAGE_LABEL, useSend, useWbParams } from "./wb-shared";
+import { focusReply, LANG_LABEL, STAGE_LABEL, useSend, useWbParams } from "./wb-shared";
 
 function useAfterChange(id: string) {
   const qc = useQueryClient();
@@ -433,7 +433,8 @@ function CouponsForm({ detail, onDone }: { detail: ConversationDetail; onDone: (
 const REPLY_TABS = ["all", "presale", "insale", "aftersale", "any"] as const;
 export const REPLY_TAB_LABEL: Record<(typeof REPLY_TABS)[number], string> = { all: "全部", presale: "售前", insale: "售中", aftersale: "售后", any: "通用" };
 
-export function RepliesDialog({ stage, onPick, canManage }: { stage: string; onPick: (text: string) => void; canManage: boolean }) {
+/** resolve 给出点选后插入哪一版（按会话目标语言，规则见 src/lib/quick-reply.ts），列表预览同一版 */
+export function RepliesDialog({ stage, resolve, onPick, canManage }: { stage: string; resolve: (r: QuickReply) => { text: string; draftLang: string | null }; onPick: (r: QuickReply) => void; canManage: boolean }) {
   const { open, close } = useDialogParam("replies");
   // 点选了一条：关闭后焦点交给输入框（光标在末尾）；直接关掉时按 Radix 默认归还焦点
   const picked = useRef(false);
@@ -452,9 +453,10 @@ export function RepliesDialog({ stage, onPick, canManage }: { stage: string; onP
           <RepliesList
             stage={stage}
             canManage={canManage}
-            onPick={(t) => {
+            resolve={resolve}
+            onPick={(r) => {
               picked.current = true;
-              onPick(t);
+              onPick(r);
               close();
             }}
           />
@@ -464,7 +466,17 @@ export function RepliesDialog({ stage, onPick, canManage }: { stage: string; onP
   );
 }
 
-function RepliesList({ stage, onPick, canManage }: { stage: string; onPick: (text: string) => void; canManage: boolean }) {
+function RepliesList({
+  stage,
+  resolve,
+  onPick,
+  canManage,
+}: {
+  stage: string;
+  resolve: (r: QuickReply) => { text: string; draftLang: string | null };
+  onPick: (r: QuickReply) => void;
+  canManage: boolean;
+}) {
   const initial = (REPLY_TABS as readonly string[]).includes(stage) ? (stage as (typeof REPLY_TABS)[number]) : "all";
   const [tab, setTab] = useState<(typeof REPLY_TABS)[number]>(initial);
   const replies = useQuery({ queryKey: ["quick-replies"], queryFn: () => api.get<QuickReplyList>("/api/v1/quick-replies") });
@@ -504,14 +516,23 @@ function RepliesList({ stage, onPick, canManage }: { stage: string; onPick: (tex
           />
         ) : (
           <ul className="flex flex-col gap-1">
-            {items.map((r) => (
-              <li key={r.id}>
-                <button type="button" onClick={() => onPick(r.text)} className="state-layer focus-ring w-full rounded-md px-3 py-2 text-left">
-                  <span className="block text-sm font-medium">{r.title}</span>
-                  <span className="line-clamp-2 block text-xs text-muted-foreground">{r.text}</span>
-                </button>
-              </li>
-            ))}
+            {items.map((r) => {
+              const v = resolve(r);
+              return (
+                <li key={r.id}>
+                  <button type="button" onClick={() => onPick(r)} className="state-layer focus-ring w-full rounded-md px-3 py-2 text-left">
+                    <span className="flex items-baseline gap-3">
+                      <span className="min-w-0 flex-1 text-sm font-medium">{r.title}</span>
+                      {r.variants.length > 0 && <span className="shrink-0 text-xs text-muted-foreground">{r.variants.length + 1} 个版本</span>}
+                    </span>
+                    <span className="line-clamp-2 block text-xs text-muted-foreground">
+                      {v.draftLang && <span className="text-foreground">{LANG_LABEL[v.draftLang]}版 · </span>}
+                      {v.text}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

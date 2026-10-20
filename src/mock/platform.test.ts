@@ -282,6 +282,28 @@ describe("Shopee 常见问题记录（bundle_message）", () => {
   });
 });
 
+describe("Shopee 聊天视频", () => {
+  it("upload_video → 处理中 → successful → send_message video；只传 vid 报 invalid_content", async () => {
+    const auth = { ...DEMO_SHOPEE, accessToken: "mock-at-220001", shopId: "220001" };
+    const call = (path: string, o: { method?: "GET" | "POST"; query?: Record<string, string>; body?: unknown; form?: FormData }) =>
+      handleShopeeApi(shopeeRequest({ region: "sg", path, ...auth, ...o }), "sg", path.split("/")).then(json);
+    const form = new FormData();
+    form.set("file", new Blob([Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypisom"), Buffer.alloc(16)])], { type: "video/mp4" }), "clip.mp4");
+    const response = (r: { body: Record<string, unknown> }) => r.body.response as Record<string, unknown>;
+    const vid = String(response(await call("sellerchat/upload_video", { method: "POST", form })).vid);
+    expect(vid).toMatch(/^[0-9a-f]{24}$/);
+    expect(response(await call("sellerchat/get_video_upload_result", { query: { vid } })).status).toBe("reported");
+    await new Promise((r) => setTimeout(r, 2100));
+    const done = response(await call("sellerchat/get_video_upload_result", { query: { vid } }));
+    expect(done).toMatchObject({ status: "successful", duration: 6000 });
+    const send = (content: Record<string, unknown>) => call("sellerchat/send_message", { method: "POST", body: { to_id: 1170319004, message_type: "video", content } });
+    expect((await send({ vid })).body.error).toBe("invalid_content");
+    const ok = await send({ video_url: done.video, thumb_url: done.thumbnail, duration_seconds: 6, thumb_width: done.width, thumb_height: done.height });
+    expect(ok.body.error).toBe("");
+    expect(ok.body.response).toMatchObject({ message_type: "video" });
+  });
+});
+
 describe("故障注入", () => {
   it("下一次发送消息失败，之后恢复", async () => {
     await setFault({ platform: "shopee", shopId: "220001", category: "send_message", mode: "once", kind: "error" });

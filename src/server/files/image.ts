@@ -1,4 +1,4 @@
-// 从文件头识别 JPG / PNG / WebP 与宽高（API-CONV-010 只收这三种）；不认识返回 null。
+// 从文件头识别 JPG / PNG / WebP 与宽高、MP4 视频（API-CONV-010 只收这几种）；不认识返回 null。
 export type ImageInfo = { mime: "image/jpeg" | "image/png" | "image/webp"; ext: "jpg" | "png" | "webp"; width: number; height: number };
 
 export function imageInfo(b: Buffer): ImageInfo | null {
@@ -28,4 +28,9 @@ export function imageInfo(b: Buffer): ImageInfo | null {
     return { mime: "image/jpeg", ext: "jpg", width: 0, height: 0 };
   }
   return null;
+}
+
+/** MP4：第 4–8 字节是 ftyp。主品牌是 qt（苹果 MOV）的不算：Shopee 聊天视频只实测过 MP4 */
+export function isMp4(b: Buffer): boolean {
+  return b.length >= 12 && b.toString("ascii", 4, 8) === "ftyp" && b.toString("ascii", 8, 12) !== "qt  ";
 }

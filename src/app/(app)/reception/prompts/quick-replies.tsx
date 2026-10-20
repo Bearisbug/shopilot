@@ -5,15 +5,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquareTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import {
+  QUICK_REPLY_LANGS,
   QUICK_REPLY_STAGES,
   QUICK_REPLY_TEXT_MAX,
   charCount,
   quickReplyBody,
   type QuickReply,
   type QuickReplyBody,
+  type QuickReplyLang,
   type QuickReplyList,
   type QuickReplyStage,
 } from "@/contracts/reception";
@@ -21,15 +23,18 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState, ErrorState, LoadingRows, Panel, PanelHeader } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, api, errorText, newKey } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { STAGE_LABEL } from "@/server/ai/prompts";
+import { LANG_LABEL } from "../../wb/wb-shared";
 
 const QR_STAGE_LABEL: Record<QuickReplyStage, string> = { presale: STAGE_LABEL.presale, insale: STAGE_LABEL.insale, aftersale: STAGE_LABEL.aftersale, any: "通用" };
 const DIALOG = "quick-reply";
@@ -110,7 +115,10 @@ export function QuickRepliesPanel() {
           <TableBody>
             {items.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="max-w-48 font-medium whitespace-normal">{r.title}</TableCell>
+                <TableCell className="max-w-48 whitespace-normal">
+                  <span className="font-medium">{r.title}</span>
+                  {r.variants.length > 0 && <span className="mt-0.5 block text-xs text-muted-foreground">另有{r.variants.map((v) => LANG_LABEL[v.lang]).join("、")}版</span>}
+                </TableCell>
                 <TableCell>{QR_STAGE_LABEL[r.stage]}</TableCell>
                 <TableCell className="max-w-0">
                   <p className="line-clamp-2 text-sm whitespace-normal text-muted-foreground">{r.text}</p>
@@ -167,10 +175,18 @@ function ReplyForm({ reply, close }: { reply?: QuickReply; close: () => void }) 
   const form = useForm<QuickReplyBody>({
     resolver: zodResolver(quickReplyBody),
     mode: "onTouched",
-    defaultValues: reply ? { title: reply.title, stage: reply.stage, text: reply.text } : { title: "", stage: "any", text: "" },
+    defaultValues: reply ? { title: reply.title, stage: reply.stage, text: reply.text, variants: reply.variants } : { title: "", stage: "any", text: "", variants: [] },
   });
-  const text = useWatch({ control: form.control, name: "text" });
-  const n = charCount(text ?? "");
+  const variants = useFieldArray({ control: form.control, name: "variants" });
+  const watched = useWatch({ control: form.control, name: ["text", "variants"] });
+  // 当前编辑的版本：default 或语言代码
+  const [tab, setTab] = useState<string>("default");
+  const used = new Set(variants.fields.map((f) => f.lang));
+  const addable = QUICK_REPLY_LANGS.filter((l) => !used.has(l));
+  const errors = form.formState.errors;
+  const tabError = (t: string) => (t === "default" ? !!errors.text : !!errors.variants?.[variants.fields.findIndex((f) => f.lang === t)]?.text);
+  const textOf = (t: string) => (t === "default" ? watched[0] : watched[1]?.find((v) => v.lang === t)?.text) ?? "";
+  const n = charCount(textOf(tab));
 
   const save = useMutation({
     mutationFn: (v: QuickReplyBody) => (reply ? api.patch<QuickReply>(`/api/v1/quick-replies/${reply.id}`, v) : api.post<QuickReply>("/api/v1/quick-replies", v, key)),
@@ -187,8 +203,24 @@ function ReplyForm({ reply, close }: { reply?: QuickReply; close: () => void }) 
     },
   });
 
+  // 校验没过：切到第一个出错的版本，免得错误藏在没打开的页签里
+  const onInvalid = (errs: typeof errors) => {
+    if (errs.text) return setTab("default");
+    const i = Array.isArray(errs.variants) ? errs.variants.findIndex((v) => v?.text) : -1;
+    if (i >= 0) setTab(variants.fields[i].lang);
+  };
+
+  const addLang = (lang: QuickReplyLang) => {
+    variants.append({ lang, text: "" });
+    setTab(lang);
+  };
+  const removeLang = (lang: string) => {
+    variants.remove(variants.fields.findIndex((f) => f.lang === lang));
+    setTab("default");
+  };
+
   return (
-    <form noValidate onSubmit={form.handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
+    <form noValidate onSubmit={form.handleSubmit((v) => save.mutate(v), onInvalid)} className="flex flex-col gap-4">
       <FieldGroup>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
           <Controller
@@ -224,22 +256,79 @@ function ReplyForm({ reply, close }: { reply?: QuickReply; close: () => void }) 
             )}
           />
         </div>
-        <Controller
-          name="text"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <div className="flex items-end justify-between gap-3">
-                <FieldLabel htmlFor="qr-text">回复内容</FieldLabel>
-                <span className={cn("text-xs tabular-nums", n > QUICK_REPLY_TEXT_MAX ? "text-destructive" : "text-muted-foreground")}>
-                  {n.toLocaleString("en-US")} / {QUICK_REPLY_TEXT_MAX.toLocaleString("en-US")}
-                </span>
-              </div>
-              <Textarea {...field} id="qr-text" rows={5} placeholder="例如：订单会在 1–2 个工作日内发出。" aria-invalid={fieldState.invalid} className="scroll-y max-h-72" />
-              {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
-            </Field>
-          )}
-        />
+        <Field>
+          <div className="flex items-end justify-between gap-3">
+            <FieldLabel htmlFor={tab === "default" ? "qr-text" : `qr-text-${tab}`}>回复内容</FieldLabel>
+            <span className={cn("text-xs tabular-nums", n > QUICK_REPLY_TEXT_MAX ? "text-destructive" : "text-muted-foreground")}>
+              {n.toLocaleString("en-US")} / {QUICK_REPLY_TEXT_MAX.toLocaleString("en-US")}
+            </span>
+          </div>
+          <Tabs value={tab} onValueChange={setTab} className="gap-3">
+            {/* 版本多时横向滚动，不显示滚动条（RESP-016）；-ml-1.5 抵消页签内边距，「默认」与「回复内容」左缘对齐 */}
+            <div className="flex min-w-0 items-center gap-1">
+              <TabsList variant="line" className="scroll-nav -ml-1.5 min-w-0 justify-start overflow-x-auto px-0">
+                {["default", ...variants.fields.map((f) => f.lang)].map((t) => (
+                  <TabsTrigger key={t} value={t} className="flex-none" aria-invalid={tabError(t) || undefined}>
+                    {t === "default" ? "默认" : LANG_LABEL[t]}
+                    {tabError(t) && <span aria-hidden className="size-1.5 rounded-full bg-destructive" />}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {addable.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" className="shrink-0">
+                      <PlusIcon />
+                      语言版本
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {addable.map((l) => (
+                      <DropdownMenuItem key={l} onSelect={() => addLang(l)}>
+                        {LANG_LABEL[l]}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+            <TabsContent value="default" className="flex flex-col gap-2">
+              <Controller
+                name="text"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <>
+                    <Textarea {...field} id="qr-text" rows={5} placeholder="例如：订单会在 1–2 个工作日内发出。" aria-invalid={fieldState.invalid} className="scroll-y max-h-72" />
+                    {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
+                  </>
+                )}
+              />
+              <FieldDescription>会话的发送目标语言没有对应版本时插入默认版本，发送前照常翻译。</FieldDescription>
+            </TabsContent>
+            {variants.fields.map((f, i) => (
+              <TabsContent key={f.id} value={f.lang} className="flex flex-col gap-2">
+                <Controller
+                  name={`variants.${i}.text`}
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <>
+                      <Textarea {...field} id={`qr-text-${f.lang}`} rows={5} placeholder={`${LANG_LABEL[f.lang]}的回复内容`} aria-invalid={fieldState.invalid} className="scroll-y max-h-72" />
+                      {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
+                    </>
+                  )}
+                />
+                <div className="flex items-start justify-between gap-3">
+                  <FieldDescription className="min-w-0 flex-1">会话的发送目标语言是{LANG_LABEL[f.lang]}时插入这一版，发送时不再翻译。</FieldDescription>
+                  <Button type="button" variant="ghost" size="sm" className="-mr-2 shrink-0 text-muted-foreground" onClick={() => removeLang(f.lang)}>
+                    <Trash2Icon />
+                    删除这个版本
+                  </Button>
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+          {errors.variants?.root?.message && <FieldError>{errors.variants.root.message}</FieldError>}
+        </Field>
       </FieldGroup>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={close}>

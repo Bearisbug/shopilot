@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { v7 as uuidv7 } from "uuid";
 import type { KnowledgeMarket } from "../../contracts/knowledge";
+import type { QuickReplyVariant } from "../../contracts/reception";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const id = () => uuid("id").primaryKey().$defaultFn(() => uuidv7());
@@ -540,7 +541,7 @@ export const draft = pgTable(
 export const file = pgTable("file", {
   id: id(),
   merchantId: merchantRef(),
-  kind: text("kind", { enum: ["chat_image", "invoice_pdf", "invoice_png", "export_zip", "invoice_logo", "knowledge_source"] }).notNull(),
+  kind: text("kind", { enum: ["chat_image", "chat_video", "invoice_pdf", "invoice_png", "export_zip", "invoice_logo", "knowledge_source"] }).notNull(),
   path: text("path").notNull(),
   mime: text("mime").notNull(),
   size: integer("size").notNull(),
@@ -807,7 +808,10 @@ export const quickReply = pgTable("quick_reply", {
   merchantId: merchantRef(),
   title: text("title").notNull(),
   stage: text("stage", { enum: ["presale", "insale", "aftersale", "any"] }).notNull(),
+  /** 默认版本：没有对应语言版本时插入，发送前照常翻译 */
   text: text("text").notNull(),
+  /** 语言版本：会话的发送目标语言命中时插入这一版，本条不再翻译（REQ-CONV-009） */
+  variants: jsonb("variants").$type<QuickReplyVariant[]>().notNull().default([]),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

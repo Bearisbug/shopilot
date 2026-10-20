@@ -2,9 +2,11 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageIcon, InfoIcon, LayoutGridIcon, LoaderCircleIcon, SendIcon, TicketPercentIcon, XIcon, ZapIcon } from "lucide-react";
-import { useRef, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import type { ConversationDetail, DraftItem, SendBody, UploadedFile } from "@/contracts/conversations";
+import type { QuickReply, QuickReplyLang } from "@/contracts/reception";
+import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,14 +14,35 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
+import { quickReplyInsert } from "@/lib/quick-reply";
 import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
 import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
 import { AiTag, Citations, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
 const LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
 const IMAGE_RULE = "JPG、PNG、WebP，不超过 10 MB";
+const MEDIA_RULE = "JPG、PNG、WebP 图片不超过 10 MB，MP4 视频不超过 30 MB";
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const VIDEO_MAX_BYTES = 30 * 1024 * 1024;
+/** 一次粘贴最多发几个文件 */
+const PASTE_MAX = 9;
+const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
+const size = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${mb(n)} MB`);
+
+type Media = { file: File; kind: "image" | "video" };
+
+/** 能不能发、按什么发：视频只有 Shopee 能发（TikTok 客服接口没有视频上传）；返回字符串是不能发的原因 */
+function checkMedia(f: File, shopee: boolean): Media | string {
+  if (IMAGE_TYPES.includes(f.type)) return f.size > IMAGE_MAX_BYTES ? `图片 ${mb(f.size)} MB，超过 10 MB 上限。` : { file: f, kind: "image" };
+  if (f.type.startsWith("video/")) {
+    if (!shopee) return "TikTok 接口暂不支持发视频。";
+    if (f.type !== "video/mp4") return "只支持 MP4 视频，MOV 等格式请先导出为 MP4。";
+    return f.size > VIDEO_MAX_BYTES ? `视频 ${mb(f.size)} MB，超过 30 MB 上限。` : { file: f, kind: "video" };
+  }
+  if (f.type.startsWith("image/")) return `只支持 ${IMAGE_RULE}。`;
+  return shopee ? "平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。" : "平台聊天只能发图片，视频、PDF 等文件发不出去。";
+}
 /** 买家语言未知时按店铺站点预选翻译目标；新加坡、菲律宾买家多用英语 */
 const MARKET_LANG: Record<string, (typeof LANGS)[number]> = { MY: "ms", TH: "th", VN: "vi", ID: "id", PH: "en", SG: "en" };
 
@@ -40,16 +63,16 @@ const subscribeTranslate = (cb: () => void) => {
     translateListeners.delete(cb);
   };
 };
-const readTranslate = (id: string) => {
+const readSession = (key: string) => {
   try {
-    return sessionStorage.getItem(translateKey(id));
+    return sessionStorage.getItem(key);
   } catch {
     return null;
   }
 };
 
 function useTranslateTo(id: string, fallback: string): [string, (lang: string) => void] {
-  const saved = useSyncExternalStore(subscribeTranslate, () => readTranslate(id), () => null);
+  const saved = useSyncExternalStore(subscribeTranslate, () => readSession(translateKey(id)), () => null);
   const value = saved && (saved === "none" || LANGS.includes(saved as (typeof LANGS)[number])) ? saved : fallback;
   const set = (lang: string) => {
     try {
@@ -57,6 +80,25 @@ function useTranslateTo(id: string, fallback: string): [string, (lang: string) =
       else sessionStorage.setItem(translateKey(id), lang);
     } catch {
       // 存储不可用（无痕、配额满）：只是不记住手动选择
+    }
+    translateListeners.forEach((l) => l());
+  };
+  return [value, set];
+}
+
+// 输入框里插入了快捷回复的某个语言版本：这条草稿发送时不翻译。按会话存，切走再回来仍在；发出或清空后删除
+const draftLangKey = (id: string) => `wb-draft-lang:${id}`;
+
+function useDraftLang(id: string): [QuickReplyLang | null, (lang: QuickReplyLang | null) => void] {
+  const saved = useSyncExternalStore(subscribeTranslate, () => readSession(draftLangKey(id)), () => null);
+  const value = saved && LANGS.includes(saved as (typeof LANGS)[number]) ? (saved as QuickReplyLang) : null;
+  const set = (lang: QuickReplyLang | null) => {
+    if (lang === value) return;
+    try {
+      if (lang) sessionStorage.setItem(draftLangKey(id), lang);
+      else sessionStorage.removeItem(draftLangKey(id));
+    } catch {
+      // 存储不可用：本条照常翻译
     }
     translateListeners.forEach((l) => l());
   };
@@ -113,6 +155,9 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const c = detail.conversation;
   const [text, setText] = useReplyText(c.id);
   const [translateTo, setTranslateTo] = useTranslateTo(c.id, defaultTranslate(c));
+  const [draftLang, setDraftLang] = useDraftLang(c.id);
+  // 本条实际的发送前翻译：插入了某个语言版本的快捷回复就不翻译
+  const sendLang = draftLang ? "none" : translateTo;
   const fileRef = useRef<HTMLInputElement>(null);
   // 同一段文字重发沿用同一个 clientRequestId：结果未知（504）后再点发送，服务端按它去重，不会发两遍
   const attempt = useRef<{ text: string; key: string } | null>(null);
@@ -121,22 +166,40 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const buyer = useBuyer(c.id);
   const me = useMe();
   const canManageReplies = Boolean(me.data?.active.permissions.includes("reception.manage"));
-  const slash = useSlashReplies({ text, stage: detail.segment?.stage });
-  const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const form = new FormData();
-      form.set("file", file);
-      const up = await api.upload<UploadedFile>("/api/v1/files", form);
-      return send.mutateAsync({ type: "image", fileId: up.id });
-    },
-    onError: (e) => toast.error("图片没有发出", { description: errorText(e) }),
-  });
+  const resolveReply = (r: QuickReply, hasText: boolean) => quickReplyInsert(r, { target: translateTo, draftLang, hasText });
+  const slash = useSlashReplies({ text, stage: detail.segment?.stage, resolve: resolveReply, onPicked: setDraftLang });
+  const shopee = c.shop.platform === "shopee";
+  const mediaRule = shopee ? MEDIA_RULE : IMAGE_RULE;
+  const upload = useMutation({ mutationFn: (m: Media) => sendMedia(m) });
+  // 粘贴的图片、视频先确认再发（误粘贴发出去收不回）；sent 是已发出的个数，running 表示正在逐个发
+  const [pasted, setPasted] = useState<{ items: (Media & { preview: string })[]; sent: number; running: boolean } | null>(null);
+
+  /** 上传后发送；视频较大，上传进度显示在提示条上。视频发送在后台进行，时间线先显示「发送中」 */
+  async function sendMedia(m: Media) {
+    const what = m.kind === "image" ? "图片" : "视频";
+    const form = new FormData();
+    form.set("file", m.file);
+    const tid = m.kind === "video" ? toast.loading("视频上传中 0%") : undefined;
+    let up: UploadedFile;
+    try {
+      up = tid
+        ? await api.uploadWithProgress<UploadedFile>("/api/v1/files", form, (r) => toast.loading(`视频上传中 ${Math.round(r * 100)}%`, { id: tid }))
+        : await api.upload<UploadedFile>("/api/v1/files", form);
+    } catch (e) {
+      toast.error(`${what}没有发出`, { description: errorText(e) });
+      throw e;
+    } finally {
+      if (tid) toast.dismiss(tid);
+    }
+    // 发送这一步失败时 useSend 自己提示
+    return send.mutateAsync({ type: m.kind, fileId: up.id });
+  }
 
   const max = detail.capabilities.maxTextLength;
   const length = Array.from(text).length;
   const over = length - max;
   const tiktok = c.shop.platform === "tiktok";
-  const busy = send.isPending || upload.isPending;
+  const busy = send.isPending || upload.isPending || pasted !== null;
   const canSubmit = text.trim().length > 0 && over <= 0 && !busy;
 
   const submit = () => {
@@ -147,6 +210,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
     const done = () => {
       attempt.current = null;
       setText("");
+      setDraftLang(null);
       onDoneEditing();
     };
     send.mutate(
@@ -154,7 +218,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
         type: "text",
         text: body,
         clientRequestId,
-        translateTo: translateTo === "none" ? undefined : (translateTo as SendBody["translateTo"]),
+        translateTo: sendLang === "none" ? undefined : (sendLang as SendBody["translateTo"]),
         ...(editing ? { draftId: editing.id, disposition: "edited_sent" as const } : {}),
       },
       {
@@ -167,16 +231,50 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
     );
   };
 
-  const pickImage = (f: File) => {
-    if (!IMAGE_TYPES.includes(f.type)) {
-      toast.error("图片没有发出", { description: `只支持 ${IMAGE_RULE}。` });
-      return;
+  const pickFile = (f: File) => {
+    const m = checkMedia(f, shopee);
+    if (typeof m === "string") toast.error("没有发出", { description: m });
+    else upload.mutate(m);
+  };
+
+  /** 剪贴板里有文件（截图、复制的图片）：拦下来走确认发送。同时带文字的（表格、网页片段）按文字粘贴 */
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(e.clipboardData.files);
+    if (!files.length || e.clipboardData.getData("text/plain").trim()) return;
+    e.preventDefault();
+    if (busy) return;
+    const ok: Media[] = [];
+    const bad: string[] = [];
+    for (const f of files) {
+      const m = checkMedia(f, shopee);
+      if (typeof m === "string") bad.push(m);
+      else ok.push(m);
     }
-    if (f.size > IMAGE_MAX_BYTES) {
-      toast.error("图片没有发出", { description: `这张图片 ${(f.size / 1024 / 1024).toFixed(1)} MB，超过 10 MB 上限。` });
-      return;
+    if (ok.length > PASTE_MAX) bad.push(`一次最多发 ${PASTE_MAX} 个，只取前 ${PASTE_MAX} 个。`);
+    if (bad.length) toast.error(ok.length ? "有文件不能发" : "没有可发的图片或视频", { description: [...new Set(bad)].join(" ") });
+    if (ok.length) setPasted({ items: ok.slice(0, PASTE_MAX).map((m) => ({ ...m, preview: URL.createObjectURL(m.file) })), sent: 0, running: false });
+  };
+
+  const closePasted = () => {
+    pasted?.items.forEach((m) => URL.revokeObjectURL(m.preview));
+    setPasted(null);
+  };
+
+  /** 依次发出粘贴的文件；某个失败就停下，已发出的不撤回 */
+  const sendPasted = async () => {
+    if (!pasted || pasted.running) return;
+    setPasted({ ...pasted, running: true });
+    for (let i = pasted.sent; i < pasted.items.length; i++) {
+      try {
+        await sendMedia(pasted.items[i]);
+      } catch {
+        closePasted();
+        return;
+      }
+      setPasted((p) => p && { ...p, sent: i + 1 });
     }
-    upload.mutate(f);
+    closePasted();
+    slash.inputRef.current?.focus();
   };
 
   return (
@@ -219,8 +317,10 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
               {...slash.inputProps}
               onChange={(e) => {
                 setText(e.target.value);
+                if (!e.target.value.trim()) setDraftLang(null);
                 slash.sync(e.currentTarget, true);
               }}
+              onPaste={onPaste}
               onKeyDown={(e) => {
                 if (slash.onKeyDown(e)) return;
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -245,8 +345,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2">
               <div className="flex items-center gap-0.5">
                 {/* -ml-2 抵消 ghost 图标按钮的内边距（(32−16)/2 = 8px），图形左缘与文字左缘对齐 */}
-                <Tip label={`发图片（${IMAGE_RULE}）`}>
-                  <Button variant="ghost" size="icon-sm" aria-label={`发图片（${IMAGE_RULE}）`} disabled={busy} onClick={() => fileRef.current?.click()} className="-ml-2">
+                <Tip label={`${shopee ? "发图片或视频" : "发图片"}（${mediaRule}；也可直接粘贴）`}>
+                  <Button variant="ghost" size="icon-sm" aria-label={`${shopee ? "发图片或视频" : "发图片"}（${mediaRule}）`} disabled={busy} onClick={() => fileRef.current?.click()} className="-ml-2">
                     {upload.isPending ? <LoaderCircleIcon className="animate-spin" /> : <ImageIcon />}
                   </Button>
                 </Tip>
@@ -272,12 +372,18 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
               </div>
               <div className="flex min-w-0 flex-auto items-center gap-2 @max-sm/composer:basis-full">
                 {/* -ml-2.5 抵消触发器左内边距（pl-2.5），换到第二行时文字与输入框文字左缘对齐 */}
-                <Select value={translateTo} onValueChange={setTranslateTo}>
+                <Select
+                  value={sendLang}
+                  onValueChange={(v) => {
+                    setDraftLang(null);
+                    setTranslateTo(v);
+                  }}
+                >
                   <SelectTrigger size="sm" aria-label="发送前翻译" className="-ml-2.5 min-w-0 border-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">不翻译</SelectItem>
+                    <SelectItem value="none">{draftLang ? `不翻译 · 已插入${LANG_LABEL[draftLang]}版` : "不翻译"}</SelectItem>
                     {LANGS.map((l) => (
                       <SelectItem key={l} value={l}>
                         译成{LANG_LABEL[l]}
@@ -302,22 +408,60 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={shopee ? "image/jpeg,image/png,image/webp,video/mp4" : "image/jpeg,image/png,image/webp"}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
-          if (f) pickImage(f);
+          if (f) pickFile(f);
         }}
       />
+      <ConfirmDialog
+        open={pasted !== null}
+        // 逐个发送期间不能关（Esc 也不行），发完自动关
+        onOpenChange={(o) => !o && !pasted?.running && closePasted()}
+        title={`发给 ${c.buyerName}？`}
+        desc={pasted && pasted.items.length > 1 ? `从剪贴板粘贴了 ${pasted.items.length} 个文件，确认后按顺序逐个发出。` : "从剪贴板粘贴的内容，确认后发出。"}
+        confirmText={pasted && pasted.items.length > 1 ? `发送 ${pasted.items.length} 个` : "发送"}
+        pending={pasted?.running}
+        onConfirm={sendPasted}
+      >
+        <PastedPreview items={pasted?.items ?? []} sent={pasted?.sent ?? 0} />
+      </ConfirmDialog>
       <RepliesDialog
         stage={detail.segment?.stage ?? "unknown"}
         canManage={canManageReplies}
-        onPick={(t) => setText(text.trim() ? `${text}\n${t}` : t)}
+        resolve={(r) => resolveReply(r, text.trim().length > 0)}
+        onPick={(r) => {
+          const v = resolveReply(r, text.trim().length > 0);
+          setDraftLang(v.draftLang);
+          setText(text.trim() ? `${text}\n${v.text}` : v.text);
+        }}
       />
       {tiktok && <CardsDialog detail={detail} orders={buyer.data?.orders ?? []} />}
       {tiktok && detail.capabilities.coupons && <CouponsDialog detail={detail} />}
     </div>
+  );
+}
+
+/** 粘贴确认里的预览：图片缩略图、视频首帧；已发出的打勾 */
+function PastedPreview({ items, sent }: { items: (Media & { preview: string })[]; sent: number }) {
+  return (
+    <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {items.map((m, i) => (
+        <li key={m.preview} className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted">
+          {m.kind === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element -- 本地剪贴板文件的 blob 地址，不经图片优化
+            <img src={m.preview} alt={`粘贴的图片 ${i + 1}`} className="size-full object-contain" />
+          ) : (
+            <video src={m.preview} muted playsInline preload="metadata" aria-label={`粘贴的视频 ${i + 1}`} className="size-full object-contain" />
+          )}
+          <span className="absolute inset-x-0 bottom-0 truncate bg-background/85 px-1.5 py-0.5 text-[11px] text-muted-foreground tabular-nums">
+            {i < sent ? "已发出" : m.kind === "video" ? `视频 · ${size(m.file.size)}` : size(m.file.size)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

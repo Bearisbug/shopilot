@@ -4,13 +4,17 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useId, useRef, useState } from "react";
-import type { QuickReply, QuickReplyList } from "@/contracts/reception";
+import type { QuickReply, QuickReplyLang, QuickReplyList } from "@/contracts/reception";
 import { Button } from "@/components/ui/button";
 import { PopoverContent } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, ApiError, errorText } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { REPLY_TAB_LABEL } from "./wb-dialogs";
+import { LANG_LABEL } from "./wb-shared";
+
+/** 选中一条时插入哪一版：hasText 表示输入框里除了 `/查询词` 还有别的字（规则见 src/lib/quick-reply.ts） */
+export type ReplyResolver = (r: QuickReply, hasText: boolean) => { text: string; draftLang: QuickReplyLang | null };
 
 /** 光标所在的 `/` 片段的起点：`/` 在开头或紧跟空白之后，且 `/` 到光标之间没有空白；`a/b`、网址里的 `/` 不算 */
 function slashAt(text: string, caret: number): number | null {
@@ -34,7 +38,7 @@ function revealCaret(el: HTMLTextAreaElement) {
 
 type Slash = { start: number; caret: number; active: number };
 
-export function useSlashReplies({ text, stage }: { text: string; stage: string | undefined }) {
+export function useSlashReplies({ text, stage, resolve, onPicked }: { text: string; stage: string | undefined; resolve: ReplyResolver; onPicked: (draftLang: QuickReplyLang | null) => void }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [slash, setSlash] = useState<Slash | null>(null);
   // 按 Esc 或点外面关掉的片段：在它里面接着打字不再弹出，删掉或换一个 `/` 后恢复
@@ -48,7 +52,11 @@ export function useSlashReplies({ text, stage }: { text: string; stage: string |
   const query = slash ? text.slice(slash.start + 1, slash.caret) : "";
   const q = query.toLowerCase();
   const rank = (r: QuickReply) => (r.stage === stage ? 0 : r.stage === "any" ? 1 : 2);
-  const items = (replies.data?.items ?? []).filter((r) => r.title.toLowerCase().includes(q) || r.text.toLowerCase().includes(q)).sort((a, b) => rank(a) - rank(b));
+  const matches = (r: QuickReply) => [r.title, r.text, ...r.variants.map((v) => v.text)].some((s) => s.toLowerCase().includes(q));
+  const items = (replies.data?.items ?? []).filter(matches).sort((a, b) => rank(a) - rank(b));
+  // 除 `/查询词` 片段外输入框里还有没有字：决定插语言版本还是默认版本，菜单预览同一口径
+  const hasText = slash ? (text.slice(0, slash.start) + text.slice(slash.caret)).trim().length > 0 : text.trim().length > 0;
+  const version = (r: QuickReply) => resolve(r, hasText);
   const current = slash && items.length ? Math.min(slash.active, items.length - 1) : -1;
   const optionId = (i: number) => `${listId}-${i}`;
 
@@ -71,13 +79,15 @@ export function useSlashReplies({ text, stage }: { text: string; stage: string |
     setSlash(null);
   };
 
-  /** 用快捷回复正文替换 `/查询词`，光标落在插入文字之后。用 execCommand 插入：触发正常的 input 事件，⌘Z 可撤销 */
+  /** 用快捷回复（按会话目标语言选的那一版）替换 `/查询词`，光标落在插入文字之后。用 execCommand 插入：触发正常的 input 事件，⌘Z 可撤销 */
   const pick = (r: QuickReply) => {
     const el = inputRef.current;
     if (!slash || !el) return;
+    const v = version(r);
+    onPicked(v.draftLang);
     el.focus();
     el.setSelectionRange(slash.start, slash.caret);
-    document.execCommand("insertText", false, r.text);
+    document.execCommand("insertText", false, v.text);
     revealCaret(el);
     setSlash(null);
   };
@@ -125,7 +135,7 @@ export function useSlashReplies({ text, stage }: { text: string; stage: string |
     onBlur: () => setSlash(null),
   };
 
-  return { open, dismiss, sync, onKeyDown, inputProps, inputRef, replies, items, current, query, listId, optionId, pick, setActive: (i: number) => setSlash((m) => (m && m.active !== i ? { ...m, active: i } : m)) };
+  return { open, dismiss, sync, onKeyDown, inputProps, inputRef, replies, items, version, current, query, listId, optionId, pick, setActive: (i: number) => setSlash((m) => (m && m.active !== i ? { ...m, active: i } : m)) };
 }
 
 type SlashState = ReturnType<typeof useSlashReplies>;
@@ -190,7 +200,9 @@ export function SlashRepliesContent({ slash, canManage }: { slash: SlashState; c
       ) : null}
       {/* 菜单打开期间 listbox 一直在（aria-controls 指向它），没有可选项时为空 */}
       <ul id={slash.listId} role="listbox" aria-label="快捷回复" className="scroll-y min-h-0 flex-1">
-        {items.map((r, i) => (
+        {items.map((r, i) => {
+          const v = slash.version(r);
+          return (
           <li
             key={r.id}
             id={slash.optionId(i)}
@@ -204,11 +216,18 @@ export function SlashRepliesContent({ slash, canManage }: { slash: SlashState; c
           >
             <span className="flex items-baseline gap-3">
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.title}</span>
-              <span className="shrink-0 text-xs text-muted-foreground">{REPLY_TAB_LABEL[r.stage]}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {REPLY_TAB_LABEL[r.stage]}
+                {r.variants.length > 0 && ` · ${r.variants.length + 1} 个版本`}
+              </span>
             </span>
-            <span className="truncate text-xs text-muted-foreground">{r.text}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {v.draftLang && <span className="text-foreground">{LANG_LABEL[v.draftLang]}版 · </span>}
+              {v.text}
+            </span>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </PopoverContent>
   );

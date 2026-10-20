@@ -23,6 +23,8 @@ export function shopeeRequest(o: {
   shopId?: string;
   query?: Record<string, string>;
   body?: unknown;
+  /** multipart 上传（upload_image、upload_video） */
+  form?: FormData;
   ts?: number;
 }): Request {
   const apiPath = `/api/v2/${o.path}`;
@@ -32,6 +34,7 @@ export function shopeeRequest(o: {
   if (o.shopId) q.set("shop_id", o.shopId);
   for (const [k, v] of Object.entries(o.query ?? {})) q.set(k, v);
   const method = o.method ?? "GET";
+  if (o.form) return new Request(`${HOST}/mock/shopee/${o.region}${apiPath}?${q}`, { method: "POST", body: o.form });
   return new Request(`${HOST}/mock/shopee/${o.region}${apiPath}?${q}`, {
     method,
     headers: { "content-type": "application/json" },

@@ -14,6 +14,8 @@ export const QUEUES = {
   "knowledge.ingest": { policy: "stately" as const, expireInSeconds: 1320, retryLimit: 0 },
   "knowledge.purge": { policy: "standard" as const, expireInSeconds: 300, retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "message.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
+  // Shopee 聊天视频：上传最长 90 秒 + 等平台处理最长 120 秒 + 发送；失败记到消息上由客服重试，任务本身不重试
+  "message.video_send": { policy: "standard" as const, expireInSeconds: 300, retryLimit: 0 },
   "draft.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
   "order.sync": { policy: "stately" as const, expireInSeconds: 300, retryLimit: 2, retryDelay: 30 },
   "shop.backfill": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 3, retryDelay: 60 },

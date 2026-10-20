@@ -236,7 +236,9 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
   if (shop.status !== "connected") throw notAllowed("店铺授权已失效，消息没有发出。请管理员到「店铺与连接」续期授权。", "shop_auth_expired");
   if (!conv.lastBuyerAt || Date.now() - conv.lastBuyerAt.getTime() > 7 * 86400_000) throw notAllowed("买家最后发言已超过 7 天，平台不允许再发消息。", "reply_window_closed");
   const caps = shop.capabilities;
-  if (body.type !== "text" && body.type !== "image") {
+  // 视频只有 Shopee 能发（sellerchat/upload_video）；TikTok 客服接口发视频要平台视频 ID，没有上传接口
+  if (body.type === "video" && shop.platform !== "shopee") throw notAllowed("TikTok 接口暂不支持发视频。", "unsupported_type");
+  if (body.type !== "text" && body.type !== "image" && body.type !== "video") {
     // 商品卡两个平台都能发，前提是店铺授予了商品读取权限（能列出商品）
     const supported = body.type === "coupon_card" ? caps.coupons : body.type === "product_card" ? caps.productScope : caps.cards.includes(body.type);
     if (!supported) {
@@ -244,9 +246,14 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
       throw notAllowed(`${shop.platform === "shopee" ? "Shopee" : "TikTok"} 店不支持发送这种卡片。`, "unsupported_type");
     }
   }
-  if (body.type === "image") {
-    const [file] = await db().select().from(schema.file).where(and(eq(schema.file.id, body.fileId!), eq(schema.file.merchantId, ctx.merchant.id))).limit(1);
-    if (!file) throw new Problem("validation", { detail: "图片不存在，请重新上传。", extra: { fields: { fileId: "图片不存在" } } });
+  if (body.type === "image" || body.type === "video") {
+    const what = body.type === "image" ? "图片" : "视频";
+    const [file] = await db()
+      .select()
+      .from(schema.file)
+      .where(and(eq(schema.file.id, body.fileId!), eq(schema.file.merchantId, ctx.merchant.id), eq(schema.file.kind, body.type === "image" ? "chat_image" : "chat_video")))
+      .limit(1);
+    if (!file) throw new Problem("validation", { detail: `${what}不存在，请重新上传。`, extra: { fields: { fileId: `${what}不存在` } } });
   }
 
   if (conv.handlingState !== "human" || !conv.claimedBy) conv = await claim(ctx, conv.id, null);

@@ -1,0 +1,1 @@
+ALTER TABLE "quick_reply" ADD COLUMN "variants" jsonb DEFAULT '[]'::jsonb NOT NULL;

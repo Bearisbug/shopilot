@@ -9,7 +9,7 @@ import { token } from "../ids";
 import { mockProductImageUrl } from "../images";
 import { applyOrderStatus, SHOPEE_PRE_SHIP, shopeeLogisticsStatus } from "../orders";
 import { deliverPush, runPushesLater, type PendingPush } from "../push";
-import { fileUrl, MAX_UPLOAD_BYTES, saveUpload } from "../uploads";
+import { fileUrl, MAX_UPLOAD_BYTES, saveUpload, saveVideoUpload, uploadRow } from "../uploads";
 import { E, errorResponse, ok, okFlat, ShopeeError, SHOPEE_REGIONS, verifyShopee, type GatewayResult, type ShopeeShop } from "./core";
 import {
   addShopeeMessage,
@@ -425,6 +425,19 @@ async function sendMessage(ctx: Ctx): Promise<Response> {
       content = { url, thumb_url: url, thumb_width: Number(b.content.thumb_width ?? 0) || 300, thumb_height: Number(b.content.thumb_height ?? 0) || 300 };
       break;
     }
+    case "video": {
+      // 真实平台：只传 vid 报 invalid_content，要用 get_video_upload_result 给的 video / thumbnail 路径
+      const url = String(b.content.video_url ?? "");
+      if (!url) throw new ShopeeError("invalid_content", "content.video_url is a required field");
+      content = {
+        video_url: url,
+        thumb_url: String(b.content.thumb_url ?? ""),
+        duration_seconds: Number(b.content.duration_seconds ?? 0),
+        thumb_width: Number(b.content.thumb_width ?? 0),
+        thumb_height: Number(b.content.thumb_height ?? 0),
+      };
+      break;
+    }
     case "item": {
       if (!b.content.item_id) throw E.param("content.item_id is a required field");
       content = { shop_id: Number(s.shopId), item_id: Number(b.content.item_id) };
@@ -463,6 +476,30 @@ async function uploadImage(ctx: Ctx): Promise<Response> {
   const url = fileUrl(ctx.origin, stored.id);
   const scale = Math.min(1, 300 / Math.max(stored.width, stored.height));
   return ok({ url, thumbnail: url, thumb_width: Math.round(stored.width * scale), thumb_height: Math.round(stored.height * scale) });
+}
+
+/** 视频上传后约 2 秒内处理中（reported），之后 successful；真实平台约 15 秒 */
+const MOCK_VIDEO_PROCESS_MS = 2000;
+const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+
+async function uploadVideo(ctx: Ctx): Promise<Response> {
+  requireChat(ctx);
+  const file = ctx.form?.get("file");
+  if (!file || typeof file === "string") throw E.param("file is a required field");
+  if (file.size > MAX_VIDEO_BYTES) throw E.param("file size should be less than 30MB");
+  const stored = await saveVideoUpload("shopee", shop(ctx).shopId, file.name || "video.mp4", Buffer.from(await file.arrayBuffer()));
+  if (!stored) throw E.param("file is not a valid video");
+  return ok({ vid: stored.id });
+}
+
+async function getVideoUploadResult(ctx: Ctx): Promise<Response> {
+  requireChat(ctx);
+  const row = await uploadRow(ctx.query.get("vid") ?? "");
+  if (!row || row.mime !== "video/mp4") throw E.param("vid is invalid");
+  if (Date.now() - row.createdAt.getTime() < MOCK_VIDEO_PROCESS_MS) return ok({ status: "reported" });
+  // 真实平台给相对路径；模拟平台给完整地址，Shopilot 原样使用
+  const url = fileUrl(ctx.origin, row.id);
+  return ok({ status: "successful", video: url, thumbnail: "", duration: 6000, width: row.width, height: row.height, size: row.size });
 }
 
 // ── 订单与物流 ──
@@ -664,6 +701,8 @@ const HANDLERS: Record<string, Handler> = {
   "sellerchat/get_unread_conversation_count": { method: "GET", level: "shop", run: getUnreadCount },
   "sellerchat/send_message": { method: "POST", level: "shop", fault: "send_message", run: sendMessage },
   "sellerchat/upload_image": { method: "POST", level: "shop", run: uploadImage },
+  "sellerchat/upload_video": { method: "POST", level: "shop", run: uploadVideo },
+  "sellerchat/get_video_upload_result": { method: "GET", level: "shop", run: getVideoUploadResult },
   "order/get_order_list": { method: "GET", level: "shop", fault: "order_read", run: getOrderList },
   "order/get_order_detail": { method: "GET", level: "shop", fault: "order_read", run: getOrderDetail },
   "order/cancel_order": { method: "POST", level: "shop", fault: "after_sale_write", run: cancelOrder },
