@@ -243,6 +243,45 @@ describe("推送签名与 body", () => {
   });
 });
 
+describe("Shopee 常见问题记录（bundle_message）", () => {
+  const CONV = "1871200300114510002";
+  const getMessage = (query: Record<string, string>) =>
+    handleShopeeApi(shopeeRequest({ region: "sg", path: "sellerchat/get_message", ...DEMO_SHOPEE, accessToken: "mock-at-220001", shopId: "220001", query: { conversation_id: CONV, ...query } }), "sg", ["sellerchat", "get_message"]).then(json);
+
+  it("问过商店 AI 助手后转人工：推 faq_liveagent 与只带成员 ID 的 bundle_message；分页读不到成员，按 message_id_list 拉得到", async () => {
+    const r = await runSimAction("buyer_faq_transfer", { conversationId: CONV, question: "Does it work with Mac?" });
+    expect(r.ok).toBe(true);
+    await waitFor(() => received.filter((x) => x.body.includes(CONV)).length >= 2);
+    const bodies = received.filter((x) => x.body.includes(CONV)).map((x) => JSON.parse(x.body).data.content);
+    const transfer = bodies.find((c) => c.message_type === "faq_liveagent");
+    const bundle = bodies.find((c) => c.message_type === "bundle_message");
+    expect(transfer.content.text).toBe("Chat with shop staff");
+    const ids: string[] = bundle.content.messages;
+    expect(ids).toHaveLength(4);
+    expect(ids.every((id) => typeof id === "string" && /^\d+$/.test(id))).toBe(true);
+
+    const page = await getMessage({ page_size: "60" });
+    const listed = (page.body.response as { messages: Array<{ message_id: string }> }).messages.map((m) => m.message_id);
+    expect(listed).toContain(bundle.message_id);
+    expect(listed.some((id) => ids.includes(id))).toBe(false);
+
+    const byId = await getMessage({ page_size: "4", message_id_list: `[${ids.join(",")}]` });
+    const members = (byId.body.response as { messages: Array<{ message_id: string; message_type: string; from_shop_id: number }> }).messages;
+    expect(members.map((m) => m.message_id).sort()).toEqual([...ids].sort());
+    expect(members.map((m) => m.message_type).sort()).toEqual(["extended_markdown", "faq_liveagent_prompt", "first_msg_item_rcmd", "text"]);
+    // 助手的发言从店铺这一侧发出，买家的从买家侧
+    expect(members.find((m) => m.message_type === "text")!.from_shop_id).toBe(0);
+    expect(members.find((m) => m.message_type === "faq_liveagent_prompt")!.from_shop_id).toBe(220001);
+  });
+
+  it("message_id_list 带引号或不是数组时报 param_error（与线上一致）", async () => {
+    for (const bad of ['["2442096651766497650"]', "2442096651766497650,2442096655744745841", "2442096651766497650"]) {
+      const res = await getMessage({ message_id_list: bad });
+      expect(res.body.error, bad).toBe("param_error");
+    }
+  });
+});
+
 describe("故障注入", () => {
   it("下一次发送消息失败，之后恢复", async () => {
     await setFault({ platform: "shopee", shopId: "220001", category: "send_message", mode: "once", kind: "error" });

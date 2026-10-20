@@ -83,7 +83,7 @@ export async function pollShop(shopId: string): Promise<number> {
       ingested++;
       const f = res.followUp;
       if (!f) continue;
-      if (f.translate || f.unclaimed) await runFollowUp({ ...f, draftMode: null });
+      if (f.translate || f.unclaimed || f.bundle) await runFollowUp({ ...f, draftMode: null });
       if (m.fromBuyer && f.draftMode) draft = { followUp: f, buyerAt: m.sentAt };
     }
     // 出稿任务按会话取最新上下文：一批只排一次，买家消息太旧（如游标落后很久后补拉）就不出

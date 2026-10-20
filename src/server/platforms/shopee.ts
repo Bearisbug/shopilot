@@ -1,4 +1,5 @@
 // Shopee Open Platform v2 适配器：签名请求、区域识别、授权、聊天、订单、退货。字段按官方文档（DESIGN §8.11 列的子集）。
+import type { FaqRecord, FaqRecordItem } from "@/contracts/conversations";
 import { shopeeHosts } from "@/server/env";
 import { platformFetch } from "./http";
 import { assertShopeeRead } from "./readonly";
@@ -219,6 +220,61 @@ export async function shopeeMessages(app: ShopeeApp, shop: ShopeeShopAuth, conve
   return { items: list.map((m) => normalizeShopeeMessage(m, shop.shopId)), nextOffset: next && next !== "0" ? next : null };
 }
 
+/** 按 ID 一次最多拉的条数（get_message 的 page_size 上限 60） */
+const BY_ID_CHUNK = 50;
+
+/**
+ * 按消息 ID 拉原始消息行：get_message 带 message_id_list（2026-10-20 生产实测，文档未写）。
+ * 只认不带引号的数字数组 `[2442096651766497650,…]`；带引号的字符串数组、逗号串、单个 ID 都报 param_error。
+ * ID 是 64 位整数，必须按原样数字串拼进去：转成 Number 会丢精度，平台照样返回 200 但一条也拉不到。
+ * 常见问题记录（bundle_message）的成员在会话的 get_message 分页里读不到，只能这样拉。
+ */
+export async function shopeeMessagesByIds(app: ShopeeApp, shop: ShopeeShopAuth, conversationId: string, ids: string[]): Promise<Array<Record<string, unknown>>> {
+  const clean = ids.filter((id) => /^\d+$/.test(id));
+  const out: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < clean.length; i += BY_ID_CHUNK) {
+    const chunk = clean.slice(i, i + BY_ID_CHUNK);
+    const r = resp(await call(app, "GET", "sellerchat/get_message", { shop, query: { conversation_id: conversationId, page_size: chunk.length, message_id_list: `[${chunk.join(",")}]` } }));
+    out.push(...((r.messages as Array<Record<string, unknown>> | undefined) ?? []));
+  }
+  return out;
+}
+
+const FAQ_TEXT_MAX = 2000;
+const clip = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim().slice(0, FAQ_TEXT_MAX) : null);
+
+/**
+ * 常见问题记录的一条成员 → FaqRecordItem。店铺这一侧发的是 Shopee 商店 AI 助手（bot），另一侧是买家。
+ * 见过的类型：买家 text（带平台译文）、faq_liveagent（买家点的 FAQ 问题）；助手 faq_liveagent_prompt（live_agent_text 按语言分段，
+ * lang 标注不可靠，取第一段非空）、extended_markdown（欢迎语）、first_msg_item_rcmd（推荐商品 item_card_v2s）。
+ */
+export function normalizeBundleMember(m: Record<string, unknown>, shopId: string): FaqRecordItem {
+  const c = (m.content ?? {}) as Record<string, unknown>;
+  const t = String(m.message_type ?? "");
+  const base = { id: String(m.message_id ?? ""), role: String(m.from_shop_id ?? "0") === String(shopId) ? ("bot" as const) : ("buyer" as const), sentAt: (secDate(m.created_timestamp) ?? new Date(0)).toISOString() };
+  switch (t) {
+    case "text":
+    case "faq_liveagent":
+    case "extended_markdown": {
+      const text = clip(c.text);
+      const tr = clip((c.translation as { text?: unknown } | null | undefined)?.text);
+      return { ...base, kind: "text", text, translation: tr && tr !== text ? tr : null };
+    }
+    case "faq_liveagent_prompt": {
+      const parts = (c.live_agent_text as Array<{ text?: unknown }> | undefined) ?? [];
+      return { ...base, kind: "text", text: parts.map((p) => clip(p.text)).find(Boolean) ?? clip(c.text), translation: null };
+    }
+    case "first_msg_item_rcmd": {
+      const cards = (c.item_card_v2s as unknown[] | undefined) ?? (c.item_cards as unknown[] | undefined) ?? [];
+      return { ...base, kind: "product_rcmd", text: clip((c.title as { text?: unknown } | undefined)?.text), translation: null, count: cards.length };
+    }
+    case "image":
+      return { ...base, kind: "image", text: null, translation: null, ...(typeof c.url === "string" && c.url ? { url: c.url } : {}) };
+    default:
+      return { ...base, kind: "other", text: clip(c.text), translation: null, rawType: t };
+  }
+}
+
 /** 推送 code 10 的 data.content 与 get_message 的行同结构 */
 /** 平台系统消息：通知、打包的机器人消息、转人工提示。不算买家发言，也不算卖家人工回复（DESIGN §9 发送方） */
 const SHOPEE_SYSTEM_TYPES = new Set(["notification", "bundle_message", "chatbot_msg", "live_agent_transfer"]);
@@ -289,6 +345,12 @@ export function normalizeShopeeMessage(m: Record<string, unknown>, shopId: strin
       type = "video";
       Object.assign(payload, { url: c.video_url, cover: shopeeImageUrl(c.thumb_url), width: c.thumb_width, height: c.thumb_height, duration: c.duration_seconds });
       break;
+    case "bundle_message": {
+      // 「常见问题记录」：推送与拉取都只带成员消息 ID，内容由 shopee.bundle 任务另拉（shopeeMessagesByIds）
+      const ids = ((c.messages as unknown[] | undefined) ?? []).map(String).filter((id) => /^\d+$/.test(id));
+      payload.bundle = { ids, status: "pending" } satisfies FaqRecord;
+      break;
+    }
     default:
       text = typeof c.text === "string" ? c.text : null;
   }

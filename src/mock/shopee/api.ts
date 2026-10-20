@@ -331,8 +331,22 @@ async function getMessage(ctx: Ctx): Promise<Response> {
   const pageSize = intParam(ctx.query, "page_size", 25)!;
   if (pageSize < 1 || pageSize > 60) throw E.param("page_size should be between 1 and 60");
   const t = await findThread(shop(ctx).shopId, id);
+  // 按 ID 拉（常见问题记录的成员）：线上只认不带引号的数字数组，带引号、逗号串、单个 ID 都报 param_error（2026-10-20 实测）
+  const idList = ctx.query.get("message_id_list");
+  if (idList !== null) {
+    if (!/^\[\d+(,\d+)*\]$/.test(idList)) throw new ShopeeError("param_error", "Error or loss in request parameter.", 491);
+    const ids = idList.slice(1, -1).split(",");
+    const rows = await mockDb()
+      .select()
+      .from(mockMessage)
+      .where(and(eq(mockMessage.conversationId, t.conversationId), inArray(mockMessage.messageId, ids)))
+      .orderBy(desc(mockMessage.seq))
+      .limit(pageSize);
+    return ok({ messages: rows.map((m) => shopeeMessageFields(m, t, shop(ctx))), page_result: { page_size: pageSize, next_offset: "0" } });
+  }
   const offset = ctx.query.get("offset");
-  const conds = [eq(mockMessage.conversationId, t.conversationId)];
+  // 不可见的是常见问题记录的成员：会话分页读不到，只能按 ID 拉
+  const conds = [eq(mockMessage.conversationId, t.conversationId), eq(mockMessage.isVisible, true)];
   if (offset && /^\d+$/.test(offset) && offset !== "0") conds.push(lt(mockMessage.seq, Number(offset)));
   const rows = await mockDb().select().from(mockMessage).where(and(...conds)).orderBy(desc(mockMessage.seq)).limit(pageSize + 1);
   const more = rows.length > pageSize;

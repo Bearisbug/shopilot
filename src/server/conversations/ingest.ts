@@ -6,6 +6,7 @@ import { enqueue } from "@/server/jobs/boss";
 import type { ShopRow } from "@/server/platforms/clients";
 import type { NormalizedMessage } from "@/server/platforms/types";
 import { prefetchProducts } from "@/server/products/info";
+import { enqueueBundle } from "./bundle";
 import { currentMode, receptionContext, type ReceptionMode } from "./hours";
 import { judgeStage } from "./stage";
 
@@ -144,7 +145,9 @@ export async function ingestMessage(
     } else {
       await ex.update(schema.conversation).set({ lastMessageAt: later(existing.lastMessageAt, m.sentAt), updatedAt: new Date() }).where(eq(schema.conversation.id, existing.id));
     }
-    return { status: "done", conversationId: existing.id, messageId: msg.id };
+    // 常见问题记录：提交后排任务拉成员（shopee.bundle）
+    const bundle = m.payload.platformType === "bundle_message";
+    return { status: "done", conversationId: existing.id, messageId: msg.id, ...(bundle ? { followUp: { conversationId: existing.id, messageId: msg.id, draftMode: null, translate: false, unclaimed: false, bundle: true } } : {}) };
   }
 
   const rc = await receptionContext(shop.merchantId, ex);
@@ -252,15 +255,16 @@ export async function hasShadowDraft(ex: Executor, segmentId: string | null): Pr
   return !!d;
 }
 
-/** 事务提交后要做的事（出稿、翻译、会话进入待认领时的飞书卡片），由调用方在提交后执行 */
-function afterCommit(conversationId: string, messageId: string, platform: "shopee" | "tiktok", draftMode: "shadow" | "assist" | "auto" | null, m: NormalizedMessage, unclaimed = false) {
+/** 事务提交后要做的事（出稿、翻译、会话进入待认领时的飞书卡片、拉常见问题记录），由调用方在提交后执行 */
+export type FollowUp = { conversationId: string; messageId: string; draftMode: "shadow" | "assist" | "auto" | null; translate: boolean; unclaimed: boolean; bundle?: boolean };
+
+function afterCommit(conversationId: string, messageId: string, platform: "shopee" | "tiktok", draftMode: "shadow" | "assist" | "auto" | null, m: NormalizedMessage, unclaimed = false): { followUp: FollowUp } {
   return { followUp: { conversationId, messageId, draftMode, translate: platform === "tiktok" && m.type === "text" && !!m.text, unclaimed } };
 }
 
-export type FollowUp = ReturnType<typeof afterCommit>["followUp"];
-
 export async function runFollowUp(f: FollowUp | undefined) {
   if (!f) return;
+  if (f.bundle) await enqueueBundle(f.messageId);
   if (f.translate) await enqueue("message.translate", { messageId: f.messageId });
   if (f.unclaimed) await queueFeishuCard(f.conversationId, "unclaimed");
   if (f.draftMode) await enqueueDraft(f.conversationId, f.draftMode);

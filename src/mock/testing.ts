@@ -3,8 +3,10 @@ import { shopeeApiSign, tiktokApiSign } from "./signing";
 
 const HOST = "http://127.0.0.1:3360";
 
+/** 模拟平台测试库：给了 MOCK_TEST_DATABASE_URL 就原样用（并行开发各用各的库）；否则把 DATABASE_URL 换成 shopilot_mock_test 库 */
 export function testDatabaseUrl(): string {
-  const raw = process.env.MOCK_TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (process.env.MOCK_TEST_DATABASE_URL) return process.env.MOCK_TEST_DATABASE_URL;
+  const raw = process.env.DATABASE_URL;
   if (!raw) throw new Error("需要 DATABASE_URL（测试会换成 shopilot_mock_test 库）");
   const u = new URL(raw);
   u.pathname = "/shopilot_mock_test";

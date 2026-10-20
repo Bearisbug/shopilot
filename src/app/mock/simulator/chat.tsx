@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImageIcon, MessageSquareIcon, PackageIcon, ReceiptTextIcon, SendIcon, ShoppingBagIcon, TicketIcon, TruckIcon, UploadIcon } from "lucide-react";
+import { BotIcon, ImageIcon, MessageSquareIcon, PackageIcon, ReceiptTextIcon, SendIcon, ShoppingBagIcon, TicketIcon, TruckIcon, UploadIcon } from "lucide-react";
 import { PlatformBadge } from "@/components/common/platform-badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -239,6 +239,12 @@ function Composer({ shop, thread, data }: { shop: SimShop; thread: SimThread; da
               发商品卡
             </ActButton>
           </span>
+        )}
+        {shop.platform === "shopee" && (
+          <ActButton actKey="buyer_faq_transfer" action="buyer_faq_transfer" body={{ conversationId, question: text.trim() || undefined }}>
+            <BotIcon />
+            问过 AI 助手后转人工
+          </ActButton>
         )}
         <Button type="button" size="sm" className="ml-auto" disabled={!text.trim() || busy} onClick={() => void send()}>
           {pendingKey === "buyer_message" ? <Spinner className="size-3.5" /> : <SendIcon />}
