@@ -765,7 +765,7 @@ export const ticketEvent = pgTable(
     id: id(),
     merchantId: merchantRef(),
     ticketId: uuid("ticket_id").notNull().references(() => ticket.id, { onDelete: "cascade" }),
-    type: text("type", { enum: ["created", "status", "assign", "note", "platform_event", "due_change", "action", "void"] }).notNull(),
+    type: text("type", { enum: ["created", "status", "assign", "note", "platform_event", "due_change", "action", "void", "feishu"] }).notNull(),
     actorId: uuid("actor_id").references(() => membership.id, { onDelete: "set null" }),
     source: text("source", { enum: ["page", "system", "webhook"] }).notNull(),
     data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
@@ -1117,12 +1117,18 @@ export const feishuDelivery = pgTable(
     merchantId: merchantRef(),
     conversationId: uuid("conversation_id").references(() => conversation.id, { onDelete: "cascade" }),
     segmentId: uuid("segment_id").references(() => segment.id, { onDelete: "cascade" }),
-    /** unclaimed 待认领卡，overdue 待认领超时卡，test 设置页的测试卡片 */
-    kind: text("kind", { enum: ["unclaimed", "overdue", "test"] }).notNull(),
+    /** 工单转发卡：转发的工单 */
+    ticketId: uuid("ticket_id").references(() => ticket.id, { onDelete: "cascade" }),
+    /** unclaimed 待认领卡，overdue 待认领超时卡，test 设置页的测试卡片，ticket 工单详情页手动转发的工单卡 */
+    kind: text("kind", { enum: ["unclaimed", "overdue", "test", "ticket"] }).notNull(),
     /** 同段同卡种的序号：处理人取消认领时取本段最大值 + 1，其余触发都是 0（INV-FEISHU-003） */
     seq: integer("seq").notNull().default(0),
     targetId: uuid("target_id").references(() => feishuTarget.id, { onDelete: "set null" }),
+    /** 应用接法下转发时选的群（不一定是设过的推送群）；有值时按它发，不看 target_id */
+    chatId: text("chat_id"),
     targetName: text("target_name"),
+    /** 手动转发的成员 */
+    actorId: uuid("actor_id").references(() => membership.id, { onDelete: "set null" }),
     status: text("status", { enum: ["queued", "sent", "failed", "skipped"] }).notNull().default("queued"),
     attempts: integer("attempts").notNull().default(0),
     /** 应用接法发出的消息 ID；自定义机器人不返回 */
@@ -1139,6 +1145,7 @@ export const feishuDelivery = pgTable(
   (t) => [
     uniqueIndex("feishu_delivery_segment_kind_seq_uq").on(t.segmentId, t.kind, t.seq).where(sql`${t.segmentId} is not null`),
     index("feishu_delivery_merchant_created_idx").on(t.merchantId, t.createdAt),
+    index("feishu_delivery_ticket_idx").on(t.ticketId),
   ],
 );
 

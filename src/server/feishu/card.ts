@@ -168,6 +168,64 @@ export function conversationCard(input: ConversationCardInput): FeishuCard {
   return card(title, overdue ? "red" : "orange", `${title} · ${truncate(input.buyerName, 20)}`, elements);
 }
 
+export type TicketCardInput = {
+  number: string;
+  /** 「物流异常 - 物流轨迹 72 小时未更新」 */
+  anomaly: string;
+  statusText: string;
+  /** 平台状态的中文说法 */
+  platformStatus: string | null;
+  shopName: string;
+  platform: string;
+  market: string;
+  buyerName: string | null;
+  externalOrderId: string | null;
+  items: Array<{ name: string; sku: string | null; qty: number }>;
+  /** 截止时间，已按商户时区格式化；剩余时长另给 */
+  dueText: string | null;
+  remainingSec: number | null;
+  assigneeName: string | null;
+  note: string | null;
+  forwardedBy: string;
+  ticketUrl: string;
+  sellerUrl: string | null;
+};
+
+/** 工单详情页手动转发的工单卡（浅蓝）：订单号、异常与说明、订单内容、截止与备注 */
+export function ticketCard(input: TicketCardInput): FeishuCard {
+  const title = `工单 ${input.number} · ${input.anomaly}`;
+  const elements: unknown[] = [md(`**异常** ${escapeMd(truncate(input.anomaly, 120))}`)];
+
+  const facts: string[] = [];
+  if (input.externalOrderId) facts.push(`**订单号** ${escapeMd(input.externalOrderId)}`);
+  const where = platformText(input.platform, input.market);
+  facts.push(`**店铺** ${escapeMd(truncate(input.shopName, 30))}${where ? `　${grey(where)}` : ""}`);
+  if (input.buyerName) facts.push(`**买家** ${escapeMd(truncate(input.buyerName, 40))}`);
+  const state = [`**状态** ${escapeMd(input.statusText)}`, input.platformStatus ? `**平台状态** ${escapeMd(input.platformStatus)}` : null].filter(Boolean).join("　");
+  facts.push(state);
+  if (input.dueText) {
+    const left = input.remainingSec === null ? "" : input.remainingSec < 0 ? `，已超时 ${waitedText(-input.remainingSec)}` : `，剩 ${waitedText(input.remainingSec)}`;
+    facts.push(`**截止** ${escapeMd(input.dueText)}${left}`);
+  }
+  facts.push(`**负责人** ${escapeMd(input.assigneeName ?? "未指派")}`);
+  elements.push(md(facts.join("\n")));
+
+  if (input.items.length) {
+    elements.push({ tag: "hr" });
+    const lines = input.items.slice(0, 10).map((i) => `· ${escapeMd(truncate(i.name, 80))}${i.sku ? `　${grey(`规格 ${escapeMd(truncate(i.sku, 40))}`)}` : ""}　×${i.qty}`);
+    if (input.items.length > 10) lines.push(grey(`另有 ${input.items.length - 10} 件商品，到 Shopilot 查看`));
+    elements.push(md(`**订单内容**\n${lines.join("\n")}`));
+  }
+  if (input.note) elements.push(md(`**备注** ${escapeMd(truncate(input.note, 200))}`));
+
+  elements.push({ tag: "hr" });
+  const columns = [{ tag: "column", width: "auto", elements: [button("在 Shopilot 打开", "primary", input.ticketUrl)] }];
+  if (input.sellerUrl) columns.push({ tag: "column", width: "auto", elements: [button("打开卖家后台订单", "default", input.sellerUrl)] });
+  elements.push({ tag: "column_set", flex_mode: "none", horizontal_spacing: "8px", columns });
+  elements.push(md(grey(`Shopilot · ${escapeMd(truncate(input.forwardedBy, 20))} 从工单详情页转发`)));
+  return card(title, "wathet", `${title} · ${truncate(input.shopName, 20)}`, elements);
+}
+
 /** 设置页「发测试卡片」：说明这个群之后会收到什么；带一张图片时同时验证图片上传 */
 export function testCard(input: { merchantName: string; targetName: string; settingsUrl: string; imageKey: string | null; imageError: string | null }): FeishuCard {
   const elements: unknown[] = [

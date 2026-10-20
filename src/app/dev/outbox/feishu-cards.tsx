@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 type Delivery = {
   id: string;
-  kind: "unclaimed" | "overdue" | "test";
+  kind: "unclaimed" | "overdue" | "test" | "ticket";
   status: "queued" | "sent" | "failed" | "skipped";
   targetName: string | null;
   attempts: number;
@@ -25,9 +25,9 @@ type Delivery = {
 type CardJson = { header?: { template?: string; title?: { content?: string } }; body?: { elements?: Element[] } };
 type Element = { tag: string; content?: string; img_key?: string; text?: { content?: string }; behaviors?: Array<{ default_url?: string }>; columns?: Array<{ elements?: Element[] }> };
 
-const KIND_TEXT: Record<Delivery["kind"], string> = { unclaimed: "待认领卡", overdue: "待认领超时卡", test: "测试卡片" };
+const KIND_TEXT: Record<Delivery["kind"], string> = { unclaimed: "待认领卡", overdue: "待认领超时卡", test: "测试卡片", ticket: "工单转发卡" };
 const STATUS_TEXT: Record<Delivery["status"], string> = { queued: "排队中", sent: "已发出", failed: "失败", skipped: "已跳过" };
-const COLOR_TEXT: Record<string, string> = { orange: "橙色", red: "红色", blue: "蓝色" };
+const COLOR_TEXT: Record<string, string> = { orange: "橙色", red: "红色", blue: "蓝色", wathet: "浅蓝" };
 
 export function OutboxTabs({ current }: { current: "mail" | "feishu" }) {
   const tabs = [
@@ -118,7 +118,7 @@ export function FeishuOutbox() {
     <main className="flex h-dvh flex-col gap-4 bg-background p-4 md:p-6">
       <header>
         <h1 className="text-2xl font-semibold">发件箱</h1>
-        <p className="text-sm text-muted-foreground">FEISHU_MODE=stub 时飞书卡片不外发，待认领卡、超时卡、测试卡片都记在这里；按钮链接可直接点开。</p>
+        <p className="text-sm text-muted-foreground">FEISHU_MODE=stub 时飞书卡片不外发，待认领卡、超时卡、测试卡片、工单转发卡都记在这里；按钮链接可直接点开。</p>
         <OutboxTabs current="feishu" />
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">

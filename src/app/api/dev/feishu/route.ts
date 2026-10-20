@@ -19,6 +19,7 @@ export async function GET(req: Request) {
     id: r.id,
     merchantId: r.merchantId,
     conversationId: r.conversationId,
+    ticketId: r.ticketId,
     kind: r.kind,
     status: r.status,
     targetName: r.targetName,

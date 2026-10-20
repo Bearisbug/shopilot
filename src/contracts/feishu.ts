@@ -23,7 +23,7 @@ export type FeishuView = {
   defaultTarget: FeishuTargetView | null;
   shops: Array<{ id: string; name: string; platform: "shopee" | "tiktok"; market: string; target: FeishuTargetView | null }>;
   /** 最近 7 天、且在本次接入之后，最新一次投递失败 */
-  lastFailure: { at: string; targetName: string | null; kind: "unclaimed" | "overdue" | "test"; error: string } | null;
+  lastFailure: { at: string; targetName: string | null; kind: "unclaimed" | "overdue" | "test" | "ticket"; error: string } | null;
 };
 
 export const feishuConnectBody = z.discriminatedUnion("method", [

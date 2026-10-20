@@ -1,5 +1,6 @@
 // 飞书卡片投递（发件箱）：会话进入待认领、待认领超时时先写一行投递记录（同一会话段同一卡种只一行，处理人取消认领另起一行），再入队 feishu.send；
 // 任务里按当时的状态构卡并发出。会话已被认领、已结束、换了新段，或商户断开飞书、店铺没有群时记为跳过。
+// 工单转发卡（kind = ticket）在请求里就构好卡片存进记录，任务只按记下的群发出与重试。
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { receptionContext } from "@/server/conversations/hours";
 import { decrypt } from "@/server/core/crypto";
@@ -120,6 +121,7 @@ export async function deliverFeishuCard(data: Record<string, unknown>): Promise<
 
   const [integration] = await db().select().from(schema.feishuIntegration).where(eq(schema.feishuIntegration.merchantId, row.merchantId)).limit(1);
   if (!integration) return void (await finish({ status: "skipped", error: "商户已断开飞书" }));
+  if (row.kind === "ticket") return deliverStoredCard(row, integration, attempt, finish);
   const [conv] = row.conversationId ? await db().select().from(schema.conversation).where(eq(schema.conversation.id, row.conversationId)).limit(1) : [];
   const skip = skipReason(conv, row.segmentId);
   if (skip || !conv) return void (await finish({ status: "skipped", error: skip ?? "会话已删除" }));
@@ -139,12 +141,42 @@ export async function deliverFeishuCard(data: Record<string, unknown>): Promise<
       await db().update(schema.feishuIntegration).set({ status: "verified", verifiedAt: new Date(), updatedAt: new Date() }).where(eq(schema.feishuIntegration.merchantId, row.merchantId));
     }
   } catch (e) {
-    const err = e instanceof FeishuError ? e : new FeishuError("other", null, e instanceof Error ? e.message : String(e));
-    if (err.kind === "credentials" && target.kind === "app_chat") {
-      await db().update(schema.feishuIntegration).set({ status: "invalid", updatedAt: new Date() }).where(eq(schema.feishuIntegration.merchantId, row.merchantId));
-    }
-    const final = !err.retryable || attempt >= MAX_ATTEMPTS;
-    await finish({ status: final ? "failed" : "queued", error: err.message.slice(0, 500) });
-    if (!final) throw err;
+    await failAttempt(e, row.merchantId, target.kind === "app_chat", attempt, finish);
+  }
+}
+
+type DeliveryRow = typeof d.$inferSelect;
+type Finish = (patch: Partial<typeof d.$inferInsert>) => Promise<unknown>;
+
+/** 一次发送失败：应用凭证不对时把接法标为失效；可重试且没到次数上限的抛出交给队列，否则记为失败 */
+async function failAttempt(e: unknown, merchantId: string, appChat: boolean, attempt: number, finish: Finish): Promise<void> {
+  const err = e instanceof FeishuError ? e : new FeishuError("other", null, e instanceof Error ? e.message : String(e));
+  if (err.kind === "credentials" && appChat) {
+    await db().update(schema.feishuIntegration).set({ status: "invalid", updatedAt: new Date() }).where(eq(schema.feishuIntegration.merchantId, merchantId));
+  }
+  const final = !err.retryable || attempt >= MAX_ATTEMPTS;
+  await finish({ status: final ? "failed" : "queued", error: err.message.slice(0, 500) });
+  if (!final) throw err;
+}
+
+/** 工单转发卡：发到转发时选的群（应用接法按 chat_id，自定义机器人按 target_id）；接法换了或群设置删了记为跳过 */
+async function deliverStoredCard(row: DeliveryRow, integration: IntegrationRow, attempt: number, finish: Finish): Promise<void> {
+  if (!row.card) return void (await finish({ status: "failed", error: "投递记录里没有卡片" }));
+  let send: () => Promise<string | null>;
+  if (row.chatId) {
+    const app = appOf(integration);
+    if (!app) return void (await finish({ status: "skipped", error: "飞书接法已改为群自定义机器人" }));
+    send = () => feishuApi().sendToChat(app, row.chatId!, row.card!);
+  } else {
+    const [target] = row.targetId ? await db().select().from(t).where(eq(t.id, row.targetId)).limit(1) : [];
+    if (!target) return void (await finish({ status: "skipped", error: "这个群设置已删除" }));
+    if (target.kind !== "webhook" || integration.method !== "webhook") return void (await finish({ status: "skipped", error: "飞书接法已改为飞书应用" }));
+    send = () => sendCard(integration, target, row.card!);
+  }
+  try {
+    const messageId = await send();
+    await finish({ status: "sent", messageId, sentAt: new Date(), error: null, stub: feishuIsStub() });
+  } catch (e) {
+    await failAttempt(e, row.merchantId, !!row.chatId, attempt, finish);
   }
 }
