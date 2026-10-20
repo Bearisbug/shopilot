@@ -249,6 +249,8 @@ describe.skipIf(!process.env.DATABASE_URL)("工单转发到飞书（需要数据
     expect(card).toContain("物流异常 - 物流轨迹 72 小时未更新");
     expect(card).toContain("586565462593668786");
     expect(card).toContain("seller.tiktokshopglobalselling.com/order/detail?order_no=586565462593668786&shop_region=PH");
+    // 「在 Shopilot 打开」带商户参数，工单页按 m 切到这个商户（同会话卡片的落地）
+    expect(card).toContain(`/tickets/${S.ticket.id}?m=${S.merchant.id}`);
 
     await deliverFeishuCard({ id: r.deliveryId });
     const [sent] = await ticketDeliveries(S.ticket.id);

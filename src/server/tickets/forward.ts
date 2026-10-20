@@ -43,7 +43,7 @@ export async function forwardTicket(ctx: MemberContext, id: string, body: Ticket
     assigneeName: item.assignee?.name ?? null,
     note,
     forwardedBy,
-    ticketUrl: `${env().APP_BASE_URL}/tickets/${row.id}`,
+    ticketUrl: `${env().APP_BASE_URL}/tickets/${row.id}?m=${row.merchantId}`,
     sellerUrl: shop && order ? sellerOrderUrl({ platform: shop.platform, market: shop.market, externalShopId: shop.externalShopId, appRegion: await shopAppRegion(shop) }, order.externalOrderId) : null,
   });
 
