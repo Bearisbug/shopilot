@@ -5,6 +5,7 @@ import { backfillShop, scanLogistics, syncRecentOrders } from "@/server/inbound/
 import { pollReadOnlyShops } from "@/server/inbound/poll";
 import { processInbound, sweepInbound } from "@/server/inbound/process";
 import { refetchConversation } from "@/server/inbound/refetch";
+import { fillBundle } from "@/server/conversations/bundle";
 import { generateDraft } from "@/server/ai/draft";
 import { translateDraft, translateMessage } from "@/server/ai/translate";
 import { shopMetricsJob, tokenRefreshJob } from "@/server/shops/jobs";
@@ -34,6 +35,9 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "inbound.sweep": () => sweepInbound(),
   "inbound.poll": () => pollReadOnlyShops(),
   "inbound.refetch": refetchConversation,
+  "shopee.bundle": async (data) => {
+    await fillBundle(data);
+  },
   "shop.backfill": backfillShop,
   "order.sync": syncRecentOrders,
   "logistics.scan": () => scanLogistics(),

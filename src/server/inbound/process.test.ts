@@ -119,4 +119,42 @@ describe.skipIf(!process.env.DATABASE_URL)("Shopee 聊天推送处理（code 10�
     expect(ev.status).toBe("done");
     expect(await messageCount()).toBe(before + 1);
   });
+
+  // 源自缺陷：常见问题记录（bundle_message）先于买家「找卖家客服」那句到达时，会话还没建，原来记为 ignored 丢掉
+  it("常见问题记录先于买家消息到达：不丢，排补拉等会话建好后入库，事件记为 done", async () => {
+    const { enqueue } = await import("@/server/jobs/boss");
+    const before = await messageCount();
+    const conv = "30000000000000001";
+    const bundle = (id: string) => ({
+      type: "message",
+      region: "PH",
+      content: {
+        message_id: id,
+        message_type: "bundle_message",
+        content: { type: 1, messages: ["2442096651766497650", "2442096687428600177"], shopee_chatbot_replied: false },
+        from_id: 555003,
+        from_user_name: "buyer-faq",
+        from_shop_id: 1543356295,
+        to_id: 1639926979,
+        to_shop_id: Number(SHOP),
+        conversation_id: conv,
+        created_timestamp: Math.floor(Date.now() / 1000),
+      },
+    });
+    const ev = await run(bundle(`b-${randomUUID()}`));
+    expect(ev).toMatchObject({ status: "done", error: "常见问题记录先于买家消息到达，排补拉" });
+    expect(await messageCount()).toBe(before);
+    expect(enqueue).toHaveBeenCalledWith("inbound.refetch", { shopId: ctx.shopId, conversationId: conv }, { singletonKey: `${ctx.shopId}:${conv}`, startAfter: 10 });
+
+    // 会话已建时直接入库，并排 shopee.bundle 拉成员
+    await run({
+      type: "message",
+      region: "PH",
+      content: { message_id: `m-${randomUUID()}`, message_type: "faq_liveagent", content: { text: "Chat with shop staff" }, from_id: 555003, from_user_name: "buyer-faq", from_shop_id: 0, to_id: 1639926979, to_shop_id: Number(SHOP), conversation_id: conv, created_timestamp: Math.floor(Date.now() / 1000) },
+    });
+    const ev2 = await run(bundle(`b-${randomUUID()}`));
+    expect(ev2.status).toBe("done");
+    expect(await messageCount()).toBe(before + 2);
+    expect(enqueue).toHaveBeenCalledWith("shopee.bundle", { messageId: expect.any(String) }, { singletonKey: expect.any(String) });
+  });
 });

@@ -3,7 +3,7 @@
 // （ingestMessage：本方出站回声认出后不入库；店铺自动回复记平台自动回复；其余记平台后台回复并走 platform_human 转移）。
 // 买家消息以推送为准，补拉不入库，所以补拉不开段、不出稿。
 import { and, eq } from "drizzle-orm";
-import { ingestMessage } from "@/server/conversations/ingest";
+import { ingestMessage, runFollowUp } from "@/server/conversations/ingest";
 import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
 import { ShopUnavailableError, withShop, type ShopRow } from "@/server/platforms/clients";
@@ -15,6 +15,8 @@ const REFETCH_DELAY_S = 10;
 const PAGE_SIZE = 20;
 /** 店铺自动回复与触发它的买家消息同一秒发出（线上 152 条自动回复全部在 2 秒内），人工回复做不到这么快 */
 const AUTO_REPLY_WINDOW_MS = 2_000;
+/** 常见问题记录与开段的买家消息几乎同时发出（线上实测晚 1 秒）；放宽到本段开始前 2 分钟，免得时钟差把它漏掉 */
+const BUNDLE_SLACK_MS = 120_000;
 
 export function enqueueRefetch(shopId: string, externalConversationId: string) {
   return enqueue("inbound.refetch", { shopId, conversationId: externalConversationId }, { singletonKey: `${shopId}:${externalConversationId}`, startAfter: REFETCH_DELAY_S });
@@ -47,7 +49,10 @@ export async function refetchConversation(data: Record<string, unknown>): Promis
   }
   if (!fetched) return;
   const { shop, items } = fetched;
-  for (const m of sellerSideSince(items, seg.startedAt)) await db().transaction((tx) => ingestMessage(tx, shop, m, null));
+  for (const m of sellerSideSince(items, seg.startedAt)) {
+    const res = await db().transaction((tx) => ingestMessage(tx, shop, m, null));
+    await runFollowUp(res.followUp);
+  }
 }
 
 /**
@@ -64,7 +69,7 @@ export function sellerSideSince(page: NormalizedMessage[], since: Date): Normali
       lastBuyerAt = m.sentAt.getTime();
       continue;
     }
-    if (m.sentAt < since) continue;
+    if (m.sentAt < since && !(m.payload.platformType === "bundle_message" && m.sentAt.getTime() >= since.getTime() - BUNDLE_SLACK_MS)) continue;
     const autoReply = m.senderRole === "agent" && lastBuyerAt !== null && m.sentAt.getTime() - lastBuyerAt <= AUTO_REPLY_WINDOW_MS;
     out.push(autoReply ? { ...m, senderRole: "platform_bot" } : m);
   }

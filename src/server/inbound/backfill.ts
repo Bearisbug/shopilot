@@ -1,6 +1,7 @@
 // shop.backfill（REQ-SHOP-013）：接入后按店回补会话约 90 天、订单 180 天；order.sync 增量同步；logistics.scan 物流异常扫描。
 import { and, eq, inArray } from "drizzle-orm";
 import { systemActor } from "@/server/core/audit";
+import { enqueuePendingBundles } from "@/server/conversations/bundle";
 import { backfillConversation } from "@/server/conversations/ingest";
 import { db, schema } from "@/server/db/client";
 import { syncTiktokTracking, syncTracking, upsertAfterSale, upsertOrder } from "@/server/orders/mirror";
@@ -51,6 +52,7 @@ async function backfillConversations(c: ShopClient, since: Date): Promise<number
         }, since);
         const n = await db().transaction((tx) => backfillConversation(tx, c.shop, { externalConversationId: conv.conversationId, buyerExternalId: conv.buyerId, buyerName: conv.buyerName, affiliate: false, avatarUrl: conv.buyerAvatar }, messages));
         if (n > 0) count++;
+        if (messages.some((m) => m.payload.platformType === "bundle_message")) await enqueuePendingBundles(c.shop.id, conv.conversationId);
       }
       if (!res.nextCursor) break;
       cursor = res.nextCursor;

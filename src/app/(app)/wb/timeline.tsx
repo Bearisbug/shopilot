@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowDownIcon, CopyIcon, ExternalLinkIcon, ImageIcon, PackageIcon, PlayIcon, ShoppingBagIcon, SmileIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
+import { ArrowDownIcon, BotMessageSquareIcon, CopyIcon, ExternalLinkIcon, ImageIcon, PackageIcon, PlayIcon, ShoppingBagIcon, SmileIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { BuyerOrder, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
+import type { BuyerOrder, DraftItem, FaqRecord, FaqRecordItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -211,6 +211,15 @@ export function Timeline({
 
 function MessageRow({ m, ctx, onRetry, retrying }: { m: MessageItem; ctx: Ctx; onRetry: (id: string) => void; retrying: boolean }) {
   const time = inTz(m.sentAt, ctx.tz, "HH:mm");
+  const faq = faqRecord(m);
+  if (faq) {
+    return (
+      <div className="flex max-w-full min-w-0 flex-col items-start @md/tl:max-w-[85%]">
+        <FaqRecordCard record={faq} tz={ctx.tz} />
+        <span className="mt-1 text-xs text-muted-foreground tabular-nums">{time}</span>
+      </div>
+    );
+  }
   if (m.senderRole === "system") {
     // 平台英文系统提示按对照表显示中文，点开看平台原文；表外的照原文显示
     const zh = platformNoticeText(m.text);
@@ -484,6 +493,81 @@ function ReturnCard({ orderId, order, skuId, link }: { orderId: string; order: B
     <StackCard icon={Undo2Icon} title={title} link={link}>
       <OrderItems items={order.items} currency={order.currency} highlightSkuId={skuId} />
     </StackCard>
+  );
+}
+
+/** 常见问题记录（Shopee bundle_message）；不是这类消息返回 null。本功能上线前入库的没有 bundle 字段，按拉取中处理 */
+function faqRecord(m: MessageItem): FaqRecord | null {
+  if (m.senderRole !== "system" || m.payload.platformType !== "bundle_message") return null;
+  const b = m.payload.bundle as FaqRecord | undefined;
+  return b && Array.isArray(b.ids) ? b : { ids: [], status: "pending" };
+}
+
+/** 收起时显示最后几条 */
+const FAQ_PREVIEW = 2;
+const FAQ_ROLE = { buyer: "买家", bot: "AI 助手" } as const;
+
+function faqItemText(x: FaqRecordItem): string {
+  if (x.kind === "product_rcmd") return `推荐了 ${x.count ?? 0} 个商品`;
+  if (x.kind === "image") return "[图片]";
+  return x.text ?? "[其他消息]";
+}
+
+/**
+ * 常见问题记录：买家转人工前和 Shopee 商店 AI 助手的对话。收起时显示最后 2 条，展开看全部；
+ * 买家原话带平台译文。拉取中显示骨架；取不到（含拉取太久，由接口按 failed 给）时提示到卖家中心查看。
+ */
+function FaqRecordCard({ record, tz }: { record: FaqRecord; tz: string }) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const items = record.status === "ok" ? (record.items ?? []) : [];
+  const count = items.length || record.ids.length;
+  const shown = open ? items : items.slice(-FAQ_PREVIEW);
+  return (
+    <div className={STACK_CLASS}>
+      <p className={STACK_HEAD}>
+        <BotMessageSquareIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+          常见问题记录<span className="font-normal text-muted-foreground"> · Shopee 商店 AI 助手</span>
+        </span>
+        {count > 0 && <span className="shrink-0 font-normal text-muted-foreground">{count} 条</span>}
+      </p>
+      {record.status === "pending" ? (
+        <div role="status" aria-label="正在从 Shopee 拉取常见问题记录" className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-3/4 bg-muted motion-reduce:animate-none" />
+          <Skeleton className="h-4 w-1/2 bg-muted motion-reduce:animate-none" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">没有取到记录内容，请到 Shopee 卖家中心查看</p>
+      ) : (
+        <>
+          <ol id={listId} className="flex flex-col divide-y divide-border">
+            {shown.map((x) => (
+              <li key={x.id} className="flex flex-col gap-0.5 py-1.5 first:pt-0 last:pb-0">
+                <span className="text-xs text-muted-foreground">
+                  {FAQ_ROLE[x.role]} · <span className="tabular-nums">{inTz(x.sentAt, tz, "HH:mm")}</span>
+                </span>
+                <span className={cn("text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]", x.kind !== "text" && "text-muted-foreground")}>{faqItemText(x)}</span>
+                {x.translation && (
+                  <span className="text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+                    <Badge variant="outline" className="mr-1.5 font-normal text-muted-foreground">
+                      译 · Shopee
+                    </Badge>
+                    {x.translation}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+          {/* -ml-2 抵消 ghost 按钮的左内边距（px-2），按钮文字与上面消息文字左缘对齐 */}
+          {items.length > FAQ_PREVIEW && (
+            <Button variant="ghost" size="xs" className="-ml-2 self-start" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((v) => !v)}>
+              {open ? "收起" : `展开全部 ${items.length} 条`}
+            </Button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

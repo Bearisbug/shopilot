@@ -32,7 +32,7 @@ const HANDOFF_TEXT: Record<string, string> = {
 
 /** 最近对话里的一条：role 是「买家」「客服」「AI」；text 已是要显示的原文，translation 是中文译文 */
 export type CardLine = {
-  role: "买家" | "客服" | "AI";
+  role: "买家" | "客服" | "AI" | "Shopee AI";
   time: string | null;
   text: string | null;
   translation: string | null;

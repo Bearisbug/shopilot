@@ -14,7 +14,7 @@ import { nowSec, toSec } from "../http";
 import { digits, shopeeBuyerId, shopeeConversationId, shopeeReturnSn, shopeeTrackingNo, shopeeOrderSn, tiktokLineItemId, tiktokOrderId, tiktokReturnId, tiktokTrackingNo } from "../ids";
 import { applyOrderStatus, logisticsException, nextStatus, orderTotals, SHOPEE_PRE_SHIP, TIKTOK_PRE_SHIP } from "../orders";
 import { resendPush, runPushes, type PendingPush } from "../push";
-import { shopeePush, addShopeeBackendMessage, addShopeeMessage, insertShopeeReturn, loadShopeeApp, shopeeMarkAsRepliedPush, updateShopeeOrder, updateShopeeReturn } from "../shopee/ops";
+import { shopeePush, addShopeeBackendMessage, addShopeeFaqTransfer, addShopeeMessage, insertShopeeReturn, loadShopeeApp, shopeeMarkAsRepliedPush, updateShopeeOrder, updateShopeeReturn } from "../shopee/ops";
 import { addTiktokMessage, completeRefund, insertTiktokAfterSale, record, tiktokWebhook, updateTiktokAfterSale, updateTiktokOrder } from "../tiktok/ops";
 import { fileUrl, samplePng, saveUpload } from "../uploads";
 import type { SimActionResult } from "./types";
@@ -106,6 +106,17 @@ async function sellerBackendReply(input: unknown): Promise<SimActionResult> {
   if (text) await addShopeeBackendMessage(shop, thread, text, auto ?? false);
   const what = !text ? "已推送 mark_as_replied" : auto ? "店铺自动回复已写入，已推送 mark_as_replied" : "卖家后台回复已写入，已推送 mark_as_replied";
   return done(what, [await shopeeMarkAsRepliedPush(shop, thread)]);
+}
+
+const FaqTransferInput = z.object({ conversationId: z.string().min(1), question: z.string().trim().max(2000).optional() });
+
+/** Shopee 买家先问商店 AI 助手、再转人工：推送 faq_liveagent 与 bundle_message（常见问题记录） */
+async function buyerFaqTransfer(input: unknown): Promise<SimActionResult> {
+  const { conversationId, question } = FaqTransferInput.parse(input);
+  const { thread, shop } = await getThread(conversationId);
+  if (shop.platform !== "shopee") throw new SimError("只有 Shopee 有商店 AI 助手的常见问题记录");
+  const { pushes } = await addShopeeFaqTransfer(shop, thread, question || "Does this webcam work with my Mac?");
+  return done("买家问过商店 AI 助手后转人工，已推送 faq_liveagent 与常见问题记录", pushes);
 }
 
 const OrderCardInput = z.object({ conversationId: z.string(), orderId: z.string() });
@@ -475,6 +486,7 @@ export const SIM_ACTIONS = [
   "deauthorize",
   "resend_push",
   "seller_backend_reply",
+  "buyer_faq_transfer",
 ] as const;
 export type SimAction = (typeof SIM_ACTIONS)[number];
 
@@ -510,6 +522,8 @@ export async function runSimAction(action: SimAction, input: unknown): Promise<S
         return await resend(input);
       case "seller_backend_reply":
         return await sellerBackendReply(input);
+      case "buyer_faq_transfer":
+        return await buyerFaqTransfer(input);
       case "buyer_image":
         return { ok: false, error: "buyer_image 需要 multipart 请求" };
     }

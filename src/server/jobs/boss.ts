@@ -6,6 +6,8 @@ export const QUEUES = {
   "inbound.process": { policy: "key_strict_fifo" as const, expireInSeconds: 60, retryLimit: 3, retryDelay: 10, retryBackoff: true },
   // Shopee 卖家后台回复的补拉：同一会话最多一个排队、一个执行中（singletonKey = 店铺:会话），平台出错 30 秒后重试 2 次
   "inbound.refetch": { policy: "stately" as const, expireInSeconds: 60, retryLimit: 2, retryDelay: 30 },
+  // Shopee 常见问题记录（bundle_message）按 ID 拉成员：超时、5xx 退避重试 4 次（15、30、60、120 秒）
+  "shopee.bundle": { policy: "standard" as const, expireInSeconds: 60, retryLimit: 4, retryDelay: 15, retryBackoff: true },
   // 出稿含改写 6 + 检索 13 + 出稿 25 秒，任务超时 60 秒（§17）
   "draft.generate": { policy: "stately" as const, expireInSeconds: 60, retryLimit: 0 },
   // 知识库：入库单份 ≤ 20 分钟（任务内自己计时，这里留余量）；删除重试 5 次指数退避，每小时补扫

@@ -5,6 +5,7 @@ import { audit, systemActor } from "@/server/core/audit";
 import { notify, shopMembers } from "@/server/core/notify";
 import { currentPeriod } from "@/server/billing/periods";
 import { reserveDraft } from "@/server/billing/usage";
+import { faqRecordOf, waitForBundles } from "@/server/conversations/bundle";
 import { hitKeyword, receptionContext } from "@/server/conversations/hours";
 import { DRAFT_QUIET_MS, enqueueDraft, hasShadowDraft, systemEvent, type ConversationRow } from "@/server/conversations/ingest";
 import { sendOutbound } from "@/server/conversations/send";
@@ -77,6 +78,8 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
       .limit(1);
     body = tpl?.text.trim() ? tpl.text : DEFAULT_PROMPTS[stage];
   }
+  // 买家先和 Shopee 商店 AI 助手聊过再转人工时，常见问题记录刚收到还在拉取：稍等，让模型看得到买家原话
+  await waitForBundles(conv.id);
   const history = await db()
     .select()
     .from(schema.message)
@@ -87,7 +90,18 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
   const tz = merchant?.timezone ?? "Asia/Kuala_Lumpur";
   const local = (d: Date | string) => inTzText(new Date(d), tz, "yyyy-MM-dd HH:mm");
   const facts = await orderFacts(conv, local);
-  const conversation = history.reverse().map((m) => ({ from: m.senderRole === "buyer" ? "buyer" : m.senderRole === "system" ? "system" : "seller", type: m.type, text: m.text ?? "", card: m.type.endsWith("_card") ? m.payload : undefined, at: local(m.sentAt) }));
+  const conversation = history
+    .reverse()
+    .flatMap((m) => {
+      // 常见问题记录展开成买家与 Shopee 商店 AI 助手的逐条对话；成员早于记录本身，下面按时间重排
+      const faq = faqRecordOf(m);
+      if (faq?.status === "ok" && faq.items?.length)
+        return faq.items.map((x) => ({ t: new Date(x.sentAt), from: x.role === "buyer" ? "buyer" : "shopee_ai_assistant", type: x.kind === "product_rcmd" ? "product_recommendation" : x.kind, text: x.kind === "product_rcmd" ? `推荐了 ${x.count ?? 0} 个商品` : (x.text ?? ""), card: undefined }));
+      if (faq) return [{ t: m.sentAt, from: "system", type: "other", text: "买家转人工前和 Shopee 商店 AI 助手聊过，记录内容没有取到", card: undefined }];
+      return [{ t: m.sentAt, from: m.senderRole === "buyer" ? "buyer" : m.senderRole === "system" ? "system" : "seller", type: m.type as string, text: m.text ?? "", card: m.type.endsWith("_card") ? m.payload : undefined }];
+    })
+    .sort((a, b) => a.t.getTime() - b.t.getTime())
+    .map(({ t, ...e }) => ({ ...e, at: local(t) }));
   // 有对该店站点可用的资料时，用最近 10 条消息与订单事实改写问题，再两路检索（§12.8）；检索失败只降级、不转人工（RULE-KB-002）
   const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts });
   const knowledge = knowledgePayload(retrieval);

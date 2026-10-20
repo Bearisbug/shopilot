@@ -170,6 +170,11 @@ async function dispatch(ev: EventRow): Promise<Outcome> {
     const m = normalizeShopeeMessage(content, shop.externalShopId);
     const affiliate = Number(content.business_type ?? 0) === 11;
     const res = await db().transaction((tx) => ingestMessage(tx, shop, m, m.fromBuyer ? { externalId: m.buyerExternalId ?? "", name: m.buyerName, affiliate } : null));
+    // 常见问题记录与买家点的「找人工」几乎同时发出，推送可能先到；会话还没建时排补拉，会话建好后从拉取页入库
+    if (res.status === "ignored" && !res.conversationId && m.payload.platformType === "bundle_message") {
+      await enqueueRefetch(shop.id, m.externalConversationId);
+      return { status: "done", reason: "常见问题记录先于买家消息到达，排补拉" };
+    }
     return res;
   }
   if (platform === "tiktok" && code === 14) {

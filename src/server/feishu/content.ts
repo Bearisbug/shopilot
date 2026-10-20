@@ -6,6 +6,7 @@ import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
 import { chat } from "@/server/ai/client";
 import { isChinese, translateText } from "@/server/ai/translate";
+import { faqRecordOf, waitForBundles } from "@/server/conversations/bundle";
 import { db, schema } from "@/server/db/client";
 import type { CardLine } from "./card";
 import type { ImageSource } from "./client";
@@ -22,9 +23,37 @@ const TRANSLATE_BUDGET_MS = 6_000;
 
 const ROLE: Record<string, CardLine["role"] | undefined> = { buyer: "买家", agent: "客服", platform_human: "客服", ai: "AI" };
 
-/** 有意义的消息：买家、客服、AI 发的；跳过系统事件、平台自动消息、发送失败的与空消息 */
-export function meaningful(m: Pick<MessageRow, "senderRole" | "type" | "text" | "sendStatus">): boolean {
-  if (!ROLE[m.senderRole]) return false;
+/** 常见问题记录展开出来的 Shopee 商店 AI 助手发言（payload.faqBot） */
+const roleOf = (m: Pick<MessageRow, "senderRole" | "payload">): CardLine["role"] | undefined => ((m.payload as Record<string, unknown> | null)?.faqBot ? "Shopee AI" : ROLE[m.senderRole]);
+
+/**
+ * 常见问题记录（买家转人工前和 Shopee 商店 AI 助手的对话）展开成逐条消息，买家原话进卡片与总结；
+ * 没拉到内容的记录不展开。其余系统消息原样返回，由 meaningful 过滤掉。
+ */
+export function expandFaq(rows: MessageRow[]): MessageRow[] {
+  return rows.flatMap((m) => {
+    const faq = faqRecordOf(m);
+    if (faq?.status !== "ok" || !faq.items?.length) return [m];
+    return faq.items
+      .filter((x) => x.kind === "text" || x.kind === "image" || x.kind === "product_rcmd")
+      .map(
+        (x): MessageRow => ({
+          ...m,
+          senderRole: x.role === "buyer" ? "buyer" : "platform_bot",
+          type: x.kind === "image" ? "image" : "text",
+          text: x.kind === "product_rcmd" ? `[推荐了 ${x.count ?? 0} 个商品]` : x.text,
+          translation: x.translation,
+          originalText: null,
+          payload: { ...(x.url ? { url: x.url } : {}), ...(x.role === "bot" ? { faqBot: true } : {}) },
+          sentAt: new Date(x.sentAt),
+        }),
+      );
+  });
+}
+
+/** 有意义的消息：买家、客服、AI 发的，以及常见问题记录里 Shopee 商店 AI 助手的发言；跳过系统事件、平台自动消息、发送失败的与空消息 */
+export function meaningful(m: Pick<MessageRow, "senderRole" | "type" | "text" | "sendStatus" | "payload">): boolean {
+  if (!roleOf(m)) return false;
   if (m.sendStatus === "failed") return false;
   if (m.type === "text" || m.type === "other") return Boolean(m.text?.trim());
   return true;
@@ -100,15 +129,21 @@ export async function cardContent(
   conv: ConversationRow,
   opts: { timezone: string; uploadImage?: (image: ImageSource) => Promise<string> },
 ): Promise<CardContent> {
+  // 会话刚转人工时常见问题记录可能还在拉取：稍等，让卡片带上买家转人工前问的话
+  await waitForBundles(conv.id);
   const rows = conv.currentSegmentId
     ? await db()
         .select()
         .from(schema.message)
-        .where(and(eq(schema.message.conversationId, conv.id), eq(schema.message.segmentId, conv.currentSegmentId), inArray(schema.message.senderRole, ["buyer", "agent", "platform_human", "ai"])))
+        .where(and(eq(schema.message.conversationId, conv.id), eq(schema.message.segmentId, conv.currentSegmentId), inArray(schema.message.senderRole, ["buyer", "agent", "platform_human", "ai", "system"])))
         .orderBy(desc(schema.message.sentAt), desc(schema.message.createdAt))
         .limit(60)
     : [];
-  const recent = rows.filter(meaningful).slice(0, SUMMARY_MESSAGES).reverse();
+  // 行是新 → 旧；展开出来的记录成员早于记录本身（买家先问助手再转人工），按时间重排（sort 稳定，同一时刻保持原先后）
+  const expanded = expandFaq([...rows].reverse())
+    .sort((a, b) => a.sentAt.getTime() - b.sentAt.getTime())
+    .reverse();
+  const recent = expanded.filter(meaningful).slice(0, SUMMARY_MESSAGES).reverse();
   const shown = recent.slice(-CARD_LINES);
   const facts = await cardFacts(conv.shopId, recent);
 
@@ -123,7 +158,7 @@ export async function cardContent(
   const lineJobs = shown.map(async (m): Promise<CardLine> => {
     const ph = placeholder(m, facts);
     const text = m.text?.trim() || null;
-    const role = ROLE[m.senderRole]!;
+    const role = roleOf(m)!;
     const time = format(new TZDate(m.sentAt, opts.timezone), "HH:mm");
     // 原文是中文时不放译文（平台推送带的机翻也不放）
     const chinese = !text || isChinese(text);
@@ -155,7 +190,7 @@ async function summarize(conv: ConversationRow, msgs: MessageRow[], facts: Await
     .map((m) => {
       const ph = placeholder(m, facts);
       const body = [ph?.text, m.text?.trim(), m.translation ? `（译文：${m.translation}）` : null].filter(Boolean).join(" ");
-      return `${ROLE[m.senderRole]}：${body}`;
+      return `${roleOf(m)}：${body}`;
     })
     .join("\n");
   const waited = waitedSec === null ? "" : `买家已等 ${Math.max(1, Math.round(waitedSec / 60))} 分钟。`;

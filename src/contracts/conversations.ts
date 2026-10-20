@@ -101,6 +101,24 @@ export type MessageItem = {
 };
 
 /**
+ * Shopee「常见问题记录」（推送里的 bundle_message）：买家转人工前和 Shopee 商店 AI 助手的对话，存在这条系统消息的 payload.bundle。
+ * ids 是平台成员消息 ID（64 位整数，按数字串保存）；pending 拉取中，ok 已拉到 items，failed 拉不到（error 写原因）。
+ */
+export type FaqRecord = { ids: string[]; status: "pending" | "ok" | "failed"; items?: FaqRecordItem[]; error?: string; fetchedAt?: string };
+/** 成员消息：role 是买家或商店 AI 助手；product_rcmd 是助手推荐的商品（count 件）；other 是没归类的平台类型（rawType） */
+export type FaqRecordItem = {
+  id: string;
+  role: "buyer" | "bot";
+  kind: "text" | "product_rcmd" | "image" | "other";
+  text: string | null;
+  translation: string | null;
+  count?: number;
+  url?: string;
+  rawType?: string;
+  sentAt: string;
+};
+
+/**
  * 商品卡片：价格为店铺币种现价，多规格时 priceMin 与 priceMax 不同；url 为平台商品页。
  * state：ok 已取到；loading 还在取（前端显示骨架、轮询 GET /api/v1/conversations/{id}/products）；unavailable 取不到，只显示商品 ID
  */

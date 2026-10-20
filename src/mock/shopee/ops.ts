@@ -132,6 +132,31 @@ export async function addShopeeMessage(
 }
 
 /**
+ * 买家先和 Shopee 商店 AI 助手聊、再点「找卖家客服」：助手欢迎语、买家提问、助手回答写成不可见消息（会话分页读不到），
+ * 随后推送买家的 faq_liveagent（转人工那句）和 bundle_message（常见问题记录，content.messages 只带成员 ID）。字段按 2026-10-20 线上实拉。
+ */
+export async function addShopeeFaqTransfer(shop: ShopeeShop, t: Thread, question: string): Promise<{ bundleId: string; pushes: PendingPush[] }> {
+  const at = (msAgo: number) => new Date(Date.now() - msAgo);
+  const members: Array<{ sender: "buyer" | "robot"; type: string; content: Record<string, unknown>; createdAt: Date }> = [
+    { sender: "robot", type: "extended_markdown", content: { text: `Welcome to ${shop.name}! How can we help you today?`, item_cards: [], inline_components: [] }, createdAt: at(90_000) },
+    { sender: "robot", type: "first_msg_item_rcmd", content: { title: { text: "Picked for you" }, item_card_v2s: [{ item_id: 1 }, { item_id: 2 }, { item_id: 3 }] }, createdAt: at(89_000) },
+    { sender: "buyer", type: "text", content: { text: question, translation: { text: `[Shopee 机翻] ${question}`, source: "shopee", target_language: "zh_cn", source_language: "auto" } }, createdAt: at(60_000) },
+    { sender: "robot", type: "faq_liveagent_prompt", content: { live_agent_text: [{ lang: "id", text: "Thanks for asking! Our customer service team will check this for you shortly." }, { lang: "en", text: "Thanks for asking!" }] }, createdAt: at(58_000) },
+  ];
+  const ids: string[] = [];
+  for (const m of members) {
+    const [row] = await mockDb()
+      .insert(mockMessage)
+      .values({ messageId: shopeeMessageId(), conversationId: t.conversationId, platform: "shopee", shopId: shop.shopId, sender: m.sender, type: m.type, content: m.content, isVisible: false, createdAt: m.createdAt })
+      .returning();
+    ids.push(row.messageId);
+  }
+  const transfer = await addShopeeMessage(shop, t, "buyer", "faq_liveagent", { text: "Chat with shop staff", category_id: 0, question_id: 0, trigger_source: 0, pass_through_data: "{}" });
+  const bundle = await addShopeeMessage(shop, t, "buyer", "bundle_message", { type: 1, messages: ids, shopee_chatbot_replied: false });
+  return { bundleId: bundle.message.messageId, pushes: [...transfer.pushes, ...bundle.pushes] };
+}
+
+/**
  * 卖家在 Shopee 卖家中心回复：消息进会话（get_message 读得到），但不推送 code 10 消息——真实 Shopee 不推送卖家侧消息。
  * auto = 店铺自动回复：发送时刻取该会话最近一条买家消息的时刻（线上实测自动回复与买家消息同一秒）。
  */

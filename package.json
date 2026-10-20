@@ -21,7 +21,8 @@
     "db:push": "drizzle-kit push --force",
     "job": "tsx --env-file=.env scripts/job.ts",
     "scenario": "tsx --env-file=.env scripts/scenario.ts",
-    "inbound:replay": "tsx --env-file=.env scripts/inbound-replay.ts"
+    "inbound:replay": "tsx --env-file=.env scripts/inbound-replay.ts",
+    "shopee:bundles": "tsx --env-file=.env scripts/shopee-bundles.ts"
   },
   "packageManager": "pnpm@11.17.0",
   "dependencies": {

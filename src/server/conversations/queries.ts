@@ -8,6 +8,7 @@ import { afterSaleOpen } from "@/server/orders/status";
 import { isReadOnlyShop, shopAppRegion } from "@/server/platforms/clients";
 import { READ_ONLY_COMPOSER_NOTICE } from "@/server/platforms/readonly";
 import { productCards } from "@/server/products/info";
+import { displayPayload } from "./bundle";
 import { isInHours, receptionContext } from "./hours";
 import { viewCondition, visibleConversations, type ConvView } from "./scope";
 
@@ -243,7 +244,7 @@ export async function getConversation(ctx: MemberContext, id: string, before?: s
     originalText: m.originalText,
     translation: m.translation,
     translationSource: m.translationSource,
-    payload: (m.payload ?? {}) as Record<string, unknown>,
+    payload: displayPayload(m),
     sendStatus: m.sendStatus,
     sendError: m.sendError,
     sentAt: m.sentAt.toISOString(),
