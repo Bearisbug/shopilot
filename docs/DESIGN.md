@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-21 | v1.29 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-007、API-CONV-010、API-MOCK-002 | TikTok 会话可发 MP4、MOV、WebM 视频（≤ 100 MB）：后台分块传到 TikTok，再发出 | 功能 |
 | 2026-10-21 | v1.28 | PAGE-WB | 悬停或按下会话行即预取，点下先显示会话头与骨架；悬停后再点到内容就绪从 0.5 秒降到 52 毫秒 | 功能 |
 | 2026-10-21 | v1.27 | PAGE-WB | 侧栏切换页面整页预取，各页加载骨架；首次进入点击到地址变化从 0.4–0.8 秒降到 30–57 毫秒（本机慢网） | 功能 |
 | 2026-10-21 | v1.26 | REQ-CONV-015、FLOW-WB-MEDIA | 粘贴或选择的图片、视频先放进输入框，和文字一起发：先文字，再按加入顺序逐条发，某条失败就停下 | 功能 |
@@ -954,9 +955,9 @@
 
 - **执行者**：处理这个会话的成员（ROLE-Agent）
 - **触发**：在输入框粘贴图片或视频，或用附件按钮选文件，再点发送
-- **进入条件**：会话能回复买家，发视频只限 Shopee 会话
+- **进入条件**：会话能回复买家
 - **结果**：买家收到图片或视频，时间线可预览与播放
-- **不管**：PDF 等文件、TikTok 会话的视频、图片编辑
+- **不管**：PDF 等文件、图片编辑
 
 #### 主流程
 
@@ -964,7 +965,7 @@
 2. S2 每个附件加入后立即上传（API-CONV-010） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer-attachments.tsx〕
 3. S3 点发送：有文字先发文字，再按附件顺序逐条提交（API-CONV-007） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
 4. S4 图片直接调平台发出，视频先显示发送中并排后台任务 〔无界面〕
-5. S5 后台任务把视频传到 Shopee，等平台处理完再发出 〔无界面〕
+5. S5 后台任务把视频传到平台再发出：Shopee 等平台处理完，TikTok 分块上传 〔无界面〕
 6. S6 时间线显示图片或可播放的视频 〔界面：Web 工作台对话栏｜src/app/(app)/wb/timeline.tsx〕
 
 #### 分支
@@ -977,7 +978,8 @@
 | --- | --- | --- | --- | --- |
 | 边界 | 剪贴板同时带文字 | 按文字粘贴，不放进附件条 | API-CONV-007 | TC-CONV-072 |
 | 失败 | 粘贴或选择 PDF 等文件 | 提示平台接口不支持这类文件，不加入 | `/errors/unsupported-type`；API-CONV-010 | TC-CONV-072 |
-| 失败 | TikTok 会话粘贴视频 | 提示 TikTok 接口暂不支持发视频，不加入 | `/errors/not-allowed`；API-CONV-007 | TC-CONV-065 |
+| 失败 | Shopee 会话加 MOV 或超过 30 MB 的视频 | 提示只支持 MP4 或超过上限，不加入 | §15 输入框附件 | TC-CONV-076 |
+| 边界 | TikTok 会话加 MP4、MOV、WebM 视频 | 不超过 100 MB 的加入附件条 | §15 输入框附件 | TC-CONV-077 |
 | 边界 | 附件条已有 9 个还要加 | 提示一次最多放 9 个，后面的不加入 | §15 输入框附件 | 不测：代码仓 attachments.test.ts 覆盖 |
 | 边界 | 用附件按钮选文件 | 可多选，按选择顺序加入附件条，不直接发 | API-CONV-010 | TC-CONV-072 |
 | 边界 | 删除附件条里的一个 | 只移除这一个，其余顺序不变 | §15 输入框附件 | TC-CONV-072 |
@@ -987,8 +989,8 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 图片超过 10 MB 或视频超过 30 MB | 413 `/errors/too-large`〔提示：视频不能超过 30 MB，图片不能超过 10 MB〕 | `/errors/too-large`；API-CONV-010 | 无用例 |
-| 失败 | 视频不是 MP4 | 415 `/errors/unsupported-type`〔提示：只支持 JPG、PNG、WebP 图片和 MP4 视频〕 | `/errors/unsupported-type`；API-CONV-010 | 无用例 |
+| 失败 | 图片超过 10 MB 或视频超过 100 MB | 413 `/errors/too-large`〔提示：视频不能超过 100 MB，图片不能超过 10 MB〕 | `/errors/too-large`；API-CONV-010 | TC-CONV-077 |
+| 失败 | 视频不是 MP4、MOV、WebM | 415 `/errors/unsupported-type`〔提示：只支持 JPG、PNG、WebP 图片和 MP4、MOV、WebM 视频〕 | `/errors/unsupported-type`；API-CONV-010 | 无用例 |
 | 失败 | 上传没成功 | 缩略图标「上传失败」，点一下重新上传 | API-CONV-010；§15 输入框附件 | 无用例 |
 | 边界 | 还有没传完或上传失败的附件 | 发送按钮不可用，跳过它会打乱顺序 | §15 输入框附件 | 无用例 |
 
@@ -1001,28 +1003,39 @@
 | 边界 | 停下后再点发送 | 从附件条里剩下的第一个接着按顺序发 | §15 输入框附件 | TC-CONV-073、TC-CONV-074 |
 | 失败 | 平台没发出、消息已存成失败气泡 | 这一个移出附件条（在气泡上重试），后面的不发 | 迁移 ENT-Message sending→failed「platform_error」；§15 输入框附件 | TC-CONV-073 |
 | 失败 | 文字没发出 | 附件都不发；文字已存成失败气泡时清空输入框，否则保留文字 | API-CONV-007；§15 输入框附件 | 无用例 |
-| 边界 | 附件里有 Shopee 视频 | 视频进了时间线就移出附件条，等它发出或失败后才发下一条，最多等 150 秒 | §15 输入框附件 | 不测：模拟平台视频处理 2 秒即完成 |
+| 边界 | 附件里有视频 | 视频进了时间线就移出附件条，等它发出或失败后才发下一条，最多等 150 秒 | §15 输入框附件 | TC-CONV-077 |
 | 边界 | 结果未知后再点发送 | 每个附件用自己的发送幂等键，不会发两遍 | API-CONV-007 | 不测：接口幂等由 TC-CONV-020 覆盖 |
 
-##### S5 传视频到 Shopee
+##### S4 受理
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 上传或处理失败，或 120 秒没处理完 | 消息标发送失败，可在气泡点重试 | 迁移 ENT-Message sending→failed「platform_error」；§15 视频传到 Shopee 后等平台处理 ≤ 120 秒 | 不测：模拟平台处理不会失败，代码仓 video.test.ts 覆盖 |
+| 失败 | Shopee 会话提交 MOV 视频 | 415 `/errors/unsupported-type`〔提示：Shopee 只能发 MP4 视频〕 | `/errors/unsupported-type`；API-CONV-007 | TC-CONV-076 |
+| 失败 | Shopee 会话提交超过 30 MB 的视频 | 413 `/errors/too-large`〔提示：Shopee 视频不能超过 30 MB〕 | `/errors/too-large`；API-CONV-007 | TC-CONV-076 |
+
+##### S5 传视频到平台
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | Shopee 上传或处理失败，或 120 秒没处理完 | 消息标发送失败，可在气泡点重试 | 迁移 ENT-Message sending→failed「platform_error」；§15 视频传到 Shopee 后等平台处理 ≤ 120 秒 | 不测：模拟平台处理不会失败，代码仓 video.test.ts 覆盖 |
 | 边界 | 任务执行时消息已不在发送中 | 不再发送 | 字段 message.send_status | 不测：代码仓 video.test.ts 覆盖 |
+| 边界 | TikTok 视频超过 20 MB | 每块 20 MB，末块不足 5 MB 并进上一块 | §15 TikTok 发视频 | TC-CONV-077 |
+| 失败 | TikTok 分块上传失败或拒收视频 | 消息标发送失败，带平台原话，可在气泡点重试 | 迁移 ENT-Message sending→failed「platform_error」；§15 TikTok 发视频 | 不测：代码仓 video-tiktok.test.ts 覆盖 |
+| 边界 | 上传中平台回声先到 | 认作本方出站，不重复显示 | 迁移 ENT-InboundEvent processing→ignored | 不测：代码仓 video-tiktok.test.ts 覆盖 |
 
 ##### S6 时间线显示
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 视频发出后 | 播放地址与封面换成 Shopee 返回的地址 | 字段 message.payload | TC-CONV-065 |
+| 边界 | Shopee 视频发出后 | 播放地址与封面换成 Shopee 返回的地址 | 字段 message.payload | TC-CONV-076 |
+| 边界 | TikTok 视频发出后 | 继续用 Shopilot 存的文件播放 | 字段 message.payload | TC-CONV-077 |
 | 边界 | 店铺站点认不出 | 继续用 Shopilot 存的文件播放 | 字段 message.payload | 无用例 |
 
 #### 待决策
 
 无。
 
-另见：§28 Shopee 聊天视频上限与 CDN 地址拼法未实测
+另见：§28 Shopee 聊天视频上限与 CDN 地址拼法未实测；§28 TikTok 聊天视频只实测过单块
 
 #### 关联
 
@@ -1033,10 +1046,10 @@
 
 | 步骤 | 位置 |
 | --- | --- |
-| S1–S2 | `src/app/(app)/wb/composer-attachments.tsx#useAttachments`；`src/app/(app)/wb/composer-attachments.tsx#AttachmentStrip`；`src/lib/attachments.ts#acceptFiles`；`src/app/api/v1/files/route.ts#POST` |
+| S1–S2 | `src/app/(app)/wb/composer-attachments.tsx#useAttachments`；`src/app/(app)/wb/composer-attachments.tsx#AttachmentStrip`；`src/lib/attachments.ts#acceptFiles`；`src/app/api/v1/files/route.ts#POST`；`src/server/files/image.ts#videoInfo` |
 | S3 | `src/app/(app)/wb/composer.tsx#Composer`；`src/lib/attachments.ts#runPlan` |
 | S3–S4 | `src/server/conversations/actions.ts#sendMessage`；`src/server/conversations/send.ts#queueVideo` |
-| S5 | `src/server/conversations/send.ts#deliverQueuedVideo`；`src/server/platforms/shopee.ts#shopeeSendVideo`；`src/server/conversations/send.ts#shopeeVideoMedia` |
+| S5 | `src/server/conversations/send.ts#deliverQueuedVideo`；`src/server/platforms/shopee.ts#shopeeSendVideo`；`src/server/conversations/send.ts#shopeeVideoMedia`；`src/server/platforms/tiktok.ts#tiktokSendVideo`；`src/server/conversations/ingest.ts#matchEcho` |
 | S6 | `src/app/(app)/wb/timeline.tsx#Timeline` |
 
 ### FLOW-WB-PRETRANSLATE · 发送前预翻译
@@ -1357,7 +1370,7 @@
   - 部署上线、英文界面、OBSBOT 从 Obsbot v2 迁入。
   - 主动联系买家（TikTok Create Conversation、重新打开已结束会话并发消息）：产品规则，永久不做。
   - Shopee 店的 auto 模式：Shopee Platform Partner Rules 第 5 条禁止 chatbot replies，评审前不开放。
-  - 发视频、Shopee 会话发卡片与优惠券、Shopee 退货协商（offer）：接口没有或未证实（[ui-feasibility.md](ui-feasibility.md)「未画的」）。
+  - Shopee 会话发卡片与优惠券、Shopee 退货协商（offer）：接口没有或未证实（[ui-feasibility.md](ui-feasibility.md)「未画的」）。
 
 规模画像（用户 10-11 选定）：
 
@@ -1627,9 +1640,10 @@
 - REQ-CONV-014：每店最多列 500 件在售商品，可按名称、商品 ID、卖家 SKU 搜索，见 FLOW-WB-PRODUCT
 - REQ-CONV-014：TikTok 客服接口不支持超链接，TikTok 店只发商品卡
 - REQ-CONV-015：一次最多放 9 个附件，剪贴板同时带文字时按文字粘贴；先发文字再按附件顺序发，某条失败就停下
-- REQ-CONV-015：PDF 等文件不能发，TikTok 会话不能发视频，都给出原因
-- REQ-CONV-015：粘贴或用附件按钮选择都先放进输入框；Shopee 会话还可发 MP4 视频
-- REQ-CONV-015：视频只收 MP4、≤ 30 MB，由内部任务 `message.video_send` 上传后发出，见 12.12
+- REQ-CONV-015：PDF 等文件不能发，视频格式或大小不合店铺平台的不能发，都给出原因
+- REQ-CONV-015：粘贴或用附件按钮选择都先放进输入框
+- REQ-CONV-015：Shopee 会话只收 MP4、≤ 30 MB；TikTok 会话收 MP4、MOV、WebM，≤ 100 MB
+- REQ-CONV-015：视频由内部任务 `message.video_send` 传到平台后发出，见 12.12
 - REQ-CONV-016：停止输入 800 毫秒后预翻译，按文字与目标语言缓存最近 50 条，见 FLOW-WB-PRETRANSLATE
 - REQ-CONV-016：服务端不核对预译文是否对应原文，与客服直接输入的内容同样对待
 - REQ-TKT-006：能看这张工单的成员都能转发，见 FLOW-TICKET-FORWARD
@@ -2598,10 +2612,10 @@ erDiagram
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
 | `API-CONV-006` | `POST /api/v1/conversations/{id}/close` | REQ-CONV-004 | `{ reason?, version }` | 200 会话；TikTok 结束会话失败只记录，不阻断 | 409 `/errors/conflict` | 已结束再结束返回 200 |
-| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, translatedText?, draftId?, disposition?: sent\|edited_sent }`；`translatedText` 是输入框的预译文（1–2,000 字），只能随文字消息与 `translateTo` 一起提交，带了就直接发出、不再同步翻译，原文仍记在 `original_text`；待认领会话发送 = 先认领再发送；`video` 只限 Shopee 店，先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 422 `/errors/validation`（`translatedText` 没有 `translateTo`、不是文字消息、为空或超过 2,000 字、超过店铺字数上限）；409 `/errors/conflict`（会话已被他人认领或已结束）；409 `/errors/not-allowed`（能力表不支持该类型、TikTok 店发视频、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
+| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, translatedText?, draftId?, disposition?: sent\|edited_sent }`；`translatedText` 是输入框的预译文（1–2,000 字），只能随文字消息与 `translateTo` 一起提交，带了就直接发出、不再同步翻译，原文仍记在 `original_text`；待认领会话发送 = 先认领再发送；`video` 按店铺平台校验格式与大小（Shopee 只收 MP4 ≤ 30 MB，TikTok 收 MP4 / MOV / WebM ≤ 100 MB），先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 422 `/errors/validation`（`translatedText` 没有 `translateTo`、不是文字消息、为空或超过 2,000 字、超过店铺字数上限）；409 `/errors/conflict`（会话已被他人认领或已结束）；413 `/errors/too-large`、415 `/errors/unsupported-type`（视频超过或不合店铺平台的上限与格式）；409 `/errors/not-allowed`（能力表不支持该类型、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
 | `API-CONV-008` | `POST /api/v1/conversations/{id}/drafts/{draftId}/ignore` | REQ-AI-003 | — | 200 | 409 `/errors/conflict`（草稿已处置或过期） | 已忽略再忽略返回 200 |
 | `API-CONV-009` | `PATCH /api/v1/conversations/{id}/segment` | REQ-CONV-007 | `{ stage: presale\|insale\|aftersale\|unknown }` | 200 段 | — | 幂等 |
-| `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005、REQ-CONV-015 | multipart `file`（JPG / PNG / WebP ≤ 10 MB，或 MP4 ≤ 30 MB） | 201 `{ id, url, width, height, kind: image\|video }`；视频存 `file.kind = chat_video` | 413 `/errors/too-large`；415 `/errors/unsupported-type` | — |
+| `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005、REQ-CONV-015 | multipart `file`（JPG / PNG / WebP ≤ 10 MB，或 MP4 / MOV / WebM ≤ 100 MB；按店铺平台的视频上限在发送时校验） | 201 `{ id, url, width, height, kind: image\|video }`；视频存 `file.kind = chat_video`，类型按文件头认 | 413 `/errors/too-large`；415 `/errors/unsupported-type` | — |
 | `API-CONV-011` | `GET /api/v1/files/{id}` | REQ-CONV-005、REQ-ORD-006、REQ-SET-004、REQ-KB-002 | — | 文件流；按所属对象鉴权（知识库原文件要求 `knowledge.manage`）；PDF 与图片 `inline`，其余 `attachment` | — | `private, max-age=300` |
 | `API-CONV-012` | `POST /api/v1/translate` | REQ-CONV-008、REQ-CONV-016 | `{ text, target: ms\|en\|th\|vi\|id\|tl\|zh }` | 200 `{ text }` | 502 / 504 `/errors/ai-unavailable` | 可重试 |
 | `API-CONV-013` | `GET /api/v1/shops/{id}/coupons` | REQ-CONV-005 | — | `{ items[{ couponId, title, discount, endsAt }] }`（只返回可在聊天发送的券） | 409 `/errors/not-allowed`（Shopee 店） | no-store |
@@ -2773,7 +2787,7 @@ erDiagram
 | ID | 方法 路径 | 实现 | 内容 |
 | --- | --- | --- | --- |
 | `API-MOCK-001` | Shopee `/api/v2/...` | REQ-MOCK-001 | `public/get_shops_by_partner`、`shop/auth_partner`（授权页）、`shop/cancel_auth_partner`、`auth/token/get`、`auth/access_token/get`、`push/get_app_push_config`、`push/set_app_push_config`、`shop/get_shop_info`、`sellerchat/get_conversation_list`、`sellerchat/get_one_conversation`、`sellerchat/get_message`、`sellerchat/get_unread_conversation_count`、`sellerchat/send_message`、`sellerchat/upload_image`、`order/get_order_list`、`order/get_order_detail`、`order/cancel_order`、`order/handle_buyer_cancellation`、`logistics/get_tracking_info`、`returns/get_return_list`、`returns/get_return_detail`、`returns/confirm`、`returns/dispute`、`account_health/get_shop_performance` |
-| `API-MOCK-002` | TikTok `/...` | REQ-MOCK-001 | `open/authorize`（授权页）、`api/v2/token/get`、`api/v2/token/refresh`、`authorization/202309/shops`、`customer_service/202309/conversations`、`customer_service/202309/conversations/{id}/messages`（GET）、`customer_service/202606/conversations/{id}/messages`（POST 发送）、`customer_service/202309/images/upload`、`customer_service/202605/conversations/{id}/sessions/{sid}/end`、`customer_service/202309/agents/settings`（GET / PUT）、`customer_service/202407/performance`、`order/202309/orders/search`、`order/202507/orders`、`fulfillment/202309/orders/{id}/tracking`、`return_refund/202602/cancellations`（卖家取消订单）、`return_refund/202602/cancellations/search`、`return_refund/202309/cancellations/{id}/approve`、`return_refund/202309/cancellations/{id}/reject`、`return_refund/202602/returns/search`、`return_refund/202309/returns/{id}/approve`、`return_refund/202606/returns/{id}/reject`、`return_refund/202309/returns/{id}/records`、`return_refund/202309/reject_reasons`、`promotion/202406/coupons/search`、`event/202309/webhooks`（GET / PUT）；退货或退款批准到 `RETURN_OR_REFUND_REQUEST_SUCCESS` 后，模拟平台紧接着打款转 `_COMPLETE`，两次状态各推一次 webhook 12 |
+| `API-MOCK-002` | TikTok `/...` | REQ-MOCK-001 | `open/authorize`（授权页）、`api/v2/token/get`、`api/v2/token/refresh`、`authorization/202309/shops`、`customer_service/202309/conversations`、`customer_service/202309/conversations/{id}/messages`（GET）、`customer_service/202606/conversations/{id}/messages`（POST 发送）、`customer_service/202309/conversations/{id}/messages`（POST 发视频，`vid` 不是本店上传的报 45101001）、`open/202512/file/init` 与 `file/v1/upload`（大文件分块上传，分块 PUT 不签名）、`customer_service/202309/images/upload`、`customer_service/202605/conversations/{id}/sessions/{sid}/end`、`customer_service/202309/agents/settings`（GET / PUT）、`customer_service/202407/performance`、`order/202309/orders/search`、`order/202507/orders`、`fulfillment/202309/orders/{id}/tracking`、`return_refund/202602/cancellations`（卖家取消订单）、`return_refund/202602/cancellations/search`、`return_refund/202309/cancellations/{id}/approve`、`return_refund/202309/cancellations/{id}/reject`、`return_refund/202602/returns/search`、`return_refund/202309/returns/{id}/approve`、`return_refund/202606/returns/{id}/reject`、`return_refund/202309/returns/{id}/records`、`return_refund/202309/reject_reasons`、`promotion/202406/coupons/search`、`event/202309/webhooks`（GET / PUT）；退货或退款批准到 `RETURN_OR_REFUND_REQUEST_SUCCESS` 后，模拟平台紧接着打款转 `_COMPLETE`，两次状态各推一次 webhook 12 |
 | `API-MOCK-003` | `GET /mock/shopee/{region}/api/v2/shop/auth_partner`、`GET /mock/shopee/{region}/api/v2/shop/cancel_auth_partner`、`GET /mock/tiktok/auth/open/authorize`；提交 `POST /mock/auth-submit/{shopee-authorize\|shopee-cancel\|tiktok-authorize}` | REQ-MOCK-001 | 模拟平台授权页，路径与真实平台相同：列出该应用可授权的店（Shopee 主账号下多店，可逐店取消勾选；TikTok 按 `shop_region`），点「授权」后 303 整页跳回 `API-SHOP-005` 并带 code；可选「模拟子账号授权」「模拟拒绝」（Shopee 回跳 `?error=access_denied`，TikTok `?error=auth_denied&state`）；授权链接时间戳超过 5 分钟拒绝打开；对已授权的店再授权只更新授权时间，旧 token 在 Shopilot 用新 code 换 token 时才作废 |
 | `API-MOCK-004` | `POST /api/mock/sim/{action}` | REQ-MOCK-002 | 模拟器动作：`buyer_message`、`buyer_image`、`buyer_order_card`、`buyer_product_card`、`create_order`、`advance_order`（UNPAID → … → COMPLETED / 各平台枚举）、`request_cancel`、`request_return`、`buyer_ship_return`、`platform_arbitrate`、`expire_auth`、`deauthorize`、`create_buyer`（新买家，首条消息后会话才出现）、`resend_push`、`seller_backend_reply`（Shopee 卖家在卖家中心回复：消息只进平台会话、不推送，随后推 code 10 通知 `mark_as_replied`；不带正文只推通知；`auto` 为真时消息时刻取最近一条买家消息的时刻，模拟店铺自动回复）；每个动作改模拟数据并按平台格式签名推送到已配置回调 |
 | `API-MOCK-005` | `GET /api/mock/sim/state` | REQ-MOCK-002 | 模拟器读数：店铺、买家会话（含卖家发出的消息与卡片）、订单、售后单、推送日志 |
@@ -3279,7 +3293,7 @@ Shopee 卖家后台回复的补拉（内部任务 `inbound.refetch`）：
 - 收到通知后 10 秒补拉该会话最新一页消息（20 条），同一会话这 10 秒里的其他通知并进同一次补拉。
 - 只入库本段开始之后、库里还没有的卖家侧与平台消息，按时间从旧到新，走与推送相同的入库规则。
 - 补拉不入库买家消息，买家消息以推送为准；所以补拉不开新段、不出稿。
-- 本方从 Shopilot 发出的消息按平台消息 ID，或 2 分钟内同类型同正文的发送中消息认出，不重复入库。
+- 本方从 Shopilot 发出的消息按平台消息 ID，或 2 分钟内（视频 10 分钟）同类型同正文的发送中消息认出，不重复入库。
 - 店铺发出、距前一条买家消息不超过 2 秒的是店铺自动回复，记 `platform_bot`，不触发 `platform_human`。
 - 会话还没建、是达人会话、店铺没有聊天权限或授权失效时不补拉。
 - 补拉到的消息早于会话最近一条消息时，会话的最近消息时间、最近客服回复时间不往回改。
@@ -4208,7 +4222,9 @@ sequenceDiagram
   end
 ```
 
-### 12.12 Shopee 会话发视频（REQ-CONV-015）
+### 12.12 会话发视频（REQ-CONV-015）
+
+TikTok 聊天视频的 `vid` 只能经大文件上传拿到，发送必须用 202309 版 Send Message；2026-10-21 生产实测通过，排除的路径见 §28。
 
 ```mermaid
 sequenceDiagram
@@ -4218,22 +4234,38 @@ sequenceDiagram
   participant DB as PostgreSQL
   participant W as Worker（message.video_send）
   participant SP as Shopee 开放平台
-  FE->>API: 上传 MP4 (API-CONV-010)
+  participant TT as TikTok Shop 开放平台
+  FE->>API: 上传视频 (API-CONV-010)
   API->>DB: 存 chat_video 文件
   API-->>FE: 201 文件
   FE->>API: 发送 type = video (API-CONV-007)
-  API->>DB: 写出站消息 sending，排 message.video_send
+  API->>DB: 按店铺平台校验格式与大小，写出站消息 sending，排 message.video_send
   API-->>FE: 201 消息（发送中）
-  W->>SP: v2.sellerchat.upload_video
-  SP-->>W: vid
-  loop 每 3 秒，最多 120 秒
-    W->>SP: v2.sellerchat.get_video_upload_result
-  end
-  alt successful
-    W->>SP: v2.sellerchat.send_message（video_url、thumb_url、时长、宽高）
-    W->>DB: sent，播放地址换成 Shopee 视频地址
-  else 失败、取消或 120 秒没处理完
-    W->>DB: failed，记原因，客服可点重试 (API-CONV-015)
+  alt Shopee 店
+    W->>SP: v2.sellerchat.upload_video
+    SP-->>W: vid
+    loop 每 3 秒，最多 120 秒
+      W->>SP: v2.sellerchat.get_video_upload_result
+    end
+    alt successful
+      W->>SP: v2.sellerchat.send_message（video_url、thumb_url、时长、宽高）
+      W->>DB: sent，播放地址换成 Shopee 视频地址
+    else 失败、取消或 120 秒没处理完
+      W->>DB: failed，记原因，客服可点重试 (API-CONV-015)
+    end
+  else TikTok 店
+    W->>TT: POST /open/202512/file/init（文件大小、块数、file_type = video、target_path = 202309 Send Message）
+    TT-->>W: upload_url、upload_token
+    loop 每块（20 MB，末块不足 5 MB 并进上一块）
+      W->>TT: PUT upload_url（upload_token、chunk_num、shop_cipher，不签名）
+    end
+    TT-->>W: 最后一块返回 resource_id
+    W->>TT: POST /customer_service/202309/conversations/{id}/messages（VIDEO，vid = resource_id）
+    alt 发出
+      W->>DB: sent，播放地址仍是 Shopilot 存的文件
+    else 上传或发送失败
+      W->>DB: failed，记平台原话，客服可点重试 (API-CONV-015)
+    end
   end
   opt 附件条里还有下一个附件
     loop 每 2.5 秒，最多 150 秒
@@ -4633,12 +4665,12 @@ flowchart LR
 | `/errors/not-found` | 404 | 资源不存在或不属于当前商户 | 显示「找不到或已删除」，返回上级 |
 | `/errors/conflict` | 409 | 状态已被他人改变（认领冲突、版本不一致、草稿已处置、资料正在解析时重新解析） | 提示 `detail` 并刷新该对象，不自动重试 |
 | `/errors/duplicate` | 409 | 已存在同一对象（邮箱已注册、已是成员、同去重键工单、同名资料分类、内容相同的资料） | 提示并给出已存在对象的链接（`extra.existingId`；工单另带 `existingTicketId`、`number`） |
-| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制、资料满 500 份、分类满 50 个、改动「未分类」、还没连飞书、群自定义机器人接法不列群、店铺没有商品读取权限、TikTok 店发视频、现在不能转发到飞书） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
+| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制、资料满 500 份、分类满 50 个、改动「未分类」、还没连飞书、群自定义机器人接法不列群、店铺没有商品读取权限、现在不能转发到飞书） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
 | `/errors/callback-occupied` | 409 | Shopee 应用回调已指向其他系统，需商户确认覆盖 | 凭证页展开确认勾选 |
 | `/errors/expired` | 410 | 邀请、重置、转让令牌过期或已用；`code` 区分 `expired` / `revoked` / `used` / `invalid`（令牌不存在，含重发后作废的旧链接） | 提示原因与下一步 |
 | `/errors/locked` | 423 | 同一邮箱连续输错 10 次，锁 15 分钟 | 显示剩余分钟（`extra.retryAfter`） |
 | `/errors/payment-failed` | 402 | 模拟支付失败 | 提示换卡 |
-| `/errors/too-large` | 413 | 上传超过大小上限：聊天图片 10 MB、聊天视频 30 MB；资料 20 MB，PDF 以外的资料 4 MB（`code` 区分 `file_limit` / `retrieval_limit`） | 提示 `detail` 里的大小上限 |
+| `/errors/too-large` | 413 | 上传或发送超过大小上限：聊天图片 10 MB、聊天视频 100 MB（Shopee 会话发送时 30 MB）；资料 20 MB，PDF 以外的资料 4 MB（`code` 区分 `file_limit` / `retrieval_limit`） | 提示 `detail` 里的大小上限 |
 | `/errors/unsupported-type` | 415 | 上传类型不支持；PPT 资料带 `code: ppt_export_pdf` | 提示 `detail` 里列出的支持类型；PPT 提示先导出为 PDF |
 | `/errors/platform-credentials` | 422 | 平台或飞书凭证校验不通过；平台的 `extra.attempts[]` 列出每个区域主机的结果，飞书的 `extra.feishuCode` 是飞书错误码 | 凭证页逐区域显示原因；飞书一节在 App Secret 下标红 |
 | `/errors/rate-limited` | 429 | 超过限流（§15）；带 `Retry-After` | 提示稍后再试；轮询按 `Retry-After` 退避 |
@@ -4667,7 +4699,8 @@ flowchart LR
 | 延迟 | 出稿与飞书构卡等常见问题记录 | 出稿与飞书构卡前最多等 4 秒，只等 20 秒内收到、还在拉取的记录 |
 | 容错 | 常见问题记录拉取（`shopee.bundle`） | 超时与 5xx 退避重试 4 次；授权失效、无权限、参数错、查不到直接记取不到；拉取中超过 10 分钟按取不到显示 |
 | 延迟 | Shopee 发视频（`message.video_send`） | 视频传到 Shopee 后等平台处理 ≤ 120 秒，每 3 秒查一次；2026-10-20 生产实测 6.2 MB 视频约 15 秒处理完；任务不自动重试，失败后客服点重试 |
-| 容量 | 输入框附件 | 一次最多放 9 个，按会话存在页面内存里（切会话保留、刷新清空）；发送时先文字后附件、上一条返回才发下一条，Shopee 视频等发出或失败（前端最多等 150 秒）再发下一条；某条失败就停下 |
+| 延迟 | TikTok 发视频（`message.video_send`） | 分块上传：每块 20 MB，末块不足 5 MB 并进上一块（不足 5 MB 的视频一块），每块最长 60 秒；100 MB 最多 5 块；传完即发，不等平台处理；任务不自动重试 |
+| 容量 | 输入框附件 | 一次最多放 9 个，按会话存在页面内存里（切会话保留、刷新清空）；发送时先文字后附件、上一条返回才发下一条，视频等发出或失败（前端最多等 150 秒）再发下一条；某条失败就停下 |
 | 容量 | 店铺商品目录（`API-CONV-017`） | 每店最多列 500 件在售商品，整店目录在 Web 进程内存缓存 10 分钟，同一店同时只取一次；逐个补规格或主图并发 6 |
 | 容量 | 问题提取（`issue.extract`） | 每 10 分钟一轮，只看 8 天内、买家停止发言满 30 分钟、非回补非达人的段；每轮 ≤ 50 段，并发 4，每段 15 秒，失败下轮再提取 |
 | 容量 | 草稿对比（`draft.compare`） | 每 10 分钟一轮，只看 8 天内、生成满 15 分钟的草稿；每轮 ≤ 50 份，并发 4，每份 15 秒，失败下轮再比；人工回复最多取 3 条、上下文 6 条；不计商户出稿用量 |
@@ -4692,7 +4725,7 @@ flowchart LR
 | 限流 | 平台调用 | TikTok 客服接口每店每天 10,000 次，回补最多占 30%；TikTok 限流按应用 × 店铺 × 接口计，读接口按这三者排队，客服绩效每店两次至少隔 1.1 秒、其他读接口隔 0.2 秒，遇 HTTP 429 或业务码 36009002 等 1.5–2.5 秒重试一次，仍失败按原逻辑降级；排队记录在各进程内存，多实例时间隔按实例数放大；Shopee 按平台返回的限流错误退避 |
 | 数据增长 | 消息、草稿、会话、订单镜像 | 12 个月增长见 §2；`data.retention_purge` 每天按商户保存期限删除早于期限的会话段、消息、草稿、订单镜像与聊天图片 |
 | 数据增长 | 审计日志、登录记录 | 审计日志保留 2 年、登录记录保留 1 年，与商户保存期限无关（安全追溯） |
-| 数据增长 | 文件 | 聊天图片 ≤ 10 MB/张、聊天视频 ≤ 30 MB/个；发票 PDF + PNG ≈ 300 KB/张；导出包 24 小时后删除 |
+| 数据增长 | 文件 | 聊天图片 ≤ 10 MB/张、聊天视频 ≤ 100 MB/个；发票 PDF + PNG ≈ 300 KB/张；导出包 24 小时后删除 |
 | 数据增长 | 知识库原文件与分块 | 按 §2 假设全站原文件约 10 GB、分块约 50 万行；不随数据保存期限清理，删除资料或商户时删除；原文件全站 > 50 GB 时重估存放方式 |
 | 安全 | 平台密钥、token | AES-256-GCM 加密存储；日志、审计、API 响应零明文 |
 | 安全 | 飞书凭证 | App Secret、机器人地址与签名密钥 AES-256-GCM 加密存储，接口只给地址末 4 位 |
@@ -4755,7 +4788,7 @@ flowchart LR
 | Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 混合检索每路 5 秒，无向量分、超时或返回 HTTP 错误时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
 | Cloudflare Workers AI `@cf/baai/bge-m3`（复用 `CLOUDFLARE_API_TOKEN`，令牌 2026-10-21 加了 Workers AI Read） | 问答问法与出稿查询的向量化 | 未公布 SLA；2026-10-21 生产实测单次约 90 ms | 出稿与手写问答 2 秒、整理任务 10 秒；每次 ≤ 50 条，不重试 | 问答检索不到，新问答暂时没有向量 | 只丢掉问答一路；没向量的问答由 `knowledge.qa_embed` 补 |
 | 飞书开放平台（应用接法）与群自定义机器人 | 发待认领卡、超时卡与工单转发卡；校验应用凭证、列机器人所在的群、上传图片、发测试卡片 | 未公布 SLA；自定义机器人每个每分钟 100 次、每秒 5 次 | 10 秒、图片上传 15 秒；token 按 App ID 缓存约 2 小时，鉴权失败换一次；`feishu.send` 重试 5 次指数退避 | 卡片晚到或发不出 | 失败写原因，设置页显示最近一次失败；会话照常在工作台待认领里 |
-| 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息与视频、按 ID 拉常见问题记录、订单、售后、店铺指标、在售商品目录 | 未公布 SLA | 10 秒；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
+| 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息与视频、按 ID 拉常见问题记录、订单、售后、店铺指标、在售商品目录 | 未公布 SLA | 10 秒（Shopee 视频上传、TikTok 视频每块更长，见 §15）；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
 | PostgreSQL 17（含 pgvector 0.8 扩展） | 全部业务数据、任务队列、问答检索向量（ADR-016） | 单实例，本机 | 连接池 20；查询超时 5 秒（报表 30 秒） | 全站不可用 | 无降级，返回 503 |
 | 本地磁盘 `DATA_DIR` | 聊天图片与视频、发票、导出包、知识库原文件 | 本机 | — | 图片与发票不可用；资料无法预览与重新解析 | 发送图片失败提示；发票生成失败返回 500 不建记录；资料原文件读不到时抽屉提示「文件已不存在」 |
 | 发件箱（`email_outbox` 表） | 代替真实发信 | 同数据库 | — | 同数据库 | — |
@@ -4775,7 +4808,7 @@ flowchart LR
 | `product.listing_sync` | `API-KB-021`、`API-KB-025` | 逐店强制重拉商品目录 | 30 分钟 | 重试 1 次（60 秒后） | 同上 |
 | `message.translate` | TikTok 买家消息落库后入队 | 并发 10 | 15 秒 | 重试 1 次，仍失败保留原文 | 同上 |
 | `shopee.bundle` | Shopee 常见问题记录入库后入队；历史补拉脚本 `scripts/shopee-bundles.ts` | `singletonKey = 消息 ID` | 1 分钟 | 超时与 5xx 重试 4 次指数退避（起步 15 秒）；授权失效、无权限、参数错、查不到直接记取不到 | 同上 |
-| `message.video_send` | `API-CONV-007` 发视频后入队 | `singletonKey = 消息 ID` | 5 分钟 | 不重试，失败记发送失败，客服点重试（`API-CONV-015`） | 同上 |
+| `message.video_send` | `API-CONV-007` 发视频后入队 | `singletonKey = 消息 ID` | 10 分钟 | 不重试，失败记发送失败，客服点重试（`API-CONV-015`） | 同上 |
 | `issue.extract` | 每 10 分钟；历史补算脚本 `scripts/issues-backfill.ts --from --to [--merchant] [--rate] [--force]` | 单实例；每轮 ≤ 50 段，并发 4 | 10 分钟 | 不重试，没提取上的段下轮再取；不计商户出稿用量 | 同上 |
 | `draft.compare` | 每 10 分钟（每小时第 3、13、23、33、43、53 分钟）；历史补算脚本 `scripts/draft-compare-backfill.ts --from --to [--merchant] [--rate]` | 单实例；每轮 ≤ 50 份，并发 4 | 10 分钟 | 不重试，没比上的下轮再取；不计商户出稿用量 | 同上 |
 | `draft.translate` | 影子回复落库后入队 | 并发 2 | 20 秒 | 重试 1 次，仍失败不存译文 | 同上 |
@@ -5368,9 +5401,17 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Given Shopee 会话，处理人选了一个 MP4 视频，它进了附件条
   When 点发送
   Then 时间线先显示发送中，后台把视频传到 Shopee、处理完后发出，可播放
-  Given TikTok 会话
-  When 粘贴视频
-  Then 提示 TikTok 接口暂不支持发视频
+  Given 同一会话
+  When 粘贴 MOV 视频
+  Then 提示只支持 MP4 视频，不放进附件条
+
+场景: TikTok 会话发视频 (REQ-CONV-015)
+  Given TikTok 会话，处理人在输入框写了一句话并粘贴了一个 MP4 视频
+  When 点发送
+  Then 时间线先显示这句话，再显示视频，视频先发送中、后台分块传到 TikTok 后发出，可播放
+  Given 同一会话
+  When 选择一个 MOV 或 WebM 视频
+  Then 它进了附件条，发出后可播放
 
 场景: 发送前预翻译 (REQ-CONV-016)
   Given 越南站会话，发送目标语言是越南语
@@ -6177,6 +6218,8 @@ N/A — 本期不上线。
 | 风险 | 常见问题记录从收到到拉完的耗时没量过；出稿与飞书构卡只等 4 秒，超出时这两处缺买家原话 | 实现 | 上线后看两周 `shopee.bundle` 日志 |
 | 风险 | 商品卡与商品链接没在真实平台发过：Shopee `item` 的字段名经 2026-10-20 生产参数校验确认，TikTok 商品搜索与 `PRODUCT_CARD` 只按文档实现 | 实现 | 上线后第一次真发时核对 |
 | 风险 | Shopee 聊天视频上限与 CDN 地址拼法未实测：30 MB 是自定上限，6.2 MB 实测通过；时间线播放地址按站点拼 `cvf.`、`cf.` 域名 | 实现 | 上线后第一次发大视频时核对 |
+| 风险 | TikTok 聊天视频只实测过单块：2026-10-21 生产发出 1 条不足 5 MB 的商品视频；多块上传、MOV 与 WebM、100 MB 上限只按文档实现 | 实现 | 上线后第一次发 20 MB 以上视频时核对 |
+| 已决 | TikTok 聊天视频的 `vid` 来源：商品视频的 ID 与 `/product/202309/files/upload` 返回的 ID 发出去都报 45101001「不属于该卖家」，客服模块没有视频上传接口（404）；只有大文件上传返回的 `resource_id` 能发，且须用 202309 版 Send Message；按此实现 | 实现 | 已定（v1.29） |
 | 风险 | 卖家后台订单链接的格式没在真实平台核对过（Shopee 按订单号搜索、TikTok 跨境店订单详情） | 实现 | 第一次转发真实工单时核对 |
 | 风险 | 已知限制：店铺商品目录缓存在 Web 进程内存里，多实例部署时各自缓存，改价与上下架最多晚 10 分钟可见 | 实现 | Web 扩到多实例时 |
 | 风险 | 已知限制：Shopee 同一轮里接着发的后台回复不再通知，要等下一次 `mark_as_replied` 补拉才进 Shopilot；店铺自动回复按「距买家消息 ≤ 2 秒」判断，买家与店员恰好同时发时会把人工回复记成自动回复 | 实现 | 上线后看两周补拉日志 |

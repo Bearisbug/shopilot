@@ -304,6 +304,63 @@ describe("Shopee 聊天视频", () => {
   });
 });
 
+describe("TikTok 聊天视频（大文件上传）", () => {
+  const MB = 1024 * 1024;
+  const mp4 = (size: number) => Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypisom"), Buffer.alloc(size - 12)]);
+  const MY = { cipher: "ROW_demo_my", token: "mock-at-7000001" };
+  const TH = { cipher: "ROW_demo_th", token: "mock-at-7000002" };
+  const api = (path: string, o: { cipher?: string; token?: string; body?: unknown }) => {
+    const { req, apiPath } = tiktokRequest({ path, ...DEMO_TT, method: "POST", token: MY.token, ...o });
+    return handleTiktokApi(req, apiPath).then(json);
+  };
+  const init = async (size: number, chunks: number, token = MY.token) =>
+    (await api("/open/202512/file/init", { token, body: { file_size: size, file_name: "clip.mp4", total_chunk_count: chunks, file_type: "video", target_path: "[POST]/customer_service/202309/conversations/{conversation_id}/messages" } })).body;
+  const put = (uploadUrl: string, uploadToken: string, n: number, data: Buffer, as = MY) => {
+    const url = new URL(uploadUrl);
+    for (const [k, v] of Object.entries({ upload_token: uploadToken, chunk_num: String(n), app_key: DEMO_TT.appKey, shop_cipher: as.cipher })) url.searchParams.set(k, v);
+    const req = new Request(url, { method: "PUT", headers: { "content-type": "video/mp4", "x-tts-access-token": as.token }, body: new Uint8Array(data) });
+    return handleTiktokApi(req, url.pathname.replace(/^\/mock\/tiktok\/open-api/, "")).then(json);
+  };
+  const upload = async (data: Buffer, as = MY) => {
+    const d = (await init(data.length, 1, as.token)).data as { upload_url: string; upload_token: string };
+    return String(((await put(d.upload_url, d.upload_token, 1, data, as)).body.data as { resource_id: string }).resource_id);
+  };
+  const send = (vid: string) => api("/customer_service/202309/conversations/7494560109732330101/messages", { cipher: "ROW_demo_my", body: { type: "VIDEO", content: JSON.stringify({ vid }) } });
+
+  it("init（不带 shop_cipher）→ 单块 PUT 返回 resource_id → 202309 Send Message VIDEO 发出", async () => {
+    const vid = await upload(mp4(64 * 1024));
+    expect(vid).toMatch(/^[0-9a-f]{24}$/);
+    const r = await send(vid);
+    expect(r.body.code).toBe(0);
+    expect((r.body.data as { message_id: string }).message_id).toBeTruthy();
+  });
+
+  it("vid 不是本店上传的（别的店、Shopee 上传、随便一个 ID）报 45101001", async () => {
+    const other = await upload(mp4(64 * 1024), TH);
+    expect(other).toMatch(/^[0-9a-f]{24}$/);
+    expect((await send(other)).body).toMatchObject({ code: 45101001, message: "this video does not belong to this seller" });
+    expect((await send("v0e30cg700f7cgcmu8jc77u9e2bdp95g")).body.code).toBe(45101001);
+  });
+
+  it("多块：非末块不足 5 MB 被拒；按 20 MB + 末块并入上传后才返回 resource_id", async () => {
+    const small = (await init(6 * MB, 2)).data as { upload_url: string; upload_token: string };
+    expect((await put(small.upload_url, small.upload_token, 1, mp4(MB))).body.message).toContain("at least 5MB");
+    const data = mp4(26 * MB);
+    const d = (await init(data.length, 2)).data as { upload_url: string; upload_token: string };
+    const first = await put(d.upload_url, d.upload_token, 1, data.subarray(0, 20 * MB));
+    expect(first.body.code).toBe(0);
+    expect(first.body.data).not.toHaveProperty("resource_id");
+    const last = await put(d.upload_url, d.upload_token, 2, data.subarray(20 * MB));
+    expect((last.body.data as { resource_id: string }).resource_id).toMatch(/^[0-9a-f]{24}$/);
+  });
+
+  it("init：target_path 不是客服发消息、文件超过 100 MB 都报参数错误", async () => {
+    const bad = await api("/open/202512/file/init", { body: { file_size: 1000, file_name: "a.mp4", total_chunk_count: 1, file_type: "video", target_path: "[POST]/product/202309/files/upload" } });
+    expect(bad.body.code).toBe(36009004);
+    expect((await init(101 * MB, 5)).code).toBe(36009004);
+  });
+});
+
 describe("故障注入", () => {
   it("下一次发送消息失败，之后恢复", async () => {
     await setFault({ platform: "shopee", shopId: "220001", category: "send_message", mode: "once", kind: "error" });

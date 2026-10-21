@@ -1,0 +1,4 @@
+POST /mock/tiktok/open-api/open/202512/file/init 200
+PUT /mock/tiktok/open-api/file/v1/upload chunk_num=1 200
+PUT /mock/tiktok/open-api/file/v1/upload chunk_num=2 200
+POST /mock/tiktok/open-api/customer_service/202309/conversations/7494560109732355991/messages 200

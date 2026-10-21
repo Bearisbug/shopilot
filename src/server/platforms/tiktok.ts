@@ -69,6 +69,10 @@ async function request(app: TiktokApp, method: "GET" | "POST" | "PUT" | "DELETE"
     headers["content-type"] = "application/json";
   }
   const { status, json } = await platformFetch("tiktok", `${env().TIKTOK_API_HOST}${path}?${new URLSearchParams(query)}`, init);
+  return dataOf(status, json);
+}
+
+function dataOf(status: number, json: Record<string, unknown>): Record<string, unknown> {
   const code = Number(json.code ?? (status >= 400 ? status : 0));
   if (code !== 0 || status >= 400) throw new PlatformError("tiktok", String(code), String(json.message ?? ""), classify(code, status), status);
   return (json.data ?? {}) as Record<string, unknown>;
@@ -320,6 +324,57 @@ export async function tiktokSendImage(app: TiktokApp, shop: TiktokShopAuth, conv
   const up = await call(app, "POST", "/customer_service/202309/images/upload", { shop, form });
   const sent = await send(app, shop, conversationId, "IMAGE", { url: up.url, width: up.width, height: up.height });
   return { ...sent, url: String(up.url) };
+}
+
+/** 大文件分块（guides/large-file-uploads.md）：默认 20 MB 一块，末块不足 5 MB 并进上一块，所以不足 5 MB 的文件只有一块、每块 5–25 MB */
+const CHUNK_BYTES = 20 * 1024 * 1024;
+const MIN_CHUNK_BYTES = 5 * 1024 * 1024;
+/** 单块 PUT 的超时：一块最大 25 MB */
+const CHUNK_TIMEOUT_MS = 60_000;
+/** Upload File Init 的 target_path 原样带 {conversation_id} 占位，生产实测通过 */
+const VIDEO_TARGET_PATH = "[POST]/customer_service/202309/conversations/{conversation_id}/messages";
+
+/** 每块的 [起, 止) 字节区间 */
+export function tiktokChunkRanges(size: number): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  for (let start = 0; start < size; start += CHUNK_BYTES) ranges.push([start, Math.min(start + CHUNK_BYTES, size)]);
+  if (ranges.length >= 2 && ranges[ranges.length - 1][1] - ranges[ranges.length - 1][0] < MIN_CHUNK_BYTES) {
+    ranges.pop();
+    ranges[ranges.length - 1][1] = size;
+  }
+  return ranges;
+}
+
+/**
+ * 聊天视频：Upload File Init → 逐块 PUT upload_url（最后一块返回 resource_id）→ 202309 版 Send Message 发 {vid: resource_id}。
+ * vid 只能这样拿：商品视频的 video.id、商品文件上传返回的 ID 发出去都报 45101001（视频不属于该卖家）；客服模块没有视频上传接口
+ */
+export async function tiktokSendVideo(app: TiktokApp, shop: TiktokShopAuth, conversationId: string, video: { bytes: Buffer; filename: string; mime: string }): Promise<{ messageId: string; sentAt: Date }> {
+  const ranges = tiktokChunkRanges(video.bytes.length);
+  // 初始化只签 app_key、timestamp 与请求体，不带 shop_cipher
+  const init = await call(app, "POST", "/open/202512/file/init", {
+    accessToken: shop.accessToken,
+    body: { file_size: video.bytes.length, file_name: video.filename, total_chunk_count: ranges.length, file_type: "video", target_path: VIDEO_TARGET_PATH },
+  });
+  let resourceId = "";
+  for (const [i, [start, end]] of ranges.entries()) {
+    const d = await retryOnRateLimit(() => putChunk(app, shop, String(init.upload_url), String(init.upload_token), i + 1, video.bytes.subarray(start, end), video.mime), isRateLimited, RATE_LIMIT_WAIT_MS + Math.random() * 1_000);
+    if (d.resource_id) resourceId = String(d.resource_id);
+  }
+  if (!resourceId) throw new PlatformError("tiktok", "no_resource_id", "upload finished without resource_id", "server");
+  const d = await call(app, "POST", `/customer_service/202309/conversations/${encodeURIComponent(conversationId)}/messages`, { shop, body: { type: "VIDEO", content: JSON.stringify({ vid: resourceId }) } });
+  return { messageId: String(d.message_id), sentAt: new Date() };
+}
+
+/** 分块上传不签名：upload_url 原样用（可能带路由信息），查询串补 upload_token、chunk_num、app_key、shop_cipher */
+async function putChunk(app: TiktokApp, shop: TiktokShopAuth, uploadUrl: string, uploadToken: string, chunkNum: number, chunk: Buffer, mime: string): Promise<Record<string, unknown>> {
+  const url = new URL(uploadUrl);
+  url.searchParams.set("upload_token", uploadToken);
+  url.searchParams.set("chunk_num", String(chunkNum));
+  url.searchParams.set("app_key", app.appKey);
+  url.searchParams.set("shop_cipher", shop.cipher);
+  const { status, json } = await platformFetch("tiktok", url.toString(), { method: "PUT", headers: { "content-type": mime, "x-tts-access-token": shop.accessToken }, body: new Uint8Array(chunk) }, CHUNK_TIMEOUT_MS);
+  return dataOf(status, json);
 }
 
 export async function tiktokEndSession(app: TiktokApp, shop: TiktokShopAuth, conversationId: string, sessionId: string): Promise<void> {

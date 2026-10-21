@@ -1,4 +1,4 @@
-// 从文件头识别 JPG / PNG / WebP 与宽高、MP4 视频（API-CONV-010 只收这几种）；不认识返回 null。
+// 从文件头识别 JPG / PNG / WebP 与宽高、MP4 / MOV / WebM 视频（API-CONV-010 只收这几种）；不认识返回 null。
 export type ImageInfo = { mime: "image/jpeg" | "image/png" | "image/webp"; ext: "jpg" | "png" | "webp"; width: number; height: number };
 
 export function imageInfo(b: Buffer): ImageInfo | null {
@@ -30,7 +30,11 @@ export function imageInfo(b: Buffer): ImageInfo | null {
   return null;
 }
 
-/** MP4：第 4–8 字节是 ftyp。主品牌是 qt（苹果 MOV）的不算：Shopee 聊天视频只实测过 MP4 */
-export function isMp4(b: Buffer): boolean {
-  return b.length >= 12 && b.toString("ascii", 4, 8) === "ftyp" && b.toString("ascii", 8, 12) !== "qt  ";
+export type VideoInfo = { mime: "video/mp4" | "video/quicktime" | "video/webm"; ext: "mp4" | "mov" | "webm" };
+
+/** MP4 与 MOV：第 4–8 字节是 ftyp，主品牌 qt 的是 MOV；WebM：EBML 头（1A 45 DF A3）且 DocType 是 webm（MKV 的是 matroska，不认） */
+export function videoInfo(b: Buffer): VideoInfo | null {
+  if (b.length >= 12 && b.toString("ascii", 4, 8) === "ftyp") return b.toString("ascii", 8, 12) === "qt  " ? { mime: "video/quicktime", ext: "mov" } : { mime: "video/mp4", ext: "mp4" };
+  if (b.length >= 4 && b.readUInt32BE(0) === 0x1a45dfa3 && b.subarray(0, 64).includes("webm")) return { mime: "video/webm", ext: "webm" };
+  return null;
 }

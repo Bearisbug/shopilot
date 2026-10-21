@@ -51,7 +51,10 @@ const OUT_ROLES = new Set(["agent", "platform_human", "platform_bot"]);
 /** 会话时间只往后推：补拉到的卖家侧消息可能早于已入库的买家消息（inbound.refetch） */
 const later = (prev: Date | null, next: Date) => (prev && prev > next ? prev : next);
 
-/** 卖家侧消息是不是本方刚发出的回声：同平台消息 ID，或 2 分钟内同类型同文本、还在 sending 的出站消息 */
+/**
+ * 卖家侧消息是不是本方刚发出的回声：同平台消息 ID，或 2 分钟内同类型同文本、还在 sending 的出站消息。
+ * 视频从入队到发出要经过上传（TikTok 100 MB 最长约 5 分钟），按 10 分钟找
+ */
 async function matchEcho(ex: Executor, conv: ConversationRow, m: NormalizedMessage): Promise<boolean> {
   const [byId] = await ex
     .select({ id: schema.message.id })
@@ -62,7 +65,7 @@ async function matchEcho(ex: Executor, conv: ConversationRow, m: NormalizedMessa
   const recent = await ex
     .select()
     .from(schema.message)
-    .where(and(eq(schema.message.conversationId, conv.id), eq(schema.message.direction, "out"), inArray(schema.message.sendStatus, ["sending", "sent"]), gt(schema.message.createdAt, new Date(Date.now() - 120_000))))
+    .where(and(eq(schema.message.conversationId, conv.id), eq(schema.message.direction, "out"), inArray(schema.message.sendStatus, ["sending", "sent"]), gt(schema.message.createdAt, new Date(Date.now() - (m.type === "video" ? 600_000 : 120_000)))))
     .orderBy(desc(schema.message.createdAt));
   const hit = recent.find((r) => !r.externalMessageId && r.type === m.type && (m.type !== "text" || r.text === m.text));
   if (!hit) return false;

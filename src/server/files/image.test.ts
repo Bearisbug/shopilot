@@ -1,6 +1,6 @@
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { imageInfo, isMp4 } from "./image";
+import { imageInfo, videoInfo } from "./image";
 
 function png(w: number, h: number): Buffer {
   const ihdr = Buffer.alloc(13);
@@ -26,12 +26,15 @@ describe("聊天图片格式识别", () => {
 
 describe("聊天视频格式识别", () => {
   const box = (brand: string) => Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftyp"), Buffer.from(brand), Buffer.alloc(12)]);
-  it("MP4（isom、mp42）认", () => {
-    expect(isMp4(box("isom"))).toBe(true);
-    expect(isMp4(box("mp42"))).toBe(true);
+  const ebml = (docType: string) => Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81, 0x01, 0x42, 0x82, 0x84]), Buffer.from(docType), Buffer.alloc(12)]);
+  it("MP4（isom、mp42）、MOV（qt）、WebM 认，扩展名与类型对应", () => {
+    expect(videoInfo(box("isom"))).toEqual({ mime: "video/mp4", ext: "mp4" });
+    expect(videoInfo(box("mp42"))).toEqual({ mime: "video/mp4", ext: "mp4" });
+    expect(videoInfo(box("qt  "))).toEqual({ mime: "video/quicktime", ext: "mov" });
+    expect(videoInfo(ebml("webm"))).toEqual({ mime: "video/webm", ext: "webm" });
   });
-  it("MOV（qt）与非视频不认", () => {
-    expect(isMp4(box("qt  "))).toBe(false);
-    expect(isMp4(Buffer.from("not a video at all"))).toBe(false);
+  it("MKV 与非视频不认", () => {
+    expect(videoInfo(ebml("matroska"))).toBeNull();
+    expect(videoInfo(Buffer.from("not a video at all"))).toBeNull();
   });
 });

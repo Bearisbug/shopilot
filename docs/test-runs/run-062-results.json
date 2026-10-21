@@ -1,0 +1,559 @@
+{
+  "note": "TC-CONV-077 取第三遍（前两遍执行脚本解析出错与查询未限定会话，见 RUN-062 证据段）；其余为第一遍",
+  "results": {
+    "TC-CONV-076": [
+      {
+        "step": "前置",
+        "expected": "推送 200，会话建立",
+        "actual": {
+          "X": "3270475738497935645",
+          "C": "01a15d90-7903-747d-876c-0f43af3796b8",
+          "push": [
+            200
+          ]
+        },
+        "pass": true
+      },
+      {
+        "step": "前置",
+        "expected": "认领成功",
+        "actual": 200,
+        "pass": true
+      },
+      {
+        "step": 1,
+        "expected": "附件条一个视频缩略图；发送后移出，时间线视频气泡发送中",
+        "actual": {
+          "l1": [
+            "第 1 个附件：视频"
+          ],
+          "stripAfter": 0,
+          "s1": "sending"
+        },
+        "pass": true
+      },
+      {
+        "step": 2,
+        "expected": "已发送，能播放",
+        "actual": {
+          "s2": "sent",
+          "play": [
+            {
+              "src": "/mock/files/b82a7bcd3fc52c1f087a94f4",
+              "t": 0.51,
+              "paused": false
+            }
+          ]
+        },
+        "pass": true
+      },
+      {
+        "step": 3,
+        "expected": "video|sent",
+        "actual": "video|sent",
+        "pass": true
+      },
+      {
+        "step": 4,
+        "expected": "买家视图收到一条视频",
+        "actual": [
+          "buyer:text",
+          "seller:video"
+        ],
+        "pass": true
+      },
+      {
+        "step": 5,
+        "expected": "提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」，附件条不出现",
+        "actual": {
+          "t5": [
+            "没有可发的图片或视频 只支持 MP4 视频，MOV 等格式请先导出为 MP4。"
+          ],
+          "c5": 0
+        },
+        "pass": true
+      },
+      {
+        "step": 6,
+        "expected": "提示「视频 31.0 MB，超过 30 MB 上限。」，附件条不出现",
+        "actual": {
+          "t6": [
+            "没有可发的图片或视频 视频 31.0 MB，超过 30 MB 上限。",
+            "没有可发的图片或视频 只支持 MP4 视频，MOV 等格式请先导出为 MP4。"
+          ],
+          "c6": 0
+        },
+        "pass": true
+      },
+      {
+        "step": 7,
+        "expected": "HTTP 201，kind video，mime video/quicktime",
+        "actual": {
+          "status": 201,
+          "kind": "video",
+          "mime7": "video/quicktime"
+        },
+        "pass": true
+      },
+      {
+        "step": 8,
+        "expected": "HTTP 415 /errors/unsupported-type「Shopee 只能发 MP4 视频。」，时间线没有新增",
+        "actual": {
+          "status": 415,
+          "type": "/errors/unsupported-type",
+          "detail": "Shopee 只能发 MP4 视频。",
+          "before8": "2",
+          "after8": "2"
+        },
+        "pass": true
+      },
+      {
+        "step": 9,
+        "expected": "上传 201；发送 413 /errors/too-large「Shopee 视频不能超过 30 MB。」",
+        "actual": {
+          "upload": 201,
+          "status": 413,
+          "type": "/errors/too-large",
+          "detail": "Shopee 视频不能超过 30 MB。"
+        },
+        "pass": true
+      }
+    ],
+    "TC-CONV-077": [
+      {
+        "step": "前置",
+        "expected": "推送 200，会话建立",
+        "actual": {
+          "X": "7494560109732355991",
+          "C": "01a15d92-5447-7639-8dbb-11a4cfe36102",
+          "push": [
+            200,
+            200
+          ]
+        },
+        "pass": true
+      },
+      {
+        "step": 1,
+        "expected": "「添加图片或视频（JPG、PNG、WebP 图片不超过 10 MB，MP4、MOV、WebM 视频不超过 100 MB）」",
+        "actual": "添加图片或视频（JPG、PNG、WebP 图片不超过 10 MB，MP4、MOV、WebM 视频不超过 100 MB）",
+        "pass": true
+      },
+      {
+        "step": 2,
+        "expected": "不弹提示；附件条一个视频缩略图",
+        "actual": {
+          "l2": [
+            "第 1 个附件：视频"
+          ],
+          "newToasts": 0
+        },
+        "pass": true
+      },
+      {
+        "step": 3,
+        "expected": "附件条消失；时间线先这句话（带译文）再视频气泡",
+        "actual": {
+          "c3": 0,
+          "texts": 1,
+          "textBeforeVideo": true
+        },
+        "pass": true
+      },
+      {
+        "step": 4,
+        "expected": "已发送；灯箱播放进度走动",
+        "actual": {
+          "s4": "sent",
+          "play": [
+            {
+              "src": "/api/v1/files/e258ab9c-b66f-4308-aeae-6951c316a22b",
+              "t": 0.51,
+              "paused": false
+            }
+          ]
+        },
+        "pass": true
+      },
+      {
+        "step": 5,
+        "expected": "最后两行 text|sent|t|、video|sent|t|/api/v1/files/<文件 ID>",
+        "actual": [
+          "text|sent|t|",
+          "video|sent|t|/api/v1/files/e258ab9c-b66f-4308-aeae-6951c316a22b"
+        ],
+        "pass": true
+      },
+      {
+        "step": 6,
+        "expected": "买家视图依次收到这句话、一条视频",
+        "actual": [
+          "TEXT:[译文] 这是安装视频",
+          "VIDEO:"
+        ],
+        "pass": true
+      },
+      {
+        "step": 7,
+        "expected": "两个视频按选择顺序进附件条；发出后依次新增两条视频，10 秒内都已发送",
+        "actual": {
+          "l7": [
+            "第 1 个附件：视频",
+            "第 2 个附件：视频"
+          ],
+          "ids7": 2,
+          "r7": [
+            "video/quicktime|sent",
+            "video/webm|sent"
+          ]
+        },
+        "pass": true
+      },
+      {
+        "step": 8,
+        "expected": "提示「视频 101.0 MB，超过 100 MB 上限。」，附件条不出现",
+        "actual": {
+          "t8": [
+            "没有可发的图片或视频 视频 101.0 MB，超过 100 MB 上限。"
+          ],
+          "c8": 0
+        },
+        "pass": true
+      },
+      {
+        "step": 9,
+        "expected": "HTTP 413 /errors/too-large「视频不能超过 100 MB，图片不能超过 10 MB。」",
+        "actual": {
+          "status": 413,
+          "type": "/errors/too-large",
+          "detail": "视频不能超过 100 MB，图片不能超过 10 MB。"
+        },
+        "pass": true
+      },
+      {
+        "step": 10,
+        "expected": "上传 201；发送 201，sendStatus sending",
+        "actual": {
+          "upload": 201,
+          "status": 201,
+          "sendStatus": "sending"
+        },
+        "pass": true
+      },
+      {
+        "step": 11,
+        "expected": "sent；init、两次分块 PUT、202309 发送，都是 200",
+        "actual": {
+          "s11": "sent",
+          "got": [
+            "POST /mock/tiktok/open-api/open/202512/file/init 200",
+            "PUT /mock/tiktok/open-api/file/v1/upload chunk_num=1 200",
+            "PUT /mock/tiktok/open-api/file/v1/upload chunk_num=2 200",
+            "POST /mock/tiktok/open-api/customer_service/202309/conversations/7494560109732355991/messages 200"
+          ]
+        },
+        "pass": true
+      }
+    ],
+    "TC-CONV-072": [
+      {
+        "step": "前置",
+        "expected": "推送 200，会话建立",
+        "actual": {
+          "X": "4865398808564973695",
+          "C": "01a15d91-0d93-736d-8f99-2cf655baa944",
+          "push": [
+            200
+          ]
+        },
+        "pass": true
+      },
+      {
+        "step": 1,
+        "expected": "无确认框；附件条红绿蓝，读屏名第 1–3 个附件：图片",
+        "actual": {
+          "l1": [
+            "第 1 个附件：图片",
+            "第 2 个附件：图片",
+            "第 3 个附件：图片"
+          ],
+          "dialogs": 0,
+          "newToasts": 0
+        },
+        "pass": true
+      },
+      {
+        "step": 2,
+        "expected": "外框比 H0 高",
+        "actual": {
+          "H0": 106,
+          "H2": 170
+        },
+        "pass": true
+      },
+      {
+        "step": 3,
+        "expected": "只剩红、蓝两个，顺序不变",
+        "actual": [
+          "第 1 个附件：图片",
+          "第 2 个附件：图片"
+        ],
+        "pass": true
+      },
+      {
+        "step": 4,
+        "expected": "附件条消失、文字区清空，外框回到 H0",
+        "actual": {
+          "H0": 106,
+          "H4": 106
+        },
+        "pass": true
+      },
+      {
+        "step": 5,
+        "expected": "依次这句话、红图、蓝图，都已发送",
+        "actual": [
+          "text|sent|",
+          "image|sent|597e764d-77fa-48de-911e-3cfd3713e75c",
+          "image|sent|27bef49e-97fb-457d-96a0-826990170920"
+        ],
+        "pass": true
+      },
+      {
+        "step": 6,
+        "expected": "买家视图依次这句话、红图、蓝图",
+        "actual": [
+          "text:[译文] 先发文字，再按顺序发图片",
+          "image:",
+          "image:"
+        ],
+        "pass": true
+      },
+      {
+        "step": 7,
+        "expected": "输入框「你好」，附件条不出现",
+        "actual": {
+          "v7": "你好",
+          "c7": 0
+        },
+        "pass": true
+      },
+      {
+        "step": 8,
+        "expected": "提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」；附件条不出现",
+        "actual": {
+          "t8": [
+            "没有可发的图片或视频 平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。"
+          ],
+          "c8": 0
+        },
+        "pass": true
+      },
+      {
+        "step": 9,
+        "expected": "两张按选择顺序进附件条，不直接发出；逐个移除清空",
+        "actual": {
+          "l9": [
+            "第 1 个附件：图片",
+            "第 2 个附件：图片"
+          ],
+          "n9": "4",
+          "n9b": "4",
+          "c9": 0
+        },
+        "pass": true
+      }
+    ],
+    "TC-CONV-022": [
+      {
+        "step": "前置",
+        "expected": "Nur 处理中的 Demo Shopee MY 会话",
+        "actual": {
+          "C": "01a15d91-1f23-743d-a4d9-2d1465519595",
+          "push": [
+            200
+          ],
+          "claim": 200
+        },
+        "pass": true
+      },
+      {
+        "step": 1,
+        "expected": "提示超过 10 MB，附件条不出现；上传接口 413 too-large",
+        "actual": {
+          "t1": [
+            "没有可发的图片或视频 图片 11.0 MB，超过 10 MB 上限。"
+          ],
+          "c1": 0,
+          "status": 413,
+          "type": "/errors/too-large",
+          "detail": "图片不能超过 10 MB。"
+        },
+        "pass": true
+      },
+      {
+        "step": 2,
+        "expected": "提示只支持 JPG / PNG / WebP；上传接口 415",
+        "actual": {
+          "t2": [
+            "没有可发的图片或视频 只支持 JPG、PNG、WebP，不超过 10 MB。",
+            "没有可发的图片或视频 图片 11.0 MB，超过 10 MB 上限。"
+          ],
+          "status": 415,
+          "type": "/errors/unsupported-type",
+          "detail": "只支持 JPG、PNG、WebP 图片和 MP4、MOV、WebM 视频。"
+        },
+        "pass": true
+      },
+      {
+        "step": 3,
+        "expected": "上传 201，进附件条；发送后图片发出",
+        "actual": {
+          "upload": 201,
+          "l3": [
+            "第 1 个附件：图片"
+          ],
+          "s3": "sent"
+        },
+        "pass": true
+      }
+    ]
+  },
+  "firstPassTC077": [
+    {
+      "step": "前置",
+      "expected": "推送 200，会话建立",
+      "actual": {
+        "X": "7494560109732355013",
+        "C": "01a15d90-b78b-70cb-bba2-358ee06c8f4c",
+        "push": [
+          200,
+          200
+        ]
+      },
+      "pass": true
+    },
+    {
+      "step": 1,
+      "expected": "「添加图片或视频（JPG、PNG、WebP 图片不超过 10 MB，MP4、MOV、WebM 视频不超过 100 MB）」",
+      "actual": "添加图片或视频（JPG、PNG、WebP 图片不超过 10 MB，MP4、MOV、WebM 视频不超过 100 MB）",
+      "pass": true
+    },
+    {
+      "step": 2,
+      "expected": "不弹提示；附件条一个视频缩略图",
+      "actual": {
+        "l2": [
+          "第 1 个附件：视频"
+        ],
+        "newToasts": 0
+      },
+      "pass": true
+    },
+    {
+      "step": 3,
+      "expected": "附件条消失；时间线先这句话（带译文）再视频气泡",
+      "actual": {
+        "c3": 0,
+        "texts": 1,
+        "textBeforeVideo": true
+      },
+      "pass": true
+    },
+    {
+      "step": 4,
+      "expected": "已发送；灯箱播放进度走动",
+      "actual": {
+        "s4": "sent",
+        "play": [
+          {
+            "src": "/api/v1/files/1d8bc39a-6d92-457a-94ec-69c71552a2ae",
+            "t": 0.51,
+            "paused": false
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "step": 5,
+      "expected": "最后两行 text|sent|t|、video|sent|t|/api/v1/files/<文件 ID>",
+      "actual": [
+        "text|sent|true|",
+        "video|sent|true|/api/v1/files/1d8bc39a-6d92-457a-94ec-69c71552a2ae"
+      ],
+      "pass": false
+    },
+    {
+      "step": 6,
+      "expected": "买家视图依次收到这句话、一条视频",
+      "actual": [
+        "TEXT:[译文] 这是安装视频",
+        "VIDEO:"
+      ],
+      "pass": true
+    },
+    {
+      "step": 7,
+      "expected": "两个视频按选择顺序进附件条；发出后依次新增两条视频，10 秒内都已发送",
+      "actual": {
+        "l7": [
+          "第 1 个附件：视频",
+          "第 2 个附件：视频"
+        ],
+        "ids7": 2,
+        "r7": [
+          "video/quicktime|sent",
+          "video/webm|sent"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "step": 8,
+      "expected": "提示「视频 101.0 MB，超过 100 MB 上限。」，附件条不出现",
+      "actual": {
+        "t8": [
+          "没有可发的图片或视频 视频 101.0 MB，超过 100 MB 上限。"
+        ],
+        "c8": 0
+      },
+      "pass": true
+    },
+    {
+      "step": 9,
+      "expected": "HTTP 413 /errors/too-large「视频不能超过 100 MB，图片不能超过 10 MB。」",
+      "actual": {
+        "status": 413,
+        "type": "/errors/too-large",
+        "detail": "视频不能超过 100 MB，图片不能超过 10 MB。"
+      },
+      "pass": true
+    },
+    {
+      "step": 10,
+      "expected": "上传 201；发送 201，sendStatus sending",
+      "actual": {
+        "upload": 201,
+        "status": 201,
+        "sendStatus": "sending"
+      },
+      "pass": true
+    },
+    {
+      "step": 11,
+      "expected": "sent；init、两次分块 PUT、202309 发送，都是 200",
+      "actual": {
+        "s11": "sent",
+        "got": [
+          "POST /mock/tiktok/open-api/open/202512/file/init 200",
+          "PUT /mock/tiktok/open-api/file/v1/upload 200",
+          "PUT /mock/tiktok/open-api/file/v1/upload 200",
+          "POST /mock/tiktok/open-api/customer_service/202309/conversations/7494560109732355013/messages 200"
+        ]
+      },
+      "pass": false
+    }
+  ],
+  "consoleErrors": []
+}

@@ -9,8 +9,9 @@ import { tiktokReturnId } from "../ids";
 import { mockProductImageUrl } from "../images";
 import { applyOrderStatus, TIKTOK_PRE_SHIP } from "../orders";
 import { runPushesLater, type PendingPush } from "../push";
-import { fileUrl, MAX_UPLOAD_BYTES, saveUpload } from "../uploads";
+import { fileUrl, MAX_UPLOAD_BYTES, saveUpload, uploadRow } from "../uploads";
 import { errorResponse, ok, T, TiktokError, verifyTiktok, type TiktokApp, type TiktokShop } from "./core";
+import { initUpload, UPLOAD_PATH, uploadChunk } from "./files";
 import {
   addTiktokMessage,
   completeRefund,
@@ -185,10 +186,14 @@ async function sendMessage(ctx: Ctx): Promise<Response> {
       if (!c.url) throw T.param("content.url is required.");
       content = { url: String(c.url), width: Number(c.width ?? 0), height: Number(c.height ?? 0) };
       break;
-    case "VIDEO":
+    case "VIDEO": {
       if (!c.vid) throw T.param("content.vid is required.");
-      content = { vid: String(c.vid) };
+      // vid 只认本店经大文件上传得到的 resource_id；商品视频等其他来源的 ID 报 45101001（生产实测同一错误）
+      const up = await uploadRow(String(c.vid));
+      if (!up || up.platform !== "tiktok" || up.shopId !== s.shopId || !up.mime.startsWith("video/")) throw new TiktokError(45101001, "this video does not belong to this seller");
+      content = { vid: up.id, url: fileUrl(ctx.origin, up.id), width: up.width, height: up.height, format: up.mime.split("/")[1], size: up.size };
       break;
+    }
     case "PRODUCT_CARD": {
       const products = MOCK_PRODUCTS[`tiktok:${s.shopId}`] ?? [];
       if (!products.some((p) => p.itemId === String(c.product_id))) throw T.param("product_id is invalid.");
@@ -633,6 +638,8 @@ const HANDLERS: Handler[] = [
   route("GET", "/customer_service/202309/conversations", true, listConversations),
   route("GET", "/customer_service/202309/conversations/{id}/messages", true, listMessages),
   route("POST", "/customer_service/202606/conversations/{id}/messages", true, sendMessage, "send_message"),
+  route("POST", "/customer_service/202309/conversations/{id}/messages", true, sendMessage, "send_message"),
+  route("POST", "/open/202512/file/init", false, (ctx) => initUpload(ctx.app, ctx.tokenShops, ctx.body, ctx.origin)),
   route("POST", "/customer_service/202309/images/upload", true, uploadImage),
   route("POST", "/customer_service/202605/conversations/{id}/sessions/{sid}/end", true, endSession),
   route("GET", "/customer_service/202309/agents/settings", true, getAgentSettings),
@@ -661,6 +668,11 @@ const HANDLERS: Handler[] = [
 /** 入口：apiPath 为去掉 /mock/tiktok/open-api 前缀后的路径，如 /order/202309/orders/search。 */
 export async function handleTiktokApi(req: Request, apiPath: string): Promise<Response> {
   try {
+    // 分块上传不签名，单独校验（upload_token、x-tts-access-token、shop_cipher）
+    if (apiPath === UPLOAD_PATH) {
+      if (req.method !== "PUT") throw T.method();
+      return await uploadChunk(req, new URL(req.url).searchParams);
+    }
     const matches = HANDLERS.map((h) => ({ h, m: apiPath.match(h.pattern) })).filter((x) => x.m);
     if (matches.length === 0) throw T.path();
     const hit = matches.find((x) => x.h.method === req.method);

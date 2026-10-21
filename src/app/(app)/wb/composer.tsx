@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
-import { acceptFiles, IMAGE_RULE, MEDIA_RULE, runPlan, sendPlan } from "@/lib/attachments";
+import { acceptFiles, mediaRule, runPlan, sendPlan, VIDEO_RULES } from "@/lib/attachments";
 import { quickReplyInsert } from "@/lib/quick-reply";
 import { AttachmentStrip, useAttachments, type Attachment } from "./composer-attachments";
 import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
@@ -23,7 +23,7 @@ import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
 import { AiTag, Citations, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
 const LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
-/** Shopee 视频在后台传到平台并等平台处理（DESIGN §15：≤120 秒），处理完才发下一条，保证平台上的顺序 */
+/** 视频在后台传到平台（Shopee 还要等平台处理，DESIGN §15：≤120 秒），发出才发下一条，保证平台上的顺序 */
 const VIDEO_WAIT_MS = 150_000;
 const VIDEO_POLL_MS = 2_500;
 /** 买家语言未知时按店铺站点预选翻译目标；新加坡、菲律宾买家多用英语 */
@@ -152,8 +152,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const canManageReplies = Boolean(me.data?.active.permissions.includes("reception.manage"));
   const resolveReply = (r: QuickReply, hasText: boolean) => quickReplyInsert(r, { target: translateTo, draftLang, hasText });
   const slash = useSlashReplies({ text, stage: detail.segment?.stage, resolve: resolveReply, onPicked: setDraftLang });
-  const shopee = c.shop.platform === "shopee";
-  const mediaRule = shopee ? MEDIA_RULE : IMAGE_RULE;
+  const rule = mediaRule(c.shop.platform);
   const atts = useAttachments(c.id);
   const [sending, setSending] = useState(false);
 
@@ -197,7 +196,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
     clearText();
   }
 
-  /** 发一个附件：进了时间线就移出附件条；Shopee 视频在后台发出，等它处理完（成功或失败）再返回 */
+  /** 发一个附件：进了时间线就移出附件条；视频在后台发出，等它发出或失败再返回 */
   async function sendAttachment(a: Attachment) {
     atts.set(a.key, { state: "sending", error: null });
     let res: { message: MessageItem };
@@ -241,7 +240,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
 
   /** 按给出的顺序把文件放进附件条，不能发的说明原因 */
   const addFiles = (files: File[]) => {
-    const { accepted, errors } = acceptFiles(files, atts.list.length, shopee);
+    const { accepted, errors } = acceptFiles(files, atts.list.length, c.shop.platform);
     if (errors.length) toast.error(accepted.length ? "有文件没有加入" : "没有可发的图片或视频", { description: errors.join(" ") });
     if (accepted.length) atts.add(accepted);
   };
@@ -324,8 +323,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2">
               <div className="flex items-center gap-0.5">
                 {/* -ml-2 抵消 ghost 图标按钮的内边距（(32−16)/2 = 8px），图形左缘与文字左缘对齐 */}
-                <Tip label={`${shopee ? "添加图片或视频" : "添加图片"}（${mediaRule}；也可直接粘贴），和文字一起发`}>
-                  <Button variant="ghost" size="icon-sm" aria-label={`${shopee ? "添加图片或视频" : "添加图片"}（${mediaRule}）`} onClick={() => fileRef.current?.click()} className="-ml-2">
+                <Tip label={`添加图片或视频（${rule}；也可直接粘贴），和文字一起发`}>
+                  <Button variant="ghost" size="icon-sm" aria-label={`添加图片或视频（${rule}）`} onClick={() => fileRef.current?.click()} className="-ml-2">
                     <ImageIcon />
                   </Button>
                 </Tip>
@@ -390,7 +389,7 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
         ref={fileRef}
         type="file"
         multiple
-        accept={shopee ? "image/jpeg,image/png,image/webp,video/mp4" : "image/jpeg,image/png,image/webp"}
+        accept={["image/jpeg", "image/png", "image/webp", ...VIDEO_RULES[c.shop.platform].types].join(",")}
         className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
