@@ -14,6 +14,7 @@ import { expireDrafts, expireInvitations, idleClose, remindUnclaimed } from "@/s
 import { deliverQueuedVideo } from "@/server/conversations/send";
 import { sweepIssues } from "@/server/issues/extract";
 import { sweepDraftReviews } from "@/server/analysis/compare";
+import { embedMissingCards } from "@/server/knowledge/cards";
 import { deliverEmail } from "@/server/core/mailer";
 import { deliverFeishuCard } from "@/server/feishu/deliver";
 import { backfillOrderImages } from "@/server/orders/images";
@@ -74,7 +75,8 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "knowledge.qa_embed": async () => {
     const stale = await failStaleExtracts();
     const r = await embedMissing();
-    if (r.picked || stale) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "qa embed sweep", ...r, staleExtracts: stale }));
+    const cards = await embedMissingCards();
+    if (r.picked || stale || cards.picked) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "qa embed sweep", ...r, staleExtracts: stale, cardsPicked: cards.picked, cardsEmbedded: cards.embedded }));
   },
   "product.listing_sync": syncListings,
 };

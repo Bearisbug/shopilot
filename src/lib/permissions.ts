@@ -4,7 +4,7 @@ export type Role = "admin" | "lead" | "agent";
 export type Grant = "yes" | "scope" | "owner" | "no";
 
 export const PERMISSION_TABLE = [
-  { perm: "wb.handle", module: "工作台", action: "认领、回复负责店铺的会话；采纳或改写 AI 草稿", admin: "yes", lead: "yes", agent: "yes" },
+  { perm: "wb.handle", module: "工作台", action: "认领、回复负责店铺的会话；采纳或改写 AI 草稿；提交学习", admin: "yes", lead: "yes", agent: "yes" },
   { perm: "wb.transfer", module: "工作台", action: "把自己处理中的会话转交给同事", admin: "yes", lead: "yes", agent: "yes" },
   { perm: "wb.team", module: "工作台", action: "查看负责店铺内别人处理中的会话、改派", admin: "yes", lead: "scope", agent: "no" },
   { perm: "wb.allShops", module: "工作台", action: "查看全部店铺的会话", admin: "yes", lead: "no", agent: "no" },
@@ -13,7 +13,7 @@ export const PERMISSION_TABLE = [
   { perm: "tickets.manage", module: "工单", action: "查看负责店铺全部工单、改派、作废、改单张时限", admin: "yes", lead: "scope", agent: "no" },
   { perm: "dashboard.view", module: "看板", action: "查看看板", admin: "yes", lead: "scope", agent: "no" },
   { perm: "reception.manage", module: "接待设置", action: "接待模式、工作时间、提示词、工单类型与时限", admin: "yes", lead: "no", agent: "no" },
-  { perm: "knowledge.manage", module: "知识库", action: "上传、查看、分类、停用、删除资料，录入、审核、发布问答，测试问答", admin: "yes", lead: "yes", agent: "no" },
+  { perm: "knowledge.manage", module: "知识库", action: "上传、查看、分类、停用、删除资料，录入、审核、发布问答与经验卡，审核学习任务，测试问答", admin: "yes", lead: "yes", agent: "no" },
   { perm: "products.manage", module: "知识库", action: "导入、修改、删除产品清单（物料编码与官方产品名称）", admin: "yes", lead: "no", agent: "no" },
   { perm: "shops.manage", module: "店铺与连接", action: "接入店铺、更新应用密钥、续期授权、断开", admin: "yes", lead: "no", agent: "no" },
   { perm: "team.manage", module: "团队与权限", action: "邀请成员、改角色、分配负责店铺、停用", admin: "yes", lead: "no", agent: "no" },

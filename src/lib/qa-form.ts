@@ -73,9 +73,9 @@ export function toQaBody(v: QaFormValues): QaBody {
   return qaBody.parse(formToBody(v));
 }
 
-/** 页签：地址里不认识的值回到默认；带着资料抽屉参数打开时默认停在「资料」 */
-export const KB_TABS = ["qa", "review", "docs", "products", "test"] as const;
+/** 页签：地址里不认识的值回到默认；带着资料抽屉参数打开时默认停在「资料」，带着经验卡参数时停在「经验卡」 */
+export const KB_TABS = ["qa", "cards", "review", "docs", "products", "test"] as const;
 export type KbTab = (typeof KB_TABS)[number];
-export function kbTab(tab: string | null, hasDoc: boolean): KbTab {
-  return (KB_TABS as readonly string[]).includes(tab ?? "") ? (tab as KbTab) : hasDoc ? "docs" : "qa";
+export function kbTab(tab: string | null, hasDoc: boolean, hasCard = false): KbTab {
+  return (KB_TABS as readonly string[]).includes(tab ?? "") ? (tab as KbTab) : hasDoc ? "docs" : hasCard ? "cards" : "qa";
 }
