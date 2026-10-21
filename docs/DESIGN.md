@@ -16,6 +16,8 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-21 | v1.32 | REQ-KB-013、FLOW-KB-LEARN、FLOW-DRAFT-COMPARE、RULE-KB-006、INV-KB-009、ENT-LearningTask、API-KB-038、API-KB-039、API-KB-040、API-KB-041、API-KB-042、API-KB-043、API-CONV-018、API-CONV-019 | 新增会话学习：客服与 Agent 提供素材，新卡审核复测后发布，Agent 改卡复测通过即生效 | 功能 |
+| 2026-10-21 | v1.32 | REQ-KB-011、REQ-KB-012、FLOW-KB-CARD、FLOW-AI-CARD、FLOW-AI-DRAFT、FLOW-KB-QA、FLOW-PRODUCT-DICT、RULE-KB-005、INV-KB-007、INV-KB-008、ENT-ExperienceCard、ENT-CardVersion、ENT-Draft、ENT-Ticket、ADR-017、API-KB-012、API-KB-029、API-KB-030、API-KB-031、API-KB-032、API-KB-033、API-KB-034、API-KB-035、API-KB-036、API-KB-037、API-CONV-002、PAGE-RECEPTION-KB、PAGE-WB | 新增经验卡：手写即发布、留版本可回退，出稿按卡的步骤推进，分支转人工或建工单 | 功能 |
 | 2026-10-21 | v1.31 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-007 | Shopee 会话也能发 MOV 视频，后缀 .mp4、文件头是 QuickTime 的视频不再在发送时被拒 | 功能 |
 | 2026-10-21 | v1.30 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-010 | 上传视频时带上浏览器读出的宽高，时间线按真实比例显示横屏、竖屏与正方形视频；早先没有宽高的视频加载出尺寸后调整一次 | 功能 |
 | 2026-10-21 | v1.29 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-007、API-CONV-010、API-MOCK-002 | TikTok 会话可发 MP4、MOV、WebM 视频（≤ 100 MB）：后台分块传到 TikTok，再发出 | 功能 |
@@ -109,6 +111,8 @@
 | FLOW-PRODUCT-DICT | 维护产品清单 | 知识库 | 已实现 | REQ-KB-007 |
 | FLOW-KB-QA | 维护问答 | 知识库 | 已实现 | REQ-KB-008 |
 | FLOW-KB-QA-REVIEW | 整理与审核问答 | 知识库 | 已实现 | REQ-KB-009 |
+| FLOW-KB-CARD | 维护经验卡 | 知识库 | 设计中 | REQ-KB-011 |
+| FLOW-KB-LEARN | 会话学习 | 知识库 | 设计中 | REQ-KB-013 |
 | FLOW-BILLING | 用量与套餐 | 运营 | 已实现 | REQ-BILL-001、REQ-BILL-002、REQ-BILL-003、REQ-BILL-004、REQ-BILL-005 |
 | FLOW-SETTINGS | 商户设置 | 运营 | 已实现 | REQ-SET-001、REQ-SET-002、REQ-SET-003、REQ-SET-004、REQ-SET-005、REQ-SET-006 |
 | FLOW-FEISHU-SETUP | 配置飞书推送 | 运营 | 已实现 | REQ-FEISHU-001、REQ-FEISHU-002 |
@@ -126,6 +130,7 @@
 | --- | --- | --- | --- | --- |
 | FLOW-INBOUND | 接收买家消息 | 接待 | 已实现 | REQ-CONV-001、REQ-CONV-006、REQ-CONV-007、REQ-CONV-010、REQ-CONV-011、REQ-CONV-013 |
 | FLOW-AI-DRAFT | AI 出稿 | 接待 | 已实现 | REQ-AI-001、REQ-AI-002、REQ-AI-004、REQ-AI-005、REQ-KB-006、REQ-AI-007、REQ-KB-010 |
+| FLOW-AI-CARD | 按经验卡出稿 | 接待 | 设计中 | REQ-KB-012 |
 | FLOW-WB-HANDLE | 接待会话 | 接待 | 已实现 | REQ-CONV-002、REQ-CONV-003、REQ-CONV-004、REQ-CONV-005、REQ-CONV-008、REQ-CONV-009、REQ-AI-003、REQ-CONV-012 |
 | FLOW-WB-PRODUCT | 发送店铺商品 | 接待 | 已实现 | REQ-CONV-014 |
 | FLOW-WB-MEDIA | 发送图片与视频 | 接待 | 已实现 | REQ-CONV-015 |
@@ -429,7 +434,7 @@
 
 - **契约锚点**：API-KB-020；API-KB-021；API-KB-022；API-KB-023；API-KB-024；API-KB-025；ENT-Product；ENT-ProductListing
 - **上游**：—
-- **下游**：FLOW-KB-QA、FLOW-AI-DRAFT
+- **下游**：FLOW-KB-QA、FLOW-AI-DRAFT、FLOW-KB-CARD
 - **守住的不变量**：INV-KB-005
 
 | 步骤 | 位置 |
@@ -508,7 +513,7 @@
 
 - **契约锚点**：API-KB-013；API-KB-014；API-KB-015；API-KB-016；API-KB-017；API-KB-026；API-KB-027；ENT-KnowledgeQa；迁移 ENT-KnowledgeQa [*]→published
 - **上游**：FLOW-PRODUCT-DICT
-- **下游**：FLOW-AI-DRAFT
+- **下游**：FLOW-AI-DRAFT、FLOW-KB-CARD
 - **守住的不变量**：INV-KB-004、INV-KB-006
 
 | 步骤 | 位置 |
@@ -603,6 +608,244 @@
 | S5 | `src/app/(app)/reception/knowledge/review-tab.tsx#ReviewTab`；`src/app/(app)/reception/knowledge/qa-dialog.tsx#QaDialog`；`src/server/knowledge/qa.ts#approveQa`；`src/server/knowledge/qa.ts#rejectQa` |
 | S6 | `src/app/(app)/reception/knowledge/knowledge-client.tsx#KnowledgePage`；`src/server/knowledge/qa.ts#publishedQaCounts` |
 
+### FLOW-KB-CARD · 维护经验卡
+
+#### 概要
+
+- **执行者**：管理员、组长（ROLE-Admin、ROLE-Lead）
+- **触发**：在知识库页「经验卡」页签新建或打开一张卡（PAGE-RECEPTION-KB）
+- **进入条件**：有 `knowledge.manage` 权限
+- **结果**：卡保存即发布，下一次出稿就能用；每次改动留版本
+- **不管**：从会话里学出卡；Agent 改卡的复测
+
+#### 主流程
+
+1. S1 筛选卡，可只看 Agent 改过未看的（API-KB-029） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/cards-tab.tsx〕
+2. S2 写卡：条件、步骤、分支、沟通提示与关联问答（API-KB-030） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/card-dialog.tsx〕
+3. S3 保存前可点「测试这张卡」，按出稿链路试答（API-KB-012） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/card-dialog.tsx〕
+4. S4 保存即发布，写第 1 版并生成检索向量 〔无界面〕
+5. S5 打开卡抽屉看内容、版本与近 30 天效果（API-KB-031） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/card-drawer.tsx〕
+6. S6 改卡，带版本号提交，写新版本（API-KB-032） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/card-dialog.tsx〕
+7. S7 看 Agent 改过的版本，标为已看（API-KB-037） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/card-drawer.tsx〕
+8. S8 回退到某个旧版本（API-KB-036） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/card-drawer.tsx〕
+9. S9 下架或恢复（API-KB-034、API-KB-035） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/cards-tab.tsx〕
+10. S10 删除卡（API-KB-033） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/cards-tab.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S2–S10
+
+##### S2 写卡
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 没写调用条件或步骤，或超过上限 | 422 `/errors/validation` | `/errors/validation`；API-KB-030 | 无用例 |
+| 失败 | 分支跳到本步或不存在的步骤 | 422 `/errors/validation`〔提示：跳到的步骤要是本卡里的另一步〕 | `/errors/validation`；字段 experience_card.steps | 无用例 |
+| 失败 | 选了别的商户的产品或问答 | 422 `/errors/validation` | `/errors/validation`；API-KB-030 | 不测：界面只列本商户的，代码仓测试覆盖 |
+| 失败 | 商户已有 2,000 张卡 | 409 `/errors/not-allowed`〔提示：经验卡已满 2,000 张〕 | `/errors/not-allowed`；API-KB-030 | 无用例 |
+| 边界 | 不选产品 | 存为通用卡，任何产品都可能用到 | 字段 experience_card.product_ids | 无用例 |
+
+##### S3 测试
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 卡还没保存 | 只在这次测试里生效，结果标出用没用到它 | API-KB-012；ADR-017 | 无用例 |
+| 失败 | 一分钟内测试超过 20 次 | 429 `/errors/rate-limited` | `/errors/rate-limited`；API-KB-012 | 无用例 |
+
+##### S4 生成向量
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 向量化出错或超过 2 秒 | 照常发布，5 分钟内后台补上，期间出稿找不到它 | 字段 experience_card.embedding；§15 与问答共用向量化（2 秒） | 不测：本地向量替身不会失败 |
+
+##### S5 看效果
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 店铺在影子模式 | 效果另列影子回复与人工回复一致、部分一致、不一致的份数 | 字段 draft_review.consistency；API-KB-031 | 无用例 |
+
+##### S6 改卡
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 别人刚改过同一张卡 | 409 `/errors/conflict`〔提示：这张经验卡刚被别人改过〕 | `/errors/conflict`；竞态「两人同时改同一张经验卡」；INV-KB-007 | 无用例 |
+| 边界 | 改的是 Agent 改过、还没人看过的卡 | 存为新版本，同时清掉「还没人看过」 | 字段 experience_card.agent_unseen；API-KB-032 | 无用例 |
+| 边界 | 标题与调用条件没变 | 沿用原检索向量 | 字段 experience_card.embedding | 不测：代码仓 card-core.test.ts 覆盖 |
+| 边界 | 内容一点没变 | 不写新版本 | API-KB-032；INV-KB-008 | 无用例 |
+
+##### S7 标为已看
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 并发 | 看的时候 Agent 又写了一版 | 409 `/errors/conflict`，重新加载后再看 | `/errors/conflict`；API-KB-037 | 无用例 |
+
+##### S8 回退
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 回退到第 n 版 | 用第 n 版内容写一个新版本，记「回退到第 n 版」 | API-KB-036；INV-KB-008 | 无用例 |
+| 边界 | 回退的是 Agent 改的版本 | 清掉「还没人看过」，下一次出稿用回退后的内容 | 字段 experience_card.agent_unseen；API-KB-036 | 无用例 |
+| 失败 | 要回退的版本不存在 | 404 `/errors/not-found` | `/errors/not-found`；API-KB-036 | 无用例 |
+| 边界 | 旧版本关联的产品或问答已删除 | 回退后不再带上它们 | API-KB-036 | 无用例 |
+
+##### S9 下架与恢复
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 下架 | 不再参与出稿，已有草稿照旧显示用过这张卡 | 迁移 ENT-ExperienceCard published→archived；RULE-KB-005 | 无用例 |
+| 边界 | 下架或恢复 | 只改状态，版本号不变、不写版本 | API-KB-034；API-KB-035 | 无用例 |
+| 失败 | 状态不允许这个操作 | 409 `/errors/conflict` | `/errors/conflict`；API-KB-034 | 无用例 |
+
+##### S10 删除
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 删除用过的卡 | 草稿照旧显示卡名，点不开 | 字段 draft.card；API-KB-033 | 无用例 |
+| 边界 | 学习任务指向这张卡 | 任务里的关联置空，任务与材料保留 | 字段 learning_task.target_card_id；API-KB-033 | 无用例 |
+
+#### 待决策
+
+无。
+
+另见：§28 标签字典待定；§28 Agent 改卡先于人工看到就影响自动回复
+
+#### 关联
+
+- **契约锚点**：API-KB-029；API-KB-030；API-KB-031；API-KB-032；API-KB-033；API-KB-034；API-KB-035；API-KB-036；API-KB-037；API-KB-012；ENT-ExperienceCard；ENT-CardVersion；迁移 ENT-ExperienceCard [*]→published「create」；RULE-KB-006；ADR-017
+- **上游**：FLOW-PRODUCT-DICT、FLOW-KB-QA、FLOW-KB-LEARN
+- **下游**：FLOW-AI-CARD
+- **守住的不变量**：INV-KB-007、INV-KB-008
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/app/(app)/reception/knowledge/cards-tab.tsx#CardsTab`；`src/app/(app)/reception/knowledge/cards-ui.tsx#useCardParams`；`src/server/knowledge/cards.ts#listCards` |
+| S2–S4 | `src/app/(app)/reception/knowledge/card-dialog.tsx#CardDialog`；`src/lib/card-form.ts#formToContent`；`src/server/knowledge/cards.ts#createCard`；`src/server/knowledge/card-store.ts#insertCard`；`src/server/knowledge/ask.ts#askKnowledge` |
+| S5 | `src/app/(app)/reception/knowledge/card-drawer.tsx#CardDrawer`；`src/app/(app)/reception/knowledge/cards-ui.tsx#adoptionRate`；`src/server/knowledge/cards.ts#getCard` |
+| S6 | `src/app/(app)/reception/knowledge/card-dialog.tsx#CardDialog`；`src/server/knowledge/cards.ts#updateCard`；`src/server/knowledge/card-store.ts#writeCardVersion` |
+| S7–S8 | `src/app/(app)/reception/knowledge/card-drawer.tsx#CardDrawer`；`src/lib/card-form.ts#diffCards`；`src/server/knowledge/cards.ts#markCardSeen`；`src/server/knowledge/cards.ts#rollbackCard` |
+| S9–S10 | `src/app/(app)/reception/knowledge/cards-tab.tsx#CardsTab`；`src/server/knowledge/cards.ts#archiveCard`；`src/server/knowledge/cards.ts#restoreCard`；`src/server/knowledge/cards.ts#deleteCard` |
+
+### FLOW-KB-LEARN · 会话学习
+
+#### 概要
+
+- **执行者**：员工提交学习，管理员、组长审核（ROLE-Agent、ROLE-Lead）
+- **触发**：员工在工作台勾选消息点「提交学习」，或 Agent 每天挑会话（PAGE-WB）
+- **进入条件**：会话在提交人可见范围内；Agent 只挑最近 7 天已结束的段
+- **结果**：新卡审核、复测后发布；Agent 改已有卡复测通过即生效
+- **不管**：从会话补问答；标签字典
+
+#### 主流程
+
+1. S1 员工勾选 1–20 条消息，可附备注，点「提交学习」（API-CONV-018） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/learning-submit.tsx〕
+2. S2 Agent 每天挑最近 7 天已结束、有人工处理的段 〔无界面〕
+3. S3 快照消息与前后对话，按卖家 SKU 等识别产品 〔无界面〕
+4. S4 找相似卡与相关问答，AI 下诊断与建议 〔无界面〕
+5. S5 新卡做内部测试：比较加卡前后的回答 〔无界面〕
+6. S6 审核人在「学习」页签打开任务，看六样材料（API-KB-039） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning-tab.tsx、src/app/(app)/reception/knowledge/learning-drawer.tsx〕
+7. S7 改拟发布的卡后复测（API-KB-040） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning-drawer.tsx〕
+8. S8 复测通过后发布，建卡或写新版本（API-KB-041） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning-drawer.tsx〕
+9. S9 员工在会话里看到「已提交学习」与结论（API-CONV-019） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/timeline.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S1–S9
+
+##### S1 提交
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 一条没选或超过 20 条 | 422 `/errors/validation` | `/errors/validation`；API-CONV-018 | 无用例 |
+| 失败 | 选的消息不属于这个会话 | 422 `/errors/validation` | `/errors/validation`；API-CONV-018 | 无用例 |
+| 失败 | 会话不在本人可见范围 | 404 `/errors/not-found` | `/errors/not-found`；API-CONV-018 | 无用例 |
+| 失败 | 同一会话一分钟内提交超过 5 次 | 429 `/errors/rate-limited`〔提示：提交太频繁，请稍后再试〕 | `/errors/rate-limited`；API-CONV-018 | 无用例 |
+| 边界 | 选的消息前后还有对话 | 前后各带 5 条一起快照，最多 40 条 | 字段 learning_task.messages | 无用例 |
+
+##### S2 Agent 挑会话
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 段里用卡的草稿被改后发送或弃用 | 优先挑，加 3 分 | 字段 draft.card_id | 无用例 |
+| 边界 | 草稿对比判为流程改变、事实更正或补充信息 | 优先挑，加 3 分 | 字段 draft_review.edit_class | 无用例 |
+| 边界 | 转过人工或关联过工单 | 各加 2 分，不到 2 分的段不挑 | 字段 segment.handed_off_at | 无用例 |
+| 边界 | 一个商户可挑的段超过 20 段 | 按分数取前 20 段 | 迁移 ENT-LearningTask [*]→analyzing「pick」 | 无用例 |
+| 边界 | 这一段已经有学习任务 | 不再挑 | 字段 learning_task.segment_id；竞态「同一段被挑两次」 | 无用例 |
+
+##### S3 识别产品
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 没识别到产品或对到多个 | 标「待确认产品」，照常分析，审核时可改 | 字段 learning_task.product_status | 无用例 |
+
+##### S4 诊断
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 已有内容覆盖 | 任务结束，结论「无需更新」 | 迁移 ENT-LearningTask analyzing→closed「covered」 | 无用例 |
+| 边界 | 知识缺失 | 任务结束，结论「建议补问答」 | 迁移 ENT-LearningTask analyzing→closed「need_qa」 | 无用例 |
+| 边界 | 证据不足 | 任务结束，不出候选，写明缺什么 | 迁移 ENT-LearningTask analyzing→closed「insufficient」 | 无用例 |
+| 边界 | 两条内容说法相反 | 进待审核，不带拟发布内容，审核人定 | 迁移 ENT-LearningTask analyzing→pending_review「conflict」 | 无用例 |
+| 边界 | AI 建议改已有卡 | 直接复测，通过即写新版本并标还没人看过 | RULE-KB-006；迁移 ENT-LearningTask analyzing→published「agent_update」 | 无用例 |
+| 失败 | Agent 改卡复测没通过 | 任务结束，记「复测没通过」与原因 | 迁移 ENT-LearningTask analyzing→closed「retest_failed」；§15 复测最多 3 个回归用例 | 无用例 |
+| 失败 | AI 出错或超时 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 分析 DeepSeek 60 秒 | 无用例 |
+
+##### S5 内部测试
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 新卡 | 用现有知识与加上这张卡各试答一次，并排给审核人看 | 字段 learning_task.test；ADR-017 | 无用例 |
+
+##### S6 打开任务
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 员工打开「学习」页签 | 403 `/errors/forbidden` | `/errors/forbidden`；API-KB-038 | 无用例 |
+
+##### S7 复测
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 原问题的新回答没用到这张卡 | 复测不通过，任务仍待审核 | 字段 learning_task.retest；API-KB-040；§15 同步返回，服务端 ≤ 60 秒 | 无用例 |
+| 失败 | 以前测过的问题答得更差 | 复测不通过，列出变差的问题与理由 | 字段 learning_task.retest；API-KB-040；§15 复测最多 3 个回归用例 | 无用例 |
+| 失败 | AI 出错或超时 | 502 `/errors/ai-unavailable` | `/errors/ai-unavailable`；API-KB-040 | 无用例 |
+| 并发 | 别人刚处理了同一个任务 | 409 `/errors/conflict` | `/errors/conflict`；竞态「两人同时处理同一个学习任务」 | 无用例 |
+
+##### S8 发布
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 失败 | 还没复测通过，或复测后又改了内容 | 409 `/errors/conflict`〔提示：请先复测通过再发布〕 | `/errors/conflict`；API-KB-041 | 无用例 |
+| 边界 | 改已有卡 | 写新版本，记由这个学习任务产生 | 字段 experience_card_version.learning_task_id；API-KB-041 | 无用例 |
+| 边界 | 无需更新或驳回 | 任务结束，材料与结论一直保留 | 迁移 ENT-LearningTask pending_review→closed「close」；API-KB-043 | 无用例 |
+
+##### S9 看结论
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 会话被删除 | 学习任务与消息快照一并删除，已发布的卡保留 | INV-KB-009；字段 learning_task.conversation_id | 无用例 |
+
+#### 待决策
+
+无。
+
+另见：§28 Agent 改卡先于人工看到就影响自动回复
+
+#### 关联
+
+- **契约锚点**：API-CONV-018；API-CONV-019；API-KB-038；API-KB-039；API-KB-040；API-KB-041；API-KB-042；API-KB-043；ENT-LearningTask；迁移 ENT-LearningTask [*]→analyzing「submit」；RULE-KB-006；ADR-017
+- **上游**：FLOW-AI-DRAFT、FLOW-AI-CARD、FLOW-DRAFT-COMPARE
+- **下游**：FLOW-KB-CARD
+- **守住的不变量**：INV-KB-008、INV-KB-009
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1 | `src/app/(app)/wb/learning-submit.tsx#LearningSubmit`；`src/server/learning/service.ts#submitLearning` |
+| S2 | `src/server/learning/pick.ts#pickSegments` |
+| S3–S5 | `src/server/learning/analyze.ts#analyzeTask`；`src/server/products/dictionary.ts#identifyProducts`；`src/server/ai/simulate.ts#simulateDraft` |
+| S6 | `src/app/(app)/reception/knowledge/learning-tab.tsx#LearningTab`；`src/server/learning/service.ts#getTask` |
+| S7–S8 | `src/app/(app)/reception/knowledge/learning-drawer.tsx#LearningDrawer`；`src/server/learning/retest.ts#retestProposal`；`src/server/learning/service.ts#publishTask` |
+| S9 | `src/app/(app)/wb/timeline.tsx#Timeline`；`src/server/learning/service.ts#conversationLearning` |
+
 ### FLOW-AI-DRAFT · AI 出稿
 
 #### 概要
@@ -610,7 +853,7 @@
 - **执行者**：系统出稿任务，替负责该店的员工准备回复（ROLE-Agent）
 - **触发**：买家在 AI 接待中的会话里发来新消息
 - **进入条件**：会话由 AI 接待，或影子模式下待认领
-- **结果**：生成一份草稿，自动模式直接发出，客服能看到依据的问答与资料
+- **结果**：生成一份草稿，自动模式直接发出，客服能看到依据与用到的卡
 - **不管**：客服怎么处置草稿；资料怎么上传与维护
 
 #### 主流程
@@ -618,13 +861,13 @@
 1. S1 买家消息入库后排出稿任务，等买家停手 6 秒再出稿 〔无界面〕
 2. S2 检查消息类型与转人工关键词 〔无界面〕
 3. S3 预占 1 次出稿用量 〔无界面〕
-4. S4 有可用资料或问答时把买家问题改写成中文 〔无界面〕
+4. S4 有可用资料、问答或经验卡时把买家问题改写成中文 〔无界面〕
 5. S5a 用改写后的问题检索问答与资料 〔无界面〕
 6. S5b 用买家原话检索问答与资料 〔无界面〕
 7. S6 问答取前 6 条在前，资料取前 8 段在后 〔无界面〕
-8. S7 带提示词、订单事实与资料片段请 DeepSeek 出稿 〔无界面〕
+8. S7 带提示词、订单事实、资料片段与候选经验卡请 DeepSeek 出稿 〔无界面〕
 9. S8 按模式存草稿、存影子回复或直接发给买家 〔无界面〕
-10. S9 员工在工作台看到草稿与依据的问答、资料（API-CONV-002） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/composer.tsx、src/app/(app)/wb/wb-shared.tsx〕
+10. S9 员工在工作台看到草稿、依据与用到的经验卡（API-CONV-002） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/composer.tsx、src/app/(app)/wb/wb-shared.tsx〕
 
 #### 分支
 
@@ -660,6 +903,7 @@
 | 失败 | 改写出错或超过 6 秒 | 只用买家原话检索一路 | §17 改写失败时只用买家原话检索；§15 改写 6 秒、混合检索每路 5 秒加纯向量重试 5 秒 | 不测：替身改写不会失败 |
 | 边界 | 没有对该店站点可用的资料 | 跳过改写与检索，照旧出稿 | RULE-KB-001；场景「assist 模式出草稿」 | TC-AI-003 |
 | 边界 | 没有资料，但有已发布问答 | 照常改写，只检索问答 | RULE-KB-004；ADR-016 | TC-KB-053 |
+| 边界 | 没有资料与问答，但有已发布经验卡 | 照常改写，只挑候选卡 | RULE-KB-005；ADR-017 | 无用例 |
 
 ##### S5a 两路检索
 
@@ -726,9 +970,9 @@
 
 #### 关联
 
-- **契约锚点**：API-CONV-002；ENT-Draft；迁移 ENT-Draft [*]→generated；ADR-014；ADR-016；RULE-KB-001；RULE-KB-002；RULE-KB-003；RULE-KB-004
+- **契约锚点**：API-CONV-002；ENT-Draft；迁移 ENT-Draft [*]→generated；ADR-014；ADR-016；ADR-017；RULE-KB-001；RULE-KB-002；RULE-KB-003；RULE-KB-004；RULE-KB-005
 - **上游**：FLOW-INBOUND、FLOW-KB-INGEST、FLOW-KB-MANAGE、FLOW-KB-QA、FLOW-KB-QA-REVIEW
-- **下游**：FLOW-WB-HANDLE、FLOW-FEISHU-CARD、FLOW-DRAFT-COMPARE
+- **下游**：FLOW-WB-HANDLE、FLOW-FEISHU-CARD、FLOW-DRAFT-COMPARE、FLOW-AI-CARD、FLOW-KB-LEARN
 - **守住的不变量**：INV-KB-002、INV-KB-004、INV-AI-001
 
 | 步骤 | 位置 |
@@ -738,6 +982,97 @@
 | S4–S6 | `src/server/knowledge/retrieve.ts#retrieveForDraft`；`src/server/knowledge/qa-retrieve.ts#retrieveQa`；`src/server/products/dictionary.ts#identifyProducts` |
 | S7–S8 | `src/server/ai/draft.ts#generateDraft`；`src/server/ai/language.ts#replyLanguage`；`src/server/ai/client.ts#chat`；`src/server/ai/draft.ts#handoff`；`src/server/ai/translate.ts#translateDraft` |
 | S9 | `src/app/(app)/wb/composer.tsx#DraftCard`；`src/app/(app)/wb/wb-shared.tsx#Citations`；`src/app/(app)/wb/timeline.tsx#ShadowDraft` |
+
+### FLOW-AI-CARD · 按经验卡出稿
+
+#### 概要
+
+- **执行者**：系统出稿任务，替负责该店的员工准备回复（ROLE-Agent）
+- **触发**：出稿时商户有对该店可用的已发布经验卡
+- **进入条件**：同 AI 出稿，会话由 AI 接待或影子模式下待认领
+- **结果**：草稿按卡的步骤推进，命中分支时转人工或建工单
+- **不管**：卡怎么写与改；会话学习
+
+#### 主流程
+
+1. S1 与问答共用向量挑候选卡，取前 3 张 〔无界面〕
+2. S2 带上本段正在用的卡与它做到的那一步 〔无界面〕
+3. S3 模型判断调用条件、第几步与走哪个分支 〔无界面〕
+4. S4 按卡继续、转人工或建工单 〔无界面〕
+5. S5 员工在草稿上看到「经验卡：标题 · 第 n 步」（API-CONV-002） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/composer.tsx、src/app/(app)/wb/timeline.tsx〕
+6. S6 辅助模式点「按卡建工单」，建内部确认工单（API-TKT-003） 〔界面：Web 工作台对话栏｜src/components/tickets/new-ticket-dialog.tsx〕
+
+#### 分支
+
+> 分支未与用户逐类核对：S1–S6
+
+##### S1 挑候选卡
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 经验卡的过滤 | 只取已发布、站点、阶段与产品相符的卡，距离不小于 0.6 的丢掉 | RULE-KB-005；字段 experience_card.status | 无用例 |
+| 边界 | 下架的卡 | 不进候选，已用过它的草稿仍显示卡名 | 迁移 ENT-ExperienceCard published→archived；RULE-KB-005 | 无用例 |
+| 失败 | 向量化出错或超过 2 秒 | 不挑新候选，只带正在用的卡 | §15 向量化失败只带正在用的卡；ADR-017 | 不测：本地向量替身不会失败 |
+
+##### S2 接着上一步
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 本段最近一份带卡的草稿动作是继续 | 这张卡一定进候选，从记下的那一步接着走 | 字段 draft.card；RULE-KB-005 | 无用例 |
+| 边界 | 本段最近一份带卡的草稿是转人工或建工单 | 下一条消息不再续走那张卡 | 字段 draft.card | 无用例 |
+
+##### S3 模型判断
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 模型给的卡编号不在候选里 | 当作没用卡 | 字段 draft.card_id | 不测：代码仓 card-core.test.ts 覆盖 |
+| 边界 | 用到一张卡 | 草稿记卡名、版本、第几步与条件成立的理由 | 字段 draft.card；INV-AI-001 | 无用例 |
+
+##### S4 按卡推进
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 当前这一步的分支要求转人工 | 不存草稿，转人工，原因「经验卡要求转人工」 | 迁移 ENT-Conversation bot→awaiting_human；字段 conversation.handoff_reason | 无用例 |
+| 边界 | 自动模式按卡转人工 | 先把模型给的回复作安抚句发给买家 | 迁移 ENT-Conversation bot→awaiting_human | 无用例 |
+| 边界 | 分支要求建工单，辅助模式 | 照常出草稿，草稿上给「按卡建工单」 | 字段 draft.card；API-TKT-003 | 无用例 |
+| 边界 | 分支要求建工单，自动模式 | 先发回复，再建「内部确认」工单，然后转人工 | 迁移 ENT-Ticket [*]→open「card_ticket」；字段 draft.card | 无用例 |
+| 边界 | 同一段同一张卡第二次要建工单 | 不重复建单 | 竞态「同一段按卡重复建工单」 | 无用例 |
+| 边界 | 影子模式下按卡要转人工或建工单 | 只记在影子回复上，不转人工、不建单 | 迁移 ENT-Draft [*]→shadow | 无用例 |
+
+##### S5 看到用了哪张卡
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 管理员或组长点卡名 | 新标签打开知识库这张卡 | API-CONV-002；API-KB-031 | 无用例 |
+| 边界 | 员工看草稿 | 只显示卡名与第几步，不能点开 | API-CONV-002 | 无用例 |
+| 边界 | 卡已下架或删除 | 照旧显示卡名，标已下架，点不开 | 字段 draft.card；API-CONV-002 | 无用例 |
+
+##### S6 按卡建工单
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 打开建单弹窗 | 类型预选「内部确认」，说明预填卡标题与要跟进的事 | API-TKT-003 | 无用例 |
+
+#### 待决策
+
+无。
+
+另见：§28 经验卡的距离阈值 0.6
+
+#### 关联
+
+- **契约锚点**：API-CONV-002；API-TKT-003；ENT-Draft；ENT-ExperienceCard；RULE-KB-005；ADR-017；迁移 ENT-Ticket [*]→open「card_ticket」
+- **上游**：FLOW-AI-DRAFT、FLOW-KB-CARD
+- **下游**：FLOW-KB-LEARN
+- **守住的不变量**：INV-AI-001
+
+| 步骤 | 位置 |
+| --- | --- |
+| S1–S2 | `src/server/knowledge/card-retrieve.ts#retrieveCards`；`src/server/knowledge/retrieve.ts#retrieveForDraft`；`src/server/ai/draft.ts#generateDraft` |
+| S3 | `src/server/knowledge/card-retrieve.ts#cardsPayload`；`src/server/ai/draft.ts#parseModelOutput`；`src/server/knowledge/card-retrieve.ts#cardUsed` |
+| S4 | `src/server/ai/draft.ts#generateDraft`；`src/server/ai/draft.ts#handoff`；`src/server/tickets/engine.ts#createTicket` |
+| S5 | `src/app/(app)/wb/composer.tsx#DraftCard`；`src/app/(app)/wb/timeline.tsx#ShadowDraft` |
+| S6 | `src/components/tickets/new-ticket-dialog.tsx#NewTicketDialog` |
 
 ### FLOW-FEISHU-CARD · 飞书待认领卡
 
@@ -1288,7 +1623,7 @@
 
 - **契约锚点**：API-DASH-001；API-DASH-007；ENT-DraftReview；ENT-Draft
 - **上游**：FLOW-AI-DRAFT、FLOW-WB-HANDLE
-- **下游**：FLOW-DASHBOARD
+- **下游**：FLOW-DASHBOARD、FLOW-KB-LEARN
 - **守住的不变量**：—
 
 | 步骤 | 位置 |
@@ -1342,6 +1677,33 @@
 
 出处：字段 knowledge_qa.status；字段 knowledge_qa.markets；字段 knowledge_qa.stage；字段 knowledge_qa.product_ids；迁移 ENT-KnowledgeQa pending→published；ADR-016
 
+### RULE-KB-005 · 只有已发布、条件对得上的经验卡参与出稿
+
+适用链路：FLOW-AI-DRAFT、FLOW-AI-CARD、FLOW-KB-CARD、FLOW-KB-LEARN
+
+| 卡状态与向量 | 适用站点 | 阶段 | 产品 | 结果 |
+| --- | --- | --- | --- | --- |
+| 已发布且有向量 | 含「全部」或该店站点 | 当前阶段或全部阶段 | 通用，或与识别出的产品有交集 | 进候选，由模型按调用条件决定用不用 |
+
+当前阶段不明时不看阶段，没识别出产品时不看产品；距离不小于 0.6 的丢掉，最多 3 张；本段正在用的卡与模拟出稿的拟发布卡另外带上；表外组合一律不进候选。
+
+出处：字段 experience_card.status；字段 experience_card.markets；字段 experience_card.stage；字段 experience_card.product_ids；迁移 ENT-ExperienceCard published→archived；ADR-017
+
+### RULE-KB-006 · 经验卡怎样生效
+
+适用链路：FLOW-KB-CARD、FLOW-KB-LEARN
+
+| 谁写的 | 新卡还是改已有卡 | 结果 |
+| --- | --- | --- |
+| 管理员、组长手写 | 新卡或改已有卡 | 保存即发布 |
+| Agent 从会话里学出 | 新卡 | 进待审核，审核人改后复测通过才发布 |
+| Agent 从会话里学出 | 改已有卡 | 复测通过即生效，标还没人看过；不通过作废 |
+| 审核人处理学习任务 | 新卡或改已有卡 | 复测通过后由审核人发布 |
+
+表外组合不发布；复测的通过标准见 §12 会话学习。
+
+出处：迁移 ENT-ExperienceCard [*]→published「create」；迁移 ENT-ExperienceCard [*]→published「publish_task」；迁移 ENT-LearningTask analyzing→published「agent_update」；迁移 ENT-LearningTask pending_review→published「publish」；字段 experience_card.agent_unseen；ADR-017
+
 ## L4. 不变量
 
 | ID | 不变量 | 由什么保证 | 验证 |
@@ -1352,6 +1714,9 @@
 | INV-KB-004 | 出稿与测试问答只引用已发布、有向量且站点相符的问答 | RULE-KB-004；迁移 ENT-KnowledgeQa published→archived | TC-KB-049、TC-KB-053 |
 | INV-KB-005 | 还有问答关联的产品不能删除 | API-KB-023 | TC-KB-044 |
 | INV-KB-006 | 问答的写操作只在版本号与当前一致时生效 | API-KB-016；API-KB-018 | TC-KB-048 |
+| INV-KB-007 | 经验卡的写操作只在版本号与当前一致时生效 | API-KB-032；API-KB-036；API-KB-037；竞态「两人同时改同一张经验卡」 | 无用例 |
+| INV-KB-008 | 经验卡每次内容变化都写一个版本，版本号从 1 起连续 | 字段 experience_card_version.version；API-KB-032；API-KB-036；迁移 ENT-LearningTask analyzing→published | 不测：代码仓 card-core.test.ts 覆盖 |
+| INV-KB-009 | 学习任务随所属会话或会话段一起删除 | 字段 learning_task.conversation_id；字段 learning_task.segment_id；API-SET-009 | 无用例 |
 | INV-AI-001 | 依据只存在草稿的引用里，系统不把它拼进发给买家的正文 | 字段 draft.citations；API-CONV-002 | TC-KB-024 |
 | INV-FEISHU-001 | 已废弃，被 INV-FEISHU-003 取代 | 竞态「同一段两次触发同种卡」；字段 feishu_delivery.segment_id | 不测：已废弃 |
 | INV-FEISHU-003 | 同一会话段同种卡只推一次，处理人每次取消认领再推一张待认领卡 | 竞态「同一段两次触发同种卡」；字段 feishu_delivery.seq | TC-FEISHU-006、TC-FEISHU-017 |
@@ -1370,7 +1735,7 @@
   - G7 商户上传自己的产品与政策资料，AI 出稿时检索并引用它们，客服在草稿下方看到依据。
   - G8 会话待认领时把卡片推到商户的飞书群，成员点卡片上的「认领」即可接手。
 - 非目标：
-  - 知识库一期只做资料上传、分类、检索、出稿引用与测试问答（用户 10-15 定）。以下仍不做：经验卡、更新审核与版本回滚、AI 回复核验（需求 2）、产品目录与按产品过滤、知识缺口看板、工作台「标记为知识」「标记知识缺口」、飞书问答。
+  - 知识库：资料、问答、产品清单与经验卡已做，以下仍不做：AI 回复核验（需求 2）、知识缺口看板、工作台「标记知识缺口」、从会话学出问答、标签字典、飞书问答。
   - 对话助手 `/assistant`（排在闭环之后）。
   - 真实平台接口：本期适配器只连模拟平台（ADR-004）。
   - 飞书：一期只做群推送（待认领卡、超时卡，只发卡片、不接卡片回调，用户 10-15 定）；飞书登录、成员同步、私聊、@人、卡片回调、卡片状态更新与草稿卡仍不做。
@@ -1481,6 +1846,14 @@
 | 修改分类 | 草稿对比把人工改动归成六类：语义一致、仅语言润色、补充信息、事实更正、流程改变、弃用重写 | `draft_review.edit_class` | `ENT-DraftReview` |
 | 影子回复一致率 | 已对比的影子回复里，与人工回复语义一致的占比，作为放开托管的依据 | `draft_review.consistency` | `ENT-DraftReview` |
 | 测试问答 | 管理员在知识库页提问，查看 AI 用出稿同一条链路给出的回答、引用与检索明细 | — | — |
+| 经验卡 | 商户写给 AI 的处理流程：什么情况下用、按什么步骤处理、走不通时转人工还是建工单 | `experience_card` | `ENT-ExperienceCard` |
+| 调用条件 | 经验卡上的几条文字条件，标明全部满足或满足任一；成立时出稿才用这张卡 | `experience_card.conditions`、`condition_mode` | `ENT-ExperienceCard` |
+| 卡版本 | 经验卡每次内容变化留下的完整快照，可回退；Agent 写的版本标「还没人看过」 | `experience_card_version` | `ENT-CardVersion` |
+| 还没人看过 | Agent 改卡生效后，还没有管理员或组长标为已看、改过或回退的状态 | `experience_card.agent_unseen` | `ENT-ExperienceCard` |
+| 学习任务 | 客服提交的几条消息或 Agent 挑的一段会话，AI 分析后出新卡、改卡或结束 | `learning_task` | `ENT-LearningTask` |
+| 内部测试 | 用学习任务里的买家提问，分别用现有知识与加上拟发布的卡各试答一次，不发给买家 | `learning_task.test` | `ENT-LearningTask` |
+| 复测 | 用拟发布的卡重跑原问题与回归用例：原问题要用到这张卡，回归用例不能答得更差 | `learning_task.retest` | `ENT-LearningTask` |
+| 回归用例 | 这张卡以前发布过的学习任务里的买家提问，取最近 3 个 | `learning_task.test_question` | `ENT-LearningTask` |
 | 审计日志 | 所有写操作与系统动作的追加记录，也是埋点事件的落点 | `audit_log` | `ENT-AuditLog` |
 | 通知 | 发给某个成员的站内消息 | `notification` | `ENT-Notification` |
 | 发件箱 | 本期代替真实发信：Shopilot 要发的邮件写在这里，开发页可看 | `email_outbox` | `ENT-EmailOutbox` |
@@ -1576,6 +1949,9 @@
 | REQ-KB-008 | 问答维护：手写问答即发布，可编辑、下架与删除 | G7 | P0 |
 | REQ-KB-009 | 资料整理成问答：AI 产出候选，审核通过才发布 | G7 | P0 |
 | REQ-KB-010 | 问答检索：出稿与测试问答先查已发布问答 | G7 | P0 |
+| REQ-KB-011 | 经验卡维护：手写即发布，留版本，可回退与下架 | G7 | P1 |
+| REQ-KB-012 | 出稿按经验卡推进：条件成立时按步骤回复，分支转人工或建工单 | G7 | P1 |
+| REQ-KB-013 | 会话学习：客服与 Agent 提供素材，新卡先审，Agent 改卡复测即生效 | G7 | P1 |
 | REQ-DASH-001 | 看板按时间范围统计会话、AI、人工、草稿与工单，可导出 | G6 | P0 |
 | REQ-DASH-002 | 看板问题提取：AI 给会话段写一句问题，按类别与日期统计 | G6 | P1 |
 | REQ-DASH-003 | 草稿对比：AI 草稿与人工回复按语义分类，看板给一致率 | G6 | P1 |
@@ -1628,6 +2004,16 @@
 - REQ-KB-009：同一份资料重新整理时，先删掉它尚未审核的候选再生成
 - REQ-KB-009：资料的 AI 可用开关不随问答发布自动关闭，过渡期旧资料照常被检索
 - REQ-KB-010：无对外 API，见 12.8；测试问答经 `API-KB-012` 返回问答命中
+- REQ-KB-011：卡含标题与目标、1–10 条调用条件、1–15 个步骤，每步最多 3 个分支
+- REQ-KB-011：阶段必填，产品不选为通用，站点默认全部，沟通提示、关联问答与标签选填
+- REQ-KB-011：每次内容变化写一个版本；回退是用旧版内容写一个新版本
+- REQ-KB-011：效果按近 30 天用到卡的草稿统计调用、采纳、改写、弃用与转人工
+- REQ-KB-012：无对外 API，见 12.8；草稿与影子回复经 `API-CONV-002` 带卡名与步骤
+- REQ-KB-012：候选卡由向量检索取前 3 张，用不用由模型按调用条件判断
+- REQ-KB-012：建工单的分支在辅助模式由客服一键建，自动模式由 AI 建「内部确认」工单后转人工
+- REQ-KB-013：客服一次选 1–20 条消息，Agent 每天每商户最多挑 20 段
+- REQ-KB-013：Agent 改已有卡复测通过即生效，事后可审改与一键回退，依据 10-19 答复第 7 项
+- REQ-KB-013：分析、内部测试与复测不计商户出稿用量
 - REQ-DASH-003：依据 `shopilot-agent-loop` 架构文档 4.1「如何监控草稿被大幅修改」与「接管档位」
 - REQ-DASH-003：原样发送记语义一致，修改后发送比发出的那条，忽略与影子回复比人工另行发出的回复
 - REQ-DASH-003：不计商户出稿用量；看板与样例只算买家会话，组长只看负责店铺
@@ -1787,6 +2173,9 @@ flowchart LR
 | `ENT-ProductListing` | 平台商品对应 | 店铺 × 平台商品 × 卖家 SKU，对上物料编码时指向产品 |
 | `ENT-KnowledgeQa` | 问答 | 问法、回复、产品、阶段、站点、状态、检索向量 |
 | `ENT-DraftReview` | 草稿对比 | 每份草稿最多一条：人工回复、修改分类、一致性、理由与证据 |
+| `ENT-ExperienceCard` | 经验卡 | 调用条件、步骤与分支、沟通提示、状态、版本号、还没人看过、检索向量 |
+| `ENT-CardVersion` | 卡版本 | 每次内容变化一行：完整快照、谁写的、由哪个学习任务产生 |
+| `ENT-LearningTask` | 学习任务 | 消息快照、产品、诊断与结论、拟发布内容、测试与复测结果 |
 | `ENT-TicketTypeConfig` | 工单类型配置 | 商户 × 类型 |
 | `ENT-Subscription` | 订阅 | 套餐、周期、自动续费、模拟付款方式 |
 | `ENT-UsagePeriod` | 用量周期 | 当期出稿数、额度、提醒记录 |
@@ -2035,6 +2424,8 @@ erDiagram
     text translation
     text status
     uuid disposed_by FK
+    uuid card_id FK
+    jsonb card
     uuid sent_message_id FK
   }
   DRAFT_REVIEW {
@@ -2383,6 +2774,86 @@ erDiagram
   }
 ```
 
+经验卡与会话学习（本组表结构按 2026-10-21 用户「1～8 直接做完吧，后面再改」上线；上线后再改要做数据迁移）：
+
+```mermaid
+erDiagram
+  MERCHANT ||--o{ EXPERIENCE_CARD : "经验卡"
+  EXPERIENCE_CARD ||--o{ EXPERIENCE_CARD_VERSION : "版本"
+  LEARNING_TASK ||--o{ EXPERIENCE_CARD_VERSION : "产生"
+  CONVERSATION ||--o{ LEARNING_TASK : "学习"
+  SEGMENT ||--o{ LEARNING_TASK : "学习"
+  EXPERIENCE_CARD ||--o{ LEARNING_TASK : "要改或发布成"
+  EXPERIENCE_CARD ||--o{ DRAFT : "用到"
+  EXPERIENCE_CARD {
+    uuid id PK
+    uuid merchant_id FK
+    text title
+    uuid_array product_ids
+    text stage
+    jsonb markets
+    text_array tags
+    text_array conditions
+    text condition_mode
+    jsonb steps
+    text tips
+    uuid_array qa_ids
+    text status
+    text source
+    int version
+    boolean agent_unseen
+    vector embedding
+    text embedding_model
+    uuid created_by FK
+    uuid updated_by FK
+    timestamptz published_at
+  }
+  EXPERIENCE_CARD_VERSION {
+    uuid id PK
+    uuid card_id FK
+    int version
+    jsonb snapshot
+    text author
+    uuid member_id FK
+    uuid learning_task_id FK
+    text note
+    jsonb retest
+    uuid seen_by FK
+    timestamptz seen_at
+  }
+  LEARNING_TASK {
+    uuid id PK
+    uuid merchant_id FK
+    uuid shop_id FK
+    uuid conversation_id FK
+    uuid segment_id FK
+    text source
+    uuid submitted_by FK
+    text note
+    jsonb messages
+    uuid_array product_ids
+    text product_basis
+    text product_status
+    text stage
+    text status
+    text diagnosis
+    text result
+    text reason
+    text suggestion
+    uuid target_card_id FK
+    jsonb proposal
+    jsonb similar
+    jsonb test
+    jsonb retest
+    text test_question
+    text error
+    uuid reviewed_by FK
+    uuid published_card_id FK
+    int published_version
+    int version
+  }
+```
+
 飞书推送（本组表结构 2026-10-16 用户确认直接上线，视为签字；上线后再改要做数据迁移）：
 
 ```mermaid
@@ -2616,7 +3087,7 @@ erDiagram
 | ID | 方法 路径 | 实现 | 请求 | 响应 | 特有错误 | 幂等 / 缓存 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `API-CONV-001` | `GET /api/v1/conversations` | REQ-CONV-002 | `?view=queue\|ai\|mine\|team\|done&platform=&shopId=&cursor=`（`ai` = AI 接待中：assist 待审草稿与 auto 回复中的会话，`team` = 他人处理中：同事处理中的会话与平台后台处理、没有处理人的会话，员工只有后一种） | `{ items[{ id, shop{ id, name, platform, market }, buyerName, preview, lastMessageAt, waitingSinceSec, pinned, overdue, handlingState, claimedBy?, draftPending, stage, openTickets[{ number, type, dueAt }] }], counts{ queue, ai, mine, team, done }, nextCursor }` | — | no-store；前端 3 秒轮询 |
-| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003、REQ-AI-007、REQ-CONV-012 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ kind: document\|qa, documentId?, qaId?, name, available }] }, shadowDrafts?[{ id, text, translation, confidence, triggerMessageId, createdAt, insufficient, citations[] }]（只返回给管理员、组长；`translation` 是商户语言译文，还没译好或不需要译时为 null；`citations` 是依据，`available = false` 表示资料已删除）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canUnclaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canUnclaim` 只在本人处理中时为 true；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 2 秒轮询 |
+| `API-CONV-002` | `GET /api/v1/conversations/{id}` | REQ-CONV-003、REQ-AI-007、REQ-CONV-012 | `?before=<messageId>`（向前翻页，每页 50） | `{ conversation{ ..., version, waitingSinceSec, responseSlaMinutes, overdue, canReply, replyBlockedReason }, segment{ stage, stageSource, stageBasis }, messages[]（含 sender_role = system 的系统事件）, hasMore, draft?{ id, text, confidence, reason, mode, createdAt, insufficient, citations[{ kind: document\|qa, documentId?, qaId?, name, available }], card? }, shadowDrafts?[{ id, text, translation, confidence, triggerMessageId, createdAt, insufficient, citations[], card? }]（只返回给管理员、组长；`translation` 是商户语言译文，还没译好或不需要译时为 null；`citations` 是依据，`available = false` 表示资料已删除；`card` 是用到的经验卡 `{ cardId?, version, title, step, action: continue\|handoff\|ticket, reason, ticketSummary?, archived }`，卡已下架或删除时 `archived = true`）, capabilities{ cards[], productCard{ enabled, reason? }, coupons, endSession, maxTextLength }, events[], openTickets[], history[{ stage, startedAt, endedAt, endReason, claimedBy, messages }], permissions{ canClaim, canUnclaim, canSend, canTransfer, canClose, canChangeStage, canIgnoreDraft } }`；`canUnclaim` 只在本人处理中时为 true；`canReply = false` 的三种原因：达人会话、店铺授权失效、买家最后发言超过 7 天 | — | no-store；前端 2 秒轮询 |
 | `API-CONV-003` | `GET /api/v1/conversations/{id}/buyer` | REQ-ORD-001、REQ-CONV-003 | — | `{ buyer{ name, externalId, language }, orders[{ id, externalOrderId, status, statusGroup, total, currency, items, shipByAt, tracking?, recipient?, afterSales[{ kind, platformStatus, sellerDueAt, open }] }], totals{ count180d, amount180d, currency }, piiMasked, syncedAt }`；只读订单镜像，不实时调平台（镜像由推送、每小时 `order.sync` 与 `API-ORD-003` 手动同步保持新鲜） | — | no-store；前端 10 秒轮询（订单推送到达后 10 秒内显示，见 §19） |
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
@@ -2632,6 +3103,8 @@ erDiagram
 | `API-CONV-015` | `POST /api/v1/conversations/{id}/messages/{messageId}/retry` | REQ-CONV-005、REQ-AI-003 | — | 200 `{ message }` | 409 `/errors/conflict`（不是 failed） | 只对 `send_status=failed` 生效 |
 | `API-CONV-016` | `POST /api/v1/conversations/{id}/unclaim` | REQ-CONV-012、REQ-FEISHU-003 | `{ version }` | 200 `{ id, handlingState, claimedBy, version }`：会话回到待认领、处理人为空，草稿与关联工单不变；提交后推飞书待认领卡 | 409 `/errors/conflict`（会话不是本人处理中，或版本不一致；附 `claimedBy`、`handlingState`、`version`） | 无幂等键；重复提交第二次 409 |
 | `API-CONV-017` | `GET /api/v1/shops/{id}/products` | REQ-CONV-014 | `?refresh=1`（不用缓存） | `{ items[{ productId, name, imageUrl, priceMin, priceMax, currency, stock, skus[], url }], truncated, fetchedAt }`：在售商品，每店最多 500 件，进程内缓存 10 分钟 | 409 `/errors/not-allowed`（`code: product_scope_missing` 没有商品读取权限；`shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | no-store |
+| `API-CONV-018` | `POST /api/v1/conversations/{id}/learning` | REQ-KB-013 | `{ messageIds[1..20], note? }`（消息须属于本会话，备注 ≤ 200 字） | 201 `{ task }`（分析中），快照选中消息与前后各 5 条、识别产品，排 `learning.analyze`；审计 `EVT:learning_submitted` | 404 `/errors/not-found`（会话不在可见范围）；422 `/errors/validation`（消息不属于本会话）；429 `/errors/rate-limited`（同一会话每分钟 5 次） | 幂等键 |
+| `API-CONV-019` | `GET /api/v1/conversations/{id}/learning` | REQ-KB-013 | — | `{ items[{ id, source, status, result, messageIds[], submittedByName, createdAt }] }`，时间线据 `messageIds` 标「已提交学习」 | 404 `/errors/not-found` | no-store |
 
 ### 8.6 订单、售后、发票
 
@@ -2691,7 +3164,7 @@ erDiagram
 | `API-KB-009` | `POST /api/v1/knowledge/categories` | REQ-KB-003 | `{ name }`（1..20 字） | 201 分类；审计 `EVT:knowledge_category_created` | 409 `/errors/duplicate`（同名）；409 `/errors/not-allowed`（`code: category_quota`，已有 50 个） | 幂等键 |
 | `API-KB-010` | `PATCH /api/v1/knowledge/categories/{id}` | REQ-KB-003 | `{ name }` | 200 分类；审计 `EVT:knowledge_category_renamed` | 409 `/errors/duplicate`；409 `/errors/not-allowed`（`code: builtin`，「未分类」不能改名） | 幂等 |
 | `API-KB-011` | `DELETE /api/v1/knowledge/categories/{id}` | REQ-KB-003 | — | 200 `{ movedDocuments }`，其中资料改归「未分类」，不重新解析；审计 `EVT:knowledge_category_deleted` | 409 `/errors/not-allowed`（`code: builtin`，「未分类」不能删） | 重复删除返回 404 |
-| `API-KB-012` | `POST /api/v1/knowledge/test` | REQ-KB-005、REQ-KB-010 | `{ question, shopId?, stage?, productId? }`（问题 1..500 字，任意语言） | 200 `{ answer, confidence, insufficient, wouldHandoff, handoffReason?, sources[{ n, documentId, name, snippet, fileUrl }], qaSources[{ n, qaId, question, answer }], qa{ latencyMs, error?, stage?, productIds[], hits[{ route, qaId, question, answer, distance }], merged[{ n, qaId }] }, retrieval{ rewrittenQuery, routes[{ kind: rewritten\|original, mode: hybrid\|vector_only, latencyMs, error?, chunks[{ documentId, name, chunkNo, text, score, scoreDetails }] }], merged[{ n, documentId, chunkNo }], degraded, degradedReason? }, latencyMs }`；走 12.8 同一条链路，不存草稿、不计出稿用量；既没有可用资料也没有已发布问答时不改写、不检索，`retrieval` 与 `qa` 为 null | 404 `/errors/not-found`（`shopId` 不是本人可见、未断开的店铺）；502 `/errors/ai-unavailable`（出稿那次 DeepSeek 调用失败或超时）；429 `/errors/rate-limited`（每商户每分钟 20 次，计数在 Web 进程内存里） | 不幂等；前端超时 60 秒，不自动重试 |
+| `API-KB-012` | `POST /api/v1/knowledge/test` | REQ-KB-005、REQ-KB-010 | `{ question, shopId?, stage?, productId?, card?, cardId? }`（问题 1..500 字，任意语言；`card` 是写卡表单里还没保存的卡，只在这次生效，带 `cardId` 时替换那张卡） | 200 `{ answer, confidence, insufficient, wouldHandoff, handoffReason?, sources[{ n, documentId, name, snippet, fileUrl }], qaSources[{ n, qaId, question, answer }], qa{ latencyMs, error?, stage?, productIds[], hits[{ route, qaId, question, answer, distance }], merged[{ n, qaId }] }, retrieval{ rewrittenQuery, routes[{ kind: rewritten\|original, mode: hybrid\|vector_only, latencyMs, error?, chunks[{ documentId, name, chunkNo, text, score, scoreDetails }] }], merged[{ n, documentId, chunkNo }], degraded, degradedReason? }, card?{ cardId, title, step, action, reason, ticketSummary }, latencyMs }`；走 12.8 同一条链路，不存草稿、不计出稿用量；资料、已发布问答与经验卡都没有时不改写、不检索，`retrieval` 与 `qa` 为 null；带的新卡用到时 `cardId` 为 `proposal` | 404 `/errors/not-found`（`shopId` 不是本人可见、未断开的店铺）；502 `/errors/ai-unavailable`（出稿那次 DeepSeek 调用失败或超时）；429 `/errors/rate-limited`（每商户每分钟 20 次，计数在 Web 进程内存里） | 不幂等；前端超时 60 秒，不自动重试 |
 | `API-KB-013` | `GET /api/v1/knowledge/qa` | REQ-KB-008、REQ-KB-009 | `?status=&stage=&productId=<id>\|none&market=&documentId=&q=&cursor=&limit=`（`none` 只列通用问答，`limit` 1..100、默认 30） | `{ items[问答视图], counts{ pending, published, rejected, archived }, nextCursor }`，按更新时间倒序 | 422 `/errors/validation`（游标无效） | no-store |
 | `API-KB-014` | `POST /api/v1/knowledge/qa` | REQ-KB-008 | `{ questions[1..10], answer, productIds[], stage: presale\|insale\|aftersale\|any, markets?, tags? }`（字段上限见表下） | 201 `{ qa }`（已发布），同步向量化，向量化失败也照常发布；审计 `EVT:knowledge_qa_created` | 422 `/errors/validation`（产品不属于本商户） | 幂等键 |
 | `API-KB-015` | `GET /api/v1/knowledge/qa/{id}` | REQ-KB-008 | — | `{ qa }` | — | no-store |
@@ -2708,6 +3181,21 @@ erDiagram
 | `API-KB-023` | `DELETE /api/v1/products/{id}` | REQ-KB-007 | — | 204；对应过来的平台商品改为未对应；审计 `EVT:product_deleted` | 409 `/errors/conflict`（`code: product_in_use`，还有问答关联） | 幂等 |
 | `API-KB-024` | `GET /api/v1/products/unmapped` | REQ-KB-007 | — | `{ shops[{ shop, items[{ externalProductId, sku, name? }] }], total }`，按店分组，最多 500 条 | — | no-store |
 | `API-KB-025` | `POST /api/v1/products/listings/sync` | REQ-KB-007 | — | 202 `{ queuedShops }`，对已连接且有商品读取权限的店排 `product.listing_sync` | — | 任务单例，重复调用合并 |
+| `API-KB-029` | `GET /api/v1/knowledge/cards` | REQ-KB-011 | `?status=&stage=&productId=<id>\|none&market=&q=&unseen=1&cursor=&limit=`（`unseen=1` 只列 Agent 改过、还没人看过的卡，不限状态） | `{ items[经验卡视图], counts{ published, archived }, unseenCount, nextCursor }`，按更新时间倒序；`unseenCount` 只数已发布的卡 | 422 `/errors/validation`（游标无效） | no-store |
+| `API-KB-030` | `POST /api/v1/knowledge/cards` | REQ-KB-011 | 卡内容（字段与上限见表下） | 201 `{ card }`（已发布，第 1 版），同步向量化，失败也照常发布；审计 `EVT:knowledge_card_created` | 422 `/errors/validation`（产品或问答不属于本商户、跳转步号不对）；409 `/errors/not-allowed`（`code: card_quota`，满 2,000 张） | 幂等键 |
+| `API-KB-031` | `GET /api/v1/knowledge/cards/{id}` | REQ-KB-011 | — | `{ card, versions[{ version, snapshot, author: member\|agent, memberName, learningTaskId, note, retest?, seenByName, seenAt, createdAt }] }`，版本倒序最多 50 个 | 404 `/errors/not-found` | no-store |
+| `API-KB-032` | `PATCH /api/v1/knowledge/cards/{id}` | REQ-KB-011 | `{ version, card }`（整张卡的内容一起提交） | 200 `{ card }`，写新版本、清「还没人看过」，标题或调用条件变了重算向量；内容没变时不写新版本；审计 `EVT:knowledge_card_updated` | 409 `/errors/conflict`（`code: version_conflict`）；422 `/errors/validation` | 按版本号守卫 |
+| `API-KB-033` | `DELETE /api/v1/knowledge/cards/{id}` | REQ-KB-011 | — | 204；草稿里的卡快照保留，学习任务的关联置空；审计 `EVT:knowledge_card_deleted` | — | 不幂等：已删除的再删返回 404 `/errors/not-found` |
+| `API-KB-034` | `POST /api/v1/knowledge/cards/{id}/archive` | REQ-KB-011 | `{ version }` | 200 `{ card }`，已发布转已下架，不再参与出稿；版本号不变、不写版本；审计 `EVT:knowledge_card_archived` | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`） | 按版本号守卫 |
+| `API-KB-035` | `POST /api/v1/knowledge/cards/{id}/restore` | REQ-KB-011 | `{ version }` | 200 `{ card }`，已下架转已发布；版本号不变；审计 `EVT:knowledge_card_restored` | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`） | 按版本号守卫 |
+| `API-KB-036` | `POST /api/v1/knowledge/cards/{id}/rollback` | REQ-KB-011、REQ-KB-013 | `{ version, toVersion }` | 200 `{ card }`，用第 toVersion 版内容写新版本，记「回退到第 n 版」，清「还没人看过」；旧版本里已删除的产品与问答不再带上；审计 `EVT:knowledge_card_rolled_back` | 404 `/errors/not-found`（没有这个版本）；409 `/errors/conflict`（`code: version_conflict`） | 按版本号守卫 |
+| `API-KB-037` | `POST /api/v1/knowledge/cards/{id}/seen` | REQ-KB-013 | `{ version }` | 200 `{ card }`，清「还没人看过」，在 Agent 写的那个版本上记看过的人与时间；审计 `EVT:knowledge_card_seen` | 409 `/errors/conflict`（`code: version_conflict`，看的时候又有新版本） | 按版本号守卫；已看过的再标结果不变 |
+| `API-KB-038` | `GET /api/v1/knowledge/learning` | REQ-KB-013 | `?status=&source=member\|agent&result=&cursor=&limit=` | `{ items[学习任务视图], counts{ analyzing, pending_review, published, closed, failed }, nextCursor }`，按创建时间倒序 | 422 `/errors/validation`（游标无效） | no-store |
+| `API-KB-039` | `GET /api/v1/knowledge/learning/{id}` | REQ-KB-013 | — | `{ task }` | 404 `/errors/not-found` | no-store |
+| `API-KB-040` | `POST /api/v1/knowledge/learning/{id}/retest` | REQ-KB-013 | `{ version, card, targetCardId? }`（审核人编辑后的拟发布内容） | 200 `{ task }`，同步复测，服务端 ≤ 60 秒，结果写进 `retest`；不发布 | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`）；422 `/errors/validation`；502 `/errors/ai-unavailable` | 不幂等；前端超时 90 秒，不自动重试 |
+| `API-KB-041` | `POST /api/v1/knowledge/learning/{id}/publish` | REQ-KB-013 | `{ version, card, targetCardId? }` | 200 `{ task }`（已发布），新建卡或给已有卡写新版本，版本记由这个任务产生；审计 `EVT:learning_published` | 409 `/errors/conflict`（`code: retest_required` 还没复测通过或内容与复测时不同；`version_conflict`；`invalid_state`） | 按版本号守卫 |
+| `API-KB-042` | `POST /api/v1/knowledge/learning/{id}/reanalyze` | REQ-KB-013 | `{ version }` | 202 `{ task }`（分析中），重新排 `learning.analyze` | 409 `/errors/conflict`（`code: invalid_state`，不是分析失败） | 按版本号守卫 |
+| `API-KB-043` | `POST /api/v1/knowledge/learning/{id}/close` | REQ-KB-013 | `{ version, result: none_needed\|rejected, reason? }`（原因 ≤ 200 字） | 200 `{ task }`（已结束），材料与结论保留；审计 `EVT:learning_closed` | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`，不在待审核或分析失败） | 按版本号守卫 |
 
 问答视图（`API-KB-013` 至 `API-KB-019`、`API-KB-026`、`API-KB-027` 共用）：
 
@@ -2717,6 +3205,28 @@ erDiagram
 - 上限：问法 1–10 个、每个 ≤ 200 字且不重复；回复 ≤ 2,000 字；产品 ≤ 50 个；标签 ≤ 10 个、每个 ≤ 20 字
 - `embedded` 为 false 的已发布问答检索不到，由 `knowledge.qa_embed` 在 5 分钟内补上向量
 - 产品读接口（`API-KB-020`、`API-KB-024`）要求 `knowledge.manage`，写接口要求 `products.manage`
+
+经验卡视图（`API-KB-029` 至 `API-KB-037` 共用）：
+
+- 字段：`{ id, title, products[{ id, code, name }], stage, markets[], tags[], conditions[], conditionMode: all\|any, tips }`
+- 字段（续）：`{ steps[{ text, branches[{ when, action: goto\|handoff\|ticket, goto? }] }], qa[{ id, question, status }] }`
+- 字段（续）：`{ status, source, version, agentUnseen, embedded, lastAuthor, createdByName, updatedByName, createdAt, updatedAt, publishedAt }`
+- 效果 `stats`：近 30 天 `{ calls, sent, edited, ignored, handoffs, shadowSame, shadowPartial, shadowDifferent }`
+- 效果口径：调用 = 用到这张卡的草稿（含自动模式发出的）+ 按卡转人工的审计记录
+- 效果口径（续）：采纳、改写、弃用只数辅助模式草稿；转人工 = 动作为转人工或建工单的草稿 + 按卡转人工的审计记录
+- 上限：标题 ≤ 100 字；调用条件 1–10 条，每条 ≤ 200 字；步骤 1–15 个，每步 ≤ 300 字、分支 ≤ 3 个
+- 上限（续）：沟通提示 ≤ 500 字，关联问答 ≤ 10 条，产品 ≤ 50 个，标签同问答
+- 跳转：`goto` 是 1 起的步号，不能是本步，不能超过步数
+- 写卡与改卡要求 `knowledge.manage`；关联的产品与问答必须属于本商户
+
+学习任务视图（`API-CONV-018`、`API-KB-038` 至 `API-KB-043` 共用）：
+
+- 字段：`{ id, source, submittedByName, note, conversation?{ id, buyerName, shopName, platform }, messages[{ id, from, type, text, at, selected }] }`
+- 字段（续）：`{ products[], productBasis, productStatus: identified\|none\|multiple, stage, status, diagnosis, result, reason, suggestion }`
+- 字段（续）：`{ targetCard?{ id, title, version, status }, proposal?, similar[{ cardId, title, distance, productMatch, stageMatch }], test?, retest?, testQuestion, error }`
+- 字段（续）：`{ reviewedByName, reviewedAt, publishedCard?{ id, title, version }, version, createdAt, updatedAt }`
+- 内部测试：`test{ question, before, after }`，每个回答 `{ reply, confidence, handoff, handoffReason, insufficient, card?, latencyMs }`
+- 复测：`retest{ at, proposalHash, passed, failReason, original, regressions[{ taskId, question, before, after, notWorse, reason }] }`
 
 ### 8.9 看板、用量与套餐
 
@@ -2888,7 +3398,7 @@ erDiagram
 | 买家语言 | `buyer.language` | `conversation.buyer_language` | text | 否 | BCP 47 主语言码，最近一条买家消息检测得出 | — | — |
 | 接待状态 | `handlingState` | `conversation.handling_state` | enum | 是 | `bot` / `awaiting_human` / `human` / `closed` | — | — |
 | 处理人 | `claimedBy` | `conversation.claimed_by` | uuid | 否 | `human` 时必有；membership ID | — | — |
-| 转人工原因 | `handoffReason` | `conversation.handoff_reason` | enum | 否 | `shop_off` / `shadow` / `keyword` / `low_confidence` / `non_text` / `model_error` / `timeout` / `send_failed` / `human_request` / `policy` / `quota` / `manual` / `platform_human`；模型要求转人工时取模型给的 `reason`（`human_request` / `policy` / `keyword` / `low_confidence`），其他取值记 `policy` | — | — |
+| 转人工原因 | `handoffReason` | `conversation.handoff_reason` | enum | 否 | `shop_off` / `shadow` / `keyword` / `low_confidence` / `non_text` / `model_error` / `timeout` / `send_failed` / `human_request` / `policy` / `quota` / `manual` / `platform_human` / `card`；模型要求转人工时取模型给的 `reason`（`human_request` / `policy` / `keyword` / `low_confidence` / `card`），其他取值记 `policy` | — | — |
 | 买家最后发言 | — | `conversation.last_buyer_at` | timestamptz | 否 | — | — | — |
 | 本方最后发言 | — | `conversation.last_agent_at` | timestamptz | 否 | 人工或 AI 发出；auto 转人工时的安抚句不更新（买家仍在等人工） | — | — |
 | 置顶 | `pinned` | 派生 | boolean | 是 | `handling_state ∈ {awaiting_human, human}` 且 `last_buyer_at > last_agent_at`（或无 `last_agent_at`） | — | — |
@@ -2936,8 +3446,10 @@ erDiagram
 | 模型 | — | `draft.model` | text | 是 | 如 `deepseek-flash` | — | — |
 | 耗时 | — | `draft.latency_ms` | int | 是 | — | 毫秒 | — |
 | 资料不足 | `insufficient` | `draft.insufficient` | boolean | 是 | 默认 false；模型判定订单事实与资料片段都不足以回答时为 true，此时一律转人工（RULE-KB-003） | — | — |
-| 检索快照 | — | `draft.retrieval` | jsonb | 否 | 商户有对该店可用的资料时写入：`{ rewrittenQuery, routes[{ kind, mode, latencyMs, error?, hits[{ chunkId, documentId, score }] }], merged[{ n, chunkId, documentId }], degraded, degradedReason?, latencyMs, qa?{ latencyMs, error?, productIds, hits[{ route, qaId, distance }], merged[{ n, qaId }] } }`；只存 ID、分数与距离，不存正文 | — | — |
+| 检索快照 | — | `draft.retrieval` | jsonb | 否 | 商户有对该店可用的资料时写入：`{ rewrittenQuery, routes[{ kind, mode, latencyMs, error?, hits[{ chunkId, documentId, score }] }], merged[{ n, chunkId, documentId }], degraded, degradedReason?, latencyMs, qa?{ latencyMs, error?, productIds, hits[{ route, qaId, distance }], merged[{ n, qaId }] }, cards?{ latencyMs, error?, hits[{ route, cardId, distance }], candidates[{ key, cardId, version, distance, active }] } }`；只存 ID、分数与距离，不存正文 | — | — |
 | 依据 | `citations` | `draft.citations` | jsonb | 否 | 模型声明用到的资料或问答 `[{ n, kind?, documentId?, qaId?, name }]`，只收合并结果里有的编号；`kind` 缺省为资料，`name` 是资料文件名或问答第一个问法的快照；只返回给成员，不随消息发给买家 | — | — |
+| 用到的经验卡 | `card.cardId` | `draft.card_id` | uuid | 否 | 模型用到、且在候选里的卡；卡删除后置空，`draft.card` 快照仍在 | — | — |
+| 经验卡快照 | `card` | `draft.card` | jsonb | 否 | `{ version, title, step, action: continue\|handoff\|ticket, reason, ticketSummary }`：出稿时的卡名、版本、第几步与条件成立的理由 | — | — |
 | 影子回复译文 | `translation` | `draft.translation` | text | 否 | 只有影子回复有：正文不是商户语言时由内部任务 `draft.translate` 写入；不需要译、还没译好或翻译失败时为空 | — | 中 |
 | 文件类别 | — | `file.kind` | enum | 是 | `chat_image` / `chat_video`（MP4，≤ 30 MB）/ `invoice_pdf` / `invoice_png` / `export_zip` / `knowledge_source`（知识库原文件） | — | — |
 
@@ -3094,6 +3606,56 @@ erDiagram
 | 检索向量 | `embedded` | `knowledge_qa.embedding` | vector(1024) | 否 | `@cf/baai/bge-m3` 按问法生成；为空的已发布问答检索不到，`knowledge.qa_embed` 补上 | — | — |
 | 向量模型 | — | `knowledge_qa.embedding_model` | text | 否 | 生成向量用的模型名 `@cf/baai/bge-m3`，本地替身也写这个名字 | — | — |
 | 问答版本 | `version` | `knowledge_qa.version` | int | 是 | 从 1 起，每次修改与状态迁移加 1；写操作必须带当前版本 | — | — |
+| 卡标题 | `title` | `experience_card.title` | text | 是 | 标题与目标，1..100 字 | — | — |
+| 卡关联产品 | `products` | `experience_card.product_ids` | uuid[] | 是 | 默认空，空表示通用；≤ 50 个，必须是本商户的产品 | — | — |
+| 卡适用阶段 | `stage` | `experience_card.stage` | enum | 是 | `presale` / `insale` / `aftersale` / `any`，同问答 | — | — |
+| 卡适用站点 | `markets` | `experience_card.markets` | jsonb | 是 | 同问答的适用站点，默认 `["ALL"]` | — | — |
+| 卡标签 | `tags` | `experience_card.tags` | text[] | 是 | 默认空，选填，上限同问答；标签字典待定 | — | — |
+| 调用条件 | `conditions` | `experience_card.conditions` | text[] | 是 | 1..10 条，每条 1..200 字 | — | — |
+| 条件组合 | `conditionMode` | `experience_card.condition_mode` | enum | 是 | `all`（全部满足）/ `any`（满足任一） | — | — |
+| 处理步骤 | `steps` | `experience_card.steps` | jsonb | 是 | `[{ text, branches[{ when, action: goto\|handoff\|ticket, goto? }] }]`；1..15 步，每步 ≤ 300 字、≤ 3 个分支，`goto` 指向本卡另一步 | — | — |
+| 沟通提示 | `tips` | `experience_card.tips` | text | 否 | ≤ 500 字 | — | — |
+| 关联问答 | `qa` | `experience_card.qa_ids` | uuid[] | 是 | 默认空；≤ 10 条，必须是本商户的问答；出稿时列它们的第一个问法 | — | — |
+| 卡状态 | `status` | `experience_card.status` | enum | 是 | `published`（已发布）/ `archived`（已下架），见 11.18 | — | — |
+| 卡来源 | `source` | `experience_card.source` | enum | 是 | `member`（成员写的）/ `agent`（Agent 写的） | — | — |
+| 卡版本号 | `version` | `experience_card.version` | int | 是 | 从 1 起，每次内容变化加 1，等于最新一行版本；下架与恢复不变；写操作必须带当前版本 | — | — |
+| 还没人看过 | `agentUnseen` | `experience_card.agent_unseen` | boolean | 是 | 当前版本是 Agent 写的、还没人标已看时为 true；成员写新版本、回退、标已看都清掉 | — | — |
+| 卡检索向量 | `embedded` | `experience_card.embedding` | vector(1024) | 否 | `@cf/baai/bge-m3` 按标题与调用条件生成，「；」连接；为空的卡出稿找不到，`knowledge.qa_embed` 补上 | — | — |
+| 卡向量模型 | — | `experience_card.embedding_model` | text | 否 | 同问答 | — | — |
+| 写卡人 | `createdByName`、`updatedByName` | `experience_card.created_by`、`updated_by` | uuid | 否 | membership ID；Agent 写的为空 | — | — |
+| 卡发布时间 | `publishedAt` | `experience_card.published_at` | timestamptz | 否 | 建卡时写入 | — | — |
+| 版本号 | `version` | `experience_card_version.version` | int | 是 | 与卡上版本号一致，`(card_id, version)` 唯一 | — | — |
+| 版本快照 | `snapshot` | `experience_card_version.snapshot` | jsonb | 是 | 这一版卡的全部内容字段 | — | — |
+| 版本作者 | `author` | `experience_card_version.author` | enum | 是 | `member` / `agent` | — | — |
+| 版本成员 | `memberName` | `experience_card_version.member_id` | uuid | 否 | 成员写的版本必有 | — | — |
+| 产生它的学习任务 | `learningTaskId` | `experience_card_version.learning_task_id` | uuid | 否 | 由学习任务发布或 Agent 改卡产生时写入；任务删除后置空 | — | — |
+| 改动说明 | `note` | `experience_card_version.note` | text | 否 | Agent 改卡的理由，或「回退到第 n 版」 | — | — |
+| 复测摘要 | `retest` | `experience_card_version.retest` | jsonb | 否 | Agent 改卡的版本才有：`{ passed, regressions, failReason }` | — | — |
+| 看过的人 | `seenByName`、`seenAt` | `experience_card_version.seen_by`、`seen_at` | uuid、timestamptz | 否 | Agent 写的版本被标为已看时写入 | — | — |
+| 学习来源 | `source` | `learning_task.source` | enum | 是 | `member`（客服提交）/ `agent`（Agent 挑选） | — | — |
+| 提交人 | `submittedByName` | `learning_task.submitted_by` | uuid | 否 | 客服提交的必有 | — | — |
+| 提交备注 | `note` | `learning_task.note` | text | 否 | ≤ 200 字 | — | 中 |
+| 消息快照 | `messages` | `learning_task.messages` | jsonb | 是 | `[{ id, from: buyer\|seller\|ai\|system, type, text, at, selected }]`，≤ 40 条 | — | 中 |
+| 学习会话段 | — | `learning_task.segment_id` | uuid | 否 | 所属会话段；Agent 挑的每段只建一个任务 | — | — |
+| 识别出的产品 | `products` | `learning_task.product_ids` | uuid[] | 是 | 按商品卡、订单卖家 SKU、文字识别 | — | — |
+| 产品依据 | `productBasis` | `learning_task.product_basis` | text | 否 | 如「订单商品的物料编码」 | — | — |
+| 产品识别结果 | `productStatus` | `learning_task.product_status` | enum | 是 | `identified` / `none` / `multiple`；后两种显示「待确认产品」 | — | — |
+| 段阶段 | `stage` | `learning_task.stage` | text | 是 | 提交或挑选时会话段的阶段 | — | — |
+| 学习状态 | `status` | `learning_task.status` | enum | 是 | `analyzing` / `pending_review` / `published` / `closed` / `failed`，见 11.19 | — | — |
+| 诊断 | `diagnosis` | `learning_task.diagnosis` | enum | 否 | `covered` / `not_triggered` / `missing_knowledge` / `process` / `tone` / `conflict` / `insufficient` | — | — |
+| 结论 | `result` | `learning_task.result` | enum | 否 | `none_needed` / `new_card` / `card_updated` / `retest_failed` / `rejected` / `need_qa` / `insufficient_evidence` | — | — |
+| 判断依据 | `reason` | `learning_task.reason` | text | 否 | ≤ 300 字 | — | — |
+| 建议改动 | `suggestion` | `learning_task.suggestion` | text | 否 | ≤ 300 字 | — | — |
+| 要改的卡 | `targetCard` | `learning_task.target_card_id` | uuid | 否 | 改已有卡时写入；卡删除后置空 | — | — |
+| 拟发布内容 | `proposal` | `learning_task.proposal` | jsonb | 否 | 拟发布的卡完整内容，结构同版本快照 | — | — |
+| 相似卡 | `similar` | `learning_task.similar` | jsonb | 否 | ≤ 5 张：卡 ID、标题、距离、产品与阶段是否对得上 | — | — |
+| 内部测试 | `test` | `learning_task.test` | jsonb | 否 | 原问题用现有知识与加上拟发布卡各试答一次 | — | 中 |
+| 复测结果 | `retest` | `learning_task.retest` | jsonb | 否 | 原问题与回归用例的改前改后回答、AI 判定与是否通过；`proposalHash` 是复测时内容的指纹 | — | 中 |
+| 测试提问 | `testQuestion` | `learning_task.test_question` | text | 否 | 最后一条买家文字；以后作为这张卡的回归用例 | — | 中 |
+| 分析失败原因 | `error` | `learning_task.error` | text | 否 | `failed` 时必有 | — | — |
+| 审核人 | `reviewedByName` | `learning_task.reviewed_by` | uuid | 否 | 发布或结束待审核任务的人 | — | — |
+| 发布的卡 | `publishedCard` | `learning_task.published_card_id`、`published_version` | uuid、int | 否 | 发布后写入 | — | — |
+| 学习任务版本 | `version` | `learning_task.version` | int | 是 | 从 1 起，每次状态变化与写入加 1 | — | — |
 
 ### 9.7 飞书推送
 
@@ -3158,6 +3720,7 @@ erDiagram
 | `API-CONV-010`、`API-CONV-011`、`API-CONV-012`、`API-CONV-014` | ✓ | ✓ | ✓ | `API-CONV-011` 另按文件所属对象鉴权，知识库原文件只给有 `knowledge.manage` 的管理员与组长 |
 | `API-CONV-013` | ✓ | 范围 | 范围 | — |
 | `API-CONV-017` | ✓ | 范围 | 范围 | 「商品」页签列店铺商品，发送仍按 `API-CONV-007` 判处理人 |
+| `API-CONV-018`、`API-CONV-019` | ✓ | 范围 | 范围 + 本人 | `wb.handle`；能看到这个会话就能提交学习、看它的学习任务 |
 | `API-ORD-001`、`API-ORD-002`、`API-ORD-003`、`API-ORD-004`、`API-ORD-005`、`API-ORD-006`、`API-ORD-007`、`API-ORD-008` | ✓ | 范围 | 范围 | 订单与开票三种角色都有，按负责店铺收窄 |
 | `API-INV-001`、`API-INV-002`、`API-INV-003`、`API-INV-004`、`API-INV-005` | ✓ | 范围 | 范围 | 同上 |
 | `API-TKT-001`、`API-TKT-002`、`API-TKT-006` | ✓ | 范围 | 本人 | 员工只看指派给自己的工单 |
@@ -3169,6 +3732,7 @@ erDiagram
 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012` | ✓ | ✓ | — | `knowledge.manage`；资料全商户共享，组长可管理全部资料；测试问答的店铺下拉只列本人可见的店铺 |
 | `API-KB-013`、`API-KB-014`、`API-KB-015`、`API-KB-016`、`API-KB-017`、`API-KB-018`、`API-KB-019`、`API-KB-026`、`API-KB-027`、`API-KB-028`、`API-KB-020`、`API-KB-024` | ✓ | ✓ | — | `knowledge.manage`；问答与产品清单全商户共享，组长可录入、审核与发布问答 |
 | `API-KB-021`、`API-KB-022`、`API-KB-023`、`API-KB-025` | ✓ | — | — | `products.manage`，只给管理员 |
+| `API-KB-029`、`API-KB-030`、`API-KB-031`、`API-KB-032`、`API-KB-033`、`API-KB-034`、`API-KB-035`、`API-KB-036`、`API-KB-037`、`API-KB-038`、`API-KB-039`、`API-KB-040`、`API-KB-041`、`API-KB-042`、`API-KB-043` | ✓ | ✓ | — | `knowledge.manage`；经验卡与学习任务全商户共享，组长可写卡、审核与发布 |
 | `API-DASH-001` | ✓ | 范围 | — | 看板 |
 | `API-DASH-002`、`API-DASH-003` | ✓ | 范围 | — | 看板问题提取，组长只看负责店铺的段 |
 | `API-DASH-007` | ✓ | 范围 | — | 草稿对比样例，组长只看负责店铺的会话 |
@@ -3197,6 +3761,8 @@ erDiagram
 | 影子回复（`shadowDrafts`） | 可见 | 负责店铺内可见 | 不返回 |
 | 草稿依据（`citations`） | 随草稿与影子回复返回 | 同左 | 随草稿返回 |
 | 知识库资料与测试问答 | 全部 | 全部（测试问答的店铺只列负责店铺） | — |
+| 经验卡与学习任务 | 全部 | 全部 | — |
+| 会话的学习任务（`API-CONV-019`） | 可见会话的全部任务 | 同左 | 同左 |
 | 会话列表视图 | queue、ai、mine、team、done | queue、ai、mine、team、done（范围内） | queue、ai、mine、team（只有平台后台处理、没有处理人的会话）、done |
 | 订单、售后单、发票 | 全部店铺 | 负责店铺 | 负责店铺 |
 | 工单 | 全部店铺 | 负责店铺 | `assignee = 本人` |
@@ -3224,6 +3790,10 @@ erDiagram
 | `export_job.status` | 建机 11.12 |
 | `knowledge_document.status` | 建机 11.14 |
 | `feishu_delivery.status` | 建机 11.15 |
+| `experience_card.status` | 建机 11.18 |
+| `learning_task.status` | 建机 11.19 |
+| `experience_card.agent_unseen` | 免建 ①：派生。Agent 写版本时置 true，成员写版本、回退、标已看（`API-KB-037`）时清掉 |
+| `learning_task.diagnosis`、`learning_task.result`、`learning_task.product_status` | 免建 ①：11.19 迁移时一起写入的分析结果 |
 | `membership.status` | 免建 ③ 极简运营态：创建即 `active`（`API-AUTH-001` 注册、`API-TEAM-006` 接受邀请）；`active → disabled` 只由管理员 `API-TEAM-008`；`disabled → active` 只由 `API-TEAM-009`；无多步流程 |
 | `platform_app.status`、`platform_app.callback_state` | 免建 ① 纯派生：最近一次校验结果的投影。`verified` / `invalid` 由 `API-SHOP-003`、`API-SHOP-011` 的校验结果写入，平台调用返回鉴权失败时由领域服务写 `invalid`；`callback_state` 每次 `API-SHOP-003`、`API-SHOP-010` 读回调配置后重算 |
 | `connect_draft.step` | 免建 ③：向导页面位置指针，由 `API-SHOP-002` 直接写，任意步骤可回退 |
@@ -3275,7 +3845,7 @@ stateDiagram-v2
 | [*] → awaiting_human | open_to_queue | 首条买家消息 且 `buyer_kind = buyer` 且 当前模式 ∈ {off, shadow} | 建会话与会话段并记开段模式；`handoff_reason = shop_off` 或 `shadow`；shadow 时排 `draft.generate(mode=shadow)`；推飞书待认领卡（12.9） | 内部任务 `inbound.process` | `API-HOOK-001`（推送; code=10）/ `API-HOOK-002`（webhook; type=14） |
 | [*] → closed | record_only | `buyer_kind = affiliate` 或 来源 = 历史回补 | 只建会话与消息，段标 `backfilled` 或达人会话；不判阶段、不出稿、不进队列、不计统计 | 内部任务 `inbound.process` / `shop.backfill` | `API-HOOK-001`（推送; code=10）/ 内部任务 `shop.backfill` |
 | bot → bot | ai_reply | 当前模式 = auto 且 草稿 `status = generated` 且 `handoff = false` 且 `confidence ≥ 阈值` | 发送草稿（11.2 `send`），更新 `last_agent_at` | 内部任务 `draft.generate` | 内部任务 `draft.generate` |
-| bot → awaiting_human | handoff | `handoff_reason ∈ {keyword, low_confidence, non_text, model_error, timeout, send_failed, human_request, policy, quota, shop_off, shadow}` | 写 `handoff_reason` 与段的转人工时刻、审计 `EVT:handoff`；auto 模式先发安抚句（不更新 `last_agent_at`，等待计时与待认领提醒照常）；通知负责该店的启用成员（规则 `handoff`）；推飞书待认领卡（12.9） | 内部任务 `inbound.process` / `draft.generate` | 内部任务 `draft.generate` |
+| bot → awaiting_human | handoff | `handoff_reason ∈ {keyword, low_confidence, non_text, model_error, timeout, send_failed, human_request, policy, quota, shop_off, shadow, card}` | 写 `handoff_reason` 与段的转人工时刻、审计 `EVT:handoff`；auto 模式先发安抚句（不更新 `last_agent_at`，等待计时与待认领提醒照常）；通知负责该店的启用成员（规则 `handoff`）；推飞书待认领卡（12.9） | 内部任务 `inbound.process` / `draft.generate` | 内部任务 `draft.generate` |
 | bot → human | claim | 操作人是启用成员 且 店铺在其范围内 且 请求带 `version` 时版本一致 | `claimed_by = 操作人`，段 `first_claimed_by` 为空时写入；未处置草稿保留可用；审计 `EVT:conversation_claimed` | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
 | bot → human | platform_human | 入站 `sender_role = platform_human`（卖家在平台后台直接回复）且 不是本方出站回声 且 不是店铺自动回复 | `claimed_by = null`，作废未处置草稿，写系统事件「平台侧已有人处理」；会话列进「他人处理中」、标「平台后台」，不进待认领 | 内部任务 `inbound.process` / `inbound.refetch` | `API-HOOK-001`（推送; code=10，Shopee 经 `mark_as_replied` 通知补拉）/ `API-HOOK-002`（webhook; type=14） |
 | awaiting_human → human | claim | 同 bot → human claim | 同上 | 成员 | `API-CONV-004` / `API-CONV-007`（认领并发送） |
@@ -3368,6 +3938,7 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
   [*] --> open : create
+  [*] --> open : card_ticket
   open --> in_progress : start
   open --> waiting : wait
   in_progress --> waiting : wait
@@ -3387,6 +3958,7 @@ stateDiagram-v2
 | 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
 | --- | --- | --- | --- | --- | --- |
 | [*] → open | create | 该类型 `auto_create = true`（自动建单时）且 未结工单中不存在同 `dedupe_key` | 编号、算 `due_at` 与 `due_source`、定负责人（类型默认负责人；无人时落店铺组长；仍无时落管理员）；写时间线、审计 `EVT:ticket_created`；通知负责人 | 成员 / 内部任务 `inbound.process` / 定时任务 `handover.scan` / 发件箱退信 | `API-TKT-003` / `API-HOOK-001`（推送; code=29 或 3 或 30）/ `API-HOOK-002`（webhook; type=12 或 11）/ 内部任务 `handover.scan` |
+| [*] → open | card_ticket | 自动模式出稿时按经验卡分支要建工单 且 未结工单中不存在同 `dedupe_key` | 类型「内部确认」、`origin = rule`，不看该类型的自动建单开关；`dedupe_key = card:<段>:<卡>`；描述为卡标题与要跟进的事；其余同 create | Worker（出稿任务） | 内部任务 `draft.generate`（无对外 API） |
 | open → in_progress | start | 手动类：操作人可改该工单；平台类：映射结果为 `in_progress` | 写时间线 | 成员 / 平台 | `API-TKT-004` / `API-HOOK-002`（webhook; type=12, BUYER_SHIPPED_ITEM） |
 | open → waiting | wait | 手动类：`waitingOn` 非空；平台类：映射结果为 `waiting` | 写 `waiting_on`、时间线；平台类按新截止字段更新 `due_at` | 成员 / 平台 | `API-TKT-004` / `API-HOOK-002`（webhook; type=12, AWAITING_BUYER_SHIP）/ `API-HOOK-001`（推送; code=29, PROCESSING） |
 | in_progress → waiting | wait | 同 open → waiting | 同上 | 成员 / 平台 | `API-TKT-004` / `API-HOOK-002`（webhook; type=12, REJECT_RECEIVE_PACKAGE 或 RETURN_OR_REFUND_REQUEST_SUCCESS） |
@@ -3740,6 +4312,74 @@ stateDiagram-v2
 | running → failed | fail | AI 出错、超时或其他异常 | 写失败原因，不写候选 | Worker | 内部任务 `knowledge.qa_extract` |
 | running → failed | stale | 整理中超过 30 分钟没有更新 | 失败原因「整理任务中断，请重新整理」 | Worker | 内部任务 `knowledge.qa_embed` 的每 5 分钟补扫 |
 
+### 11.18 经验卡 `ENT-ExperienceCard.status`
+
+只有 `published` 且有检索向量、站点相符的卡进出稿候选（RULE-KB-005）。改内容（`API-KB-032`）、回退（`API-KB-036`）、Agent 改卡（11.19 agent_update）与发布学习任务改已有卡（`API-KB-041`）都写新版本、版本号加 1，不改状态（INV-KB-008）；Agent 写的版本标「还没人看过」，`API-KB-037` 清掉。下架与恢复只改状态，版本号不变、不写版本；卡上的版本号始终等于最新一行版本，仍用于并发校验。
+
+```mermaid
+stateDiagram-v2
+  [*] --> published : create
+  [*] --> published : publish_task
+  published --> archived : archive
+  archived --> published : restore
+  published --> [*] : delete
+  archived --> [*] : delete
+```
+
+迁移表：
+
+| 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
+| --- | --- | --- | --- | --- | --- |
+| [*] → published | create | 字段合规 且 产品与问答都属于本商户 且 卡数 < 2,000 | 写第 1 版，同步向量化（2 秒），失败也照常发布；审计 `EVT:knowledge_card_created` | 管理员、组长 | `API-KB-030` |
+| [*] → published | publish_task | 学习任务待审核 且 最近一次复测通过 且 内容与复测时一致 且 不是改已有卡 | 建卡写第 1 版，版本记由这个任务产生；审计 `EVT:learning_published` | 管理员、组长 | `API-KB-041` |
+| published → archived | archive | `status = published` 且 版本一致 | 不再参与出稿；审计 `EVT:knowledge_card_archived` | 管理员、组长 | `API-KB-034` |
+| archived → published | restore | `status = archived` 且 版本一致 | 没有向量时补算；审计 `EVT:knowledge_card_restored` | 管理员、组长 | `API-KB-035` |
+| published → [*] | delete | — | 删卡与全部版本；草稿的卡快照保留，学习任务的关联置空；审计 `EVT:knowledge_card_deleted` | 管理员、组长 | `API-KB-033` |
+| archived → [*] | delete | — | 同 published → [*] delete | 管理员、组长 | `API-KB-033` |
+
+### 11.19 学习任务 `ENT-LearningTask.status`
+
+会话或会话段删除时（买家删除数据、保留期清理）任务随之删除（INV-KB-009），不单列迁移。
+
+```mermaid
+stateDiagram-v2
+  [*] --> analyzing : submit
+  [*] --> analyzing : pick
+  analyzing --> pending_review : propose
+  analyzing --> pending_review : conflict
+  analyzing --> published : agent_update
+  analyzing --> closed : covered
+  analyzing --> closed : need_qa
+  analyzing --> closed : insufficient
+  analyzing --> closed : retest_failed
+  analyzing --> failed : fail
+  failed --> analyzing : reanalyze
+  failed --> closed : close
+  pending_review --> pending_review : retest
+  pending_review --> published : publish
+  pending_review --> closed : close
+```
+
+迁移表：
+
+| 源 → 目标 | 事件 | 守卫（纯布尔） | 动作（副作用） | 谁触发 | 接口/事件 |
+| --- | --- | --- | --- | --- | --- |
+| [*] → analyzing | submit | 会话在提交人可见范围 且 消息都属于本会话 且 本会话一分钟内提交不到 5 次 | 快照选中消息与前后各 5 条，识别产品，排 `learning.analyze`；审计 `EVT:learning_submitted` | 成员 | `API-CONV-018` |
+| [*] → analyzing | pick | 段已结束 且 在最近 7 天内 且 有人工回复 且 还没有学习任务 且 得分 ≥ 2 | 快照整段消息（≤ 40 条），排 `learning.analyze` | Worker | 内部任务 `learning.pick` |
+| analyzing → pending_review | propose | AI 建议新建卡，或要改的卡已下架、删除 | 写诊断、拟发布内容与相似卡；内部测试改前改后各试答一次 | Worker | 内部任务 `learning.analyze` |
+| analyzing → pending_review | conflict | 诊断为内容冲突 | 写诊断与说法相反的两条内容，不带拟发布内容 | Worker | 内部任务 `learning.analyze` |
+| analyzing → published | agent_update | AI 建议改已有卡 且 卡仍已发布 且 复测通过 | 写新版本：Agent 写、标还没人看过、带复测摘要；结论「改了经验卡」；审计 `EVT:knowledge_card_agent_updated` | Worker | 内部任务 `learning.analyze` |
+| analyzing → closed | covered | 诊断为已有内容覆盖 | 结论「无需更新」 | Worker | 内部任务 `learning.analyze` |
+| analyzing → closed | need_qa | 诊断为知识缺失 | 结论「建议补问答」 | Worker | 内部任务 `learning.analyze` |
+| analyzing → closed | insufficient | 诊断为证据不足 | 结论「证据不足」，写明缺什么 | Worker | 内部任务 `learning.analyze` |
+| analyzing → closed | retest_failed | AI 建议改已有卡 且 复测没通过 | 结论「复测没通过」，记原因与复测结果，卡不变 | Worker | 内部任务 `learning.analyze` |
+| analyzing → failed | fail | AI 出错、超时或其他异常 | 写失败原因 | Worker | 内部任务 `learning.analyze` |
+| failed → analyzing | reanalyze | 版本一致 | 清失败原因，重新排 `learning.analyze` | 管理员、组长 | `API-KB-042` |
+| failed → closed | close | 版本一致 | 结论「无需更新」或「已驳回」 | 管理员、组长 | `API-KB-043` |
+| pending_review → pending_review | retest | 版本一致 | 用审核人编辑的内容同步复测，写复测结果与内容指纹 | 管理员、组长 | `API-KB-040` |
+| pending_review → published | publish | 版本一致 且 最近一次复测通过 且 内容与复测时一致 | 新建卡或给已有卡写新版本，记审核人；审计 `EVT:learning_published` | 管理员、组长 | `API-KB-041` |
+| pending_review → closed | close | 版本一致 | 结论「无需更新」或「已驳回」，可写原因，材料保留；审计 `EVT:learning_closed` | 管理员、组长 | `API-KB-043` |
+
 ## 12. 关键流程时序
 
 本系统的异步处理是「数据库队列 + Worker」流水线（pg-boss），用时序图表达，不另画事件建模图。图中 `MP` 是本期的模拟平台；上线后换成真实平台，消息不变。
@@ -4013,15 +4653,16 @@ sequenceDiagram
   participant WA as Workers AI（bge-m3）
   participant API as Shopilot API
   participant FE as 员工浏览器
-  W->>DB: 查对该店站点可用的资料（RULE-KB-001）与已发布问答（RULE-KB-004）
-  alt 两样都没有
+  W->>DB: 查对该店站点可用的资料（RULE-KB-001）、已发布问答（RULE-KB-004）与经验卡（RULE-KB-005）
+  alt 三样都没有
     W->>DS: 出稿，不带资料段（同 12.2）
-  else 有资料或问答
+  else 有资料、问答或经验卡
     W->>DB: 读最近 10 条消息与订单事实，识别产品
     W->>DS: 改写成一个中文完整问题（6 秒超时）
     par 问答
       W->>WA: 改写与原话一起向量化（2 秒超时）
       W->>DB: 按站点、阶段、产品过滤，每路取最近 5 条
+      W->>DB: 经验卡按同样条件每路取最近 3 张，带上本段正在用的卡
     and 资料改写路
       W->>CF: 混合检索 20 条，门槛 0（5 秒超时）
     and 资料原话路
@@ -4035,18 +4676,19 @@ sequenceDiagram
     alt 两路都失败
       W->>DS: 出稿，不带资料段，记检索降级
     else 至少一路有结果
-      W->>DS: 出稿，带编号资料片段（25 秒超时）
+      W->>DS: 出稿，带编号资料片段与候选经验卡（25 秒超时）
     end
   end
-  W->>DB: 存草稿、检索快照与依据（11.2 create），资料不足时转人工（RULE-KB-003）
+  W->>W: 按模型给的卡与步骤处理分支：转人工、建工单
+  W->>DB: 存草稿、检索快照、依据与用到的卡（11.2 create），资料不足时转人工（RULE-KB-003）
   FE->>API: 打开会话 (API-CONV-002)
-  API-->>FE: 草稿与依据，页面显示依据的问答与资料
+  API-->>FE: 草稿与依据，页面显示依据的问答、资料与用到的经验卡
 ```
 
 出稿检索规则：
 
-- 何时检索：商户有可用资料（RULE-KB-001）或已发布问答（RULE-KB-004）时才改写与检索
-- 两样都没有时不改写、不检索，出稿请求里没有资料段
+- 何时检索：商户有可用资料、已发布问答或已发布经验卡时才改写与检索，见 RULE-KB-001、RULE-KB-004、RULE-KB-005
+- 三样都没有时不改写、不检索，出稿请求里没有资料段与卡
 - 改写输入：最近 10 条消息（含商品卡、订单卡）与订单事实
 - 改写调用：DeepSeek 输出 `{ "query": "…" }`，6 秒超时、不重试
 - 改写输出：一个中文完整问题，概括买家最近几条消息在问什么
@@ -4066,7 +4708,7 @@ sequenceDiagram
 - 降级：两路都失败时不带资料出稿、不转人工，检索快照记 `degraded = true` 与原因（RULE-KB-002）
 - 出稿请求的 user 载荷新增 `knowledge: [{ n, title, text }]`
 - 护栏改为：产品参数、兼容性、保修与政策只能依据 `knowledge` 与 `order_facts`，回复里不写片段编号
-- 输出 JSON：`{ reply, confidence, handoff, reason, insufficient, used_sources }`，`used_sources` 是用到的片段编号
+- 输出 JSON：`{ reply, confidence, handoff, reason, insufficient, used_sources, card }`，`used_sources` 是用到的片段编号，`card` 见下方「经验卡规则」
 - 资料够不够由模型判断，不按检索分数设门槛：实测无答案题与可答题的分数重叠
 - `insufficient = true` 时不论阈值一律转人工，原因记「置信度低于阈值」（RULE-KB-003）
 - 依据：`used_sources` 里在合并结果中的编号按资料去重，存进 `draft.citations`，不在结果里的编号忽略
@@ -4095,6 +4737,27 @@ sequenceDiagram
 - 依据：`draft.citations` 按 `kind` 区分问答与资料，问答记 `qaId` 与第一个问法
 - 日志：`draft.generate` 另记 `qaRetrievalMs`、`qaHits`、`qaError`，检索快照记 `qa` 的命中与距离
 - 测试问答（`API-KB-012`）同样检索问答，可另选阶段与产品，返回问答命中、过滤条件与耗时
+
+经验卡规则：
+
+- 何时挑卡：商户有已发布经验卡时，即使没有资料与问答也改写与检索
+- 向量：与问答共用一次向量化；卡的向量按标题与调用条件算，用「；」连接
+- 候选：已发布、有向量、站点、阶段与产品相符（RULE-KB-005），每路取最近 3 张，距离不小于 0.6 的丢掉，两路交替去重取前 3 张
+- 正在用的卡：只看本段最近一份带卡的草稿，动作是继续、卡仍已发布时一定进候选，载荷标 `active_card{ id, step }`
+- 正在用的卡（续）：最近一份带卡的草稿是转人工或建工单时，下一条消息不再续走那张卡
+- 载荷：`cards[{ id, title, conditions, condition_mode, steps[{ n, text, branches[{ when, then }] }], tips, related_qa }]`，卡编号 K1、K2…
+- 分支写法：`then` 写成「跳到第 n 步」「转人工」「建工单」；`related_qa` 是关联问答的第一个问法
+- 护栏第 7 条：只有调用条件按全部满足或满足任一成立时才用，最多一张；每次回复只做当前一步
+- 护栏第 7 条（续）：有正在用的卡就从记下的那一步接着走；命中分支按它执行；卡只决定怎么处理，事实依据仍只看 knowledge 与 order_facts
+- 输出：`card{ id, step, reason, action: continue\|handoff\|ticket, ticket_summary }`，没用卡为 null
+- 对回候选：编号不在候选里当没用卡；步号夹在 1 到最后一步
+- 转人工：`action = handoff` 时不存草稿，转人工，原因 `card`；审计 `EVT:handoff` 带卡 ID、第几步与动作
+- 转人工（续）：自动模式先把模型给的回复作安抚句发给买家
+- 建工单：辅助模式照常出草稿，草稿上给「按卡建工单」，预填类型「内部确认」与要跟进的事
+- 建工单（续）：自动模式先发回复，再建「内部确认」工单，然后转人工；同一段同一张卡只建一张
+- 影子模式：按卡的转人工与建工单只记在影子回复上，不执行
+- 记录：草稿存 `card_id` 与 `card` 快照，检索快照另记卡的命中与候选
+- 测试问答与模拟出稿同样挑卡；可带一张还没保存的卡只在这次生效，带 `cardId` 时替换那张卡，不带时作为新卡排第一
 
 回复语言：
 
@@ -4391,9 +5054,58 @@ sequenceDiagram
 - AI 给的物料编码不在清单里：丢掉该产品；候选沿用资料的适用站点
 - 向量化失败：候选照写、不判重复，由 `knowledge.qa_embed` 每 5 分钟补
 
+### 12.17 会话学习（REQ-KB-013）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant FE as 员工浏览器
+  participant API as Shopilot API
+  participant DB as PostgreSQL
+  participant W as Worker（learning.pick、learning.analyze）
+  participant DS as DeepSeek
+  participant WA as Workers AI（bge-m3）
+  participant RV as 管理员或组长浏览器
+  FE->>API: 勾选消息提交学习 (API-CONV-018)
+  API->>DB: 快照消息与前后各 5 条，识别产品，任务分析中（11.19 submit）
+  API-->>FE: 201，消息标「已提交学习」
+  API-->>W: 排 learning.analyze（async）
+  Note over W: 每天 19:20 UTC 由 learning.pick 每商户挑 ≤ 20 段（11.19 pick）
+  W->>WA: 任务里的买家提问向量化
+  W->>DB: 取相似卡前 5 张（带近 30 天效果）与相关问答前 5 条
+  W->>DS: 诊断与建议（learn，60 秒超时）
+  alt 新卡
+    W->>DS: 内部测试：现有知识与加上新卡各试答一次（simulate）
+    W->>DB: 待审核（11.19 propose）
+  else 改已有卡
+    W->>DS: 复测：原问题与回归用例改前改后各答一次（simulate）
+    W->>DS: 判定改后不比改前差（judge）
+    alt 复测通过
+      W->>DB: 卡写新版本，标还没人看过（11.19 agent_update）
+    else 没通过
+      W->>DB: 任务结束，记复测没通过（11.19 retest_failed）
+    end
+  else 已覆盖、缺问答或证据不足
+    W->>DB: 任务结束并记结论（11.19 covered、need_qa、insufficient）
+  end
+  RV->>API: 打开学习任务 (API-KB-039)
+  RV->>API: 改拟发布内容后复测 (API-KB-040)
+  API->>DS: 复测（simulate、judge）
+  API-->>RV: 复测结果
+  RV->>API: 发布 (API-KB-041)
+  API->>DB: 建卡或写新版本（11.18 publish_task），任务已发布（11.19 publish）
+```
+
+- 分析输入：任务消息、识别出的产品与依据、阶段、相似卡前 5 张、相关问答前 5 条
+- 相似卡另带产品与阶段是否对得上、近 30 天效果
+- 分析输出：`{ diagnosis, reason, suggestion, action: none\|new_card\|edit_card, target_card, card, test_question }`
+- 复测通过：原问题的新回答用到了这张卡，且回归用例都判「改后不比改前差」；新卡没有回归用例
+- 回归用例：这张卡以前发布过的学习任务里的提问，取最近 3 个
+- 分析、内部测试与复测都不计商户出稿用量；DeepSeek 用途记 learn、simulate、judge
+
 ## 13. 页面与跳转地图
 
-视觉来源：品牌目录 `brand/`（`brand/DESIGN.md`；配色、字体、标志「叠信」都取自 Quilt 项目「Shopilot」设计系统 v5「奶油 / 可可 / 芒果 / 焦糖」，与原型一致）；页面结构与交互以 Quilt 原型 73 屏为准（ACRU 仪表盘结构：白侧栏可收起、顶栏搜索 + 图标按钮 + 账号卡、白色圆角面板网格；图表一律 Chart.js）。原型里知识库模块的屏（经验卡、更新审核、AI 核验、产品目录）与助手的屏不实现；知识库一期是接待设置里的「知识库」标签页，侧栏不单列「知识库」，顶栏不显示「助手」。
+视觉来源：品牌目录 `brand/`（`brand/DESIGN.md`；配色、字体、标志「叠信」都取自 Quilt 项目「Shopilot」设计系统 v5「奶油 / 可可 / 芒果 / 焦糖」，与原型一致）；页面结构与交互以 Quilt 原型 73 屏为准（ACRU 仪表盘结构：白侧栏可收起、顶栏搜索 + 图标按钮 + 账号卡、白色圆角面板网格；图表一律 Chart.js）。原型里知识库模块的屏（经验卡、更新审核、AI 核验、产品目录）不作依据，经验卡与学习按下方知识库页实现，AI 核验不做；助手的屏不实现；知识库是接待设置里的「知识库」标签页，侧栏不单列「知识库」，顶栏不显示「助手」。
 
 原型里的弹层屏（如 `/wb/transfer`）在实现中是所在页面上的对话框，用查询参数 `?dialog=<名>` 记录打开状态，便于刷新与分享链接；原型里的演示会话路由（如 `/wb/siti`）实现为 `/wb/<会话 ID>`，工单详情 `/tickets/siti` 实现为 `/tickets/<工单 ID>`。
 
@@ -4407,7 +5119,7 @@ sequenceDiagram
 | `PAGE-INVITE` | `/invite/<token>` | 公开 | `API-TEAM-005`、`API-TEAM-006` | 过期 / 撤销 / 已用；已有账号需先登录 |
 | `PAGE-OWNERSHIP` | `/ownership/<token>` | 受让管理员 | `API-SET-014` | 过期；登录账号不是受让人 |
 | `PAGE-ACCOUNT-SECURITY` | `/account/security` | 全部成员（本人） | `API-AUTH-008`、`API-AUTH-009`、`API-AUTH-010`、`API-AUTH-011` | 两步验证开启（二维码，扫不了时手动输入密钥）/ 关闭、本人登录设备与退出、个人偏好（桌面通知、提示音）；商户策略要求两步验证而未开启时登录后强制进入，开启前其他页面不可用；带 `?next=` 进来时开启后回到 `next` |
-| `PAGE-WB` | `/wb`、`/wb/<id>`（右栏页签 `?side=products` 为「商品」） | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-016`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-CONV-017`、`API-NAV-001` | 「商品」页签：加载、出错可重试、没有在售商品、搜不到、没有商品读取权限、不能发送时写原因；粘贴图片或视频先弹确认框预览；分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」：有 `knowledge.manage` 的管理员与组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名，资料已删除时所有人只看到文件名；影子回复不显示「资料不足」标记；影子回复有译文时原文下方显示「译 · Shopilot」译文，展开后可复制原文；从飞书卡片带 `?claim=1&m=` 或 `?m=` 进来时按下方「卡片落地」处理 |
+| `PAGE-WB` | `/wb`、`/wb/<id>`（右栏页签 `?side=products` 为「商品」） | 管理员、组长、员工 | `API-CONV-001`、`API-CONV-002`、`API-CONV-003`、`API-CONV-004`、`API-CONV-006`、`API-CONV-016`、`API-CONV-007`、`API-CONV-008`、`API-CONV-009`、`API-CONV-010`、`API-CONV-012`、`API-CONV-015`、`API-CONV-017`、`API-CONV-018`、`API-CONV-019`、`API-NAV-001` | 「商品」页签：加载、出错可重试、没有在售商品、搜不到、没有商品读取权限、不能发送时写原因；粘贴图片或视频先弹确认框预览；分组与侧栏子项的计数为 0 时不显示数字；空队列；会话已被他人认领（409 后刷新：组长以上只读，员工显示「X 已认领这个会话」与回列表）；看不到的会话（404）说明原因并给回列表（本人的会话被改派走时说明「已不在你名下」），没发出的回复留在页面上；轮询失败时保留已加载内容与输入框并提示重连；平台不可用；只读（已结束、达人会话）；工作台放不下三栏时右栏为抽屉；草稿与影子回复下方显示「依据：《文件名》」：有 `knowledge.manage` 的管理员与组长点文件名在新标签打开知识库页的资料抽屉，员工只看到文件名，资料已删除时所有人只看到文件名；影子回复不显示「资料不足」标记；影子回复有译文时原文下方显示「译 · Shopilot」译文，展开后可复制原文；从飞书卡片带 `?claim=1&m=` 或 `?m=` 进来时按下方「卡片落地」处理；草稿与影子回复显示「经验卡：标题 · 第 n 步」；「提交学习」见下方 |
 | `PAGE-WB-TRANSFER` | `/wb/<id>?dialog=transfer` | 同上（员工只对自己的会话） | `API-TEAM-012`、`API-CONV-005` | 无可选同事 |
 | `PAGE-WB-END` | `?dialog=end` | 同上 | `API-CONV-006` | 有未结工单时提示工单不受影响 |
 | `PAGE-WB-UNCLAIM` | `?dialog=unclaim` | 同上（只对本人处理中的会话） | `API-CONV-016` | 确认框说明会话回到待认领、草稿与工单不变；会话已不在本人名下时 409 并刷新 |
@@ -4417,7 +5129,7 @@ sequenceDiagram
 | `PAGE-WB-COUPONS` | `?dialog=coupons`（仅 TikTok） | 同上 | `API-CONV-013`、`API-CONV-007` | 无可发券 |
 | `PAGE-WB-REPLIES` | `?dialog=replies` | 同上 | `API-CONV-014` | 空（管理员可去设置页添加） |
 | `PAGE-WB-RETURN` | `?dialog=return-review` | 同上 | `API-ORD-005`、`API-ORD-008`、`API-ORD-007` | 平台截止倒计时；Shopee 只给同意退款 / 发起争议 |
-| `PAGE-WB-TICKET` | `?dialog=ticket` | 同上 | `API-TEAM-012`、`API-TKT-003` | 同去重键已有工单时链到它 |
+| `PAGE-WB-TICKET` | `?dialog=ticket`、`?dialog=card-ticket`（按卡建工单，类型预选「内部确认」、说明预填） | 同上 | `API-TEAM-012`、`API-TKT-003` | 同去重键已有工单时链到它 |
 | `PAGE-TICKETS` | `/tickets` | 管理员、组长、员工 | `API-TKT-001` | 空；员工默认「我的」且不可切「全部」 |
 | `PAGE-TICKETS-BOARD` | `/tickets/board` | 管理员、组长、员工 | `API-TKT-001`、`API-TKT-004` | 平台驱动卡片显示锁图标，无改状态菜单 |
 | `PAGE-TICKET` | `/tickets/<id>`（飞书卡片带 `?m=<商户 ID>`：先切到该商户，再去掉参数） | 管理员、组长、员工（员工只看自己的） | `API-TKT-002`、`API-TKT-004`、`API-TKT-005`、`API-TKT-006`、`API-TKT-007`、`API-TKT-008`、`API-ORD-005`、`API-ORD-006`、`API-ORD-007`、`API-AUTH-007` | 平台状态与物流异常说明显示中文，认不出的状态码原样显示；「转发到飞书」不能用时置灰并写原因；不是卡片所属商户的成员显示「看不到这张工单」；平台类「关闭工单」置灰附原因；平台类工单有「处理申请」，打开与订单页相同的售后处理弹层；时间线的平台事件来源一律标「平台」（成员处理后回读到的平台状态也算平台事件，成员动作另记一条） |
@@ -4430,7 +5142,7 @@ sequenceDiagram
 | `PAGE-RECEPTION-HOURS` | `/reception/hours` | 管理员 | `API-RCP-001`、`API-RCP-003` | 关键词满 30 个 |
 | `PAGE-RECEPTION-PROMPTS` | `/reception/prompts` | 管理员 | `API-RCP-001`、`API-RCP-004`、`API-RCP-005`、`API-RCP-008`、`API-RCP-009`、`API-RCP-010` | 护栏只读；快捷回复编辑弹窗按语言分页签增删版本，同一语言只能一个 |
 | `PAGE-RECEPTION-TICKETS` | `/reception/tickets` | 管理员 | `API-RCP-006`、`API-RCP-007` | 平台类时限只读 |
-| `PAGE-RECEPTION-KB` | `/reception/knowledge`（页签 `?tab=qa \| review \| docs \| products \| test`，缺省为问答；问答筛选 `?qaStatus=&qaStage=&qaMarket=&qaProduct=&qaQ=`，`?dialog=qa&qa=<id>` 或 `?tab=qa&qa=<id>` 打开问答，`?dialog=qa-reject&qa=<id>` 驳回；待审核 `?review=rejected`；产品搜索 `?pq=`；`?doc=<id>` 资料抽屉、`?docTab=parsed` 抽屉停在「解析内容」标签、`?dialog=upload \| categories`，筛选 `?category=&market=&state=&q=`） | 管理员、组长 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-KB-013`、`API-KB-014`、`API-KB-015`、`API-KB-016`、`API-KB-017`、`API-KB-018`、`API-KB-019`、`API-KB-020`、`API-KB-021`、`API-KB-022`、`API-KB-023`、`API-KB-024`、`API-KB-025`、`API-KB-026`、`API-KB-027`、`API-KB-028`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；整理中与整理失败；待审核为空；问答版本冲突；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；布局见表下 |
+| `PAGE-RECEPTION-KB` | `/reception/knowledge`（页签 `?tab=qa \| cards \| review \| learning \| docs \| products \| test`，缺省为问答；`?tab=cards&card=<id>` 打开卡抽屉、`?dialog=card` 新建卡、`?dialog=card&card=<id>` 编辑卡、`?task=<id>` 打开学习任务；问答筛选 `?qaStatus=&qaStage=&qaMarket=&qaProduct=&qaQ=`，`?dialog=qa&qa=<id>` 或 `?tab=qa&qa=<id>` 打开问答，`?dialog=qa-reject&qa=<id>` 驳回；待审核 `?review=rejected`；产品搜索 `?pq=`；`?doc=<id>` 资料抽屉、`?docTab=parsed` 抽屉停在「解析内容」标签、`?dialog=upload \| categories`，筛选 `?category=&market=&state=&q=`） | 管理员、组长 | `API-KB-001`、`API-KB-002`、`API-KB-003`、`API-KB-004`、`API-KB-005`、`API-KB-006`、`API-KB-007`、`API-KB-008`、`API-KB-009`、`API-KB-010`、`API-KB-011`、`API-KB-012`、`API-KB-013`、`API-KB-014`、`API-KB-015`、`API-KB-016`、`API-KB-017`、`API-KB-018`、`API-KB-019`、`API-KB-020`、`API-KB-021`、`API-KB-022`、`API-KB-023`、`API-KB-024`、`API-KB-025`、`API-KB-026`、`API-KB-027`、`API-KB-028`、`API-KB-029`、`API-KB-030`、`API-KB-031`、`API-KB-032`、`API-KB-033`、`API-KB-034`、`API-KB-035`、`API-KB-036`、`API-KB-037`、`API-KB-038`、`API-KB-039`、`API-KB-040`、`API-KB-041`、`API-KB-042`、`API-KB-043`、`API-CONV-011`、`API-RCP-001` | 空态；排队与解析中；整理中与整理失败；待审核为空；问答版本冲突；失败附原因与「重新解析」；资料满 500 份；测试问答的资料不足、检索降级、AI 不可用；经验卡版本冲突与 Agent 改过未看；学习任务复测不通过与分析失败；布局见表下 |
 | `PAGE-SHOPS` | `/shops`（含详情抽屉、`?dialog=rotate-key \| reauth \| disconnect`） | 管理员 | `API-SHOP-008`、`API-SHOP-009`、`API-SHOP-010`、`API-SHOP-011`、`API-SHOP-004`、`API-SHOP-012`、`API-SHOP-013` | 无店铺时引导去接入；授权失效；Shopee 推送未订阅（应用卡与详情抽屉给「重新校验」）；窄屏回复率图表横轴只写站点 |
 | `PAGE-CONNECT` | `/shops/connect`（含 `?dialog=assist`） | 管理员 | `API-SHOP-001`、`API-SHOP-002`、`API-SHOP-014` | — |
 | `PAGE-CONNECT-GUIDE` | `/shops/connect/<platform>/guide` | 管理员 | `API-SHOP-001`、`API-SHOP-002` | — |
@@ -4487,8 +5199,23 @@ sequenceDiagram
 - 产品导入弹窗：粘贴 CSV 或 TSV，写明格式与表头会跳过；导入后显示新增、更新、跳过与逐行错误
 - 未对应的平台商品：按店铺分组列出卖家 SKU 不在清单里的商品，没填 SKU 的显示「（没有填）」；没有时写「没有未对应的平台商品」
 - 测试问答：可选店铺、阶段（可不选）与产品；问答命中与资料命中分两块，问答块显示问法、距离与过滤条件，点问答打开编辑弹窗
+- 测试问答（续）：用到经验卡时显示卡名、第几步与条件成立的理由，点卡名打开卡抽屉
 - 测试问答（续）：既没有可用问答也没有资料时提示这次没有检索，回答只依据订单事实与提示词
 - 主按钮：问答页签「新建问答」、产品页签「导入产品」（只给管理员），每个页签至多一个主按钮
+- 经验卡页签：标题「经验卡」与已发布数，主按钮「新建经验卡」；按状态、阶段、产品、站点、关键字筛选
+- 经验卡页签（续）：可只看「Agent 改过、还没人看过」，数量显示在筛选上
+- 经验卡列表：每行标题、产品或「通用」、阶段、版本、最后谁改的、近 30 天调用与采纳率；Agent 改过未看的行标「待查看」
+- 写卡弹窗：标题与目标、产品、阶段、站点、标签、调用条件、步骤、沟通提示、关联问答；标签选填
+- 写卡弹窗（续）：调用条件可增删并选全部满足或满足任一；步骤有序，可增删、调顺序，每步可加分支
+- 写卡弹窗（续）：「测试这张卡」输入一句买家的话，按出稿链路试答并标出用没用到这张卡
+- 写卡弹窗（续）：保存前有一步核对，列出要发布的内容
+- 写卡弹窗（续）：停止输入 3 秒自动把草稿存在本机，保存成功后清掉
+- 卡抽屉：内容、版本列表、任意两版的改前改后对比、「回退到这一版」、近 30 天效果
+- 卡抽屉（续）：版本列表写谁改的、改动说明与复测摘要；Agent 改的版本有「标为已看」
+- 学习页签：标题「学习」，按状态与来源筛选，待审核数显示在页签上；每行来源、买家、诊断、结论与时间
+- 学习任务抽屉：原始消息并高亮选中的几条，背景写产品与依据、阶段，待确认产品可改
+- 学习任务抽屉（续）：相似卡、改前改后并排的测试回答、判断依据、可编辑的拟发布卡
+- 学习任务抽屉（续）：底部「复测」「发布」「无需更新」「驳回」；复测通过且内容没再改时才能发布
 
 飞书群推送（`PAGE-SETTINGS-NOTIFY` 里通知规则下方的一节，本节改动即时保存，不经页面右上角「保存」）：
 
@@ -4523,6 +5250,14 @@ sequenceDiagram
 - 平台后台处理的会话不计入待认领计数，也不计入侧栏工作台徽标（徽标 = 待认领 + AI 草稿）
 - 可按平台、店铺筛选；买家再回复的会话置顶并显示已等时长，超过接待时限标警示
 - 行上显示未结工单号与剩余时限
+
+提交学习（`PAGE-WB` 对话栏，`API-CONV-018`、`API-CONV-019`）：
+
+- 入口：对话栏工具条的「提交学习」，点后时间线里的消息出现勾选框，买家与客服的消息都能选，最多 20 条
+- 提交：底部写一句备注（选填）后点「提交」；成功后退出勾选，被选的消息标「已提交学习」
+- 结论：被提交过的消息旁可看任务状态与结论，如分析中、待审核、新建了经验卡
+- 三种角色都能提交，会话须在本人可见范围；提交太频繁时提示稍后再试
+- 按卡建工单：草稿动作是建工单时，草稿上给「按卡建工单」，打开建工单弹窗，类型预选「内部确认」、说明预填
 
 打开会话（`PAGE-WB` 对话栏，见 §15「打开会话」）：
 
@@ -4672,9 +5407,9 @@ flowchart LR
 | `/errors/two-factor-required` | 403 | 商户要求两步验证而本人未开 | 跳 `/account/security?next=<当前地址>`，开启后回到原页面 |
 | `/errors/ip-blocked` | 403 | 来源 IP 不在商户白名单 | 登录页提示联系管理员 |
 | `/errors/not-found` | 404 | 资源不存在或不属于当前商户 | 显示「找不到或已删除」，返回上级 |
-| `/errors/conflict` | 409 | 状态已被他人改变（认领冲突、版本不一致、草稿已处置、资料正在解析时重新解析） | 提示 `detail` 并刷新该对象，不自动重试 |
+| `/errors/conflict` | 409 | 状态已被他人改变（认领冲突、版本不一致、草稿已处置、资料正在解析时重新解析、学习任务没复测通过就发布） | 提示 `detail` 并刷新该对象，不自动重试 |
 | `/errors/duplicate` | 409 | 已存在同一对象（邮箱已注册、已是成员、同去重键工单、同名资料分类、内容相同的资料） | 提示并给出已存在对象的链接（`extra.existingId`；工单另带 `existingTicketId`、`number`） |
-| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制、资料满 500 份、分类满 50 个、改动「未分类」、还没连飞书、群自定义机器人接法不列群、店铺没有商品读取权限、现在不能转发到飞书） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
+| `/errors/not-allowed` | 409 | 业务规则不允许（Shopee 店选 auto、已发货不能取消、平台类工单改状态、所有者不能停用、降级受店铺数限制、资料满 500 份、分类满 50 个、改动「未分类」、还没连飞书、群自定义机器人接法不列群、店铺没有商品读取权限、现在不能转发到飞书、经验卡满 2,000 张） | 提示 `detail`；对应按钮本应置灰，出现即记 `EVT:permission_denied` 供核对前后端口径 |
 | `/errors/callback-occupied` | 409 | Shopee 应用回调已指向其他系统，需商户确认覆盖 | 凭证页展开确认勾选 |
 | `/errors/expired` | 410 | 邀请、重置、转让令牌过期或已用；`code` 区分 `expired` / `revoked` / `used` / `invalid`（令牌不存在，含重发后作废的旧链接） | 提示原因与下一步 |
 | `/errors/locked` | 423 | 同一邮箱连续输错 10 次，锁 15 分钟 | 显示剩余分钟（`extra.retryAfter`） |
@@ -4685,7 +5420,7 @@ flowchart LR
 | `/errors/rate-limited` | 429 | 超过限流（§15）；带 `Retry-After` | 提示稍后再试；轮询按 `Retry-After` 退避 |
 | `/errors/internal` | 500 | 未预期错误 | 通用提示 + 请求编号 |
 | `/errors/platform` | 502 | 平台或飞书返回错误；平台的 `extra.platformCode`、`extra.platformMessage` 与飞书的 `extra.feishuCode` 原样带出，`detail` 给中文解释 | 提示中文解释；写操作给「重试」（复用幂等键） |
-| `/errors/ai-unavailable` | 502 | DeepSeek 返回错误、空结果或超时（翻译、开票字段抽取、测试问答） | 提示「AI 暂时不可用」，可手动重试 |
+| `/errors/ai-unavailable` | 502 | DeepSeek 返回错误、空结果或超时（翻译、开票字段抽取、测试问答、学习任务复测） | 提示「AI 暂时不可用」，可手动重试 |
 | `/errors/platform-timeout` | 504 | 平台或飞书 10 秒未响应；写操作可能已生效 | 提示「结果未知，先刷新确认」，刷新后再决定是否重试 |
 | `/errors/signature` | 401 | 平台回调签名不通过（只用于 `/api/webhooks/*`） | 不适用（平台调用方） |
 
@@ -4724,6 +5459,13 @@ flowchart LR
 | 延迟 | 问答检索 | 向量化与查询合计 ≤ 2 秒，超时只丢掉问答一路；每路取 5 条、距离 ≤ 0.55，合并取前 6 条 |
 | 容量 | 资料整理成问答 | `knowledge.qa_extract` 单例、30 分钟过期、不重试；每批约 6,000 字，每份资料 ≤ 200 条候选，单批 AI 调用 90 秒超时 |
 | 容量 | 补检索向量 | `knowledge.qa_embed` 每 5 分钟一轮，每轮 ≤ 200 条；同时把整理中超过 30 分钟的资料标失败 |
+| 容量 | 经验卡 | 每商户 ≤ 2,000 张（含已下架）；卡详情最多列 50 个版本 |
+| 延迟 | 候选经验卡 | 与问答共用向量化（2 秒），每路取 3 张、距离 < 0.6，合并取前 3 张；向量化失败只带正在用的卡 |
+| 限流 | 提交学习 | 同一会话每分钟最多 5 次，超出 429 |
+| 容量 | 会话学习（`learning.pick`） | 每天 19:20 UTC 一轮，每商户最多 20 段，只看最近 7 天已结束、有人工回复的段 |
+| 容量 | 学习分析（`learning.analyze`） | 并发 2，任务 10 分钟；分析 DeepSeek 60 秒，模拟出稿每次 25 秒，复测最多 3 个回归用例 |
+| 延迟 | 学习任务复测（`API-KB-040`） | 同步返回，服务端 ≤ 60 秒，前端超时 90 秒 |
+| 成本 | 会话学习 | 不计商户出稿用量；新卡一个任务约 3 次 DeepSeek 调用，改已有卡最多 11 次 |
 | 容量 | 产品清单 | 每次导入 ≤ 2,000 行、≤ 20 万字符；每商户 ≤ 5,000 个产品；未对应的平台商品列表 ≤ 500 条 |
 | 容量 | 问答 | 问法 ≤ 10 个、每个 ≤ 200 字；回复 ≤ 2,000 字；向量索引 HNSW；按 §2 每商户 ≤ 500 份资料、每份 ≤ 200 条推算，每商户 ≤ 10 万条 |
 | 限流 | 登录 | 同一邮箱 15 分钟内失败 10 次锁 15 分钟（423）；同一 IP 每分钟 30 次（429） |
@@ -4781,6 +5523,10 @@ flowchart LR
 | 常见问题记录先于会话建立到达 | `inbound.process`（bundle_message）与开段的买家消息推送 | 不丢弃：排 `inbound.refetch`，会话建好后从拉取页入库，再排 `shopee.bundle` | 补拉对这类记录放宽到本段开始前 2 分钟；入库靠唯一索引 `(conversation_id, external_message_id)` 去重；`shopee.bundle` 的 `singletonKey` = 消息 ID |
 | 重复转发同一工单 | `API-TKT-010` × 2 | 同一幂等键只转发一次，返回首次结果；不带幂等键的两次请求各发一张 | header `Idempotency-Key` |
 | 转发卡排队时换了飞书接法 | `API-SET-018`、`API-SET-020`、`API-SET-023` 与 `feishu.send` | 记跳过，不发 | 发送前重读接法与群设置：应用接法要求仍是应用，群机器人要求群设置还在 |
+| 两人同时改同一张经验卡 | `API-KB-032`、`API-KB-036`、`API-KB-037` 与 Agent 改卡 | 先到者成功；后到者 409 `/errors/conflict`，Agent 改卡记复测没通过的原因 | `UPDATE experience_card … WHERE version = ?`，0 行即冲突；写版本行与改卡在同一事务 |
+| 两人同时处理同一个学习任务 | `API-KB-040`、`API-KB-041`、`API-KB-043` × 2 | 先到者成功；后到者 409 `/errors/conflict` | `learning_task.version` 条件更新 |
+| 同一段被挑两次 | `learning.pick` 重跑 | 只建一个学习任务 | 部分唯一索引 `(segment_id) WHERE source = 'agent'` |
+| 同一段按卡重复建工单 | `draft.generate` × n（自动模式） | 只建一张工单 | `dedupe_key = card:<段>:<卡>`，同工单的未结去重索引 |
 
 一致性承诺：
 
@@ -4794,9 +5540,9 @@ flowchart LR
 
 | 依赖 | 用途 | SLA | 超时/重试 | 失败影响 | 降级 |
 | --- | --- | --- | --- | --- | --- |
-| DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译、飞书卡片的总结、草稿对比 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；草稿对比 15 秒、不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒）；卡片总结 6 秒、不重试 | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
+| DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译、飞书卡片的总结、草稿对比、会话学习的分析、模拟出稿与复测判定 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；草稿对比 15 秒、不重试；学习分析 60 秒、模拟出稿 25 秒、复测判定 15 秒，都不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒）；卡片总结 6 秒、不重试 | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
 | Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 混合检索每路 5 秒，无向量分、超时或返回 HTTP 错误时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
-| Cloudflare Workers AI `@cf/baai/bge-m3`（复用 `CLOUDFLARE_API_TOKEN`，令牌 2026-10-21 加了 Workers AI Read） | 问答问法与出稿查询的向量化 | 未公布 SLA；2026-10-21 生产实测单次约 90 ms | 出稿与手写问答 2 秒、整理任务 10 秒；每次 ≤ 50 条，不重试 | 问答检索不到，新问答暂时没有向量 | 只丢掉问答一路；没向量的问答由 `knowledge.qa_embed` 补 |
+| Cloudflare Workers AI `@cf/baai/bge-m3`（复用 `CLOUDFLARE_API_TOKEN`，令牌 2026-10-21 加了 Workers AI Read） | 问答问法、经验卡标题与调用条件、出稿查询的向量化 | 未公布 SLA；2026-10-21 生产实测单次约 90 ms | 出稿与手写问答 2 秒、整理任务 10 秒；每次 ≤ 50 条，不重试 | 问答检索不到，新问答暂时没有向量 | 只丢掉问答一路；没向量的问答由 `knowledge.qa_embed` 补 |
 | 飞书开放平台（应用接法）与群自定义机器人 | 发待认领卡、超时卡与工单转发卡；校验应用凭证、列机器人所在的群、上传图片、发测试卡片 | 未公布 SLA；自定义机器人每个每分钟 100 次、每秒 5 次 | 10 秒、图片上传 15 秒；token 按 App ID 缓存约 2 小时，鉴权失败换一次；`feishu.send` 重试 5 次指数退避 | 卡片晚到或发不出 | 失败写原因，设置页显示最近一次失败；会话照常在工作台待认领里 |
 | 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息与视频、按 ID 拉常见问题记录、订单、售后、店铺指标、在售商品目录 | 未公布 SLA | 10 秒（Shopee 视频上传、TikTok 视频每块更长，见 §15）；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
 | PostgreSQL 17（含 pgvector 0.8 扩展） | 全部业务数据、任务队列、问答检索向量（ADR-016） | 单实例，本机 | 连接池 20；查询超时 5 秒（报表 30 秒） | 全站不可用 | 无降级，返回 503 |
@@ -4814,13 +5560,15 @@ flowchart LR
 | `knowledge.ingest` | `API-KB-002`、`API-KB-006` | `singletonKey = document_id`；全局并发 4、单商户 2 | 20 分钟 | 条目级删除后同名重传最多 2 次；任务异常或超时把资料标 `failed`，管理员可重新解析 | 同上 |
 | `knowledge.purge` | `API-KB-007`；每小时补扫停在 `deleting` 超过 10 分钟的资料，同时补扫入库：排队中且 10 分钟没有任何更新的重新排入库（改分类、站点、AI 可用都会重新计时），`processing` 超过 25 分钟没有更新的标失败，原因「入库任务中断，请重新解析」；`merchant.purge` 删整个实例 | 单资料一次；单实例互斥 | 5 分钟 | 重试 5 次指数退避（起步 30 秒），仍失败留 `deleting` 等补扫 | 同上 |
 | `knowledge.qa_extract` | `API-KB-028` | `singletonKey = document_id` | 30 分钟 | 不重试；AI 出错写失败原因，任务中断由 `knowledge.qa_embed` 30 分钟后标失败 | 同上 |
-| `knowledge.qa_embed` | 每 5 分钟 | 每轮 ≤ 200 条已发布与待审核的无向量问答 | 2 分钟 | 下轮补 | 同上 |
+| `knowledge.qa_embed` | 每 5 分钟 | 每轮 ≤ 200 条已发布与待审核的无向量问答，顺带补 ≤ 200 张无向量的已发布经验卡，卡版本没变才写入 | 2 分钟 | 下轮补 | 同上 |
 | `product.listing_sync` | `API-KB-021`、`API-KB-025` | 逐店强制重拉商品目录 | 30 分钟 | 重试 1 次（60 秒后） | 同上 |
 | `message.translate` | TikTok 买家消息落库后入队 | 并发 10 | 15 秒 | 重试 1 次，仍失败保留原文 | 同上 |
 | `shopee.bundle` | Shopee 常见问题记录入库后入队；历史补拉脚本 `scripts/shopee-bundles.ts` | `singletonKey = 消息 ID` | 1 分钟 | 超时与 5xx 重试 4 次指数退避（起步 15 秒）；授权失效、无权限、参数错、查不到直接记取不到 | 同上 |
 | `message.video_send` | `API-CONV-007` 发视频后入队 | `singletonKey = 消息 ID` | 10 分钟 | 不重试，失败记发送失败，客服点重试（`API-CONV-015`） | 同上 |
 | `issue.extract` | 每 10 分钟；历史补算脚本 `scripts/issues-backfill.ts --from --to [--merchant] [--rate] [--force]` | 单实例；每轮 ≤ 50 段，并发 4 | 10 分钟 | 不重试，没提取上的段下轮再取；不计商户出稿用量 | 同上 |
 | `draft.compare` | 每 10 分钟（每小时第 3、13、23、33、43、53 分钟）；历史补算脚本 `scripts/draft-compare-backfill.ts --from --to [--merchant] [--rate]` | 单实例；每轮 ≤ 50 份，并发 4 | 10 分钟 | 不重试，没比上的下轮再取；不计商户出稿用量 | 同上 |
+| `learning.pick` | 每天 19:20 UTC | 单实例；每商户 ≤ 20 段 | 10 分钟 | 不重试，第二天再挑；已有任务的段不再挑 | 同上 |
+| `learning.analyze` | `API-CONV-018`、`learning.pick`、`API-KB-042` | `singletonKey = 任务 ID`；并发 2 | 10 分钟 | 不重试；AI 出错记分析失败，管理员、组长可重新分析；不计商户出稿用量 | 同上 |
 | `draft.translate` | 影子回复落库后入队 | 并发 2 | 20 秒 | 重试 1 次，仍失败不存译文 | 同上 |
 | `order.sync` | 每小时每店；`API-ORD-003` 手动 | `singletonKey = shop_id`；每批 50 单；时间窗 ≤ 15 天（平台上限） | 5 分钟 | 重试 2 次，下轮补 | 同上 |
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
@@ -4981,6 +5729,14 @@ Cloudflare AI Search 的实例配置与限制（ADR-014）：
   - Alternatives：Workers AI `qwen3-embedding-0.6b`（AI Search 在用的模型）——生产实测单次 330–3,400 ms，2 秒超时下不稳定。
   - Consequences：要维护向量与索引；依赖 Workers AI 推理，生产令牌在 2026-10-21 加了 Workers AI Read 权限，令牌值不变；没向量的问答由每 5 分钟的补算任务补上。
   - Consequences：阈值 0.55 与疑似重复 0.08 是按本地替身与少量样本定的初值，上线后按真实命中再调（§28）。
+- **`ADR-017` 经验卡按向量挑候选，调用条件由出稿那次模型调用判断；Agent 改已有卡复测通过即生效** — Status: Accepted（用户 2026-10-21「1～8 直接做完吧，后面再改」）
+  - Context：10-19 确认稿要求出稿先按调用条件选经验卡；调用条件是自由文字，没法用规则匹配。10-19 答复第 7 项定 Agent 改已有卡复测通过即生效，人工事后审改。
+  - Decision：卡按标题与调用条件向量化，与问答共用一次向量化取前 3 张候选；条件是否成立、做到第几步、走哪个分支由出稿那次 DeepSeek 调用判断，不加额外调用。
+  - Decision：Agent 改卡先复测：原问题要用到这张卡，回归用例改后不比改前差；通过即写新版本、标还没人看过。版本、筛选与一键回退同批上线。
+  - Alternatives：出稿前单独调一次模型判断条件——每份草稿多一次调用、多 1–2 秒。
+  - Alternatives：把全部卡塞进提示词——卡多了提示词超长；Agent 改卡也先人工审——与 10-19 答复第 7 项不符。
+  - Consequences：候选只看向量相近，条件写法与买家说法差太远的卡进不了候选；自动回复店铺里 Agent 改的卡会在有人看到之前影响回复（§28）。
+  - Consequences：距离 0.6、每路 3 张与复测判定是按本地替身定的初值，上线后按真实命中再调。
 
 ## 19. 验收 / 测试
 
@@ -5640,6 +6396,68 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 买家发消息
   Then 草稿照常生成，资料照常检索，检索快照的问答部分记录错误
 
+场景: 手写经验卡保存即发布并留版本 (REQ-KB-011)
+  Given 组长在「经验卡」页签新建卡「摄像头识别不到」，两条调用条件全部满足，三个步骤，第 1 步带分支「急用 → 转人工」
+  When 保存
+  Then 卡为已发布、第 1 版，测试问答问「摄像头接上电脑后识别不到」标出用到这张卡的第 1 步
+  When 另一位成员拿旧版本号修改同一张卡
+  Then 返回 409 /errors/conflict，提示这张经验卡刚被别人改过
+  When 改沟通提示后保存，再回退到第 1 版
+  Then 卡有第 3 版，内容与第 1 版相同，版本列表记「回退到第 1 版」
+
+场景: 出稿按经验卡推进并接着上一步 (REQ-KB-012)
+  Given 已发布经验卡「摄像头识别不到」适用售后与全部站点，店铺是辅助模式
+  When 售后阶段的买家说「摄像头接上电脑后软件识别不到」
+  Then 草稿按卡的第 1 步回复，草稿下方显示「经验卡：摄像头识别不到 · 第 1 步」
+  When 客服发出草稿后买家回复已经换过线
+  Then 新草稿接着用这张卡，走到第 2 步
+
+场景: 按经验卡分支转人工或建工单 (REQ-KB-012)
+  Given 卡的第 1 步分支：买家说急用就转人工；第 3 步分支：在保修期内就建工单
+  When 自动模式店铺的买家说「我急用」
+  Then 不存草稿，会话转人工，原因「经验卡要求转人工」，买家先收到一句回复
+  When 辅助模式下走到第 3 步且命中建工单的分支
+  Then 草稿上出现「按卡建工单」，点开的建单弹窗类型是内部确认、说明已预填
+  When 自动模式下走到同一步
+  Then 先发回复，再建一张「内部确认」工单，会话转人工；同一段再次命中不再建单
+
+场景: 下架或站点不符的经验卡不参与出稿 (REQ-KB-011, REQ-KB-012)
+  Given 一张已发布经验卡只适用 TH 站点
+  When MY 店的买家问到卡上描述的情况
+  Then 出稿请求里没有这张卡
+  When 管理员下架另一张适用全部站点的卡
+  Then 之后的出稿不再带它，已用过它的草稿仍显示卡名
+
+场景: 客服提交学习，新卡审核复测后发布 (REQ-KB-013)
+  Given 员工处理中的会话里，买家说设备识别不到，客服一步步排查后安排换货
+  When 员工勾选这几条消息、写备注「换货流程」后点「提交学习」
+  Then 消息标「已提交学习」，任务状态为分析中
+  When 分析完成且 AI 建议新建卡
+  Then 「学习」页签出现一条待审核任务，带原始消息、产品与依据、相似卡、改前改后的测试回答、判断依据与拟发布的卡
+  When 组长没复测就点「发布」
+  Then 返回 409 /errors/conflict，提示请先复测通过再发布
+  When 组长改一个步骤后复测并通过，再发布
+  Then 知识库多一张已发布经验卡，任务为已发布，员工在会话里看到结论「新建了经验卡」
+
+场景: Agent 改已有卡复测通过即生效，可一键回退 (REQ-KB-013)
+  Given 已发布经验卡「摄像头识别不到」有一个以前发布过的学习任务作回归用例
+  When learning.pick 挑出一段用这张卡的草稿被改后发送的会话，分析建议给第 2 步加一个分支
+  Then 复测通过后卡写出第 2 版，标 Agent 改、还没人看过，「经验卡」页签的待查看数加 1
+  When 组长打开卡对比改前改后，选第 1 版点「回退到这一版」
+  Then 卡写出第 3 版、内容同第 1 版，「还没人看过」清掉
+  When 另一次分析建议的改动让回归用例答得更差
+  Then 卡不变，任务结束并记「复测没通过」与原因
+
+场景: Agent 每天挑会话 (REQ-KB-013)
+  Given 商户最近 7 天有 30 段已结束、有人工回复的会话段，其中 25 段得分不低于 2
+  When learning.pick 运行
+  Then 只为得分最高的 20 段各建一个学习任务；再运行一次不重复建
+
+场景: 会话删除时学习任务一并删除 (REQ-KB-013)
+  Given 一段会话有两个学习任务，其中一个已发布成经验卡
+  When 管理员删除这位买家的数据
+  Then 两个学习任务与消息快照都被删除，已发布的经验卡保留
+
 场景: 资料不足时转人工 (REQ-KB-006)
   Given 置信度阈值 0.50，AI 替身返回 insufficient = true、confidence 0.9
   When 买家发消息
@@ -6126,9 +6944,9 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 | `EVT:conversation_claimed` | 认领（11.1 claim） | wait_sec | 人工首响平均时长（诊断） |
 | `EVT:conversation_unclaimed` | 处理人取消认领（11.1 unclaim） | — | 团队运营（诊断） |
 | `EVT:agent_reply_sent` | 成员发出消息成功 | segment_id, is_first_human_reply, seconds_since_segment_start, in_hours | 人工首响平均时长 |
-| `EVT:draft_generated` | 草稿生成（11.2 create / create_shadow） | mode, confidence, latency_ms, stage, insufficient, retrieval_ms, retrieval_degraded, vector_retry, sources_used | 草稿采纳率（分母诊断）、用量、检索耗时与降级、资料不足率 |
+| `EVT:draft_generated` | 草稿生成（11.2 create / create_shadow） | mode, confidence, latency_ms, stage, insufficient, retrieval_ms, retrieval_degraded, vector_retry, sources_used, card_id, card_step, card_action | 草稿采纳率（分母诊断）、用量、检索耗时与降级、资料不足率、经验卡效果 |
 | `EVT:draft_disposed` | 草稿被发送、改后发送、忽略 | disposition, edit_distance, mode | 草稿采纳率 |
-| `EVT:handoff` | 转人工（11.1 handoff） | reason, mode, insufficient, retrieval_degraded（后两项只在模型出稿后转人工时有） | 看板转人工原因、资料不足率 |
+| `EVT:handoff` | 转人工（11.1 handoff） | reason, mode, insufficient, retrieval_degraded（后两项只在模型出稿后转人工时有）, card_id, card_step, card_action | 看板转人工原因、资料不足率 |
 | `EVT:conversation_closed` | 会话段结束 | end_reason, ai_resolved | 看板 AI 独立解决 |
 | `EVT:order_cancelled` | 取消订单成功 | platform | 售后处理（诊断） |
 | `EVT:aftersale_decided` | 处理售后申请成功 | kind, decision | 售后处理（诊断） |
@@ -6154,6 +6972,17 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 | `EVT:knowledge_qa_archived` | 下架问答（`API-KB-026`） | from, to | 知识库运营（诊断） |
 | `EVT:knowledge_qa_restored` | 恢复发布（`API-KB-027`） | from, to | 知识库运营（诊断） |
 | `EVT:knowledge_qa_extract` | 发起资料整理成问答（`API-KB-028`） | —（目标是资料） | 知识库运营（诊断） |
+| `EVT:knowledge_card_created` | 手写经验卡保存（`API-KB-030`） | stage, products, markets, steps | 知识库运营（诊断） |
+| `EVT:knowledge_card_updated` | 修改经验卡（`API-KB-032`） | version, fields | 知识库运营（诊断） |
+| `EVT:knowledge_card_archived` | 下架经验卡（`API-KB-034`） | from, to | 知识库运营（诊断） |
+| `EVT:knowledge_card_restored` | 恢复经验卡（`API-KB-035`） | from, to | 知识库运营（诊断） |
+| `EVT:knowledge_card_deleted` | 删除经验卡（`API-KB-033`） | version | 知识库运营（诊断） |
+| `EVT:knowledge_card_rolled_back` | 回退经验卡（`API-KB-036`） | from_version, to_version, new_version | 知识库运营（诊断） |
+| `EVT:knowledge_card_seen` | 标 Agent 改的版本为已看（`API-KB-037`） | version | 知识库运营（诊断） |
+| `EVT:knowledge_card_agent_updated` | Agent 改卡复测通过、写新版本（11.19 agent_update） | version, task_id, regressions | 会话学习（诊断） |
+| `EVT:learning_submitted` | 客服提交学习（`API-CONV-018`） | messages, product_status | 会话学习（诊断） |
+| `EVT:learning_published` | 发布学习任务（`API-KB-041`） | card_id, version, new_card | 会话学习（诊断） |
+| `EVT:learning_closed` | 结束学习任务（`API-KB-043`） | result | 会话学习（诊断） |
 | `EVT:products_imported` | 导入产品清单（`API-KB-021`） | created, updated, skipped, errors | 知识库运营（诊断） |
 | `EVT:product_updated` | 改产品名称或别名（`API-KB-022`） | name, aliases（是否改了） | 知识库运营（诊断） |
 | `EVT:product_deleted` | 删除产品（`API-KB-023`） | —（目标是产品） | 知识库运营（诊断） |
@@ -6170,7 +6999,7 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 
 N/A — 场景级原因：本期只在本机运行，没有生产环境与值守（§1 项目画像）。本期只做日志：API 与 Worker 输出单行 JSON 日志（`level`、`msg`、`requestId`、`merchantId`、`route` 或 `job`、`durationMs`、`err`），不打印任何密钥、token、cookie、完整卡号与买家聊天正文。上线前由 deploy-pipeline 补齐 SLI（回调应答 P99、出稿成功率、发送成功率、`inbound_event` 失败率、Worker 任务积压）与告警，并在 §22 建对应 Runbook。
 
-DeepSeek 每次调用记一行（`msg = deepseek call`）：`kind`（draft、translate、extract、rewrite、summary、compare、qa_extract）、`model`、`ms`、`promptTokens`、`completionTokens`、`ok`、`error`（timeout、network、`http_<状态码>`、bad_body、empty）；不记提示词与买家内容。翻译遇 5xx 重试时，两次调用各记一行。
+DeepSeek 每次调用记一行（`msg = deepseek call`）：`kind`（draft、simulate、translate、extract、rewrite、summary、compare、qa_extract、learn、judge）、`model`、`ms`、`promptTokens`、`completionTokens`、`ok`、`error`（timeout、network、`http_<状态码>`、bad_body、empty）；不记提示词与买家内容。翻译遇 5xx 重试时，两次调用各记一行。
 
 知识库另记三项（日志字段 `job=draft.generate` 的 `retrievalMs`、`retrievalDegraded`、`vectorRetry`、`insufficient`，与 `EVT:draft_generated`、`EVT:handoff` 同口径）：检索耗时 P50 与 P95；检索降级次数占有检索出稿的比例；资料不足率 = 模型判定资料不足的出稿 / 有检索的出稿。入库另记 `job=knowledge.ingest` 的条目重传次数与失败原因。补 SLI 时这三项一并纳入，降级比例超过 5% 或检索 P95 超过 10 秒时告警。
 
@@ -6241,8 +7070,10 @@ N/A — 本期不上线。
 | 风险 | Cloudflare AI Search 是 2026-10-01 才 GA 的新产品，2026-11-01 起计费；实测混合检索约 2.6% 静默降级、入库偶发超时、「重新同步」返回成功却没重建，接口与价格可能再变 | 实现 | 每月核对一次产品变更；命中 ADR-014 换回条件时 |
 | 已决 | 平台商品对应要先同步一次：只有拉过商品目录的店才有对应记录，导入产品后自动排一次同步；线上首次使用前，管理员先点「同步平台商品」 | 用户 | 已定（v1.25） |
 | 已决 | 旧资料过渡期照常被检索：问答发布后不自动关资料的 AI 可用，资料页提示管理员逐份关（10-19 答复第 1 项） | 用户 | 已定（v1.25） |
-| 已决 | 与架构文档「AI 不自动发布」的差异：10-19 答复第 7 项定 Agent 改已有经验卡复测通过即生效，人工事后审改；属第三批，本批问答一律人工发布或审核 | 用户 | 已定（v1.25） |
+| 已决 | 与架构文档「AI 不自动发布」的差异：10-19 答复第 7 项定 Agent 改已有经验卡复测通过即生效，人工事后审改；经验卡已按此实现，见 RULE-KB-006 | 用户 | 已定（v1.25） |
 | Open Question | 标签字典待定：等确认不同行业的通用标签，本批标签选填、不参与检索 | 用户 | 标签字典确定时 |
+| 风险 | Agent 改卡先于人工看到就影响自动回复：复测通过即生效，缓解是版本、还没人看过筛选与一键回退同批上线 | 实现 | 第一家自动模式店铺开启前 |
+| 风险 | 经验卡的距离阈值 0.6、每路 3 张与复测判定是按本地替身定的初值，上线后按真实命中再调 | 实现 | 上线 30 天后 |
 | 风险 | 问答检索阈值 0.55 与疑似重复 0.08 按本地替身与少量样本定，真实 bge-m3 下的命中与误判没量过 | 实现 | 上线后看两周 `qaHits` 与审核结果 |
 | 风险 | 问答识别产品只靠商品卡、近 180 天订单的卖家 SKU 与文字里的编码名称；2026-10-21 前同步的订单没有卖家 SKU | 实现 | 上线后看两周识别结果 |
 | 风险 | 问答按阶段过滤会让运营困惑：新会话本店无订单时阶段是售前，只标售后的问答这时检索不到，录入的人会以为没生效；测试问答可选阶段复现 | 用户 | 上线后看两周问答命中与客服反馈 |
