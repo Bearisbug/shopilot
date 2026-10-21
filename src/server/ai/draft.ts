@@ -1,6 +1,7 @@
-// draft.generate（DESIGN §11.2 create / create_shadow，§12.2、§12.3、§12.8）：等买家停手 → 转人工判定 → 额度 → 检索知识库 → 出稿 → assist 存草稿 / auto 直接发 / shadow 存影子。
+// draft.generate（DESIGN §11.2 create / create_shadow，§12.2、§12.3、§12.8）：等买家停手 → 转人工判定 → 额度 → 检索知识库与经验卡 → 出稿 → assist 存草稿 / auto 直接发 / shadow 存影子。
+// 用到经验卡时（REQ-KB-012）草稿记下卡与第几步，本段下一份草稿从这一步接着走；卡上的分支可转人工（原因 card）或建工单（自动模式由 AI 建「内部确认」工单后转人工）。
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { audit, systemActor } from "@/server/core/audit";
 import { notify, shopMembers } from "@/server/core/notify";
 import { currentPeriod } from "@/server/billing/periods";
@@ -13,7 +14,9 @@ import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
 import { inTzText } from "@/server/settings/data";
 import { queueFeishuCard } from "@/server/feishu/deliver";
+import { cardsPayload, cardUsed } from "@/server/knowledge/card-retrieve";
 import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
+import { createTicket } from "@/server/tickets/engine";
 import { identifyProducts } from "@/server/products/dictionary";
 import { CARD_ACTIONS, type CardAction } from "@/contracts/cards";
 import { AiError, chat, parseJson, type ChatMessage } from "./client";
@@ -113,8 +116,11 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     buyerTexts: history.filter((m) => m.senderRole === "buyer" && m.type === "text" && m.text).slice(-5).map((m) => m.text!),
   });
   // 有对该店站点可用的资料或已发布问答时，用最近 10 条消息与订单事实改写问题，再检索（§12.8）；检索失败只降级、不转人工（RULE-KB-002）
-  const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts, stage, productIds });
+  // 本段正在用的经验卡：从它记下的那一步接着走
+  const active = await activeCard(conv.currentSegmentId);
+  const retrieval = await retrieveForDraft({ merchantId: conv.merchantId, market: shop.market, original: trigger.text ?? "", conversation: conversation.slice(-10), orderFacts: facts, stage, productIds, active });
   const knowledge = knowledgePayload(retrieval);
+  const cards = await cardsPayload(retrieval?.cards ?? null, conv.merchantId);
   // 回复语言按买家最近的文字消息判定，不受品牌语气、提示词与资料的语言影响（§12.8）
   const buyerTexts = conversation.filter((m) => m.from === "buyer" && m.type === "text" && m.text).map((m) => m.text).reverse();
   const lang = replyLanguage(buyerTexts, shop.market);
@@ -127,6 +133,7 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     conversation,
     latest_buyer_message: trigger.text ?? `[${trigger.type}]`,
     ...(knowledge ? { knowledge } : {}),
+    ...cards,
   };
   const messages: ChatMessage[] = [
     { role: "system", content: system },
@@ -150,8 +157,19 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
   }
   logRetrieval(conv, retrieval, parsed.insufficient);
   const citations = citationsFrom(retrieval, parsed.usedSources);
-  const knowledgeFields = { insufficient: parsed.insufficient, retrieval: retrieval ? retrievalSnapshot(retrieval) : null, citations: citations.length ? citations : null };
-  const evt = { mode, confidence: parsed.confidence, latency_ms: latencyMs, stage, ...retrievalEvent(retrieval, parsed.insufficient), sources_used: citations.length };
+  const used = cardUsed(retrieval?.cards ?? null, parsed.card);
+  // 出稿里不会有拟发布的卡（"proposal"）；保险起见只认真实的卡 ID
+  const card = used && UUID.test(used.cardId) ? used : null;
+  const knowledgeFields = {
+    insufficient: parsed.insufficient,
+    retrieval: retrieval ? retrievalSnapshot(retrieval) : null,
+    citations: citations.length ? citations : null,
+    cardId: card?.cardId ?? null,
+    card: card ? { version: card.version, title: card.title, step: card.step, action: card.action, reason: card.reason, ticketSummary: card.ticketSummary } : null,
+  };
+  // §20 card_used：草稿事件带用到的卡、第几步与动作
+  const cardEvt = card ? { card_id: card.cardId, card_step: card.step, card_action: card.action } : {};
+  const evt = { mode, confidence: parsed.confidence, latency_ms: latencyMs, stage, ...retrievalEvent(retrieval, parsed.insufficient), sources_used: citations.length, ...cardEvt };
 
   if (mode === "shadow") {
     const [d] = await db()
@@ -171,10 +189,11 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
     return;
   }
 
-  const verdict = handoffVerdict(parsed, rc.confidenceThreshold);
+  // 卡上的分支要求转人工时，模型给的回复作安抚句
+  const verdict: HandoffReason | null = card?.action === "handoff" ? "card" : handoffVerdict(parsed, rc.confidenceThreshold);
   if (verdict) {
     await releaseDraft(conv.merchantId);
-    return handoff(now, verdict, mode, parsed.handoff && parsed.reply ? parsed.reply : undefined, { ...retrievalEvent(retrieval, parsed.insufficient) });
+    return handoff(now, verdict, mode, (parsed.handoff || verdict === "card") && parsed.reply ? parsed.reply : undefined, { ...retrievalEvent(retrieval, parsed.insufficient), ...cardEvt });
   }
 
   const [draft] = await db()
@@ -192,6 +211,38 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
   }
   await db().update(schema.draft).set({ status: "sent", sentMessageId: out.message.id, disposedAt: new Date() }).where(eq(schema.draft.id, draft.id));
   await audit(systemActor(conv.merchantId), { module: "workbench", action: "draft_disposed", summary: `AI 自动回复 ${conv.buyerName}`, targetType: "draft", targetId: draft.id, data: { disposition: "sent", mode } });
+  // 卡上的分支要求建工单：回复已发出，再建「内部确认」工单并转人工（不再发安抚句）
+  if (card?.action === "ticket") {
+    await db().transaction((tx) =>
+      createTicket(tx, {
+        merchantId: conv.merchantId,
+        type: "internal",
+        origin: "rule",
+        ignoreAutoCreate: true,
+        dedupeKey: `card:${conv.currentSegmentId ?? conv.id}:${card.cardId}`,
+        shopId: conv.shopId,
+        platform: conv.platform,
+        conversationId: conv.id,
+        buyerName: conv.buyerName,
+        description: card.ticketSummary ? `${card.title}：${card.ticketSummary}` : card.title,
+      }),
+    );
+    await handoff(now, "card", "assist", undefined, cardEvt);
+  }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 本段最近一份用了经验卡的草稿，动作是「继续处理」时返回它的卡与步骤；卡下架或删除由检索时过滤 */
+async function activeCard(segmentId: string | null): Promise<{ cardId: string; step: number } | null> {
+  if (!segmentId) return null;
+  const [d] = await db()
+    .select({ cardId: schema.draft.cardId, card: schema.draft.card })
+    .from(schema.draft)
+    .where(and(eq(schema.draft.segmentId, segmentId), isNotNull(schema.draft.cardId)))
+    .orderBy(desc(schema.draft.createdAt))
+    .limit(1);
+  return d?.cardId && d.card?.action === "continue" ? { cardId: d.cardId, step: d.card.step } : null;
 }
 
 /**
@@ -342,7 +393,7 @@ function retrievalEvent(r: RetrievalOutcome | null, insufficient: boolean) {
   return { insufficient, retrieval_ms: r.latencyMs, retrieval_degraded: r.degraded, vector_retry: r.vectorRetry, qa_hits: r.qa?.merged.length ?? 0 };
 }
 
-/** §21 日志字段：job=draft.generate 的 retrievalMs、retrievalDegraded、vectorRetry、insufficient，以及问答检索的 qaRetrievalMs、qaHits、qaError */
+/** §21 日志字段：job=draft.generate 的 retrievalMs、retrievalDegraded、vectorRetry、insufficient，问答检索的 qaRetrievalMs、qaHits、qaError，经验卡的 cardHits（两路命中数）与 cardKeys（交给模型的卡编号=卡 ID） */
 function logRetrieval(conv: ConversationRow, r: RetrievalOutcome | null, insufficient: boolean | null) {
   if (!r) return;
   console.log(
@@ -359,6 +410,8 @@ function logRetrieval(conv: ConversationRow, r: RetrievalOutcome | null, insuffi
       qaRetrievalMs: r.qa?.latencyMs ?? null,
       qaHits: r.qa ? r.qa.merged.length : null,
       qaError: r.qa?.error ?? null,
+      cardHits: r.cards ? r.cards.hits.length : null,
+      cardKeys: r.cards ? r.cards.candidates.map((x) => `${x.key}=${x.cardId}`) : null,
     }),
   );
 }

@@ -91,6 +91,8 @@ export type CreateTicketInput = {
   createdBy?: string | null;
   /** 会话处理人（默认负责人为 claimer 时用） */
   claimerId?: string | null;
+  /** 不看类型的自动建单开关：经验卡分支明写要建单（REQ-KB-012） */
+  ignoreAutoCreate?: boolean;
 };
 
 /**
@@ -104,7 +106,7 @@ export async function createTicket(tx: Executor, input: CreateTicketInput, actor
     .limit(1);
   if (existing) return { ticket: existing, created: false };
   const cfg = await ticketTypeConfig(tx, input.merchantId, input.type);
-  if (input.origin !== "manual" && !cfg.autoCreate) return { ticket: null, created: false };
+  if (input.origin !== "manual" && !cfg.autoCreate && !input.ignoreAutoCreate) return { ticket: null, created: false };
 
   let assignee = input.assigneeId ?? null;
   if (!assignee) {
