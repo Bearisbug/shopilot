@@ -23,6 +23,10 @@ import { inTz } from "@/lib/format";
 import { kbTab, type KbTab } from "@/lib/qa-form";
 import { cn } from "@/lib/utils";
 import { ReceptionFrame } from "../reception-frame";
+import { CardDialog } from "./card-dialog";
+import { CardDrawer } from "./card-drawer";
+import { useCardParams, useUnseenCount } from "./cards-ui";
+import { CardsTab } from "./cards-tab";
 import { CategoriesDialog } from "./categories-dialog";
 import { DocumentDrawer } from "./document-drawer";
 import { ACCEPT, DOC_STATE_LABEL, DOC_STATE_QUERY, DOC_STATES, DocStatus, docsKey, inProgress, MARKET_LABEL, marketsText, UPLOAD_FORMATS, UPLOAD_LIMITS, useCategories, useUrlParams, type DocState } from "./knowledge-ui";
@@ -97,12 +101,22 @@ const extracting = (d: Pick<KnowledgeDocument, "qaExtract">) => d.qaExtract.stat
 
 export function KnowledgePage({ me }: { me: Me }) {
   const { params, update } = useUrlParams();
-  const tab = kbTab(params.get("tab"), params.has("doc"));
+  const tab = kbTab(params.get("tab"), params.has("doc"), params.has("card"));
   const pending = usePendingCount();
+  const unseen = useUnseenCount();
   const qaDialog = useQaDialog();
+  const card = useCardParams();
   const go = (t: KbTab) => update({ tab: t === "qa" ? null : t }, "push");
   const TABS: Array<{ value: KbTab; label: React.ReactNode }> = [
     { value: "qa", label: "问答" },
+    {
+      value: "cards",
+      label: (
+        <>
+          经验卡{unseen ? <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-(--semantic-color-text-link) tabular-nums" aria-label={`${unseen} 张 Agent 改过、还没人看过`}>{unseen}</span> : null}
+        </>
+      ),
+    },
     {
       value: "review",
       label: (
@@ -116,7 +130,7 @@ export function KnowledgePage({ me }: { me: Me }) {
     { value: "test", label: "测试问答" },
   ];
   return (
-    <ReceptionFrame facts="AI 出稿前先查已发布的问答，再查可用资料；客服在草稿下方看到依据。知识库全商户共享">
+    <ReceptionFrame facts="AI 出稿前先查已发布的问答与经验卡，再查可用资料；客服在草稿下方看到依据。知识库全商户共享">
       <Tabs value={tab} onValueChange={(v) => go(v as KbTab)} className="gap-4">
         {/* 页签多时横向滚动、不露滚动条（RESP-016）；共享 TabsTrigger 的 line 变体与 state-layer 的 ::after 冲突，直接用 Radix 触发器画底边线 */}
         <TabsList variant="line" aria-label="知识库" className="scroll-nav w-full justify-start gap-5 overflow-x-auto rounded-none border-b border-border p-0 group-data-[orientation=horizontal]/tabs:h-auto">
@@ -132,6 +146,9 @@ export function KnowledgePage({ me }: { me: Me }) {
         </TabsList>
         <TabsContent value="qa">
           <QaTab me={me} onNew={qaDialog.openNew} onOpen={qaDialog.openFor} />
+        </TabsContent>
+        <TabsContent value="cards">
+          <CardsTab me={me} onNew={card.openNew} onOpen={card.openDrawer} />
         </TabsContent>
         <TabsContent value="review">
           <ReviewTab onEdit={qaDialog.openFor} onReject={qaDialog.reject} onGoDocs={() => go("docs")} />
@@ -151,6 +168,8 @@ export function KnowledgePage({ me }: { me: Me }) {
       <QaDialog open={qaDialog.open} qaId={qaDialog.qaId} onClose={qaDialog.close} onReject={(qa) => qaDialog.reject(qa.id)} />
       <RejectDialog open={params.get("dialog") === "qa-reject"} qaId={qaDialog.qaId} onClose={qaDialog.close} />
       <DocumentDrawer me={me} />
+      <CardDialog me={me} open={card.dialogOpen} cardId={card.cardId} onClose={card.closeDialog} />
+      <CardDrawer me={me} />
     </ReceptionFrame>
   );
 }

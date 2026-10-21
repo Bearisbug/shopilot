@@ -45,11 +45,13 @@ describe("问答表单", () => {
 });
 
 describe("知识库页签", () => {
-  it("认识的页签原样返回，不认识的回到默认；带资料抽屉参数时默认停在资料", () => {
+  it("认识的页签原样返回，不认识的回到默认；带资料抽屉参数时默认停在资料，带经验卡参数时停在经验卡", () => {
     expect(kbTab("review", false)).toBe("review");
     expect(kbTab("products", true)).toBe("products");
     expect(kbTab(null, false)).toBe("qa");
     expect(kbTab("bogus", false)).toBe("qa");
     expect(kbTab(null, true)).toBe("docs");
+    expect(kbTab(null, false, true)).toBe("cards");
+    expect(kbTab("cards", false)).toBe("cards");
   });
 });
