@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownIcon, BotMessageSquareIcon, CopyIcon, ExternalLinkIcon, ImageIcon, PackageIcon, PlayIcon, ShoppingBagIcon, SmileIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
+import { ArrowDownIcon, BotMessageSquareIcon, CopyIcon, ExternalLinkIcon, GraduationCapIcon, ImageIcon, PackageIcon, PlayIcon, ShoppingBagIcon, SmileIcon, TicketPercentIcon, TriangleAlertIcon, TruckIcon, Undo2Icon, VideoIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import type { BuyerOrder, DraftItem, FaqRecord, FaqRecordItem, MessageItem, Prod
 import { STATUS_GROUP_LABEL, type StatusGroup } from "@/contracts/orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderItems, Thumb, useClamped } from "@/components/orders/order-items";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -55,6 +56,8 @@ export function Timeline({
   onRetry,
   retryingId,
   orderUrl,
+  select,
+  submitted,
 }: {
   /** 媒体下载接口按会话与消息取文件 */
   conversationId: string;
@@ -72,6 +75,10 @@ export function Timeline({
   retryingId: string | null;
   /** 按平台订单号生成卖家后台的订单链接 */
   orderUrl: (orderNo: string) => string | null;
+  /** 提交学习的选择模式：每条消息左侧出复选框；选满后没选的不能再选 */
+  select?: { picked: ReadonlySet<string>; toggle: (messageId: string) => void; full: boolean };
+  /** 已提交过学习的消息：消息下方标「已提交学习」 */
+  submitted?: ReadonlySet<string>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -171,7 +178,26 @@ export function Timeline({
             return (
               <div key={m.id} className="flex flex-col gap-3">
                 {sep && <p className="self-center text-xs text-muted-foreground">{day}</p>}
-                <MessageRow m={m} ctx={ctx} onRetry={onRetry} retrying={retryingId === m.id} />
+                {select ? (
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      className="mt-2"
+                      checked={select.picked.has(m.id)}
+                      disabled={!select.picked.has(m.id) && select.full}
+                      onCheckedChange={() => select.toggle(m.id)}
+                      aria-label={`选择消息：${m.direction === "in" ? "买家" : m.senderRole === "ai" ? "AI" : m.senderRole === "system" ? "系统" : (m.senderName ?? "我方")} ${inTz(m.sentAt, tz, "HH:mm")}${m.text ? `「${[...m.text].slice(0, 20).join("")}」` : ""}`}
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <MessageRow m={m} ctx={ctx} onRetry={onRetry} retrying={retryingId === m.id} />
+                      {submitted?.has(m.id) && <LearnedMark m={m} />}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex min-w-0 flex-col">
+                    <MessageRow m={m} ctx={ctx} onRetry={onRetry} retrying={retryingId === m.id} />
+                    {submitted?.has(m.id) && <LearnedMark m={m} />}
+                  </div>
+                )}
                 {(shadowByTrigger.get(m.id) ?? []).map((d) => (
                   <ShadowDraft key={d.id} d={d} tz={tz} />
                 ))}
@@ -206,6 +232,16 @@ export function Timeline({
         />
       )}
     </div>
+  );
+}
+
+/** 被提交过学习的消息：跟在消息下方、与消息同侧 */
+function LearnedMark({ m }: { m: MessageItem }) {
+  return (
+    <span className={cn("mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground", m.senderRole === "system" ? "self-center" : m.direction === "out" ? "self-end" : "self-start")}>
+      <GraduationCapIcon className="size-3.5" aria-hidden />
+      已提交学习
+    </span>
   );
 }
 

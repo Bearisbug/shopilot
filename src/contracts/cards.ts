@@ -319,6 +319,8 @@ export type LearningTask = {
   error: string | null;
   reviewedByName: string | null;
   reviewedAt: string | null;
+  /** 审核人结束任务时写的原因 */
+  reviewNote: string | null;
   publishedCard: { id: string; title: string; version: number } | null;
   version: number;
   createdAt: string;

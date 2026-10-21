@@ -280,7 +280,16 @@ export async function syncListings(data: Record<string, unknown>): Promise<void>
  * ① 最近消息里买家发的商品卡 → product_listing；② 该买家近 180 天本店订单的商品（卖家 SKU = 物料编码，或平台商品 → product_listing）；
  * ③ 买家最近文字里出现的物料编码、产品名或别名（3 个字以上才比）。都没有返回空数组。
  */
-export async function identifyProducts(input: { merchantId: string; shopId: string; buyerExternalId: string; productCardIds: string[]; buyerTexts: string[] }): Promise<string[]> {
+export async function identifyProducts(input: IdentifyInput): Promise<string[]> {
+  return (await identifyProductsWithBasis(input)).ids;
+}
+
+type IdentifyInput = { merchantId: string; shopId: string; buyerExternalId: string; productCardIds: string[]; buyerTexts: string[] };
+/** 识别出的产品来自哪一处：商品卡、订单商品、消息文字；都没有为 null */
+export type ProductBasis = "card" | "order" | "text" | null;
+
+/** 同 identifyProducts，另给出依据（学习任务记「依据：…」） */
+export async function identifyProductsWithBasis(input: IdentifyInput): Promise<{ ids: string[]; basis: ProductBasis }> {
   const viaListings = async (externalIds: string[]) => {
     if (!externalIds.length) return [];
     const rows = await db()
@@ -290,7 +299,7 @@ export async function identifyProducts(input: { merchantId: string; shopId: stri
     return rows.map((r) => r.id).filter((v): v is string => !!v);
   };
   const cards = await viaListings([...new Set(input.productCardIds.filter(Boolean))]);
-  if (cards.length) return [...new Set(cards)];
+  if (cards.length) return { ids: [...new Set(cards)], basis: "card" };
 
   const orders = await db()
     .select({ items: schema.order.items })
@@ -304,10 +313,11 @@ export async function identifyProducts(input: { merchantId: string; shopId: stri
     : [];
   const byListing = await viaListings([...new Set(items.map((i) => i.productId).filter((v): v is string => !!v))]);
   const fromOrders = [...new Set([...bySku, ...byListing])];
-  if (fromOrders.length) return fromOrders;
+  if (fromOrders.length) return { ids: fromOrders, basis: "order" };
 
   const text = input.buyerTexts.join("\n").toLowerCase();
-  if (!text.trim()) return [];
+  if (!text.trim()) return { ids: [], basis: null };
   const all = await db().select({ id: p.id, code: p.code, name: p.name, aliases: p.aliases }).from(p).where(eq(p.merchantId, input.merchantId)).limit(PRODUCT_LIMIT);
-  return all.filter((r) => [r.code, r.name, ...r.aliases].some((w) => charCount(w.trim()) >= 3 && text.includes(w.trim().toLowerCase()))).map((r) => r.id);
+  const ids = all.filter((r) => [r.code, r.name, ...r.aliases].some((w) => charCount(w.trim()) >= 3 && text.includes(w.trim().toLowerCase()))).map((r) => r.id);
+  return { ids, basis: ids.length ? "text" : null };
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeftIcon, CircleCheckIcon, ClipboardListIcon, CopyIcon, HandIcon, PanelRightIcon, TimerIcon, TriangleAlertIcon, UserMinusIcon, UserPlusIcon } from "lucide-react";
+import { ChevronLeftIcon, CircleCheckIcon, ClipboardListIcon, CopyIcon, GraduationCapIcon, HandIcon, PanelRightIcon, TimerIcon, TriangleAlertIcon, UserMinusIcon, UserPlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { LEARNING_MESSAGES_MAX } from "@/contracts/cards";
 import type { BuyerOrder, ConversationDetail, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
 import { ErrorState } from "@/components/shell/page";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -17,6 +18,7 @@ import { sellerOrderUrl } from "@/lib/seller-center";
 import { cn } from "@/lib/utils";
 import { Composer, DraftCard, type EditingDraft } from "./composer";
 import { ConversationPlaceholder } from "./conversation-placeholder";
+import { LearningBar, useLearnedMessages } from "./learning-bar";
 import { Timeline } from "./timeline";
 import { Avatar, focusReply, HANDOFF_LABEL, listItemFor, PlatformTag, PollErrorBar, readReply, rememberClaimLost, useBuyer, useConversation, useProductProgress, useReplyText, useWbParams, waitText, writeReply } from "./wb-shared";
 
@@ -32,6 +34,9 @@ export function ConversationPane({ id }: { id: string }) {
   const [olderCardOrders, setOlderCardOrders] = useState<BuyerOrder[]>([]);
   const [editing, setEditing] = useState<EditingDraft>(null);
   const [replacing, setReplacing] = useState<DraftItem | null>(null);
+  // 提交学习的选择模式：null = 不在选择；临时状态，不进地址（INT-007）
+  const [learnPicked, setLearnPicked] = useState<ReadonlySet<string> | null>(null);
+  const learned = useLearnedMessages(id);
   const cards: Record<string, ProductCardInfo> = { ...olderProducts, ...q.data?.products };
   const progress = useProductProgress(
     id,
@@ -93,7 +98,7 @@ export function ConversationPane({ id }: { id: string }) {
 
   return (
     <section aria-label={`与 ${d.conversation.buyerName} 的会话`} className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-card">
-      <Header d={d} tz={tz} />
+      <Header d={d} tz={tz} learning={learnPicked !== null} onLearn={() => setLearnPicked(learnPicked ? null : new Set())} />
       {q.isError && <PollErrorBar className="mx-4 mt-2 shrink-0" onRetry={() => q.refetch()} />}
       <Timeline
         key={id}
@@ -110,18 +115,40 @@ export function ConversationPane({ id }: { id: string }) {
         onRetry={(mid) => retry.mutate(mid)}
         retryingId={retry.isPending ? (retry.variables ?? null) : null}
         orderUrl={(orderNo) => sellerOrderUrl(d.conversation.shop, orderNo)}
+        submitted={learned}
+        select={
+          learnPicked
+            ? {
+                picked: learnPicked,
+                full: learnPicked.size >= LEARNING_MESSAGES_MAX,
+                toggle: (mid) =>
+                  setLearnPicked((cur) => {
+                    const next = new Set(cur);
+                    if (next.has(mid)) next.delete(mid);
+                    else if (next.size < LEARNING_MESSAGES_MAX) next.add(mid);
+                    return next;
+                  }),
+              }
+            : undefined
+        }
       />
-      {d.draft && d.conversation.handlingState !== "closed" && editing?.id !== d.draft.id && <DraftCard detail={d} draft={d.draft} onEdit={startEdit} />}
-      <Footer
-        d={d}
-        editing={editing}
-        onDoneEditing={() => setEditing(null)}
-        onCancelEditing={() => {
-          if (editing) writeReply(id, editing.before);
-          setEditing(null);
-          focusReply();
-        }}
-      />
+      {learnPicked ? (
+        <LearningBar conversationId={id} picked={learnPicked} onCancel={() => setLearnPicked(null)} onDone={() => setLearnPicked(null)} />
+      ) : (
+        <>
+          {d.draft && d.conversation.handlingState !== "closed" && editing?.id !== d.draft.id && <DraftCard detail={d} draft={d.draft} onEdit={startEdit} />}
+          <Footer
+            d={d}
+            editing={editing}
+            onDoneEditing={() => setEditing(null)}
+            onCancelEditing={() => {
+              if (editing) writeReply(id, editing.before);
+              setEditing(null);
+              focusReply();
+            }}
+          />
+        </>
+      )}
       <AlertDialog open={replacing !== null} onOpenChange={(o) => !o && setReplacing(null)}>
         <AlertDialogContent
           onCloseAutoFocus={(e) => {
@@ -207,7 +234,7 @@ function UnsentReply({ id, className }: { id: string; className?: string }) {
   );
 }
 
-function Header({ d, tz }: { d: ConversationDetail; tz: string }) {
+function Header({ d, tz, learning, onLearn }: { d: ConversationDetail; tz: string; learning: boolean; onLearn: () => void }) {
   const c = d.conversation;
   const { set, params } = useWbParams();
   const listParams = new URLSearchParams(params.toString());
@@ -298,6 +325,9 @@ function Header({ d, tz }: { d: ConversationDetail; tz: string }) {
           <IconAction label="建工单" onClick={() => set({ dialog: "ticket" }, "push")}>
             <ClipboardListIcon />
           </IconAction>
+          <IconAction label="提交学习" pressed={learning} onClick={onLearn}>
+            <GraduationCapIcon />
+          </IconAction>
           {/* 右栏并排时（工作台宽度够放三栏，见 BuyerColumn）不需要抽屉入口 */}
           <IconAction label="买家与订单" className="@min-[68rem]/wb:hidden" onClick={() => set({ panel: "buyer" }, "push")}>
             <PanelRightIcon />
@@ -327,11 +357,11 @@ function Header({ d, tz }: { d: ConversationDetail; tz: string }) {
   );
 }
 
-function IconAction({ label, onClick, children, className }: { label: string; onClick: () => void; children: React.ReactNode; className?: string }) {
+function IconAction({ label, onClick, children, className, pressed }: { label: string; onClick: () => void; children: React.ReactNode; className?: string; pressed?: boolean }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="outline" size="icon-sm" aria-label={label} onClick={onClick} className={className}>
+        <Button variant="outline" size="icon-sm" aria-label={label} aria-pressed={pressed} onClick={onClick} className={cn(pressed && "bg-(--semantic-color-surface-selected)", className)}>
           {children}
         </Button>
       </TooltipTrigger>

@@ -120,6 +120,13 @@
       "when": 1792593619069,
       "tag": "0016_goofy_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792594524101,
+      "tag": "0017_slow_ikaris",
+      "breakpoints": true
     }
   ]
 }
