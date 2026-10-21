@@ -1,0 +1,84 @@
+{
+  "C": {
+    "id": "01a15c21-0765-753b-bc4b-63e49aee812d",
+    "cid": "6956514058494080890",
+    "push": [
+      200
+    ]
+  },
+  "s1": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "items": [
+        {
+          "platform": "shopee",
+          "shopId": "220001",
+          "category": "send_message",
+          "kind": "error",
+          "mode": "once",
+          "hits": 0,
+          "createdAt": "2026-10-21T01:43:51.977Z"
+        }
+      ]
+    }
+  },
+  "s2": {
+    "status": 502,
+    "type": "/errors/platform",
+    "platformCode": "error_server",
+    "toasts": [
+      "发送失败 Shopee 返回错误（error_server）：Something wrong. Please try later.（请求编号 req_0db74b58db88454498a738d34607ca91）",
+      "已认领"
+    ],
+    "retryButtons": 1,
+    "last": [
+      {
+        "dir": "out",
+        "type": "text",
+        "text": "[译文] 失败重试测试",
+        "originalText": "失败重试测试",
+        "status": "failed",
+        "error": "Shopee 返回错误（error_server）：Something wrong. Please try later."
+      }
+    ],
+    "buyer": {
+      "sellerCount": 1,
+      "last": [
+        {
+          "kind": "text",
+          "rawType": "text",
+          "text": "[译文] 您好，在的"
+        }
+      ]
+    },
+    "text": ""
+  },
+  "s3": {
+    "last": [
+      {
+        "dir": "out",
+        "type": "text",
+        "text": "[译文] 失败重试测试",
+        "originalText": "失败重试测试",
+        "status": "sent",
+        "error": null
+      }
+    ],
+    "buyerCount": 0
+  },
+  "s4": {
+    "status": 409,
+    "body": {
+      "type": "/errors/conflict",
+      "title": "状态已被他人改变",
+      "status": 409,
+      "detail": "这条消息不是发送失败状态。",
+      "instance": "/api/v1/conversations/01a15c21-0765-753b-bc4b-63e49aee812d/messages/01a15c21-0bf7-752d-b7be-1a6586dd8512/retry",
+      "requestId": "req_01a15c21102873ab8e50eb1cbc5a3b3b",
+      "extra": {
+        "sendStatus": "sent"
+      }
+    }
+  }
+}

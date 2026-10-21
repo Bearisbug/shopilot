@@ -1,0 +1,90 @@
+{
+  "C1": {
+    "id": "01a15c1d-60e0-7332-92d8-4db761873c10",
+    "cid": "6134403691697686027",
+    "push": [
+      200
+    ]
+  },
+  "C2": {
+    "id": "01a15c1d-6bef-70c1-ab5c-81bca116c4df",
+    "cid": "7494560109732322727",
+    "push": [
+      200,
+      200
+    ]
+  },
+  "s1_strip": [
+    {
+      "name": "第 1 个附件：视频",
+      "color": null,
+      "status": false,
+      "badge": false
+    }
+  ],
+  "s1_uploaded": [
+    {
+      "name": "第 1 个附件：视频",
+      "color": null,
+      "status": false,
+      "badge": false
+    }
+  ],
+  "s1": {
+    "dir": "out",
+    "type": "video",
+    "text": null,
+    "originalText": null,
+    "status": "sending",
+    "error": null,
+    "strip": 0,
+    "sendingText": 1
+  },
+  "s2": {
+    "dir": "out",
+    "type": "video",
+    "text": null,
+    "originalText": null,
+    "status": "sent",
+    "error": null,
+    "play": {
+      "currentTime": 0.602257,
+      "readyState": 4
+    }
+  },
+  "s3": "video|sent",
+  "s4": {
+    "sellerCount": 1,
+    "last": [
+      {
+        "kind": "other",
+        "rawType": "video",
+        "text": null
+      }
+    ]
+  },
+  "s5": {
+    "toasts": [
+      "没有可发的图片或视频 只支持 MP4 视频，MOV 等格式请先导出为 MP4。"
+    ],
+    "strip": 0
+  },
+  "s6": {
+    "toasts": [
+      "没有可发的图片或视频 TikTok 接口暂不支持发视频。"
+    ],
+    "strip": 0
+  },
+  "s7": {
+    "status": 409,
+    "body": {
+      "type": "/errors/not-allowed",
+      "title": "当前不能这样操作",
+      "status": 409,
+      "detail": "TikTok 接口暂不支持发视频。",
+      "instance": "/api/v1/conversations/01a15c1d-6bef-70c1-ab5c-81bca116c4df/messages",
+      "requestId": "req_01a15c1db79877a5848490592da52bd0",
+      "code": "unsupported_type"
+    }
+  }
+}

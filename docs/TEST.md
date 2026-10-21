@@ -6,7 +6,7 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.25，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.26，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
 | 最后更新 | 2026-10-21 |
 
@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-21 | 按 DESIGN v1.26 粘贴改为放进输入框、和文字一起按顺序发：`TC-CONV-064` 废弃，被 `TC-CONV-072` 取代；新增 `TC-CONV-073`（平台没发出即停、再点发送接着发）与 `TC-CONV-074`（附件被拒不进时间线，标「没发出」后接着发，需拦截请求，执行者 AI）；原位修改 `TC-CONV-065` 前置与第 1、6 步、`TC-CONV-021` 第 1 步、`TC-CONV-022` 第 1、3 步（按钮改名「添加图片或视频」，选的文件先进附件条，再点发送） | 实现会话 |
 | 2026-10-21 | 按 RUN-057 的失败明细原位修正四条用例的前置与预期（实现与设计不变）：`TC-KB-045` 改用种子里真实存在的卖家 SKU `1729582718312480201`（Demo TikTok TH），未对应列表按三家有商品权限的店写；`TC-KB-049` 第 1 步改为命中且排第一、距离小于 0.3，第 3 步改为下架后 `qa` 为 `null`（没有已发布问答时不做问答检索），第 6 步改为第二次删除返回 404；`TC-DASH-015` 第 7 步改为 `consistency.rate` 为 `null`；`TC-KB-001` 按五个页签改写第 1、5 步（第 5 步写明抽屉标题是文件名） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.25 新增草稿对比 `TC-DASH-015` 至 `TC-DASH-019`（影子回复对比与数据不足、辅助草稿原样与修改后发送、买家插话与弃用后另回、看板面板与样例抽屉、线上人工抽检分类）；§3 `q` 的说明改为可执行任意 SQL（草稿对比用例要把草稿生成时间往前改） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.25 新增知识库第一批 `TC-KB-043` 至 `TC-KB-057`（产品清单 4 条、问答维护 3 条、整理与审核 3 条、出稿与测试问答检索问答 2 条、问答接口权限、线上真实向量化 1 条人工、工作台问答依据）；§3 加 `qaclear` 与 `qa` 函数；知识库页改为五个页签后原位修改 `TC-KB-024` 第 5 步（资料依据链接带 `tab=docs`） | 实现会话 |
@@ -1445,7 +1446,7 @@ qaclear() {
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 点「发图片」选该 PNG | 时间线出现该图片，状态为已发送 |
+| 1 | 点「添加图片或视频」选该 PNG，等缩略图不再显示上传中后点发送 | 选完后附件条出现这张图；点发送后附件条消失，时间线出现该图片，状态为已发送 |
 | 2 | 看模拟器 B 的买家视图 | 收到这张图片 |
 
 后置：无。
@@ -1456,9 +1457,9 @@ qaclear() {
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 「发图片」选 11 MB 的 JPG | 提示超过 10 MB 上限，没有发出；上传接口 413，`type` 为 `/errors/too-large` |
+| 1 | 「添加图片或视频」选 11 MB 的 JPG | 提示超过 10 MB 上限，附件条不出现；上传接口 413，`type` 为 `/errors/too-large` |
 | 2 | 选 GIF | 提示只支持 JPG / PNG / WebP；上传接口 415，`type` 为 `/errors/unsupported-type` |
-| 3 | 选 10,485,760 字节的 PNG | 上传接口 201，图片发出 |
+| 3 | 选 10,485,760 字节的 PNG，等上传完点发送 | 上传接口 201，图片进附件条；点发送后图片发出 |
 
 后置：无。
 
@@ -1908,7 +1909,10 @@ qaclear() {
 
 后置：无。
 
-#### `TC-CONV-064` 粘贴图片确认后发出，带文字按文字粘贴，PDF 给原因 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+#### `TC-CONV-064` 粘贴图片确认后发出，带文字按文字粘贴，PDF 给原因（已废弃） — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+已废弃，被 `TC-CONV-072` 取代：DESIGN v1.26 起粘贴不再弹确认框逐个发出，改为放进输入框的附件条，和文字一起按顺序发。
+
 
 前置：基线；准备 §3 测试图片里约 2 MB 的 PNG 与恰好 10,485,760 字节的 PNG，另 `printf '%%PDF-1.4\n' > $SP_TMP/img/a.pdf`；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发一条文字，记会话 C；浏览器以 agent@demo.test 登录，打开 C 并点「认领」。粘贴的做法：人工在访达里选中文件复制，再在输入框按 ⌘V；AI 对输入框派发一个 `paste` 事件，`clipboardData` 里放这些文件（与文字）。
 
@@ -1924,16 +1928,16 @@ qaclear() {
 
 #### `TC-CONV-065` Shopee 会话发 MP4 视频，TikTok 会话不能发视频 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
 
-前置：基线；执行「curl 会话」，`login agent2@demo.test`；准备 §3 测试视频 clip.mp4 与 clip.mov；按 §3「模拟器发消息」给 Demo Shopee MY、Demo TikTok TH 各一个新买家发一条文字，记会话 C1、C2；浏览器以 agent2@demo.test（Mei Lin）登录，两个会话都点「认领」。粘贴做法同 `TC-CONV-064`。
+前置：基线；执行「curl 会话」，`login agent2@demo.test`；准备 §3 测试视频 clip.mp4 与 clip.mov；按 §3「模拟器发消息」给 Demo Shopee MY、Demo TikTok TH 各一个新买家发一条文字，记会话 C1、C2；浏览器以 agent2@demo.test（Mei Lin）登录，两个会话都点「认领」。粘贴做法同 `TC-CONV-072`。
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 打开 C1，用输入框下方的附件按钮选 clip.mp4 | 不弹确认框；时间线出现视频气泡，标「发送中」 |
+| 1 | 打开 C1，用输入框下方的附件按钮选 clip.mp4，等缩略图不再显示上传中后点发送 | 附件条出现一个视频缩略图；点发送后它移出附件条，时间线出现视频气泡，标「发送中」 |
 | 2 | 等 15 秒 | 视频气泡变为已发送，点播放能播放 |
 | 3 | `q "select type, send_status from message where conversation_id = '<C1>' and type = 'video'"` | `video\|sent` |
 | 4 | 模拟器打开这个买家的会话 | 买家视图收到一条视频 |
 | 5 | 在 C1 输入框粘贴 clip.mov | 不发送；提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」 |
-| 6 | 打开 C2，在输入框粘贴 clip.mp4 | 不弹确认框；提示「TikTok 接口暂不支持发视频。」 |
+| 6 | 打开 C2，在输入框粘贴 clip.mp4 | 提示「TikTok 接口暂不支持发视频。」；附件条不出现 |
 | 7 | `q "select id from file where kind = 'chat_video' order by created_at desc limit 1"` 记 F；`api agent2@demo.test -X POST $B/api/v1/conversations/<C2>/messages -d '{"clientRequestId":"tc065-video","type":"video","fileId":"<F>"}'` | `HTTP 409`，提示 TikTok 接口暂不支持发视频 |
 
 后置：无。
@@ -2022,6 +2026,49 @@ qaclear() {
 
 ### AI 出稿
 
+
+#### `TC-CONV-072` 粘贴的图片放进输入框，和文字一起按顺序发出 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；准备三张颜色不同的 PNG（红、绿、蓝，各 48×48 即可）与 `printf '%%PDF-1.4\n' > $SP_TMP/img/a.pdf`；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发一条文字，记会话 C；浏览器以 owner@demo.test 登录，打开 C。粘贴的做法：人工在访达里按红、绿、蓝的顺序选中三个文件复制，再在输入框按 ⌘V；AI 对输入框派发一个 `paste` 事件，`clipboardData` 里按同样顺序放这些文件（与文字）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 量一次输入框外框高度 H0；粘贴红、绿、蓝三张 | 不弹任何确认框；文字区下方出现附件条，从左到右依次是红、绿、蓝，读屏名依次为「第 1 个附件：图片」至「第 3 个附件：图片」；上传中的缩略图带转圈，传完后消失 |
+| 2 | 在文字区输入「先发文字，再按顺序发图片」 | 文字在上、附件条在下，输入框外框比 H0 高 |
+| 3 | 点绿图右上角的「移除第 2 个附件：图片」 | 附件条只剩红、蓝两个，顺序不变 |
+| 4 | 点发送 | 发送按钮转圈；完成后附件条消失、文字区清空，输入框外框回到 H0 |
+| 5 | 看时间线最后三条 | 依次是这句话（带译文）、红图、蓝图，都已发送 |
+| 6 | 模拟器打开这个买家的会话 | 买家视图依次收到这句话、红图、蓝图 |
+| 7 | 粘贴同时带文字「你好」与一张 PNG 的剪贴板内容 | 输入框里出现「你好」，附件条不出现 |
+| 8 | 清空输入框后粘贴 a.pdf | 提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」；附件条不出现 |
+| 9 | 用附件按钮一次选两张 PNG | 两张按选择顺序进附件条，不直接发出；逐个点「移除」清空 |
+
+后置：无。
+
+#### `TC-CONV-073` 附件在平台没发出：存成失败气泡，后面的停下，再点发送接着发 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；准备两张颜色不同的 PNG（绿、红）；按 §3「模拟器发消息」给 Demo Shopee SG 新买家发一条文字，记会话 C；浏览器以 owner@demo.test 登录，打开 C。粘贴做法同 `TC-CONV-072`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 模拟器「故障注入」：Demo Shopee SG 下一次卖家发送返回平台错误 | 面板显示已设定 |
+| 2 | 在 C 的空输入框依次粘贴绿、红两张，等上传完 | 附件条依次是绿、红 |
+| 3 | 点发送 | 出现「发送失败」提示；时间线最后一条是绿图、标发送失败；附件条只剩红图，没有发出 |
+| 4 | 再点发送 | 红图发出；附件条消失；时间线最后一条是红图、已发送 |
+
+后置：模拟器「故障注入」清除 Demo Shopee SG 卖家发送的设定（一次性故障已用掉时面板为空）。
+
+#### `TC-CONV-074` 附件被拒、没进时间线：标「没发出」，后面的停下，再点发送接着发 — 对应 `REQ-CONV-015` · 级别: 边缘 · 执行者: AI
+
+前置：基线；准备三张颜色不同的 PNG（红、绿、蓝）；按 §3「模拟器发消息」给 Demo Shopee SG 新买家发一条文字，记会话 C；浏览器以 owner@demo.test 登录，打开 C。要拦截浏览器请求，只能由 AI 用可脚本化浏览器执行。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 依次粘贴红、绿、蓝三张，输入「失败即停：这句先发」，等上传完 | 附件条依次是红、绿、蓝 |
+| 2 | 设拦截：本页第 3 个 `POST /api/v1/conversations/<C>/messages`（即第二个附件）直接返回 `409`，problem 的 `detail` 为「模拟：平台拒绝这张图」；点发送 | 出现「没有发出」提示；时间线新增这句话与红图；附件条剩绿、蓝，绿图标「没发出」，文字区清空 |
+| 3 | 取消拦截，再点发送 | 绿图、蓝图依次发出，附件条消失；时间线最后四条依次是这句话、红、绿、蓝 |
+
+后置：无。
 #### `TC-AI-001` 主链路：买家消息生成 assist 草稿，员工认领并发送到买家 — 对应 `REQ-AI-001`、`REQ-AI-002`、`REQ-AI-003`、`REQ-CONV-001`、`REQ-CONV-004`、`REQ-CONV-005`、`REQ-MOCK-002` · 级别: 冒烟 · 执行者: 皆可
 
 前置：基线；浏览器 A 以 agent@demo.test（Nur）登录停在 `/wb`；浏览器 B 打开模拟器；浏览器 C 以 owner@demo.test 打开 `/billing`，记下本期已用 U 与 assist 次数 A0。
@@ -4843,6 +4890,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-056 | 2026-10-21 | 本地 | `e4ac880` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-069、TC-CONV-070、TC-CONV-071） | 通过 3/3 |
 | RUN-057 | 2026-10-21 | 本地 | `e6994cc` + 工作区改动（只改 `docs/`、`AGENTS.md`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-KB-043、TC-KB-044、TC-KB-045、TC-KB-046、TC-KB-047、TC-KB-048、TC-KB-049、TC-KB-050、TC-KB-051、TC-KB-052、TC-KB-053、TC-KB-054、TC-KB-055、TC-KB-056、TC-KB-057、TC-DASH-015、TC-DASH-016、TC-DASH-017、TC-DASH-018、TC-DASH-019、TC-KB-001、TC-KB-024、TC-AI-001、TC-PERM-001、TC-FEISHU-005） | 通过 19/25 · 失败 4 · 待人工 2 |
 | RUN-058 | 2026-10-21 | 本地 | `e6994cc` + 工作区改动（只改 `docs/`、`AGENTS.md`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 复测（RUN-057：TC-KB-045、TC-KB-049、TC-DASH-015、TC-KB-001） | 通过 4/4 |
+| RUN-059 | 2026-10-21 | 本地 | `053c092` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-072、TC-CONV-073、TC-CONV-074、TC-CONV-065、TC-CONV-068、TC-CONV-021、TC-CONV-022、TC-CONV-026、TC-CONV-070、TC-AI-010） | 通过 9/10 · 待人工 1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -4961,6 +5009,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-057 | TC-KB-001 | 失败 | 第 1 步打开 `/reception/knowledge` 默认进「问答」页签，页面没有「资料 0 / 500」的左栏，也没有右栏「测试问答」面板：v1.25 知识库改成问答、待审核、资料、产品、测试问答五个页签，用例仍按旧的左右两栏写。补充观察（不计入判定）：在 `?tab=docs` 按第 2–8 步上传 `保修政策.pdf` 与 `型号对照.xlsx`，弹窗文案、上传进度、分类、状态变为可用、抽屉与 `documents` 接口返回都和原预期一致；证据 `run-057-TC-KB-001-1.png`、`run-057-TC-KB-001-5b.png` | 用例待按页签布局修正后复测 |
 | RUN-057 | TC-KB-056 | 待人工 | 执行者为人工，要在线上真实 Cloudflare 向量化环境执行 | 交用户在 shopilot.live 执行 |
 | RUN-057 | TC-DASH-019 | 待人工 | 执行者为人工，要在线上草稿对比上线满 7 天后抽检 | 交用户在 shopilot.live 执行 |
+| RUN-059 | TC-CONV-068 | 待人工 | 执行者为人工，要在已接真实 Shopee、TikTok 店的环境里对真实会话执行 | 交用户在 shopilot.live 执行 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -5031,6 +5080,8 @@ RUN-056 证据：局部轮，被测版本本地 main `e4ac880`（已合并预翻
 RUN-057 证据：局部轮，被测版本本地 main `e6994cc`（含 c2d0919 合并的知识库第一批、0ad1ab6 的草稿对比；e6994cc 只把测试文件改成串行，不影响行为），工作区另有 `docs/` 与 `AGENTS.md` 的未提交改动，与被测代码无关。独立库 `shopilot_run057`（同一 PostgreSQL 实例），Web 起在 3377、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3377，`DATA_DIR` 用临时目录，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前 `pnpm db:reset && pnpm db:seed`；`TC-DASH-018` 之后按它的后置重置基线（先停 Worker，重置、写种子后再起），再跑 `TC-KB-001`、`TC-KB-024`、`TC-AI-001`、`TC-PERM-001`、`TC-FEISHU-005`。浏览器步骤用 Playwright + Edge 无头（1440×900）；买家发消息用 §3 登记的模拟器接口 `create_buyer`、`buyer_message`，没有操作模拟器页面，推送日志的 HTTP 状态从 `GET /api/mock/sim/state` 的 `pushLogs[].httpStatus` 读取。上一个执行会话中途卡死，它留下的 run-057 证据全部删除后重跑。执行中的两处说明：`TC-KB-050` 第 1 步第一次执行时替身入库在上传与发起整理之间就已完成，拿到 HTTP 202，打乱了后面步骤的状态；在发起前先读资料状态（`queued`）复现两次都是 409 `not_ready`，随后按顺序重跑第 1–5 步全部符合，记录见 `run-057-TC-KB-050.txt`、`run-057-TC-KB-050-1b.txt`。`TC-KB-047` 第 4 步的「已发布」由列表筛选「已发布 1」与卡片标题「已发布 1」表达，行里不单独标状态（`run-057-TC-KB-047-4.png`）。每个用例的接口返回与关键查询存为 `docs/test-runs/run-057-<TC ID>*.txt/json`，界面截图为同名 `.png`。
 
 RUN-058 证据：复测轮，被测版本同 RUN-057（本地 main `e6994cc`），四条用例按 RUN-057 明细原位修正写法后重跑（§1 变更记录 2026-10-21 一行），实现与设计未改，设计文档只把 `API-KB-017` 的「幂等」格改为重复删除返回 404。独立库 `shopilot_run058`（同一 PostgreSQL 实例），Web 起在 3378、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3378，`DATA_DIR` 用临时目录，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前 `pnpm db:reset && pnpm db:seed`；`pnpm job` 默认读 `.env` 会连到别的库，本轮改为导出本轮环境后执行 `pnpm exec tsx scripts/job.ts <任务名>`。`TC-KB-045`：同步后未对应列表三组（Demo Shopee MY 4 个、Demo Shopee SG 3 个、Demo TikTok TH 3 个卖家 SKU），导入 ` 1729582718312480201 ,竹纤维浴巾三件套` 得 `created 1`，20 秒后 `listingCount` 为 1，未对应列表里 Demo TikTok TH 只剩 `…202`、`…203`（`run-058-TC-KB-045-1.json` 至 `-4.json`）。`TC-KB-049`：第 1 步 Q 排第一、`distance` 0.1659；第 3 步下架后 `qa` 为 `null`；第 4 步 409 `invalid_state`；第 5 步恢复后再次命中；第 6 步第一次 204、第二次 404 `/errors/not-found`，再查 404（`run-058-TC-KB-049.txt`；脚本第一次记状态码时读错行，按原步骤重跑一遍，文件里是第二遍的输出）。`TC-DASH-015`：N0 为 0、S0 为 0；第 3、4 步 `draft_review` 都是 0 行；第 6 步 `shadow|shadow|same|same|stub|1|<T>`；第 7 步 `consistency` 为 `{"num":1,"den":1,"rate":null}`；第 8 步面板「影子回复」选中，一致率处显示「数据不足」与「一致 / 已对比 = 1 / 1，满 10 份才计算」，修改分类 6 行按语义一致、仅语言润色、补充信息、事实更正、流程改变、弃用重写自上而下排列（`run-058-TC-DASH-015.txt`、`run-058-TC-DASH-015-8.png`）。`TC-KB-001`：页签依次为问答、待审核、资料、产品、测试问答，打开时选中「问答」，点「资料」后地址为 `?tab=docs`、标题「资料 0 / 500」与空态文案符合；上传弹窗、进度、分类与状态变为可用、「2 / 500」、两个「AI 可用」开关为开均符合；第 5 步抽屉标题为文件名，`tab=docs` 与 `doc` 都在地址里，原文件标签在加载后有内嵌 iframe 预览（截图时 PDF 尚在加载，单独复查 6 秒后 iframe 在位）；第 6 步 `docTab=parsed`、刷新后仍停在「解析内容」并显示「替身解析：保修政策.pdf」；第 7 步 xlsx 显示「这种格式不能在页面里预览…」与「下载原文件」；第 8 步接口 2 条 `ready`、`partsCount`/`chunksCount` 为 1、`counts` 为 `{"total":2,"limit":500}`（`run-058-TC-KB-001-1.png` 至 `-7.png`、`-8.json`）。控制台没有报错。
+
+RUN-059 证据：局部轮，DESIGN v1.26 输入框附件（粘贴、选择的图片视频先进附件条，和文字一起按顺序发）。被测版本是 `wt/attach` 分支 `053c092`，工作区只改了 `docs/`。受影响用例按 `REQ-CONV-015` 取，另加走输入框发送的 `TC-CONV-021`、`TC-CONV-022`、`TC-CONV-026`、`TC-CONV-070`、`TC-AI-010`（发送逻辑改写过，文字、译文、草稿、失败气泡的路径都要过一遍）；本轮没有跑其余冒烟用例。独立库 `shopilot_wt_attach`（同一 PostgreSQL 实例），Web 起在 3379、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3379，`AI_MODE=stub`，起跑前 `pnpm db:reset && pnpm db:seed`；每条用例按 §3 用 `create_buyer` 加 `buyer_message` 新建买家，推送 HTTP 200。买家视图读模拟器接口 `GET /api/mock/sim/state`；`AI_MODE=stub` 下本方文字的译文是「[译文] 」加原文，买家视图收到的文字都带这个前缀，按前缀后的内容判定。`TC-CONV-072`：粘贴后没有弹框，附件条依次红、绿、蓝，读屏名「第 1 个附件：图片」至「第 3 个附件：图片」，刚粘贴时三个都带转圈，传完消失；输入框外框 106 → 170 px；移除第 2 个后剩红、蓝；点发送时按钮变「发送中」，完成后附件条消失、文字区清空、外框回到 106 px；时间线最后三条依次是这句话（原文对照）、红图、蓝图，都已发送，买家视图同序；第 7 步用真实剪贴板（无头 Edge 写入文字「你好」与一张 PNG 后按 ⌘V），输入框为「你好」、附件条不出现；第 8 步提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」；第 9 步两张进附件条，消息数 4 → 4，移除后附件条消失（`run-059-TC-CONV-072.json`、`-2.png`、`-5.png`、`-9.png`）。`TC-CONV-073`：故障注入 Demo Shopee SG 一次平台错误后发绿、红两张，提示「发送失败 Shopee 返回错误（error_server）…」，时间线最后一条是绿图、发送失败，附件条只剩红图；再点发送红图已发送、附件条消失；一次性故障用掉后列表为空（`run-059-TC-CONV-073.json`、`-3.png`）。`TC-CONV-074`：拦截第 3 个发送请求返回 409 后，提示「没有发出 模拟：平台拒绝这张图」，时间线新增这句话与红图，附件条剩绿（标「没发出」）、蓝，文字区清空；取消拦截再点发送，时间线最后四条依次是这句话、红、绿、蓝（`run-059-TC-CONV-074.json`、`-2.png`）。`TC-CONV-065`：选 clip.mp4 后附件条出现视频缩略图；点发送后时间线第一次出现视频时它已是「发送中」、附件条已空；15 秒后 `sent`，时间线视频可播放（`currentTime` 0.60）；库里 `video|sent`；买家视图有一条 `rawType` 为 `video` 的卖家消息；粘贴 clip.mov 提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」；C2 粘贴 clip.mp4 提示「TikTok 接口暂不支持发视频。」、附件条不出现；接口发视频 409，detail「TikTok 接口暂不支持发视频。」（`run-059-TC-CONV-065.json`、`-1.png`、`-2.png`）。`TC-CONV-021`：选 2 MB PNG 后附件条出现这张图，点发送后附件条消失，时间线图片已发送，买家视图收到（`run-059-TC-CONV-021.json`、`-1.png`）。`TC-CONV-022`：11 MB JPG 提示「图片 11.0 MB，超过 10 MB 上限。」、附件条不出现，上传接口 413 `/errors/too-large`；GIF 提示「只支持 JPG、PNG、WebP，不超过 10 MB。」，上传接口 415 `/errors/unsupported-type`；10,485,760 字节 PNG 上传 201、进附件条，点发送后已发送（`run-059-TC-CONV-022.json`）。`TC-CONV-026`：502 `/errors/platform`、`platformCode` 为 `error_server`，提示平台错误的中文说明，气泡有「重试」、发送失败，买家视图没有这条；点「重试」后已发送，买家视图「失败重试测试」1 条；对它调 retry 返回 409 `/errors/conflict`（`run-059-TC-CONV-026.json`、`-2.png`、`-3.txt`）。`TC-CONV-070`：L 为马来语，预览译文 T「[译文] 好的，马上为您处理」，请求体 `translateTo` 为 `ms`、`translatedText` 为 T，201；时间线正文 T、原文对照符合；「请稍等」立刻发送的请求体没有 `translatedText`，201（`run-059-TC-CONV-070.json`）。`TC-AI-010`：改后发送填入的就是草稿正文 X，加「（已核实）」后买家视图收到「[译文] X（已核实）」；审计日志「Nur Aisyah 改后发送了 AI 草稿（编辑距离 5）」；本月 `editedSent` 1 → 2（`run-059-TC-AI-010.json`、`-3.png`）。`TC-CONV-022`、`TC-CONV-026`、`TC-AI-010` 第一遍因执行脚本出错没跑完：脚本手动移除提示框节点后页面渲染出错、草稿状态值写错、等待条件写成异步函数；修正脚本后按原步骤在新会话上重跑，证据文件是第二遍的输出。控制台只有故障注入引起的 502（`run-059-console.json`）。
 
 ## 7. 遗留问题
 

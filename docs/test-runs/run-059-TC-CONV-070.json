@@ -1,0 +1,46 @@
+{
+  "C": {
+    "id": "01a15c1e-6668-7624-b782-c6c3f272709b",
+    "cid": "4684243131924267151",
+    "push": [
+      200
+    ]
+  },
+  "L": "译成马来语",
+  "s1_T": "[译文] 好的，马上为您处理",
+  "s2": {
+    "status": 201,
+    "body": {
+      "clientRequestId": "475c2b77-8338-4fe7-b61e-bb9554fd6104",
+      "type": "text",
+      "text": "好的，马上为您处理",
+      "translateTo": "ms",
+      "translatedText": "[译文] 好的，马上为您处理"
+    }
+  },
+  "s3": {
+    "dir": "out",
+    "type": "text",
+    "text": "[译文] 好的，马上为您处理",
+    "originalText": "好的，马上为您处理",
+    "status": "sent",
+    "error": null
+  },
+  "s4": {
+    "status": 201,
+    "body": {
+      "clientRequestId": "a9c2e0c6-8332-4de4-b6dc-de64f6dada7b",
+      "type": "text",
+      "text": "请稍等",
+      "translateTo": "ms"
+    },
+    "last": {
+      "dir": "out",
+      "type": "text",
+      "text": "[译文] 请稍等",
+      "originalText": "请稍等",
+      "status": "sent",
+      "error": null
+    }
+  }
+}

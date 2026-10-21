@@ -1,0 +1,42 @@
+{
+  "C": {
+    "id": "01a15c1d-b842-732a-a997-1954f0dad357",
+    "cid": "6479626833526844518",
+    "push": [
+      200
+    ]
+  },
+  "s1_strip": [
+    {
+      "name": "第 1 个附件：图片",
+      "color": "rgb(198,198,198)",
+      "status": true,
+      "badge": false
+    }
+  ],
+  "s1": {
+    "strip": 0,
+    "last": [
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "sent",
+        "error": null,
+        "color": "rgb(198,198,198)"
+      }
+    ]
+  },
+  "s2": {
+    "sellerCount": 2,
+    "last": [
+      {
+        "kind": "image",
+        "rawType": "image",
+        "text": null,
+        "color": "rgb(198,198,198)"
+      }
+    ]
+  }
+}

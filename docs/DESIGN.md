@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-21 | v1.26 | REQ-CONV-015、FLOW-WB-MEDIA | 粘贴或选择的图片、视频先放进输入框，和文字一起发：先文字，再按加入顺序逐条发，某条失败就停下 | 功能 |
 | 2026-10-21 | v1.25 | API-KB-017 | 删除问答不幂等：已删除的再删返回 404，按实现改正 | 文档 |
 | 2026-10-21 | v1.25 | REQ-DASH-003、FLOW-DRAFT-COMPARE、ENT-DraftReview、API-DASH-001、API-DASH-007、PAGE-DASHBOARD | 新增 AI 草稿与人工回复对比：每 10 分钟比一轮，看板给影子回复一致率与修改分类 | 功能 |
 | 2026-10-21 | v1.25 | PAGE-RECEPTION-KB、FLOW-AI-DRAFT | 知识库页改成问答、待审核、资料、产品、测试问答五个页签，依据链到问答编辑 | 功能 |
@@ -950,16 +951,16 @@
 #### 概要
 
 - **执行者**：处理这个会话的成员（ROLE-Agent）
-- **触发**：在输入框粘贴图片或视频，或用附件按钮选文件
+- **触发**：在输入框粘贴图片或视频，或用附件按钮选文件，再点发送
 - **进入条件**：会话能回复买家，发视频只限 Shopee 会话
 - **结果**：买家收到图片或视频，时间线可预览与播放
 - **不管**：PDF 等文件、TikTok 会话的视频、图片编辑
 
 #### 主流程
 
-1. S1 粘贴剪贴板里的图片或视频，弹出确认框预览 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
-2. S2 确认后逐个上传（API-CONV-010） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
-3. S3 逐个提交发送（API-CONV-007） 〔无界面〕
+1. S1 粘贴或选择的图片、视频按加入顺序放进输入框的附件条 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer-attachments.tsx〕
+2. S2 每个附件加入后立即上传（API-CONV-010） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer-attachments.tsx〕
+3. S3 点发送：有文字先发文字，再按附件顺序逐条提交（API-CONV-007） 〔界面：Web 工作台输入框｜src/app/(app)/wb/composer.tsx〕
 4. S4 图片直接调平台发出，视频先显示发送中并排后台任务 〔无界面〕
 5. S5 后台任务把视频传到 Shopee，等平台处理完再发出 〔无界面〕
 6. S6 时间线显示图片或可播放的视频 〔界面：Web 工作台对话栏｜src/app/(app)/wb/timeline.tsx〕
@@ -968,15 +969,17 @@
 
 > 分支未与用户逐类核对：S1–S6
 
-##### S1 粘贴
+##### S1 放进附件条
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 剪贴板同时带文字 | 按文字粘贴，不弹确认框 | API-CONV-007 | TC-CONV-064 |
-| 失败 | 粘贴 PDF 等文件 | 提示平台接口不支持这类文件，不发送 | `/errors/unsupported-type`；API-CONV-010 | TC-CONV-064 |
-| 失败 | TikTok 会话粘贴视频 | 提示 TikTok 接口暂不支持发视频，不发送 | `/errors/not-allowed`；API-CONV-007 | TC-CONV-065 |
-| 边界 | 一次粘贴超过 9 个 | 只取前 9 个 | API-CONV-010 | 无用例 |
-| 边界 | 用附件按钮选文件 | 选完直接发，不弹确认框 | API-CONV-010 | 无用例 |
+| 边界 | 剪贴板同时带文字 | 按文字粘贴，不放进附件条 | API-CONV-007 | TC-CONV-072 |
+| 失败 | 粘贴或选择 PDF 等文件 | 提示平台接口不支持这类文件，不加入 | `/errors/unsupported-type`；API-CONV-010 | TC-CONV-072 |
+| 失败 | TikTok 会话粘贴视频 | 提示 TikTok 接口暂不支持发视频，不加入 | `/errors/not-allowed`；API-CONV-007 | TC-CONV-065 |
+| 边界 | 附件条已有 9 个还要加 | 提示一次最多放 9 个，后面的不加入 | §15 输入框附件 | 不测：代码仓 attachments.test.ts 覆盖 |
+| 边界 | 用附件按钮选文件 | 可多选，按选择顺序加入附件条，不直接发 | API-CONV-010 | TC-CONV-072 |
+| 边界 | 删除附件条里的一个 | 只移除这一个，其余顺序不变 | §15 输入框附件 | TC-CONV-072 |
+| 边界 | 切到别的会话再回来 | 附件条还在；刷新页面后清空 | §15 输入框附件 | 无用例 |
 
 ##### S2 上传
 
@@ -984,6 +987,20 @@
 | --- | --- | --- | --- | --- |
 | 失败 | 图片超过 10 MB 或视频超过 30 MB | 413 `/errors/too-large`〔提示：视频不能超过 30 MB，图片不能超过 10 MB〕 | `/errors/too-large`；API-CONV-010 | 无用例 |
 | 失败 | 视频不是 MP4 | 415 `/errors/unsupported-type`〔提示：只支持 JPG、PNG、WebP 图片和 MP4 视频〕 | `/errors/unsupported-type`；API-CONV-010 | 无用例 |
+| 失败 | 上传没成功 | 缩略图标「上传失败」，点一下重新上传 | API-CONV-010；§15 输入框附件 | 无用例 |
+| 边界 | 还有没传完或上传失败的附件 | 发送按钮不可用，跳过它会打乱顺序 | §15 输入框附件 | 无用例 |
+
+##### S3 按顺序发送
+
+| 类型 | 分支 | 结果 | 依据 | 测试 |
+| --- | --- | --- | --- | --- |
+| 边界 | 文字和附件都有 | 先发文字，再按附件条顺序逐条发，上一条返回才发下一条 | §15 输入框附件 | TC-CONV-072 |
+| 失败 | 某个附件被拒（没进时间线） | 停下：已发的移出附件条，这一个标「没发出」写明原因，后面的不发 | API-CONV-007；§15 输入框附件 | TC-CONV-074 |
+| 边界 | 停下后再点发送 | 从附件条里剩下的第一个接着按顺序发 | §15 输入框附件 | TC-CONV-073、TC-CONV-074 |
+| 失败 | 平台没发出、消息已存成失败气泡 | 这一个移出附件条（在气泡上重试），后面的不发 | 迁移 ENT-Message sending→failed「platform_error」；§15 输入框附件 | TC-CONV-073 |
+| 失败 | 文字没发出 | 附件都不发；文字已存成失败气泡时清空输入框，否则保留文字 | API-CONV-007；§15 输入框附件 | 无用例 |
+| 边界 | 附件里有 Shopee 视频 | 视频进了时间线就移出附件条，等它发出或失败后才发下一条，最多等 150 秒 | §15 输入框附件 | 不测：模拟平台视频处理 2 秒即完成 |
+| 边界 | 结果未知后再点发送 | 每个附件用自己的发送幂等键，不会发两遍 | API-CONV-007 | 不测：接口幂等由 TC-CONV-020 覆盖 |
 
 ##### S5 传视频到 Shopee
 
@@ -1014,7 +1031,8 @@
 
 | 步骤 | 位置 |
 | --- | --- |
-| S1–S2 | `src/app/(app)/wb/composer.tsx#Composer`；`src/app/(app)/wb/composer.tsx#checkMedia`；`src/app/(app)/wb/composer.tsx#PastedPreview`；`src/app/api/v1/files/route.ts#POST` |
+| S1–S2 | `src/app/(app)/wb/composer-attachments.tsx#useAttachments`；`src/app/(app)/wb/composer-attachments.tsx#AttachmentStrip`；`src/lib/attachments.ts#acceptFiles`；`src/app/api/v1/files/route.ts#POST` |
+| S3 | `src/app/(app)/wb/composer.tsx#Composer`；`src/lib/attachments.ts#runPlan` |
 | S3–S4 | `src/server/conversations/actions.ts#sendMessage`；`src/server/conversations/send.ts#queueVideo` |
 | S5 | `src/server/conversations/send.ts#deliverQueuedVideo`；`src/server/platforms/shopee.ts#shopeeSendVideo`；`src/server/conversations/send.ts#shopeeVideoMedia` |
 | S6 | `src/app/(app)/wb/timeline.tsx#Timeline` |
@@ -1499,7 +1517,7 @@
 | REQ-CONV-012 | 处理人可以取消认领，把会话放回待认领 | G2 | P1 |
 | REQ-CONV-013 | Shopee 常见问题记录拉回买家与商店 AI 助手的对话并在时间线显示 | G2 | P1 |
 | REQ-CONV-014 | 工作台搜索本店在售商品发商品卡，Shopee 店还可发商品链接 | G2 | P1 |
-| REQ-CONV-015 | 输入框粘贴图片与视频确认后发出，Shopee 会话还可发 MP4 视频 | G2 | P1 |
+| REQ-CONV-015 | 图片与视频先放进输入框，和文字一起按顺序发出 | G2 | P1 |
 | REQ-CONV-016 | 发送前翻译时，客服停止输入就先翻好并在工具栏预览，发送直接用预译文 | G2 | P1 |
 | REQ-AI-001 | 按店铺与工作时间内外的接待模式出稿 | G2 | P0 |
 | REQ-AI-002 | 出稿输入含最近 20 条对话、订单事实、提示词、护栏与检索到的资料 | G2 | P0 |
@@ -1606,8 +1624,9 @@
 - REQ-CONV-013：AI 出稿与飞书卡片把记录展开成逐条发言，见 FLOW-AI-DRAFT、FLOW-FEISHU-CARD
 - REQ-CONV-014：每店最多列 500 件在售商品，可按名称、商品 ID、卖家 SKU 搜索，见 FLOW-WB-PRODUCT
 - REQ-CONV-014：TikTok 客服接口不支持超链接，TikTok 店只发商品卡
-- REQ-CONV-015：一次最多 9 个，剪贴板同时带文字时按文字粘贴
+- REQ-CONV-015：一次最多放 9 个附件，剪贴板同时带文字时按文字粘贴；先发文字再按附件顺序发，某条失败就停下
 - REQ-CONV-015：PDF 等文件不能发，TikTok 会话不能发视频，都给出原因
+- REQ-CONV-015：粘贴或用附件按钮选择都先放进输入框；Shopee 会话还可发 MP4 视频
 - REQ-CONV-015：视频只收 MP4、≤ 30 MB，由内部任务 `message.video_send` 上传后发出，见 12.12
 - REQ-CONV-016：停止输入 800 毫秒后预翻译，按文字与目标语言缓存最近 50 条，见 FLOW-WB-PRETRANSLATE
 - REQ-CONV-016：服务端不核对预译文是否对应原文，与客服直接输入的内容同样对待
@@ -4214,6 +4233,13 @@ sequenceDiagram
   else 失败、取消或 120 秒没处理完
     W->>DB: failed，记原因，客服可点重试 (API-CONV-015)
   end
+  opt 附件条里还有下一个附件
+    loop 每 2.5 秒，最多 150 秒
+      FE->>API: 读会话详情 (API-CONV-002)
+      API-->>FE: 这条视频的发送状态
+    end
+    FE->>API: 发送成功后才提交下一个附件 (API-CONV-007)
+  end
 ```
 
 ### 12.13 工作台发送店铺商品（REQ-CONV-014）
@@ -4626,6 +4652,7 @@ flowchart LR
 | 延迟 | 出稿与飞书构卡等常见问题记录 | 出稿与飞书构卡前最多等 4 秒，只等 20 秒内收到、还在拉取的记录 |
 | 容错 | 常见问题记录拉取（`shopee.bundle`） | 超时与 5xx 退避重试 4 次；授权失效、无权限、参数错、查不到直接记取不到；拉取中超过 10 分钟按取不到显示 |
 | 延迟 | Shopee 发视频（`message.video_send`） | 视频传到 Shopee 后等平台处理 ≤ 120 秒，每 3 秒查一次；2026-10-20 生产实测 6.2 MB 视频约 15 秒处理完；任务不自动重试，失败后客服点重试 |
+| 容量 | 输入框附件 | 一次最多放 9 个，按会话存在页面内存里（切会话保留、刷新清空）；发送时先文字后附件、上一条返回才发下一条，Shopee 视频等发出或失败（前端最多等 150 秒）再发下一条；某条失败就停下 |
 | 容量 | 店铺商品目录（`API-CONV-017`） | 每店最多列 500 件在售商品，整店目录在 Web 进程内存缓存 10 分钟，同一店同时只取一次；逐个补规格或主图并发 6 |
 | 容量 | 问题提取（`issue.extract`） | 每 10 分钟一轮，只看 8 天内、买家停止发言满 30 分钟、非回补非达人的段；每轮 ≤ 50 段，并发 4，每段 15 秒，失败下轮再提取 |
 | 容量 | 草稿对比（`draft.compare`） | 每 10 分钟一轮，只看 8 天内、生成满 15 分钟的草稿；每轮 ≤ 50 份，并发 4，每份 15 秒，失败下轮再比；人工回复最多取 3 条、上下文 6 条；不计商户出稿用量 |
@@ -5304,18 +5331,25 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 打开右栏「商品」
   Then 页签说明原因并提示续期授权，不列商品
 
-场景: 粘贴图片确认后发出 (REQ-CONV-015)
-  Given 剪贴板里有两张图片
-  When 处理人在输入框粘贴
-  Then 弹出确认框预览两张图，确认后逐张发出
+场景: 粘贴图片放进输入框，和文字一起按顺序发出 (REQ-CONV-015)
+  Given 处理人先后粘贴了三张图片，又写了一句话
+  When 删掉第二张后点发送
+  Then 时间线依次出现这句话、第一张、第三张
   When 剪贴板同时带文字
-  Then 按文字粘贴，不弹确认框
+  Then 按文字粘贴，不放进附件条
   When 粘贴的是 PDF
-  Then 提示平台接口不支持这类文件，不发送
+  Then 提示平台接口不支持这类文件，不加入
+
+场景: 附件发送失败就停下 (REQ-CONV-015)
+  Given 输入框有一句话和三张图片
+  When 第二张被平台拒绝
+  Then 这句话和第一张已发出，第二张标「没发出」，第三张不发
+  When 再点发送
+  Then 从第二张接着按顺序发出
 
 场景: Shopee 会话发视频 (REQ-CONV-015)
-  Given Shopee 会话，处理人选了一个 MP4 视频
-  When 确认发送
+  Given Shopee 会话，处理人选了一个 MP4 视频，它进了附件条
+  When 点发送
   Then 时间线先显示发送中，后台把视频传到 Shopee、处理完后发出，可播放
   Given TikTok 会话
   When 粘贴视频

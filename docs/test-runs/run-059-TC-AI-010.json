@@ -1,0 +1,35 @@
+{
+  "E0": [
+    "\"editedSent\":1",
+    "\"editedSent\":0"
+  ],
+  "C": {
+    "id": "01a15c20-0937-7791-8d35-4c4e0df761ae",
+    "cid": "8291655241232245806",
+    "push": [
+      200
+    ]
+  },
+  "X": "您好！关于「Where is my parcel?」，我们已经收到，会尽快为您处理。",
+  "s1": true,
+  "s2": {
+    "sellerCount": 1,
+    "last": [
+      {
+        "kind": "text",
+        "rawType": "text",
+        "text": "[译文] 您好！关于「Where is my parcel?」，我们已经收到，会尽快为您处理。（已核实）"
+      }
+    ],
+    "expect": "您好！关于「Where is my parcel?」，我们已经收到，会尽快为您处理。（已核实）"
+  },
+  "s3_db": "draft_disposed|{\"disposition\": \"edited_sent\", \"edit_distance\": 5}",
+  "s3_page": [
+    "10-21 09:42\tNur Aisyah\t页面\t工作台\tNur Aisyah 改后发送了 AI 草稿（编辑距离 5）",
+    "10-21 09:41\tNur Aisyah\t页面\t工作台\tNur Aisyah 改后发送了 AI 草稿（编辑距离 5）"
+  ],
+  "s4": [
+    "\"editedSent\":2",
+    "\"editedSent\":0"
+  ]
+}

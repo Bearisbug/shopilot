@@ -1,0 +1,109 @@
+{
+  "C": {
+    "id": "01a15c1d-590f-77e3-bfd4-6b1987979e48",
+    "cid": "6777062173370945541",
+    "push": [
+      200
+    ]
+  },
+  "s1": [
+    {
+      "name": "第 1 个附件：图片",
+      "color": "red",
+      "status": false,
+      "badge": false
+    },
+    {
+      "name": "第 2 个附件：图片",
+      "color": "green",
+      "status": false,
+      "badge": false
+    },
+    {
+      "name": "第 3 个附件：图片",
+      "color": "blue",
+      "status": false,
+      "badge": false
+    }
+  ],
+  "s2": {
+    "posts": 3,
+    "toasts": [
+      "没有发出 模拟：平台拒绝这张图"
+    ],
+    "strip": [
+      {
+        "name": "第 1 个附件：图片",
+        "color": "green",
+        "status": false,
+        "badge": true
+      },
+      {
+        "name": "第 2 个附件：图片",
+        "color": "blue",
+        "status": false,
+        "badge": false
+      }
+    ],
+    "text": "",
+    "last": [
+      {
+        "dir": "out",
+        "type": "text",
+        "text": "[译文] 失败即停：这句先发",
+        "originalText": "失败即停：这句先发",
+        "status": "sent",
+        "error": null
+      },
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "sent",
+        "error": null,
+        "color": "red"
+      }
+    ]
+  },
+  "s3": {
+    "strip": 0,
+    "last": [
+      {
+        "dir": "out",
+        "type": "text",
+        "text": "[译文] 失败即停：这句先发",
+        "originalText": "失败即停：这句先发",
+        "status": "sent",
+        "error": null
+      },
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "sent",
+        "error": null,
+        "color": "red"
+      },
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "sent",
+        "error": null,
+        "color": "green"
+      },
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "sent",
+        "error": null,
+        "color": "blue"
+      }
+    ]
+  }
+}
