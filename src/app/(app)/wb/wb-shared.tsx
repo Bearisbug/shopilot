@@ -1,11 +1,11 @@
 "use client";
 
 // 工作台共用：URL 状态、查询键、显示用的小组件与文案。
-import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type InfiniteData, type QueryClient, queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import type { BuyerPanel, ConversationDetail, ConvView, DraftCitationItem, HandlingState, ProductCardInfo, SendBody, SendResult, Stage } from "@/contracts/conversations";
+import type { BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConvView, DraftCitationItem, HandlingState, ProductCardInfo, SendBody, SendResult, Stage } from "@/contracts/conversations";
 import { Avatar as AvatarRoot, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useCan } from "@/hooks/use-me";
@@ -36,12 +36,52 @@ const isGone = (e: unknown) => e instanceof ApiError && e.status === 404;
 // 页面在后台时暂停；确认 404（会话看不到了）后停止轮询，换一个会话是另一个查询，照常轮询
 const POLL = (ms: number) => (query: { state: { error: unknown } }) => ((typeof document !== "undefined" && document.visibilityState === "hidden") || isGone(query.state.error) ? false : ms);
 
+const conversationQuery = (id: string) => queryOptions({ queryKey: ["conversation", id], queryFn: () => api.get<ConversationDetail>(`/api/v1/conversations/${id}`) });
+const buyerQuery = (id: string) => queryOptions({ queryKey: ["conversation", id, "buyer"], queryFn: () => api.get<BuyerPanel>(`/api/v1/conversations/${id}/buyer`) });
+
 export function useConversation(id: string) {
-  return useQuery({ queryKey: ["conversation", id], queryFn: () => api.get<ConversationDetail>(`/api/v1/conversations/${id}`), refetchInterval: POLL(2_000) });
+  return useQuery({ ...conversationQuery(id), refetchInterval: POLL(2_000) });
 }
 
 export function useBuyer(id: string) {
-  return useQuery({ queryKey: ["conversation", id, "buyer"], queryFn: () => api.get<BuyerPanel>(`/api/v1/conversations/${id}/buyer`), refetchInterval: POLL(10_000) });
+  return useQuery({ ...buyerQuery(id), refetchInterval: POLL(10_000) });
+}
+
+/** 悬停、聚焦或按下会话行时先取详情与买家侧栏，点开时多半已经到了；缓存还新鲜就不重取 */
+export function prefetchConversation(qc: QueryClient, id: string) {
+  void qc.prefetchQuery(conversationQuery(id));
+  void qc.prefetchQuery(buyerQuery(id));
+}
+
+/** 会话列表缓存里的这一行：详情还没到时，会话头先用它占位 */
+export function listItemFor(qc: QueryClient, id: string): ConversationListItem | undefined {
+  for (const [, data] of qc.getQueriesData<InfiniteData<ConversationList>>({ queryKey: ["conversations"] })) {
+    for (const page of data?.pages ?? []) {
+      const hit = page.items.find((x) => x.id === id);
+      if (hit) return hit;
+    }
+  }
+  return undefined;
+}
+
+// 点下会话行到新会话的路由就位之间，旧会话会停在原处（路由载荷要一次往返）：先记下点的是哪一行，工作台立刻换成它的占位。
+// from 是点击时选中的会话；地址一离开 from（到了目标或别处）就清掉
+type PendingOpen = { item: ConversationListItem; from: string | null };
+let pendingOpen: PendingOpen | null = null;
+const pendingListeners = new Set<() => void>();
+export function setPendingOpen(next: PendingOpen | null) {
+  pendingOpen = next;
+  for (const l of pendingListeners) l();
+}
+export function usePendingOpen() {
+  return useSyncExternalStore(
+    (cb) => {
+      pendingListeners.add(cb);
+      return () => pendingListeners.delete(cb);
+    },
+    () => pendingOpen,
+    () => null,
+  );
 }
 
 /** 「获取中」的商品卡每 2 秒查一次进度；没有获取中的就停（会话详情的 2 秒轮询照常） */

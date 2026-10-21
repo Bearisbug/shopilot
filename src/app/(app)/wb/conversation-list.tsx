@@ -1,10 +1,10 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardListIcon, CornerDownLeftIcon, FilterXIcon, InboxIcon, PinIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ConversationList, ConversationListItem, ConvView } from "@/contracts/conversations";
 import { ShopFilter } from "@/components/common/shop-filter";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/shell/page";
@@ -14,7 +14,7 @@ import { useMe } from "@/hooks/use-me";
 import { api } from "@/lib/api";
 import { inTz } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { AiTag, Avatar, listPoll, PlatformTag, PollErrorBar, remainText, STAGE_LABEL, useWbParams, VIEW_LABEL, waitedText } from "./wb-shared";
+import { AiTag, Avatar, listPoll, PlatformTag, PollErrorBar, prefetchConversation, remainText, setPendingOpen, STAGE_LABEL, useWbParams, VIEW_LABEL, waitedText } from "./wb-shared";
 
 const VIEWS: ConvView[] = ["queue", "ai", "mine", "team", "done"];
 
@@ -159,9 +159,26 @@ export function ConversationListPanel({ selectedId, className }: { selectedId: s
 function Row({ item, href, selected, tz, view, now }: { item: ConversationListItem; href: string; selected: boolean; tz: string; view: ConvView; now: number }) {
   const time = item.lastMessageAt ? (now - new Date(item.lastMessageAt).getTime() < 20 * 3600_000 ? inTz(item.lastMessageAt, tz, "HH:mm") : inTz(item.lastMessageAt, tz, "MM-dd")) : "";
   const ticket = item.openTickets[0];
+  const qc = useQueryClient();
+  // 列表一进视口不预取（几十行同时取会话页没有必要）；指到、聚焦或按下这一行才预取整条路由和会话数据
+  const [intent, setIntent] = useState(false);
+  const warm = () => {
+    setIntent(true);
+    prefetchConversation(qc, item.id);
+  };
   return (
     <Link
       href={href}
+      prefetch={intent}
+      onPointerEnter={warm}
+      onFocus={warm}
+      onPointerDown={warm}
+      onClick={(e) => {
+        // 新标签打开、点的是已打开的会话时不占位
+        const current = location.pathname.startsWith("/wb/") ? (location.pathname.split("/")[2] ?? null) : null;
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || current === item.id) return;
+        setPendingOpen({ item, from: current });
+      }}
       aria-current={selected ? "true" : undefined}
       className={cn(
         // 焦点环画在行内侧，滚动容器不会裁掉它的边
