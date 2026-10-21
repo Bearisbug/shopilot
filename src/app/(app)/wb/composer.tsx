@@ -4,9 +4,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageIcon, InfoIcon, LayoutGridIcon, LoaderCircleIcon, SendIcon, TicketPercentIcon, XIcon, ZapIcon } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import type { ConversationDetail, DraftItem, SendBody, UploadedFile } from "@/contracts/conversations";
+import type { ConversationDetail, DraftItem, MessageItem, SendBody } from "@/contracts/conversations";
 import type { QuickReply, QuickReplyLang } from "@/contracts/reception";
-import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,35 +14,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMe } from "@/hooks/use-me";
 import { api, ApiError, errorText, newKey } from "@/lib/api";
+import { acceptFiles, IMAGE_RULE, MEDIA_RULE, runPlan, sendPlan } from "@/lib/attachments";
 import { quickReplyInsert } from "@/lib/quick-reply";
+import { AttachmentStrip, useAttachments, type Attachment } from "./composer-attachments";
 import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
 import { usePretranslate, type Pretranslation } from "./use-pretranslate";
 import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
 import { AiTag, Citations, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
 const LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
-const IMAGE_RULE = "JPG、PNG、WebP，不超过 10 MB";
-const MEDIA_RULE = "JPG、PNG、WebP 图片不超过 10 MB，MP4 视频不超过 30 MB";
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-const VIDEO_MAX_BYTES = 30 * 1024 * 1024;
-const PASTE_MAX = 9;
-const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
-const size = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${mb(n)} MB`);
-
-type Media = { file: File; kind: "image" | "video" };
-
-/** 能不能发、按什么发：视频只有 Shopee 能发（TikTok 客服接口没有视频上传）；返回字符串是不能发的原因 */
-function checkMedia(f: File, shopee: boolean): Media | string {
-  if (IMAGE_TYPES.includes(f.type)) return f.size > IMAGE_MAX_BYTES ? `图片 ${mb(f.size)} MB，超过 10 MB 上限。` : { file: f, kind: "image" };
-  if (f.type.startsWith("video/")) {
-    if (!shopee) return "TikTok 接口暂不支持发视频。";
-    if (f.type !== "video/mp4") return "只支持 MP4 视频，MOV 等格式请先导出为 MP4。";
-    return f.size > VIDEO_MAX_BYTES ? `视频 ${mb(f.size)} MB，超过 30 MB 上限。` : { file: f, kind: "video" };
-  }
-  if (f.type.startsWith("image/")) return `只支持 ${IMAGE_RULE}。`;
-  return shopee ? "平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。" : "平台聊天只能发图片，视频、PDF 等文件发不出去。";
-}
+/** Shopee 视频在后台传到平台并等平台处理（DESIGN §15：≤120 秒），处理完才发下一条，保证平台上的顺序 */
+const VIDEO_WAIT_MS = 150_000;
+const VIDEO_POLL_MS = 2_500;
 /** 买家语言未知时按店铺站点预选翻译目标；新加坡、菲律宾买家多用英语 */
 const MARKET_LANG: Record<string, (typeof LANGS)[number]> = { MY: "ms", TH: "th", VN: "vi", ID: "id", PH: "en", SG: "en" };
 
@@ -172,113 +154,104 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
   const slash = useSlashReplies({ text, stage: detail.segment?.stage, resolve: resolveReply, onPicked: setDraftLang });
   const shopee = c.shop.platform === "shopee";
   const mediaRule = shopee ? MEDIA_RULE : IMAGE_RULE;
-  const upload = useMutation({ mutationFn: sendMedia });
-  // 粘贴的图片、视频先确认再发（误粘贴发出去收不回）；sent 是已发出的个数，running 表示正在逐个发
-  const [pasted, setPasted] = useState<{ items: (Media & { preview: string })[]; sent: number; running: boolean } | null>(null);
-
-  /** 上传后发送；视频较大，上传进度显示在提示条上。视频发送在后台进行，时间线先显示「发送中」 */
-  async function sendMedia(m: Media) {
-    const form = new FormData();
-    form.set("file", m.file);
-    const tid = m.kind === "video" ? toast.loading("视频上传中 0%") : undefined;
-    let up: UploadedFile;
-    try {
-      up = tid
-        ? await api.uploadWithProgress<UploadedFile>("/api/v1/files", form, (r) => toast.loading(`视频上传中 ${Math.round(r * 100)}%`, { id: tid }))
-        : await api.upload<UploadedFile>("/api/v1/files", form);
-    } catch (e) {
-      toast.error(`${m.kind === "image" ? "图片" : "视频"}没有发出`, { description: errorText(e) });
-      throw e;
-    } finally {
-      if (tid) toast.dismiss(tid);
-    }
-    // 发送这一步失败时 useSend 自己提示
-    return send.mutateAsync({ type: m.kind, fileId: up.id });
-  }
+  const atts = useAttachments(c.id);
+  const [sending, setSending] = useState(false);
 
   const max = detail.capabilities.maxTextLength;
   const length = Array.from(text).length;
   const over = length - max;
   const tiktok = c.shop.platform === "tiktok";
-  const busy = send.isPending || upload.isPending || pasted !== null;
-  const canSubmit = text.trim().length > 0 && over <= 0 && !busy;
+  const hasText = text.trim().length > 0;
+  // 附件都上传完、没有上传失败的才能发：跳过某个附件会打乱发送顺序
+  const attsReady = atts.list.every((a) => a.state === "ready" || a.state === "send_failed");
+  const canSubmit = (hasText || atts.list.length > 0) && over <= 0 && !sending && attsReady;
 
-  const submit = () => {
-    if (!canSubmit) return;
+  const clearText = () => {
+    attempt.current = null;
+    setText("");
+    setDraftLang(null);
+    onDoneEditing();
+  };
+
+  /** 发文字：译文、草稿、重发去重沿用原规则；失败抛出，让后面的附件停下 */
+  async function sendText() {
     const body = text.trim();
     const clientRequestId = attempt.current?.text === body ? attempt.current.key : newKey();
     attempt.current = { text: body, key: clientRequestId };
     // 停顿时已经翻好的译文随消息带上，服务端不再同步翻译；没翻好（还在翻、失败、刚改字）由服务端照旧翻译
     const translatedText = sendLang === "none" ? undefined : pre.get(body, sendLang);
-    const done = () => {
-      attempt.current = null;
-      setText("");
-      setDraftLang(null);
-      onDoneEditing();
-    };
-    send.mutate(
-      {
+    try {
+      await send.mutateAsync({
         type: "text",
         text: body,
         clientRequestId,
         translateTo: sendLang === "none" ? undefined : (sendLang as SendBody["translateTo"]),
         ...(translatedText ? { translatedText } : {}),
         ...(editing ? { draftId: editing.id, disposition: "edited_sent" as const } : {}),
-      },
-      {
-        onSuccess: done,
-        // 平台没发出但消息已存成失败气泡（带 messageId）：在气泡上重试，输入框清空，免得同一句再发一遍
-        onError: (e) => {
-          if (e instanceof ApiError && e.problem.extra?.messageId) done();
-        },
-      },
-    );
+      });
+    } catch (e) {
+      // 平台没发出但消息已存成失败气泡（带 messageId）：在气泡上重试，输入框清空，免得同一句再发一遍
+      if (e instanceof ApiError && e.problem.extra?.messageId) clearText();
+      throw e;
+    }
+    clearText();
+  }
+
+  /** 发一个附件：进了时间线就移出附件条；Shopee 视频在后台发出，等它处理完（成功或失败）再返回 */
+  async function sendAttachment(a: Attachment) {
+    atts.set(a.key, { state: "sending", error: null });
+    let res: { message: MessageItem };
+    try {
+      res = await send.mutateAsync({ type: a.kind, fileId: a.fileId!, clientRequestId: a.requestKey });
+    } catch (e) {
+      // 已存成失败气泡的在气泡上重试，这里移除；没进时间线的（被拒、网络）留在附件条上，再点发送从它接着发
+      if (e instanceof ApiError && e.problem.extra?.messageId) atts.remove(a.key);
+      else atts.set(a.key, { state: "send_failed", error: errorText(e) });
+      throw e;
+    }
+    atts.remove(a.key);
+    if (a.kind === "video" && res.message.sendStatus === "sending") await waitVideo(res.message.id);
+  }
+
+  async function waitVideo(messageId: string) {
+    const deadline = Date.now() + VIDEO_WAIT_MS;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, VIDEO_POLL_MS));
+      const d = await api.get<ConversationDetail>(`/api/v1/conversations/${c.id}`).catch(() => null);
+      const m = d?.messages.find((x) => x.id === messageId);
+      if (m?.sendStatus === "sent") return;
+      if (m?.sendStatus === "failed") {
+        toast.error("视频没有发出", { description: "可以在时间线的气泡上重试；后面的附件先不发。" });
+        throw new Error("video failed");
+      }
+    }
+    toast.error("视频还在处理", { description: "等它发出后再点发送，后面的附件会接着发。" });
+    throw new Error("video timeout");
+  }
+
+  /** 先文字、再按附件顺序逐条发；某条失败就停下，没发出的留在输入框 */
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSending(true);
+    const byKey = new Map(atts.list.map((a) => [a.key, a]));
+    await runPlan(sendPlan(hasText, atts.list.map((a) => a.key)), (step) => (step.kind === "text" ? sendText() : sendAttachment(byKey.get(step.key)!)));
+    setSending(false);
+    slash.inputRef.current?.focus();
   };
 
-  const pickFile = (f: File) => {
-    const m = checkMedia(f, shopee);
-    if (typeof m === "string") toast.error("没有发出", { description: m });
-    else upload.mutate(m);
+  /** 按给出的顺序把文件放进附件条，不能发的说明原因 */
+  const addFiles = (files: File[]) => {
+    const { accepted, errors } = acceptFiles(files, atts.list.length, shopee);
+    if (errors.length) toast.error(accepted.length ? "有文件没有加入" : "没有可发的图片或视频", { description: errors.join(" ") });
+    if (accepted.length) atts.add(accepted);
   };
 
-  /** 剪贴板里有文件（截图、复制的图片）：拦下来走确认发送。同时带文字的（表格、网页片段）按文字粘贴 */
+  /** 剪贴板里有文件（截图、复制的图片）：放进附件条。同时带文字的（表格、网页片段）按文字粘贴 */
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const files = Array.from(e.clipboardData.files);
     if (!files.length || e.clipboardData.getData("text/plain").trim()) return;
     e.preventDefault();
-    if (busy) return;
-    const ok: Media[] = [];
-    const bad: string[] = [];
-    for (const f of files) {
-      const m = checkMedia(f, shopee);
-      if (typeof m === "string") bad.push(m);
-      else ok.push(m);
-    }
-    if (ok.length > PASTE_MAX) bad.push(`一次最多发 ${PASTE_MAX} 个，只取前 ${PASTE_MAX} 个。`);
-    if (bad.length) toast.error(ok.length ? "有文件不能发" : "没有可发的图片或视频", { description: [...new Set(bad)].join(" ") });
-    if (ok.length) setPasted({ items: ok.slice(0, PASTE_MAX).map((m) => ({ ...m, preview: URL.createObjectURL(m.file) })), sent: 0, running: false });
-  };
-
-  const closePasted = () => {
-    pasted?.items.forEach((m) => URL.revokeObjectURL(m.preview));
-    setPasted(null);
-  };
-
-  /** 依次发出粘贴的文件；某个失败就停下，已发出的不撤回 */
-  const sendPasted = async () => {
-    if (!pasted || pasted.running) return;
-    setPasted({ ...pasted, running: true });
-    for (let i = pasted.sent; i < pasted.items.length; i++) {
-      try {
-        await sendMedia(pasted.items[i]);
-      } catch {
-        closePasted();
-        return;
-      }
-      setPasted((p) => p && { ...p, sent: i + 1 });
-    }
-    closePasted();
-    slash.inputRef.current?.focus();
+    addFiles(files);
   };
 
   return (
@@ -339,6 +312,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
               // 上下留白用外边距而不是内边距：内边距会随内容一起滚走，滚动时文字贴到盒子描边上
               className="scroll-nav mt-3 mb-2 max-h-40 min-h-11 resize-none border-0 bg-transparent px-3 py-0 leading-relaxed shadow-none focus-visible:outline-none"
             />
+            {/* 粘贴或选择的图片、视频先放这里，和文字一起发：先文字，再按这里的顺序 */}
+            <AttachmentStrip list={atts.list} locked={sending} onRemove={atts.remove} onRetryUpload={atts.retryUpload} />
             {/* 超限说明单独一行、右缘与文字区对齐，窄屏不挤掉发送按钮 */}
             {over > 0 && (
               <p id="wb-reply-over" className="px-3 pb-1 text-right text-xs text-destructive tabular-nums">
@@ -349,9 +324,9 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2">
               <div className="flex items-center gap-0.5">
                 {/* -ml-2 抵消 ghost 图标按钮的内边距（(32−16)/2 = 8px），图形左缘与文字左缘对齐 */}
-                <Tip label={`${shopee ? "发图片或视频" : "发图片"}（${mediaRule}；也可直接粘贴）`}>
-                  <Button variant="ghost" size="icon-sm" aria-label={`${shopee ? "发图片或视频" : "发图片"}（${mediaRule}）`} disabled={busy} onClick={() => fileRef.current?.click()} className="-ml-2">
-                    {upload.isPending ? <LoaderCircleIcon className="animate-spin" /> : <ImageIcon />}
+                <Tip label={`${shopee ? "添加图片或视频" : "添加图片"}（${mediaRule}；也可直接粘贴），和文字一起发`}>
+                  <Button variant="ghost" size="icon-sm" aria-label={`${shopee ? "添加图片或视频" : "添加图片"}（${mediaRule}）`} onClick={() => fileRef.current?.click()} className="-ml-2">
+                    <ImageIcon />
                   </Button>
                 </Tip>
                 {tiktok && (
@@ -401,8 +376,8 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
                   {length.toLocaleString("en-US")} / {max.toLocaleString("en-US")}
                 </span>
                 <Tip label="发送（⌘ / Ctrl + Enter）">
-                  <Button size="icon-sm" variant="outline" aria-label="发送" disabled={!canSubmit} onClick={submit}>
-                    {send.isPending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
+                  <Button size="icon-sm" variant="outline" aria-label={sending ? "发送中" : "发送"} disabled={!canSubmit} onClick={submit}>
+                    {sending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
                   </Button>
                 </Tip>
               </div>
@@ -414,26 +389,15 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
       <input
         ref={fileRef}
         type="file"
+        multiple
         accept={shopee ? "image/jpeg,image/png,image/webp,video/mp4" : "image/jpeg,image/png,image/webp"}
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0];
+          const files = Array.from(e.target.files ?? []);
           e.target.value = "";
-          if (f) pickFile(f);
+          if (files.length) addFiles(files);
         }}
       />
-      <ConfirmDialog
-        open={pasted !== null}
-        // 逐个发送期间不能关（Esc 也不行），发完自动关
-        onOpenChange={(o) => !o && !pasted?.running && closePasted()}
-        title={`发给 ${c.buyerName}？`}
-        desc={pasted && pasted.items.length > 1 ? `从剪贴板粘贴了 ${pasted.items.length} 个文件，确认后按顺序逐个发出。` : "从剪贴板粘贴的内容，确认后发出。"}
-        confirmText={pasted && pasted.items.length > 1 ? `发送 ${pasted.items.length} 个` : "发送"}
-        pending={pasted?.running}
-        onConfirm={sendPasted}
-      >
-        <PastedPreview items={pasted?.items ?? []} sent={pasted?.sent ?? 0} />
-      </ConfirmDialog>
       <RepliesDialog
         stage={detail.segment?.stage ?? "unknown"}
         canManage={canManageReplies}
@@ -447,27 +411,6 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
       {tiktok && <CardsDialog detail={detail} orders={buyer.data?.orders ?? []} />}
       {tiktok && detail.capabilities.coupons && <CouponsDialog detail={detail} />}
     </div>
-  );
-}
-
-/** 粘贴确认里的预览：图片缩略图、视频首帧；已发出的打勾 */
-function PastedPreview({ items, sent }: { items: (Media & { preview: string })[]; sent: number }) {
-  return (
-    <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-      {items.map((m, i) => (
-        <li key={m.preview} className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted">
-          {m.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element -- 本地剪贴板文件的 blob 地址，不经图片优化
-            <img src={m.preview} alt={`粘贴的图片 ${i + 1}`} className="size-full object-contain" />
-          ) : (
-            <video src={m.preview} muted playsInline preload="metadata" aria-label={`粘贴的视频 ${i + 1}`} className="size-full object-contain" />
-          )}
-          <span className="absolute inset-x-0 bottom-0 truncate bg-background/85 px-1.5 py-0.5 text-[11px] text-muted-foreground tabular-nums">
-            {i < sent ? "已发出" : m.kind === "video" ? `视频 · ${size(m.file.size)}` : size(m.file.size)}
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }
 
