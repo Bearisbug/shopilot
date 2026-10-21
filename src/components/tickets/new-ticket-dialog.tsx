@@ -49,6 +49,8 @@ export type NewTicketDialogProps = {
   orderId?: string;
   afterSaleId?: string;
   defaultType?: TicketType;
+  /** 说明的预填（工作台「按卡建工单」带经验卡标题与要跟进的事） */
+  defaultNote?: string;
   onCreated?: (ticket: TicketItem) => void;
 };
 
@@ -84,7 +86,7 @@ export function NewTicketDialog(props: NewTicketDialogProps) {
 }
 
 // 对话框关闭即卸载，重新打开是全新表单
-function NewTicketForm({ shopId: fixedShop, conversationId, buyerName, orders = [], orderId, afterSaleId, defaultType, onCreated, close }: NewTicketDialogProps & { close: () => void }) {
+function NewTicketForm({ shopId: fixedShop, conversationId, buyerName, orders = [], orderId, afterSaleId, defaultType, defaultNote, onCreated, close }: NewTicketDialogProps & { close: () => void }) {
   const me = useMe();
   const qc = useQueryClient();
   const router = useRouter();
@@ -104,7 +106,7 @@ function NewTicketForm({ shopId: fixedShop, conversationId, buyerName, orders = 
       afterSaleId: afterSaleId ?? NONE,
       assigneeId: DEFAULT_ASSIGNEE,
       dueLocal: "",
-      note: "",
+      note: defaultNote ?? "",
       linkConversation: !!conversationId,
     },
   });

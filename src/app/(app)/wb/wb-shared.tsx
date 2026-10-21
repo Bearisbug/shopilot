@@ -3,9 +3,10 @@
 // 工作台共用：URL 状态、查询键、显示用的小组件与文案。
 import { type InfiniteData, type QueryClient, queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useSyncExternalStore } from "react";
+import { Fragment, useId, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import type { BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConvView, DraftCitationItem, HandlingState, ProductCardInfo, SendBody, SendResult, Stage } from "@/contracts/conversations";
+import { CARD_ACTION_LABEL } from "@/contracts/cards";
+import type { BuyerPanel, ConversationDetail, ConversationList, ConversationListItem, ConvView, DraftCardItem, DraftCitationItem, HandlingState, ProductCardInfo, SendBody, SendResult, Stage } from "@/contracts/conversations";
 import { Avatar as AvatarRoot, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useCan } from "@/hooks/use-me";
@@ -29,6 +30,7 @@ export const HANDOFF_LABEL: Record<string, string> = {
   shop_off: "店铺未开 AI",
   shadow: "影子模式",
   platform_human: "平台后台已有人回复",
+  card: "经验卡要求转人工",
 };
 export const LANG_LABEL: Record<string, string> = { ms: "马来语", en: "英语", th: "泰语", vi: "越南语", id: "印尼语", tl: "菲律宾语", zh: "中文" };
 
@@ -170,6 +172,50 @@ export function Citations({ items, className }: { items: DraftCitationItem[]; cl
         );
       })}
     </p>
+  );
+}
+
+/** 「按卡建工单」预填的工单说明：卡标题，后接模型写的要跟进什么（与自动模式 AI 建单的描述一致） */
+export const cardTicketNote = (c: Pick<DraftCardItem, "title" | "ticketSummary">) => (c.ticketSummary ? `${c.title}：${c.ticketSummary}` : c.title);
+
+/**
+ * 草稿用到的经验卡（REQ-KB-012）：「经验卡：「标题」 · 第 n 步」，按分支转人工或建工单时后面写动作；「看理由」展开模型写的用卡理由。
+ * 管理员与组长点标题新标签打开知识库里的这张卡；员工只显示文字；卡已下架或删除时标「已下架」、不能点开。
+ */
+export function DraftCardLine({ card, className }: { card: DraftCardItem | null; className?: string }) {
+  const can = useCan();
+  const [open, setOpen] = useState(false);
+  const reasonId = useId();
+  if (!card) return null;
+  const label = `「${card.title}」`;
+  return (
+    <div className={cn("text-xs text-muted-foreground [overflow-wrap:anywhere]", className)}>
+      <p>
+        经验卡：
+        {!card.archived && card.cardId && can("knowledge.manage") ? (
+          <a href={`/reception/knowledge?tab=cards&card=${card.cardId}`} target="_blank" rel="noopener" className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link)">
+            {label}
+            <span className="sr-only">（在新标签打开）</span>
+          </a>
+        ) : (
+          <span className="text-foreground">
+            {label}
+            {card.archived && <span className="text-muted-foreground">（已下架）</span>}
+          </span>
+        )}
+        {" · "}第 <span className="tabular-nums">{card.step}</span> 步{card.action !== "continue" && ` · 按卡${CARD_ACTION_LABEL[card.action]}`}
+        {card.reason && (
+          <button type="button" aria-expanded={open} aria-controls={reasonId} onClick={() => setOpen(!open)} className="focus-ring ml-1.5 rounded-sm font-medium text-(--semantic-color-text-link)">
+            {open ? "收起理由" : "看理由"}
+          </button>
+        )}
+      </p>
+      {card.reason && (
+        <p id={reasonId} hidden={!open} className="mt-1">
+          用卡理由：{card.reason}
+        </p>
+      )}
+    </div>
   );
 }
 

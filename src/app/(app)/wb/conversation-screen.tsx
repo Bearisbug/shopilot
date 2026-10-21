@@ -14,7 +14,7 @@ import { OrderSheet } from "../orders/order-drawer";
 import { BuyerColumn } from "./buyer-panel";
 import { ConversationPane } from "./conversation-pane";
 import { EndDialog, TransferDialog, UnclaimDialog } from "./wb-dialogs";
-import { useBuyer, useConversation, useWbParams } from "./wb-shared";
+import { cardTicketNote, useBuyer, useConversation, useWbParams } from "./wb-shared";
 
 export function ConversationScreen({ id }: { id: string }) {
   const q = useConversation(id);
@@ -63,6 +63,19 @@ export function ConversationScreen({ id }: { id: string }) {
           buyerName={q.data.conversation.buyerName}
           orders={buyer.data?.orders ?? []}
           orderId={params.get("order") ?? undefined}
+          onCreated={refresh}
+        />
+      )}
+      {/* 草稿用的经验卡要求建工单（REQ-KB-012）：同一个建工单弹层，类型预选「内部确认」，说明预填卡标题与要跟进的事 */}
+      {q.data?.draft?.card?.action === "ticket" && ready && (
+        <NewTicketDialog
+          dialog="card-ticket"
+          shopId={q.data.conversation.shop.id}
+          conversationId={id}
+          buyerName={q.data.conversation.buyerName}
+          orders={buyer.data?.orders ?? []}
+          defaultType="internal"
+          defaultNote={cardTicketNote(q.data.draft.card)}
           onCreated={refresh}
         />
       )}

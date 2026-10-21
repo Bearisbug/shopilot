@@ -2,8 +2,10 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { ChevronRightIcon, CircleCheckIcon, MessageCircleQuestionIcon, SendIcon, TriangleAlertIcon } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import type { Me } from "@/contracts/auth";
+import { CARD_ACTION_LABEL } from "@/contracts/cards";
 import { KNOWLEDGE_TEST_QUESTION_MAX, knowledgeTestBody, QA_STAGE_LABEL, type KnowledgeRoute, type KnowledgeTestBody, type KnowledgeTestResult } from "@/contracts/knowledge";
 import { charCount } from "@/contracts/reception";
 import { Notice } from "@/components/orders/order-ui";
@@ -250,6 +252,8 @@ function Result({ r, onOpenDoc, onOpenQa }: { r: KnowledgeTestResult; onOpenDoc:
         {r.insufficient && <p className="text-xs text-muted-foreground">AI 判定资料不足以回答：真实出稿时这类问题一律转人工。</p>}
       </section>
 
+      <CardUsed card={r.card} />
+
       <section aria-labelledby="kb-qa-sources-title" className="flex flex-col gap-2">
         <h3 id="kb-qa-sources-title" className="text-sm font-semibold">
           引用的问答 <span className="font-normal text-muted-foreground tabular-nums">{r.qaSources.length}</span>
@@ -301,6 +305,38 @@ function Result({ r, onOpenDoc, onOpenQa }: { r: KnowledgeTestResult; onOpenDoc:
       {r.qa && <QaHitsDetails qa={r.qa} />}
       {r.retrieval && <RetrievalDetails retrieval={r.retrieval} />}
     </>
+  );
+}
+
+/** 回答用到的经验卡：第几步、按分支转人工或建工单、用卡理由；已保存的卡点名字切到「经验卡」页签打开这张卡 */
+function CardUsed({ card }: { card: KnowledgeTestResult["card"] }) {
+  const saved = !!card && /^[0-9a-f-]{36}$/i.test(card.cardId);
+  return (
+    <section aria-labelledby="kb-card-title" className="flex flex-col gap-2">
+      <h3 id="kb-card-title" className="text-sm font-semibold">
+        用到的经验卡
+      </h3>
+      {!card ? (
+        <p className="text-sm text-muted-foreground">回答没有用经验卡。</p>
+      ) : (
+        <div className="flex flex-col gap-1 px-2 text-sm [overflow-wrap:anywhere]">
+          <p>
+            {saved ? (
+              <Link href={`/reception/knowledge?tab=cards&card=${card.cardId}`} className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link)">
+                「{card.title}」
+              </Link>
+            ) : (
+              <span className="font-medium">「{card.title}」（未保存）</span>
+            )}
+            <span className="text-muted-foreground">
+              {" · "}第 <span className="tabular-nums">{card.step}</span> 步{card.action !== "continue" && ` · 按卡${CARD_ACTION_LABEL[card.action]}`}
+            </span>
+          </p>
+          {card.reason && <p className="text-xs text-muted-foreground">用卡理由：{card.reason}</p>}
+          {card.action === "ticket" && card.ticketSummary && <p className="text-xs text-muted-foreground">要跟进：{card.ticketSummary}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 

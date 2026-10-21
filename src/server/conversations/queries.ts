@@ -215,10 +215,11 @@ function toDraft(d: typeof schema.draft.$inferSelect, live: Set<string>): DraftI
         : { kind: "document" as const, documentId: c.documentId ?? null, qaId: null, name: c.name, available: !!c.documentId && live.has(c.documentId) },
     ),
     translation: d.translation,
+    card: d.card ? { cardId: d.cardId, title: d.card.title, step: d.card.step, action: d.card.action, reason: d.card.reason, ticketSummary: d.card.ticketSummary ?? null, archived: !d.cardId || !live.has(d.cardId) } : null,
   };
 }
 
-/** 草稿依据里仍存在（未删除）的资料与仍是已发布的问答（两类 ID 都是 uuid，放进同一个集合） */
+/** 草稿依据里仍存在（未删除）的资料、仍是已发布的问答，以及草稿用到的仍已发布的经验卡（ID 都是 uuid，放进同一个集合） */
 async function liveDocuments(merchantId: string, drafts: Array<typeof schema.draft.$inferSelect>): Promise<Set<string>> {
   const cites = drafts.flatMap((d) => d.citations ?? []);
   const docIds = [...new Set(cites.filter((c) => c.kind !== "qa" && c.documentId).map((c) => c.documentId!))];
@@ -235,7 +236,14 @@ async function liveDocuments(merchantId: string, drafts: Array<typeof schema.dra
         .from(schema.knowledgeQa)
         .where(and(eq(schema.knowledgeQa.merchantId, merchantId), inArray(schema.knowledgeQa.id, qaIds), eq(schema.knowledgeQa.status, "published")))
     : [];
-  return new Set([...docs, ...qas].map((r) => r.id));
+  const cardIds = [...new Set(drafts.map((d) => d.cardId).filter((v): v is string => !!v))];
+  const cards = cardIds.length
+    ? await db()
+        .select({ id: schema.experienceCard.id })
+        .from(schema.experienceCard)
+        .where(and(eq(schema.experienceCard.merchantId, merchantId), inArray(schema.experienceCard.id, cardIds), eq(schema.experienceCard.status, "published")))
+    : [];
+  return new Set([...docs, ...qas, ...cards].map((r) => r.id));
 }
 
 export async function getConversation(ctx: MemberContext, id: string, before?: string): Promise<ConversationDetail> {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ImageIcon, InfoIcon, LayoutGridIcon, LoaderCircleIcon, SendIcon, TicketPercentIcon, XIcon, ZapIcon } from "lucide-react";
+import { ClipboardPlusIcon, ImageIcon, InfoIcon, LayoutGridIcon, LoaderCircleIcon, SendIcon, TicketPercentIcon, XIcon, ZapIcon } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import type { ConversationDetail, DraftItem, MessageItem, SendBody } from "@/contracts/conversations";
@@ -20,7 +20,7 @@ import { AttachmentStrip, useAttachments, type Attachment } from "./composer-att
 import { SlashRepliesContent, useSlashReplies } from "./slash-replies";
 import { usePretranslate, type Pretranslation } from "./use-pretranslate";
 import { CardsDialog, CouponsDialog, RepliesDialog } from "./wb-dialogs";
-import { AiTag, Citations, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
+import { AiTag, Citations, DraftCardLine, LANG_LABEL, STAGE_LABEL, useBuyer, useReplyText, useSend, useWbParams } from "./wb-shared";
 
 const LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
 /** 视频在后台传到平台（Shopee 还要等平台处理，DESIGN §15：≤120 秒），发出才发下一条，保证平台上的顺序 */
@@ -101,6 +101,7 @@ export function DraftCard({ detail, draft, onEdit }: { detail: ConversationDetai
     },
     onError: (e) => toast.error(errorText(e)),
   });
+  const { set } = useWbParams();
   const claimed = detail.conversation.handlingState === "human";
   const can = detail.permissions.canSend && detail.conversation.canReply;
   return (
@@ -115,6 +116,7 @@ export function DraftCard({ detail, draft, onEdit }: { detail: ConversationDetai
       </p>
       <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{draft.text}</p>
       <Citations items={draft.citations} className="mt-2" />
+      <DraftCardLine card={draft.card} className="mt-1" />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={!can || send.isPending} onClick={() => send.mutate({ type: "text", text: draft.text, draftId: draft.id, disposition: "sent" })}>
           {send.isPending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
@@ -123,6 +125,13 @@ export function DraftCard({ detail, draft, onEdit }: { detail: ConversationDetai
         <Button size="sm" variant="outline" disabled={!can} onClick={() => onEdit(draft)}>
           改后发送
         </Button>
+        {/* 卡上的分支要求建工单：打开建工单弹层，类型「内部确认」、关联本会话、说明预填（REQ-KB-012） */}
+        {draft.card?.action === "ticket" && (
+          <Button size="sm" variant="outline" onClick={() => set({ dialog: "card-ticket" }, "push")}>
+            <ClipboardPlusIcon />
+            按卡建工单
+          </Button>
+        )}
         <Button size="sm" variant="ghost" disabled={ignore.isPending} onClick={() => ignore.mutate()}>
           忽略
         </Button>

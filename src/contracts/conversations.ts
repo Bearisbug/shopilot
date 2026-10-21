@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CardAction } from "./cards";
 import { zPlatform, zUuid } from "./common";
 
 // ── 请求 ──
@@ -146,6 +147,12 @@ export type ProductCardInfo = {
  */
 export type DraftCitationItem = { kind: "document" | "qa"; documentId: string | null; qaId: string | null; name: string; available: boolean };
 
+/**
+ * 出稿用到的经验卡（REQ-KB-012）：标题、第几步与动作取出稿时的快照；archived = 卡已下架或删除（只显示文字、不能点开）。
+ * action = ticket 的辅助草稿在工作台显示「按卡建工单」，ticketSummary 预填工单描述。
+ */
+export type DraftCardItem = { cardId: string | null; title: string; step: number; action: CardAction; reason: string; ticketSummary: string | null; archived: boolean };
+
 export type DraftItem = {
   id: string;
   text: string;
@@ -160,6 +167,8 @@ export type DraftItem = {
   citations: DraftCitationItem[];
   /** 影子回复的商户语言译文（REQ-AI-007）；不需要译、还没译好或翻译失败时为 null */
   translation: string | null;
+  /** 用到的经验卡；没用卡时为 null */
+  card: DraftCardItem | null;
 };
 
 export type ConversationDetail = {
