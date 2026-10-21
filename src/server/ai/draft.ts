@@ -15,13 +15,14 @@ import { inTzText } from "@/server/settings/data";
 import { queueFeishuCard } from "@/server/feishu/deliver";
 import { citationsFrom, knowledgePayload, retrievalSnapshot, retrieveForDraft, type RetrievalOutcome } from "@/server/knowledge/retrieve";
 import { identifyProducts } from "@/server/products/dictionary";
+import { CARD_ACTIONS, type CardAction } from "@/contracts/cards";
 import { AiError, chat, parseJson, type ChatMessage } from "./client";
 import { replyLanguage } from "./language";
 import { composePrompt, DEFAULT_PROMPTS, UNKNOWN_STAGE_PROMPT, type PromptStage } from "./prompts";
 
-const MODEL_REASONS = new Set(["human_request", "policy", "keyword", "low_confidence"]);
+const MODEL_REASONS = new Set(["human_request", "policy", "keyword", "low_confidence", "card"]);
 
-export type HandoffReason = "keyword" | "low_confidence" | "non_text" | "model_error" | "timeout" | "send_failed" | "human_request" | "policy" | "quota" | "manual";
+export type HandoffReason = "keyword" | "low_confidence" | "non_text" | "model_error" | "timeout" | "send_failed" | "human_request" | "policy" | "quota" | "manual" | "card";
 
 export async function generateDraft(data: Record<string, unknown>): Promise<void> {
   const conversationId = String(data.conversationId ?? "");
@@ -237,6 +238,7 @@ export const HANDOFF_LABEL: Record<string, string> = {
   shop_off: "店铺未开 AI",
   shadow: "影子模式",
   platform_human: "平台侧已有人处理",
+  card: "经验卡要求转人工",
 };
 
 async function lastBuyerText(conversationId: string): Promise<string> {
@@ -294,9 +296,11 @@ async function releaseDraft(merchantId: string) {
 
 const clamp = (n: number) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
 
-export type ModelOutput = { reply: string; confidence: number; handoff: boolean; reason: string; insufficient: boolean; usedSources: number[] };
+/** 模型声明用到的经验卡：key 是载荷里的卡编号（K1…），不在候选里的由 cardUsed 丢掉 */
+export type ModelCard = { key: string; step: number; reason: string; action: CardAction; ticketSummary: string | null };
+export type ModelOutput = { reply: string; confidence: number; handoff: boolean; reason: string; insufficient: boolean; usedSources: number[]; card: ModelCard | null };
 
-/** 模型 JSON 输出（§12.8）：{ reply, confidence, handoff, reason, insufficient, used_sources } */
+/** 模型 JSON 输出（§12.8）：{ reply, confidence, handoff, reason, insufficient, used_sources, card } */
 export function parseModelOutput(j: Record<string, unknown>): ModelOutput {
   const used = Array.isArray(j.used_sources) ? j.used_sources.map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
   return {
@@ -306,7 +310,19 @@ export function parseModelOutput(j: Record<string, unknown>): ModelOutput {
     reason: String(j.reason ?? "none"),
     insufficient: j.insufficient === true,
     usedSources: [...new Set(used)],
+    card: parseCard(j.card),
   };
+}
+
+function parseCard(v: unknown): ModelCard | null {
+  if (!v || typeof v !== "object") return null;
+  const c = v as Record<string, unknown>;
+  const key = typeof c.id === "string" ? c.id.trim() : "";
+  const step = Number(c.step);
+  if (!key || !Number.isInteger(step) || step < 1) return null;
+  const action = (CARD_ACTIONS as readonly string[]).includes(String(c.action)) ? (c.action as CardAction) : "continue";
+  const summary = typeof c.ticket_summary === "string" && c.ticket_summary.trim() ? c.ticket_summary.trim().slice(0, 200) : null;
+  return { key, step, reason: String(c.reason ?? "").trim().slice(0, 300), action, ticketSummary: action === "ticket" ? summary : null };
 }
 
 /**

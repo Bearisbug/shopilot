@@ -4,7 +4,7 @@ import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-export type AiKind = "draft" | "translate" | "extract" | "rewrite" | "summary" | "issue" | "compare" | "qa_extract";
+export type AiKind = "draft" | "simulate" | "translate" | "extract" | "rewrite" | "summary" | "issue" | "compare" | "qa_extract";
 
 export class AiError extends Error {
   constructor(public kind: "timeout" | "model_error" | "invalid_json", message: string) {
@@ -14,7 +14,7 @@ export class AiError extends Error {
 
 export type AiResult = { content: string; model: string; latencyMs: number };
 
-const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000, compare: 15_000, qa_extract: 90_000 };
+const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, simulate: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000, compare: 15_000, qa_extract: 90_000 };
 
 export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?: boolean; maxTokens?: number; stubHint?: string } = {}): Promise<AiResult> {
   const e = env();
@@ -231,5 +231,38 @@ async function stubChat(kind: AiKind, messages: ChatMessage[], hint: string | un
   if (typeof reply === "string") return done(reply);
   const ask = (hint ?? "").slice(0, 40);
   const used = next === "normal" && stubHasKnowledge(rest) ? [1] : reply.used_sources;
-  return done(JSON.stringify({ ...reply, reply: reply.reply.replace("{ask}", ask), used_sources: used }));
+  const card = stubCard(rest);
+  const byCard = card?.action === "handoff" ? { handoff: true, reason: "card" } : {};
+  return done(JSON.stringify({ ...reply, reply: reply.reply.replace("{ask}", ask), used_sources: used, card, ...byCard }));
+}
+
+type StubCardPayload = {
+  cards?: Array<{ id: string; steps: Array<{ n: number; branches?: Array<{ when: string; then: string }> }> }>;
+  active_card?: { id: string; step: number } | null;
+  latest_buyer_message?: string;
+};
+
+/**
+ * 替身用卡：有 active_card 就接着用它、步骤加 1（不超过最后一步），否则用第一张候选卡的第 1 步；
+ * 这一步有分支、且买家最新消息包含分支条件原文时按分支走（转人工、建工单、跳到第 n 步）。没有候选卡时为 null。
+ */
+function stubCard(rest: Array<{ role: string; content: string }>) {
+  let p: StubCardPayload = {};
+  try {
+    p = JSON.parse(rest.find((m) => m.role === "user")?.content ?? "{}") as StubCardPayload;
+  } catch {
+    return null;
+  }
+  const cards = p.cards ?? [];
+  if (cards.length === 0) return null;
+  const active = p.active_card ? cards.find((c) => c.id === p.active_card!.id) : undefined;
+  const card = active ?? cards[0];
+  let step = active ? Math.min(p.active_card!.step + 1, card.steps.length) : 1;
+  const msg = (p.latest_buyer_message ?? "").toLowerCase();
+  const branch = card.steps[step - 1]?.branches?.find((b) => b.when.trim() && msg.includes(b.when.trim().toLowerCase()));
+  let action: "continue" | "handoff" | "ticket" = "continue";
+  if (branch?.then === "转人工") action = "handoff";
+  else if (branch?.then === "建工单") action = "ticket";
+  else if (branch) step = Number(branch.then.match(/\d+/)?.[0] ?? step);
+  return { id: card.id, step, reason: "替身：调用条件成立", action, ticket_summary: action === "ticket" ? `替身：${branch!.when}` : null };
 }

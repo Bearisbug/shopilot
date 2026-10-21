@@ -1,13 +1,16 @@
-// 出稿检索（REQ-AI-002、REQ-KB-006、§12.8「出稿检索规则」）：有可用资料或已发布问答时改写问题 →
-// 资料（AI Search 两路检索，按 Shopilot 库里资料的当前状态、AI 可用与站点过滤，两路交替合并去重取前 8 段）
-// 与问答（Postgres 向量检索，见 qa-retrieve.ts）并行；问答编号在前，资料分块接着编号。出稿任务与测试问答（API-KB-012）共用。
+// 出稿检索（REQ-AI-002、REQ-KB-006、REQ-KB-012、§12.8「出稿检索规则」）：有可用资料、已发布问答或已发布经验卡时改写问题 →
+// 资料（AI Search 两路检索，按 Shopilot 库里资料的当前状态、AI 可用与站点过滤，两路交替合并去重取前 8 段）、
+// 问答（Postgres 向量检索，见 qa-retrieve.ts）与经验卡（见 card-retrieve.ts）并行；问答与卡共用一次向量化。
+// 问答编号在前，资料分块接着编号；卡另编 K1…。出稿任务、测试问答（API-KB-012）与模拟出稿共用。
 import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { KnowledgeQaRetrieval, KnowledgeRetrieval } from "@/contracts/knowledge";
 import { AiError, chat, parseJson } from "@/server/ai/client";
 import { REWRITE_PROMPT } from "@/server/ai/prompts";
 import { db, schema } from "@/server/db/client";
 import type { DraftCitation, DraftRetrieval } from "@/server/db/schema";
-import { hasPublishedQa, retrieveQa, type QaOutcome } from "./qa-retrieve";
+import { hasPublishedCards, retrieveCards, type CardOutcome, type CardOverride } from "./card-retrieve";
+import { EMBED_TIMEOUT_MS, embedTexts } from "./embed";
+import { hasPublishedQa, retrieveQa, type QaOutcome, type RouteVector } from "./qa-retrieve";
 import { searchService } from "./search-service";
 import { KnowledgeServiceError, type KnowledgeSearchService, type SearchHit } from "./types";
 
@@ -46,6 +49,8 @@ export type RetrievalOutcome = {
   latencyMs: number;
   /** 问答检索；没有已发布问答时为 null */
   qa: QaOutcome | null;
+  /** 候选经验卡；没有已发布卡、也没有拟发布内容时为 null */
+  cards: CardOutcome | null;
 };
 
 /** RULE-KB-001：解析完成、AI 可用开着、站点含「全部」或该店站点；market 为 null（测试问答没选店铺）时不看站点 */
@@ -148,8 +153,9 @@ export function mergeRoutes(rewritten: RetrievedChunk[] | null, original: Retrie
 }
 
 /**
- * 出稿与测试问答共用的检索链路。既没有对该店站点可用的资料、也没有已发布问答时返回 null（不改写、不检索）。
- * stage（当前会话段阶段，unknown 或空不过滤）与 productIds（识别出的产品）只用于问答过滤。
+ * 出稿、测试问答与模拟出稿共用的检索链路。对该店站点可用的资料、已发布问答、已发布经验卡都没有、也没有拟发布的卡时返回 null（不改写、不检索）。
+ * stage（当前会话段阶段，unknown 或空不过滤）与 productIds（识别出的产品）用于问答与卡的过滤；
+ * active 是本段上一份草稿正在用的卡，cardOverride 是只在这次生效的拟发布卡内容。
  */
 export async function retrieveForDraft(input: {
   merchantId: string;
@@ -159,20 +165,26 @@ export async function retrieveForDraft(input: {
   orderFacts: unknown[];
   stage?: string | null;
   productIds?: string[];
+  active?: { cardId: string; step: number } | null;
+  cardOverride?: CardOverride | null;
   svc?: KnowledgeSearchService;
 }): Promise<RetrievalOutcome | null> {
-  const [docsUsable, qaUsable] = await Promise.all([hasUsableDocuments(input.merchantId, input.market), hasPublishedQa(input.merchantId, input.market)]);
+  const [docsUsable, qaUsable, cardsPublished] = await Promise.all([hasUsableDocuments(input.merchantId, input.market), hasPublishedQa(input.merchantId, input.market), hasPublishedCards(input.merchantId, input.market)]);
+  const cardsUsable = cardsPublished || !!input.cardOverride;
   const [idx] = docsUsable ? await db().select().from(schema.knowledgeIndex).where(eq(schema.knowledgeIndex.merchantId, input.merchantId)).limit(1) : [];
-  if (!idx && !qaUsable) return null;
+  if (!idx && !qaUsable && !cardsUsable) return null;
   const svc = input.svc ?? searchService();
   const started = Date.now();
   const rewrittenQuery = await rewriteQuestion({ conversation: input.conversation, orderFacts: input.orderFacts, original: input.original });
   // 检索服务不接受空查询（Cloudflare 400 7001）：买家只发图片、商品卡时原话为空，这一路不跑；改写也为空时两路都不跑，按没检索到资料处理
   const original = input.original.trim();
-  const [rw, og, qa] = await Promise.all([
+  const filter = { merchantId: input.merchantId, market: input.market, stage: input.stage ?? null, productIds: input.productIds ?? [] };
+  const embedded = qaUsable || cardsPublished ? await embedRoutes(rewrittenQuery, original) : { vectors: [], error: null };
+  const [rw, og, qa, cards] = await Promise.all([
     idx && rewrittenQuery ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "rewritten", rewrittenQuery) : Promise.resolve(null),
     idx && original ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "original", original) : Promise.resolve(null),
-    qaUsable ? retrieveQa({ merchantId: input.merchantId, market: input.market, stage: input.stage ?? null, productIds: input.productIds ?? [], rewritten: rewrittenQuery, original }) : Promise.resolve(null),
+    qaUsable ? retrieveQa({ ...filter, rewritten: rewrittenQuery, original, vectors: embedded.vectors, embedError: embedded.error }) : Promise.resolve(null),
+    cardsUsable ? retrieveCards({ ...filter, vectors: cardsPublished ? embedded.vectors : [], embedError: embedded.error, active: input.active, override: input.cardOverride }) : Promise.resolve(null),
   ]);
   const attempts = [...(rw?.attempts ?? []), ...(og?.attempts ?? [])];
   const failed = [rw, og].filter((r) => r && r.chunks === null).length;
@@ -189,7 +201,23 @@ export async function retrieveForDraft(input: {
     vectorRetry: attempts.some((a) => a.mode === "vector_only"),
     latencyMs: Date.now() - started,
     qa,
+    cards,
   };
+}
+
+/** 改写问题与买家原话一次向量化（问答与卡共用）；失败只记原因，两样都降级 */
+async function embedRoutes(rewritten: string | null, original: string): Promise<{ vectors: RouteVector[]; error: string | null }> {
+  const routes = [...(rewritten?.trim() ? [{ route: "rewritten" as const, text: rewritten.trim() }] : []), ...(original ? [{ route: "original" as const, text: original }] : [])];
+  if (routes.length === 0) return { vectors: [], error: null };
+  try {
+    const vecs = await embedTexts(
+      routes.map((r) => r.text),
+      EMBED_TIMEOUT_MS,
+    );
+    return { vectors: routes.map((r, i) => ({ route: r.route, vec: vecs[i] })), error: null };
+  } catch (e) {
+    return { vectors: [], error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /**
@@ -229,6 +257,16 @@ export function retrievalSnapshot(r: RetrievalOutcome): DraftRetrieval {
     degraded: r.degraded,
     ...(r.degradedReason ? { degradedReason: r.degradedReason } : {}),
     latencyMs: r.latencyMs,
+    ...(r.cards
+      ? {
+          cards: {
+            latencyMs: r.cards.latencyMs,
+            ...(r.cards.error ? { error: r.cards.error } : {}),
+            hits: r.cards.hits.map((h) => ({ ...h, distance: Number(h.distance.toFixed(4)) })),
+            candidates: r.cards.candidates.map((x) => ({ key: x.key, cardId: x.cardId, version: x.version, distance: x.distance === null ? null : Number(x.distance.toFixed(4)), active: x.active })),
+          },
+        }
+      : {}),
     ...(r.qa
       ? {
           qa: {

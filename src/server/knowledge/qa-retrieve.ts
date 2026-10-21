@@ -76,6 +76,9 @@ export function mergeQa(rewritten: QaHitRow[], original: QaHitRow[]): Array<{ n:
   return merged;
 }
 
+/** 一路检索文本的向量：出稿时问答与经验卡共用一次向量化（retrieveForDraft 算好传进来） */
+export type RouteVector = { route: "rewritten" | "original"; vec: number[] };
+
 export async function retrieveQa(input: {
   merchantId: string;
   market: string | null;
@@ -83,6 +86,9 @@ export async function retrieveQa(input: {
   productIds: string[];
   rewritten: string | null;
   original: string | null;
+  /** 已算好的向量；不给时这里自己向量化。embedError 表示向量化已失败，问答这一路直接降级 */
+  vectors?: RouteVector[];
+  embedError?: string | null;
 }): Promise<QaOutcome> {
   const started = Date.now();
   const stage: QaOutcome["stage"] = input.stage === "presale" || input.stage === "insale" || input.stage === "aftersale" ? input.stage : null;
@@ -92,11 +98,14 @@ export async function retrieveQa(input: {
     ...(input.original?.trim() ? [{ route: "original" as const, text: input.original.trim() }] : []),
   ];
   if (routes.length === 0) return { latencyMs: 0, error: null, ...base, hits: [], merged: [] };
+  if (input.embedError) return { latencyMs: Date.now() - started, error: input.embedError, ...base, hits: [], merged: [] };
   try {
-    const vectors = await embedTexts(
-      routes.map((r) => r.text),
-      EMBED_TIMEOUT_MS,
-    );
+    const vectors = input.vectors
+      ? routes.map((r) => input.vectors!.find((v) => v.route === r.route)!.vec)
+      : await embedTexts(
+          routes.map((r) => r.text),
+          EMBED_TIMEOUT_MS,
+        );
     const where = filterWhere(input.merchantId, input.market, stage, input.productIds);
     const lists = await Promise.all(routes.map((r, i) => nearest(where, vectors[i], r.route)));
     const byRoute = (route: QaHitRow["route"]) => lists[routes.findIndex((r) => r.route === route)] ?? [];

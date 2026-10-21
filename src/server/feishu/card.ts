@@ -28,6 +28,7 @@ const HANDOFF_TEXT: Record<string, string> = {
   policy: "超出 AI 可处理范围",
   quota: "出稿用量已满",
   manual: "人工转交",
+  card: "经验卡要求转人工",
 };
 
 /** 最近对话里的一条：role 是「买家」「客服」「AI」；text 已是要显示的原文，translation 是中文译文 */

@@ -1,7 +1,8 @@
 // 测试问答（API-KB-012、REQ-KB-005）：在 API 进程里同步走出稿同一条链路（§12.8），问题本身既是改写输入也是原话；
-// 提示词取售前阶段；不存草稿、不计出稿用量；每商户每分钟 20 次。
+// 提示词取售前阶段；不存草稿、不计出稿用量；每商户每分钟 20 次。带 card 时这张还没保存的卡只在这次测试里生效（写卡表单的「测试」）。
 import { and, eq } from "drizzle-orm";
-import type { KnowledgeTestBody, KnowledgeTestResult } from "@/contracts/knowledge";
+import type { CardTestBody } from "@/contracts/cards";
+import type { KnowledgeTestResult } from "@/contracts/knowledge";
 import { AiError, chat, parseJson } from "@/server/ai/client";
 import { handoffVerdict, parseModelOutput } from "@/server/ai/draft";
 import { replyLanguage } from "@/server/ai/language";
@@ -10,6 +11,8 @@ import { inScope, type MemberContext } from "@/server/auth/context";
 import { receptionContext } from "@/server/conversations/hours";
 import { db, schema } from "@/server/db/client";
 import { Problem, notFound } from "@/server/http/problem";
+import { cardsPayload, cardUsed } from "./card-retrieve";
+import { checkCardRefs } from "./card-store";
 import { knowledgePayload, qaDetail, retrievalDetail, retrieveForDraft } from "./retrieve";
 
 export const TEST_RATE_PER_MINUTE = 20;
@@ -31,7 +34,7 @@ export function takeTestQuota(merchantId: string, now = Date.now()) {
   cur.count += 1;
 }
 
-export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody): Promise<KnowledgeTestResult> {
+export async function askKnowledge(ctx: MemberContext, body: CardTestBody): Promise<KnowledgeTestResult> {
   const started = Date.now();
   const merchantId = ctx.merchant.id;
   let shop: typeof schema.shop.$inferSelect | null = null;
@@ -66,9 +69,19 @@ export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody):
       .limit(1);
     if (!p) throw notFound("产品不存在或已删除。");
   }
-  const retrieval = await retrieveForDraft({ merchantId, market: shop?.market ?? null, original: body.question, conversation, orderFacts: [], stage: body.stage ?? null, productIds: body.productId ? [body.productId] : [] });
+  if (body.card) await checkCardRefs(merchantId, body.card);
+  const cardOverride = body.card ? { cardId: body.cardId ?? null, content: body.card } : null;
+  const retrieval = await retrieveForDraft({ merchantId, market: shop?.market ?? null, original: body.question, conversation, orderFacts: [], stage: body.stage ?? null, productIds: body.productId ? [body.productId] : [], cardOverride });
   const knowledge = knowledgePayload(retrieval);
-  const userPayload = { reply_language: lang, brand_voice: rc.brandVoice ?? "", order_facts: [], conversation, latest_buyer_message: body.question, ...(knowledge ? { knowledge } : {}) };
+  const userPayload = {
+    reply_language: lang,
+    brand_voice: rc.brandVoice ?? "",
+    order_facts: [],
+    conversation,
+    latest_buyer_message: body.question,
+    ...(knowledge ? { knowledge } : {}),
+    ...(await cardsPayload(retrieval?.cards ?? null, merchantId)),
+  };
 
   let parsed;
   try {
@@ -92,6 +105,7 @@ export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody):
     .filter((m) => parsed.usedSources.includes(m.n))
     .map((m) => ({ n: m.n, documentId: m.chunk.documentId, name: m.chunk.name, snippet: [...m.chunk.text].slice(0, SNIPPET_CHARS).join(""), fileUrl: `/api/v1/files/${m.chunk.fileId}` }));
   const qaSources = (retrieval?.qa?.merged ?? []).filter((m) => parsed.usedSources.includes(m.n)).map((m) => ({ n: m.n, qaId: m.hit.qaId, question: m.hit.questions[0], answer: m.hit.answer }));
+  const card = cardUsed(retrieval?.cards ?? null, parsed.card);
   return {
     answer: parsed.reply,
     confidence: parsed.confidence,
@@ -102,6 +116,7 @@ export async function askKnowledge(ctx: MemberContext, body: KnowledgeTestBody):
     qaSources,
     retrieval: retrieval ? retrievalDetail(retrieval) : null,
     qa: retrieval?.qa ? qaDetail(retrieval.qa) : null,
+    card: card ? { cardId: card.cardId, title: card.title, step: card.step, action: card.action, reason: card.reason, ticketSummary: card.ticketSummary } : null,
     latencyMs: Date.now() - started,
   };
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { zUuid } from "./common";
+import type { SimCard } from "./cards";
 import { charCount } from "./reception";
 
 // 知识库（DESIGN §8.8 API-KB-001 至 API-KB-028、§9.6、§12.7、§12.8）：资料（文件，过渡期照常被检索）与问答（Postgres 向量检索）
@@ -189,6 +190,8 @@ export type KnowledgeTestResult = {
   qaSources: Array<{ n: number; qaId: string; question: string; answer: string }>;
   retrieval: KnowledgeRetrieval | null;
   qa: KnowledgeQaRetrieval | null;
+  /** 用到的经验卡；带了未保存的卡且新建时 cardId 为 "proposal" */
+  card: SimCard | null;
   latencyMs: number;
 };
 

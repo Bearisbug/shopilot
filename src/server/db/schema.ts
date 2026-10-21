@@ -1,6 +1,7 @@
 // Shopilot 业务库结构。字段定义以 docs/DESIGN.md §9 数据字典为准；改字段先改设计文档。
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -17,6 +18,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import { v7 as uuidv7 } from "uuid";
+import type { CardContent, CardStep, DraftCardInfo, LearningMessage, LearningRetest, LearningSimilar, LearningTest } from "../../contracts/cards";
 import type { KnowledgeMarket } from "../../contracts/knowledge";
 import type { QuickReplyVariant } from "../../contracts/reception";
 
@@ -524,6 +526,13 @@ export type DraftRetrieval = {
   latencyMs: number;
   /** 问答检索：两路命中（余弦距离）与合并后的编号；问答排在资料前面 */
   qa?: { latencyMs: number; error?: string; productIds: string[]; hits: Array<{ route: "rewritten" | "original"; qaId: string; distance: number }>; merged: Array<{ n: number; qaId: string }> };
+  /** 经验卡候选：两路命中与交给模型的卡（K1…，active 是本段正在用的卡） */
+  cards?: {
+    latencyMs: number;
+    error?: string;
+    hits: Array<{ route: "rewritten" | "original"; cardId: string; distance: number }>;
+    candidates: Array<{ key: string; cardId: string; version: number; distance: number | null; active: boolean }>;
+  };
 };
 /** 依据：资料（documentId）或问答（kind = qa、qaId，name 取第一个问法）；没有 kind 的旧行都是资料 */
 export type DraftCitation = { n: number; kind?: "document" | "qa"; documentId?: string; qaId?: string; name: string };
@@ -556,9 +565,16 @@ export const draft = pgTable(
     citations: jsonb("citations").$type<DraftCitation[] | null>(),
     /** 影子回复的商户语言译文（draft.translate 写入）；不需要译或翻译失败时为空 */
     translation: text("translation"),
+    /** 出稿用到的经验卡；卡删了置空，card 快照仍在 */
+    cardId: uuid("card_id").references((): AnyPgColumn => experienceCard.id, { onDelete: "set null" }),
+    card: jsonb("card").$type<DraftCardInfo | null>(),
     createdAt: createdAt(),
   },
-  (t) => [index("draft_conversation_idx").on(t.conversationId, t.createdAt), index("draft_merchant_created_idx").on(t.merchantId, t.createdAt)],
+  (t) => [
+    index("draft_conversation_idx").on(t.conversationId, t.createdAt),
+    index("draft_merchant_created_idx").on(t.merchantId, t.createdAt),
+    index("draft_card_idx").on(t.cardId, t.createdAt),
+  ],
 );
 
 export const file = pgTable("file", {
@@ -1168,6 +1184,110 @@ export const knowledgeQa = pgTable(
     index("knowledge_qa_merchant_status_idx").on(t.merchantId, t.status),
     index("knowledge_qa_document_idx").on(t.sourceDocumentId),
     index("knowledge_qa_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
+  ],
+);
+
+/** 经验卡：人写的保存即发布；Agent 改已有卡复测通过即生效（agent_unseen 标记还没人看过）。只有 published 且有向量的参与出稿 */
+export const experienceCard = pgTable(
+  "experience_card",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    title: text("title").notNull(),
+    /** 空数组 = 通用，适用全部产品 */
+    productIds: uuid("product_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    stage: text("stage", { enum: ["presale", "insale", "aftersale", "any"] }).notNull(),
+    markets: jsonb("markets").$type<KnowledgeMarket[]>().notNull().default(["ALL"]),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    conditions: text("conditions").array().notNull(),
+    conditionMode: text("condition_mode", { enum: ["all", "any"] }).notNull(),
+    steps: jsonb("steps").$type<CardStep[]>().notNull(),
+    tips: text("tips"),
+    qaIds: uuid("qa_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    status: text("status", { enum: ["published", "archived"] }).notNull().default("published"),
+    source: text("source", { enum: ["member", "agent"] }).notNull(),
+    version: integer("version").notNull().default(1),
+    agentUnseen: boolean("agent_unseen").notNull().default(false),
+    embedding: vector("embedding", { dimensions: QA_EMBED_DIMS }),
+    embeddingModel: text("embedding_model"),
+    createdBy: uuid("created_by").references(() => membership.id, { onDelete: "set null" }),
+    updatedBy: uuid("updated_by").references(() => membership.id, { onDelete: "set null" }),
+    publishedAt: ts("published_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("experience_card_merchant_status_idx").on(t.merchantId, t.status), index("experience_card_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops"))],
+);
+
+/** 经验卡的每个版本：内容变化一次写一行，回退也是写新版本 */
+export const experienceCardVersion = pgTable(
+  "experience_card_version",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => experienceCard.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    snapshot: jsonb("snapshot").$type<CardContent>().notNull(),
+    author: text("author", { enum: ["member", "agent"] }).notNull(),
+    memberId: uuid("member_id").references(() => membership.id, { onDelete: "set null" }),
+    learningTaskId: uuid("learning_task_id").references((): AnyPgColumn => learningTask.id, { onDelete: "set null" }),
+    note: text("note"),
+    retest: jsonb("retest").$type<{ passed: boolean; regressions: number; failReason: string | null } | null>(),
+    seenBy: uuid("seen_by").references(() => membership.id, { onDelete: "set null" }),
+    seenAt: ts("seen_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("experience_card_version_uq").on(t.cardId, t.version)],
+);
+
+/** 学习任务：客服提交的消息或 Agent 挑的会话段 → AI 分析 → 新卡待审核 / 改已有卡复测 / 无需更新；随会话、会话段一起删除 */
+export const learningTask = pgTable(
+  "learning_task",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    shopId: uuid("shop_id")
+      .notNull()
+      .references(() => shop.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    segmentId: uuid("segment_id").references(() => segment.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["member", "agent"] }).notNull(),
+    submittedBy: uuid("submitted_by").references(() => membership.id, { onDelete: "set null" }),
+    note: text("note"),
+    messages: jsonb("messages").$type<LearningMessage[]>().notNull(),
+    productIds: uuid("product_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    productBasis: text("product_basis"),
+    productStatus: text("product_status", { enum: ["identified", "none", "multiple"] }).notNull(),
+    stage: text("stage").notNull(),
+    status: text("status", { enum: ["analyzing", "pending_review", "published", "closed", "failed"] }).notNull().default("analyzing"),
+    diagnosis: text("diagnosis", { enum: ["covered", "not_triggered", "missing_knowledge", "process", "tone", "conflict", "insufficient"] }),
+    result: text("result", { enum: ["none_needed", "new_card", "card_updated", "retest_failed", "rejected", "need_qa", "insufficient_evidence"] }),
+    reason: text("reason"),
+    suggestion: text("suggestion"),
+    targetCardId: uuid("target_card_id").references(() => experienceCard.id, { onDelete: "set null" }),
+    proposal: jsonb("proposal").$type<CardContent | null>(),
+    similar: jsonb("similar").$type<LearningSimilar[] | null>(),
+    test: jsonb("test").$type<LearningTest | null>(),
+    retest: jsonb("retest").$type<LearningRetest | null>(),
+    testQuestion: text("test_question"),
+    error: text("error"),
+    reviewedBy: uuid("reviewed_by").references(() => membership.id, { onDelete: "set null" }),
+    reviewedAt: ts("reviewed_at"),
+    publishedCardId: uuid("published_card_id").references(() => experienceCard.id, { onDelete: "set null" }),
+    publishedVersion: integer("published_version"),
+    version: integer("version").notNull().default(1),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("learning_task_merchant_status_idx").on(t.merchantId, t.status),
+    index("learning_task_conversation_idx").on(t.conversationId),
+    index("learning_task_published_card_idx").on(t.publishedCardId),
+    uniqueIndex("learning_task_agent_segment_uq").on(t.segmentId).where(sql`${t.source} = 'agent'`),
   ],
 );
 
