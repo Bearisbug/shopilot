@@ -15,6 +15,7 @@
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
 | 2026-10-21 | 按 DESIGN v1.26 粘贴改为放进输入框、和文字一起按顺序发：`TC-CONV-064` 废弃，被 `TC-CONV-072` 取代；新增 `TC-CONV-073`（平台没发出即停、再点发送接着发）与 `TC-CONV-074`（附件被拒不进时间线，标「没发出」后接着发，需拦截请求，执行者 AI）；原位修改 `TC-CONV-065` 前置与第 1、6 步、`TC-CONV-021` 第 1 步、`TC-CONV-022` 第 1、3 步（按钮改名「添加图片或视频」，选的文件先进附件条，再点发送） | 实现会话 |
+| 2026-10-21 | 按 DESIGN v1.27 新增 `TC-PERM-008`（侧栏切换整页预取与加载骨架：预取请求、点击不再取页面与脚本、未预取时骨架与真实页头对齐、接待设置骨架带分组列、工作台切会话不出整页骨架、减少动效时骨架静止） | 实现会话 |
 | 2026-10-21 | 按 RUN-057 的失败明细原位修正四条用例的前置与预期（实现与设计不变）：`TC-KB-045` 改用种子里真实存在的卖家 SKU `1729582718312480201`（Demo TikTok TH），未对应列表按三家有商品权限的店写；`TC-KB-049` 第 1 步改为命中且排第一、距离小于 0.3，第 3 步改为下架后 `qa` 为 `null`（没有已发布问答时不做问答检索），第 6 步改为第二次删除返回 404；`TC-DASH-015` 第 7 步改为 `consistency.rate` 为 `null`；`TC-KB-001` 按五个页签改写第 1、5 步（第 5 步写明抽屉标题是文件名） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.25 新增草稿对比 `TC-DASH-015` 至 `TC-DASH-019`（影子回复对比与数据不足、辅助草稿原样与修改后发送、买家插话与弃用后另回、看板面板与样例抽屉、线上人工抽检分类）；§3 `q` 的说明改为可执行任意 SQL（草稿对比用例要把草稿生成时间往前改） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.25 新增知识库第一批 `TC-KB-043` 至 `TC-KB-057`（产品清单 4 条、问答维护 3 条、整理与审核 3 条、出稿与测试问答检索问答 2 条、问答接口权限、线上真实向量化 1 条人工、工作台问答依据）；§3 加 `qaclear` 与 `qa` 函数；知识库页改为五个页签后原位修改 `TC-KB-024` 第 5 步（资料依据链接带 `tab=docs`） | 实现会话 |
@@ -852,6 +853,21 @@ qaclear() {
 
 后置：无。
 
+
+#### `TC-PERM-008` 侧栏切换：整页预取与加载骨架 — 对应 `REQ-PERM-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；预取只在生产构建里生效：`pnpm build` 后 `pnpm start`（同 §3 本地环境变量，端口自定），浏览器开发者工具网络面板打开。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 以 owner@demo.test 登录，打开 `/wb`，停留 3 秒，看网络面板 | 有对 `/tickets`、`/orders`、`/dashboard`、`/reception`、`/shops`、`/team`、`/billing`、`/settings` 的预取请求（请求头带 `Next-Router-Prefetch`），均为 200 |
+| 2 | 点侧栏「工单」 | 地址变为 `/tickets`，页面标题「工单」随即出现；点击触发的请求里没有 `/tickets` 页面请求（新页面里的链接进入视口后发的、带 `Next-Router-Prefetch` 的预取不算），也没有新的 `/_next/static/chunks/` 脚本请求 |
+| 3 | 关掉页面，新开一个无痕窗口登录并打开 `/wb`；在网络面板屏蔽带 `Next-Router-Prefetch` 的请求、把网速限到慢速 3G，立即点侧栏「订单与开票」 | 地址变为 `/orders` 后、真实页面出来之前，先出现骨架：页头两条灰条与 6 条加载行，读屏文字「正在打开页面」；之后换成真实页面，标题「订单与开票」的左缘、顶边、高度与骨架第一条灰条一致，页面不跳动 |
+| 4 | 同第 3 步的条件点侧栏「接待设置」 | 骨架多一列左侧分组（5 条灰条，宽度与真实分组导航一致）；之后换成真实页面，标题「接待设置」与骨架第一条灰条位置一致 |
+| 5 | 恢复网络设置，在工作台会话列表里点另一个会话 | 对话区直接换成新会话，不出现整页骨架 |
+| 6 | 操作系统打开「减少动态效果」后重复第 3 步 | 骨架灰条静止，不闪动 |
+
+后置：无。
 ### 店铺接入与授权
 
 #### `TC-SHOP-001` Shopee 接入全流程：主账号一次授权多店 — 对应 `REQ-SHOP-001`、`REQ-SHOP-002`、`REQ-SHOP-004`、`REQ-SHOP-005` · 级别: 冒烟 · 执行者: 皆可
@@ -4891,6 +4907,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-057 | 2026-10-21 | 本地 | `e6994cc` + 工作区改动（只改 `docs/`、`AGENTS.md`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-KB-043、TC-KB-044、TC-KB-045、TC-KB-046、TC-KB-047、TC-KB-048、TC-KB-049、TC-KB-050、TC-KB-051、TC-KB-052、TC-KB-053、TC-KB-054、TC-KB-055、TC-KB-056、TC-KB-057、TC-DASH-015、TC-DASH-016、TC-DASH-017、TC-DASH-018、TC-DASH-019、TC-KB-001、TC-KB-024、TC-AI-001、TC-PERM-001、TC-FEISHU-005） | 通过 19/25 · 失败 4 · 待人工 2 |
 | RUN-058 | 2026-10-21 | 本地 | `e6994cc` + 工作区改动（只改 `docs/`、`AGENTS.md`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 复测（RUN-057：TC-KB-045、TC-KB-049、TC-DASH-015、TC-KB-001） | 通过 4/4 |
 | RUN-059 | 2026-10-21 | 本地 | `053c092` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-072、TC-CONV-073、TC-CONV-074、TC-CONV-065、TC-CONV-068、TC-CONV-021、TC-CONV-022、TC-CONV-026、TC-CONV-070、TC-AI-010） | 通过 9/10 · 待人工 1 |
+| RUN-060 | 2026-10-21 | 本地 | `wt/navperf` 工作区改动（侧栏整页预取、`(app)` 与接待设置加载骨架；基于 `d54a586`） | AI（Claude Code 子会话；Playwright + Edge） | 局部（TC-PERM-008） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5082,6 +5099,7 @@ RUN-057 证据：局部轮，被测版本本地 main `e6994cc`（含 c2d0919 合
 RUN-058 证据：复测轮，被测版本同 RUN-057（本地 main `e6994cc`），四条用例按 RUN-057 明细原位修正写法后重跑（§1 变更记录 2026-10-21 一行），实现与设计未改，设计文档只把 `API-KB-017` 的「幂等」格改为重复删除返回 404。独立库 `shopilot_run058`（同一 PostgreSQL 实例），Web 起在 3378、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3378，`DATA_DIR` 用临时目录，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前 `pnpm db:reset && pnpm db:seed`；`pnpm job` 默认读 `.env` 会连到别的库，本轮改为导出本轮环境后执行 `pnpm exec tsx scripts/job.ts <任务名>`。`TC-KB-045`：同步后未对应列表三组（Demo Shopee MY 4 个、Demo Shopee SG 3 个、Demo TikTok TH 3 个卖家 SKU），导入 ` 1729582718312480201 ,竹纤维浴巾三件套` 得 `created 1`，20 秒后 `listingCount` 为 1，未对应列表里 Demo TikTok TH 只剩 `…202`、`…203`（`run-058-TC-KB-045-1.json` 至 `-4.json`）。`TC-KB-049`：第 1 步 Q 排第一、`distance` 0.1659；第 3 步下架后 `qa` 为 `null`；第 4 步 409 `invalid_state`；第 5 步恢复后再次命中；第 6 步第一次 204、第二次 404 `/errors/not-found`，再查 404（`run-058-TC-KB-049.txt`；脚本第一次记状态码时读错行，按原步骤重跑一遍，文件里是第二遍的输出）。`TC-DASH-015`：N0 为 0、S0 为 0；第 3、4 步 `draft_review` 都是 0 行；第 6 步 `shadow|shadow|same|same|stub|1|<T>`；第 7 步 `consistency` 为 `{"num":1,"den":1,"rate":null}`；第 8 步面板「影子回复」选中，一致率处显示「数据不足」与「一致 / 已对比 = 1 / 1，满 10 份才计算」，修改分类 6 行按语义一致、仅语言润色、补充信息、事实更正、流程改变、弃用重写自上而下排列（`run-058-TC-DASH-015.txt`、`run-058-TC-DASH-015-8.png`）。`TC-KB-001`：页签依次为问答、待审核、资料、产品、测试问答，打开时选中「问答」，点「资料」后地址为 `?tab=docs`、标题「资料 0 / 500」与空态文案符合；上传弹窗、进度、分类与状态变为可用、「2 / 500」、两个「AI 可用」开关为开均符合；第 5 步抽屉标题为文件名，`tab=docs` 与 `doc` 都在地址里，原文件标签在加载后有内嵌 iframe 预览（截图时 PDF 尚在加载，单独复查 6 秒后 iframe 在位）；第 6 步 `docTab=parsed`、刷新后仍停在「解析内容」并显示「替身解析：保修政策.pdf」；第 7 步 xlsx 显示「这种格式不能在页面里预览…」与「下载原文件」；第 8 步接口 2 条 `ready`、`partsCount`/`chunksCount` 为 1、`counts` 为 `{"total":2,"limit":500}`（`run-058-TC-KB-001-1.png` 至 `-7.png`、`-8.json`）。控制台没有报错。
 
 RUN-059 证据：局部轮，DESIGN v1.26 输入框附件（粘贴、选择的图片视频先进附件条，和文字一起按顺序发）。被测版本是 `wt/attach` 分支 `053c092`，工作区只改了 `docs/`。受影响用例按 `REQ-CONV-015` 取，另加走输入框发送的 `TC-CONV-021`、`TC-CONV-022`、`TC-CONV-026`、`TC-CONV-070`、`TC-AI-010`（发送逻辑改写过，文字、译文、草稿、失败气泡的路径都要过一遍）；本轮没有跑其余冒烟用例。独立库 `shopilot_wt_attach`（同一 PostgreSQL 实例），Web 起在 3379、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3379，`AI_MODE=stub`，起跑前 `pnpm db:reset && pnpm db:seed`；每条用例按 §3 用 `create_buyer` 加 `buyer_message` 新建买家，推送 HTTP 200。买家视图读模拟器接口 `GET /api/mock/sim/state`；`AI_MODE=stub` 下本方文字的译文是「[译文] 」加原文，买家视图收到的文字都带这个前缀，按前缀后的内容判定。`TC-CONV-072`：粘贴后没有弹框，附件条依次红、绿、蓝，读屏名「第 1 个附件：图片」至「第 3 个附件：图片」，刚粘贴时三个都带转圈，传完消失；输入框外框 106 → 170 px；移除第 2 个后剩红、蓝；点发送时按钮变「发送中」，完成后附件条消失、文字区清空、外框回到 106 px；时间线最后三条依次是这句话（原文对照）、红图、蓝图，都已发送，买家视图同序；第 7 步用真实剪贴板（无头 Edge 写入文字「你好」与一张 PNG 后按 ⌘V），输入框为「你好」、附件条不出现；第 8 步提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」；第 9 步两张进附件条，消息数 4 → 4，移除后附件条消失（`run-059-TC-CONV-072.json`、`-2.png`、`-5.png`、`-9.png`）。`TC-CONV-073`：故障注入 Demo Shopee SG 一次平台错误后发绿、红两张，提示「发送失败 Shopee 返回错误（error_server）…」，时间线最后一条是绿图、发送失败，附件条只剩红图；再点发送红图已发送、附件条消失；一次性故障用掉后列表为空（`run-059-TC-CONV-073.json`、`-3.png`）。`TC-CONV-074`：拦截第 3 个发送请求返回 409 后，提示「没有发出 模拟：平台拒绝这张图」，时间线新增这句话与红图，附件条剩绿（标「没发出」）、蓝，文字区清空；取消拦截再点发送，时间线最后四条依次是这句话、红、绿、蓝（`run-059-TC-CONV-074.json`、`-2.png`）。`TC-CONV-065`：选 clip.mp4 后附件条出现视频缩略图；点发送后时间线第一次出现视频时它已是「发送中」、附件条已空；15 秒后 `sent`，时间线视频可播放（`currentTime` 0.60）；库里 `video|sent`；买家视图有一条 `rawType` 为 `video` 的卖家消息；粘贴 clip.mov 提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」；C2 粘贴 clip.mp4 提示「TikTok 接口暂不支持发视频。」、附件条不出现；接口发视频 409，detail「TikTok 接口暂不支持发视频。」（`run-059-TC-CONV-065.json`、`-1.png`、`-2.png`）。`TC-CONV-021`：选 2 MB PNG 后附件条出现这张图，点发送后附件条消失，时间线图片已发送，买家视图收到（`run-059-TC-CONV-021.json`、`-1.png`）。`TC-CONV-022`：11 MB JPG 提示「图片 11.0 MB，超过 10 MB 上限。」、附件条不出现，上传接口 413 `/errors/too-large`；GIF 提示「只支持 JPG、PNG、WebP，不超过 10 MB。」，上传接口 415 `/errors/unsupported-type`；10,485,760 字节 PNG 上传 201、进附件条，点发送后已发送（`run-059-TC-CONV-022.json`）。`TC-CONV-026`：502 `/errors/platform`、`platformCode` 为 `error_server`，提示平台错误的中文说明，气泡有「重试」、发送失败，买家视图没有这条；点「重试」后已发送，买家视图「失败重试测试」1 条；对它调 retry 返回 409 `/errors/conflict`（`run-059-TC-CONV-026.json`、`-2.png`、`-3.txt`）。`TC-CONV-070`：L 为马来语，预览译文 T「[译文] 好的，马上为您处理」，请求体 `translateTo` 为 `ms`、`translatedText` 为 T，201；时间线正文 T、原文对照符合；「请稍等」立刻发送的请求体没有 `translatedText`，201（`run-059-TC-CONV-070.json`）。`TC-AI-010`：改后发送填入的就是草稿正文 X，加「（已核实）」后买家视图收到「[译文] X（已核实）」；审计日志「Nur Aisyah 改后发送了 AI 草稿（编辑距离 5）」；本月 `editedSent` 1 → 2（`run-059-TC-AI-010.json`、`-3.png`）。`TC-CONV-022`、`TC-CONV-026`、`TC-AI-010` 第一遍因执行脚本出错没跑完：脚本手动移除提示框节点后页面渲染出错、草稿状态值写错、等待条件写成异步函数；修正脚本后按原步骤在新会话上重跑，证据文件是第二遍的输出。控制台只有故障注入引起的 502（`run-059-console.json`）。
+RUN-060 证据：被测为 `wt/navperf` 工作区的生产构建（`next build` + `next start`，端口 3380），独立库 `shopilot_wt_navperf`（种子基线），Edge headless，登录 owner@demo.test。第 1 步：停留 3 秒后 `/tickets`、`/orders`、`/dashboard`、`/reception`、`/shops`、`/team`、`/billing`、`/settings` 各有一次带 `Next-Router-Prefetch` 的预取，均 200。第 2 步：点「工单」后 67 ms 出现标题，点击触发的 `/tickets` 页面请求 0 个、脚本 0 个（只有页面自身的 `/api/v1/tickets` 与图标；新页面里链接的预取 14 个不计）。第 3、4 步用路由拦截代替网络面板：屏蔽预取请求、把切页的 RSC 请求延后 3 秒；订单与开票的骨架页头 2 条、加载行 6 条，骨架标题条与真实标题都是 x 264、y 80、高 32；接待设置骨架分组列 5 条、宽 200 px，与真实分组导航同宽，标题位置一致。第 5 步：工作台点另一个会话，2.5 秒内没有出现整页骨架。第 6 步：以 `reducedMotion: reduce` 打开时骨架灰条的 `animation-name` 为 `none`。执行中第 2 步的统计脚本一度把新页面里链接的预取算成页面请求、第 4 步一度量到页头灰条的宽度，都是脚本问题，修正后整轮重跑，用例第 2 步同时写明不计新页面里的预取。证据：`docs/test-runs/run-060-TC-PERM-008.json`、`run-060-TC-PERM-008-3-orders-{skeleton,ready}.png`、`run-060-TC-PERM-008-4-reception-{skeleton,ready}.png`、`run-060-TC-PERM-008-6-reduced-orders-skeleton.png`；前后性能对比 `docs/test-runs/run-060-nav-perf.txt`。
 
 ## 7. 遗留问题
 
