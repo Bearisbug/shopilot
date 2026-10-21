@@ -4,7 +4,7 @@
 // 辅助、自动模式按卡转人工时不存草稿，只写 handoff 审计（data.reason = card、data.card_id），这部分也计入调用与转人工。
 import { and, count, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { CardContent, CardDetail, CardList, CardListQuery, CardPatch, CardRollbackBody, CardStats, CardStatus, CardVersionView, ExperienceCard } from "@/contracts/cards";
-import { CARD_VERSIONS_SHOWN } from "@/contracts/cards";
+import { CARD_VERSIONS_SHOWN, zCardContent } from "@/contracts/cards";
 import type { MemberContext } from "@/server/auth/context";
 import { audit } from "@/server/core/audit";
 import { db, schema, type Executor } from "@/server/db/client";
@@ -35,6 +35,8 @@ async function statsFor(merchantId: string, cardIds: string[], ex: Executor = db
         eq(a.action, "handoff"),
         eq(a.targetType, "conversation"),
         sql`${a.data}->>'reason' = 'card'`,
+        // 只数没留草稿的按卡转人工；自动模式按卡建工单既存了草稿（action=ticket）又写了转人工审计，草稿那边已经算过
+        sql`${a.data}->>'card_action' = 'handoff'`,
         inArray(cardIdOf, cardIds),
         sql`${a.createdAt} >= now() - make_interval(days => ${STATS_DAYS})`,
       ),
@@ -243,7 +245,12 @@ async function markSeen(tx: Executor, row: CardRow, memberId: string) {
     .where(and(eq(v.cardId, row.id), eq(v.version, row.version)));
 }
 
-const same = (a: CardContent, b: CardContent) => JSON.stringify(a) === JSON.stringify(b);
+/** 库里读出的 jsonb 键序与请求体不同（分支的 goto 在前），先按契约的结构整理一遍再比 */
+const normalized = (c: CardContent) => {
+  const p = zCardContent.safeParse(c);
+  return JSON.stringify(p.success ? p.data : c);
+};
+const same = (a: CardContent, b: CardContent) => normalized(a) === normalized(b);
 
 /** API-KB-032：整张卡提交；内容没变时不写新版本；标题或调用条件变了才重算向量 */
 export async function updateCard(ctx: MemberContext, id: string, body: CardPatch) {

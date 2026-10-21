@@ -24,7 +24,7 @@ import { purgeJob } from "@/server/knowledge/purge";
 import { embedMissing } from "@/server/knowledge/qa";
 import { extractQa, failStaleExtracts } from "@/server/knowledge/qa-extract";
 import { syncListings } from "@/server/products/dictionary";
-import { analyzeLearning, pickLearning } from "@/server/knowledge/learning-analyze";
+import { analyzeLearning, failStaleLearning, pickLearning } from "@/server/knowledge/learning-analyze";
 
 type Handler = (data: Record<string, unknown>) => Promise<void>;
 
@@ -75,9 +75,10 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "knowledge.qa_extract": extractQa,
   "knowledge.qa_embed": async () => {
     const stale = await failStaleExtracts();
+    const staleLearning = await failStaleLearning();
     const r = await embedMissing();
     const cards = await embedMissingCards();
-    if (r.picked || stale || cards.picked) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "qa embed sweep", ...r, staleExtracts: stale, cardsPicked: cards.picked, cardsEmbedded: cards.embedded }));
+    if (r.picked || stale || staleLearning || cards.picked) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "qa embed sweep", ...r, staleExtracts: stale, staleLearning, cardsPicked: cards.picked, cardsEmbedded: cards.embedded }));
   },
   "product.listing_sync": syncListings,
   "learning.analyze": analyzeLearning,

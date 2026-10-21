@@ -83,8 +83,9 @@ async function neighbors(task: TaskRow, market: string | null): Promise<{ cards:
 }
 
 /**
- * 模型写的卡转成卡内容：超长的截断、多出的条目丢掉、跳转不合法的分支丢掉；产品按物料编码对到产品（没给编码时沿用改的那张卡）；
- * 站点、标签、关联问答沿用改的那张卡，新卡用全部站点。仍不合规时返回 null。
+ * 模型写的卡转成卡内容：超长的截断、多出的条目丢掉、跳转不合法的分支丢掉。
+ * 改已有卡（base）时适用范围不由模型改：产品、阶段、站点、标签、关联问答都沿用原卡——Agent 改卡复测通过即生效，
+ * 范围被改窄或改成通用会悄悄影响别的产品。新卡的产品按物料编码对到产品，站点用全部站点。仍不合规时返回 null。
  */
 export function cardFromModel(raw: unknown, base: CardContent | null, codeToId: Map<string, string>, fallbackStage: string): CardContent | null {
   if (!raw || typeof raw !== "object") return null;
@@ -98,8 +99,8 @@ export function cardFromModel(raw: unknown, base: CardContent | null, codeToId: 
   const stage = ["presale", "insale", "aftersale", "any"].includes(String(r.stage)) ? String(r.stage) : (base?.stage ?? (fallbackStage === "unknown" ? "any" : fallbackStage));
   const content = {
     title: clipText(r.title, CARD_TITLE_MAX),
-    productIds: codes ? [...new Set(codes.map((c) => codeToId.get(c)).filter((v): v is string => !!v))] : (base?.productIds ?? []),
-    stage,
+    productIds: base ? base.productIds : codes ? [...new Set(codes.map((c) => codeToId.get(c)).filter((v): v is string => !!v))] : [],
+    stage: base ? base.stage : stage,
     markets: base?.markets ?? ["ALL"],
     tags: base?.tags ?? [],
     conditions: (Array.isArray(r.conditions) ? r.conditions : []).map((x) => clipText(x, CARD_CONDITION_MAX)).filter(Boolean).slice(0, CARD_CONDITIONS_MAX),
@@ -213,16 +214,24 @@ async function analyze(task: TaskRow, finish: (set: Partial<typeof T.$inferInser
   }
 
   // 改已有卡：直接复测，通过即生效（Agent 版本，标还没人看过）
-  const retest = await retestProposal(t, content, target.row.id);
+  const retest = await retestProposal(t, content, { id: target.row.id, version: target.row.version });
   if (!retest.passed) return finish({ ...common, status: "closed", result: "retest_failed", proposal: content, targetCardId: target.row.id, retest, error: retest.failReason });
   const vec = needsEmbed(target.row, content) ? await tryEmbedCard(content) : undefined;
   await db().transaction(async (tx) => {
     const [fresh] = await tx.select().from(C).where(eq(C.id, target.row.id)).for("update");
-    if (!fresh || fresh.status !== "published") {
-      await tx
+    const settle = (set: Partial<typeof T.$inferInsert>) =>
+      tx
         .update(T)
-        .set({ ...common, status: "closed", result: "retest_failed", proposal: content, targetCardId: target.row.id, retest, error: "复测期间这张卡被下架或删除了", version: task.version + 1, updatedAt: new Date() })
+        .set({ ...common, ...set, version: task.version + 1, updatedAt: new Date() })
         .where(and(eq(T.id, task.id), eq(T.version, task.version)));
+    // 原卡在分析期间被下架或删除：这次的内容当作新卡交给审核人（§11.19），审核人要重新复测
+    if (!fresh || fresh.status !== "published") {
+      await settle({ status: "pending_review", proposal: content, targetCardId: null, retest, suggestion: ["原卡在分析期间被下架或删除，改为新卡待审核。", common.suggestion].filter(Boolean).join("") });
+      return;
+    }
+    // 分析与复测期间卡被人或另一个 Agent 任务改过：不覆盖那次改动，这次作废，可以重新分析
+    if (fresh.version !== target.row.version) {
+      await settle({ status: "failed", proposal: content, targetCardId: fresh.id, retest, error: `分析期间这张卡被改成了第 ${fresh.version} 版，这次改动没有写入，可以重新分析。` });
       return;
     }
     const card = await writeCardVersion(tx, {
@@ -240,6 +249,18 @@ async function analyze(task: TaskRow, finish: (set: Partial<typeof T.$inferInser
       .where(and(eq(T.id, task.id), eq(T.version, task.version)));
     await audit(systemActor(task.merchantId), { module: "reception", action: "knowledge_card_agent_updated", summary: `Agent 改了经验卡「${card.title}」（第 ${card.version} 版）`, targetType: "experience_card", targetId: card.id, data: { learningTaskId: task.id, version: card.version, regressions: retest.regressions.length } }, tx);
   });
+}
+
+/** 分析中超过 15 分钟没有动静（任务被杀、排队失败）就标分析失败，可以重新分析；learning.analyze 本身 10 分钟过期、不重试 */
+export const STALE_ANALYZING_MS = 15 * 60_000;
+
+export async function failStaleLearning(): Promise<number> {
+  const rows = await db()
+    .update(T)
+    .set({ status: "failed", error: "分析任务中断，可以重新分析。", version: sql`${T.version} + 1`, updatedAt: new Date() })
+    .where(and(eq(T.status, "analyzing"), sql`coalesce(${T.updatedAt}, ${T.createdAt}) < ${new Date(Date.now() - STALE_ANALYZING_MS)}`))
+    .returning({ id: T.id });
+  return rows.length;
 }
 
 // ── Agent 挑会话 ──

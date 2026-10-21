@@ -211,23 +211,27 @@ export async function generateDraft(data: Record<string, unknown>): Promise<void
   }
   await db().update(schema.draft).set({ status: "sent", sentMessageId: out.message.id, disposedAt: new Date() }).where(eq(schema.draft.id, draft.id));
   await audit(systemActor(conv.merchantId), { module: "workbench", action: "draft_disposed", summary: `AI 自动回复 ${conv.buyerName}`, targetType: "draft", targetId: draft.id, data: { disposition: "sent", mode } });
-  // 卡上的分支要求建工单：回复已发出，再建「内部确认」工单并转人工（不再发安抚句）
+  // 卡上的分支要求建工单：回复已发出，再建「内部确认」工单并转人工；建单失败也要转人工（回复里已告诉买家会有同事跟进）
   if (card?.action === "ticket") {
-    await db().transaction((tx) =>
-      createTicket(tx, {
-        merchantId: conv.merchantId,
-        type: "internal",
-        origin: "rule",
-        ignoreAutoCreate: true,
-        dedupeKey: `card:${conv.currentSegmentId ?? conv.id}:${card.cardId}`,
-        shopId: conv.shopId,
-        platform: conv.platform,
-        conversationId: conv.id,
-        buyerName: conv.buyerName,
-        description: card.ticketSummary ? `${card.title}：${card.ticketSummary}` : card.title,
-      }),
-    );
-    await handoff(now, "card", "assist", undefined, cardEvt);
+    const ticket = {
+      merchantId: conv.merchantId,
+      type: "internal" as const,
+      origin: "rule" as const,
+      ignoreAutoCreate: true,
+      dedupeKey: `card:${conv.currentSegmentId ?? conv.id}:${card.cardId}`,
+      shopId: conv.shopId,
+      platform: conv.platform,
+      conversationId: conv.id,
+      buyerName: conv.buyerName,
+      description: card.ticketSummary ? `${card.title}：${card.ticketSummary}` : card.title,
+    };
+    try {
+      await db().transaction((tx) => createTicket(tx, ticket));
+    } catch (err) {
+      console.error(JSON.stringify({ t: new Date().toISOString(), level: "error", job: "draft.generate", conversationId: conv.id, msg: "card ticket failed", err: err instanceof Error ? err.message : String(err) }));
+    }
+    // 按 assist 转人工以免再发一句安抚；审计里的模式仍记 auto
+    await handoff(now, "card", "assist", undefined, { ...cardEvt, mode: "auto" });
   }
 }
 

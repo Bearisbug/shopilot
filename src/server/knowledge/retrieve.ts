@@ -179,12 +179,13 @@ export async function retrieveForDraft(input: {
   // 检索服务不接受空查询（Cloudflare 400 7001）：买家只发图片、商品卡时原话为空，这一路不跑；改写也为空时两路都不跑，按没检索到资料处理
   const original = input.original.trim();
   const filter = { merchantId: input.merchantId, market: input.market, stage: input.stage ?? null, productIds: input.productIds ?? [] };
-  const embedded = qaUsable || cardsPublished ? await embedRoutes(rewrittenQuery, original) : { vectors: [], error: null };
+  // 向量化与资料检索并行：问答与卡等向量，资料不等
+  const embedded = qaUsable || cardsPublished ? embedRoutes(rewrittenQuery, original) : Promise.resolve({ vectors: [], error: null });
   const [rw, og, qa, cards] = await Promise.all([
     idx && rewrittenQuery ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "rewritten", rewrittenQuery) : Promise.resolve(null),
     idx && original ? runRoute(svc, idx.instanceName, input.merchantId, input.market, "original", original) : Promise.resolve(null),
-    qaUsable ? retrieveQa({ ...filter, rewritten: rewrittenQuery, original, vectors: embedded.vectors, embedError: embedded.error }) : Promise.resolve(null),
-    cardsUsable ? retrieveCards({ ...filter, vectors: cardsPublished ? embedded.vectors : [], embedError: embedded.error, active: input.active, override: input.cardOverride }) : Promise.resolve(null),
+    qaUsable ? embedded.then((e) => retrieveQa({ ...filter, rewritten: rewrittenQuery, original, vectors: e.vectors, embedError: e.error })) : Promise.resolve(null),
+    cardsUsable ? embedded.then((e) => retrieveCards({ ...filter, vectors: cardsPublished ? e.vectors : [], embedError: e.error, active: input.active, override: input.cardOverride })) : Promise.resolve(null),
   ]);
   const attempts = [...(rw?.attempts ?? []), ...(og?.attempts ?? [])];
   const failed = [rw, og].filter((r) => r && r.chunks === null).length;

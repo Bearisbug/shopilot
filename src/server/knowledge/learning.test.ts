@@ -9,11 +9,23 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CardContent, LearningMessage } from "@/contracts/cards";
 import { can, permissionsFor } from "@/lib/permissions";
 import { cardFromModel } from "./learning-analyze";
-import { snapshotWindow } from "./learning";
+import { snapshotWindow, takeRetestQuota } from "./learning";
 import { proposalHash, simInputOf } from "./retest";
 
 const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn<(...args: unknown[]) => Promise<null>>(async () => null) }));
 vi.mock("@/server/jobs/boss", () => ({ enqueue }));
+// 复测开始前可以插一段动作，模拟分析与复测期间卡被人改、被下架
+const { retestHook } = vi.hoisted(() => ({ retestHook: { before: null as null | (() => Promise<void>) } }));
+vi.mock("./retest", async (importOriginal) => {
+  const m = await importOriginal<typeof import("./retest")>();
+  return {
+    ...m,
+    retestProposal: async (...args: Parameters<typeof m.retestProposal>) => {
+      await retestHook.before?.();
+      return m.retestProposal(...args);
+    },
+  };
+});
 
 const card = (over: Partial<CardContent> = {}): CardContent => ({
   title: "摄像头接上电脑后识别不到：帮买家恢复使用",
@@ -71,13 +83,24 @@ describe("模型写的卡", () => {
     expect(c.steps[1].branches).toEqual([{ when: "回去", action: "goto", goto: 1 }]);
     expect(c).toMatchObject({ tips: null, stage: "insale", productIds: ["11111111-1111-4111-8111-111111111111"], markets: ["ALL"] });
   });
-  it("改卡时没给编码沿用原卡的产品、站点、标签、关联问答；阶段不认识用原卡的；缺条件或步骤返回 null", () => {
+  it("改卡时适用范围不由模型改：产品、阶段、站点、标签、关联问答都沿用原卡；缺条件或步骤返回 null", () => {
     const base = card({ productIds: ["22222222-2222-4222-8222-222222222222"], markets: ["MY"], tags: ["连接"], qaIds: ["33333333-3333-4333-8333-333333333333"], stage: "presale" });
     const c = cardFromModel({ title: "改", conditions: ["c"], steps: [{ text: "s" }], stage: "bad" }, base, codes, "aftersale")!;
     expect(c).toMatchObject({ productIds: ["22222222-2222-4222-8222-222222222222"], markets: ["MY"], tags: ["连接"], qaIds: ["33333333-3333-4333-8333-333333333333"], stage: "presale" });
+    // 模型给了别的产品编码、空数组或别的阶段，也不改原卡的范围
+    for (const product_codes of [[...codes.keys()], []]) expect(cardFromModel({ title: "改", conditions: ["c"], steps: [{ text: "s" }], stage: "aftersale", product_codes }, base, codes, "aftersale")).toMatchObject({ productIds: base.productIds, stage: "presale" });
     expect(cardFromModel({ title: "无条件", conditions: [], steps: [{ text: "s" }] }, null, codes, "unknown")).toBeNull();
     expect(cardFromModel({ title: "无步骤", conditions: ["c"], steps: [] }, null, codes, "unknown")).toBeNull();
     expect(cardFromModel({ title: "阶段", conditions: ["c"], steps: [{ text: "s" }] }, null, codes, "unknown")!.stage).toBe("any");
+  });
+});
+
+describe("复测限流", () => {
+  it("每商户每分钟 10 次，第 11 次 429；过了一分钟重新计", () => {
+    const t0 = 1_000_000;
+    for (let i = 0; i < 10; i++) takeRetestQuota("m-quota", t0 + i);
+    expect(() => takeRetestQuota("m-quota", t0 + 20)).toThrow(expect.objectContaining({ status: 429 }));
+    expect(() => takeRetestQuota("m-quota", t0 + 60_000)).not.toThrow();
   });
 });
 
@@ -85,7 +108,8 @@ describe("复测指纹与对话", () => {
   it("内容或目标卡变了指纹就变", () => {
     expect(proposalHash(card(), null)).toBe(proposalHash(card(), null));
     expect(proposalHash(card(), null)).not.toBe(proposalHash(card({ tips: "x" }), null));
-    expect(proposalHash(card(), null)).not.toBe(proposalHash(card(), "c1"));
+    expect(proposalHash(card(), null)).not.toBe(proposalHash(card(), { id: "c1", version: 1 }));
+    expect(proposalHash(card(), { id: "c1", version: 1 })).not.toBe(proposalHash(card(), { id: "c1", version: 2 }));
   });
   it("对话截到勾选的最后一条买家文字，问题优先用 test_question", () => {
     const m = (id: string, from: LearningMessage["from"], text: string, selected = false): LearningMessage => ({ id, from, type: "text", text, at: "2026-10-21T00:00:00Z", selected });
@@ -107,6 +131,7 @@ describe.skipIf(!process.env.DATABASE_URL)("会话学习（需要数据库）", 
   const { Problem } = await import("@/server/http/problem");
   const svc = await import("./learning");
   const job = await import("./learning-analyze");
+  const forget = await import("./learning-forget");
   const store = await import("./card-store");
   const dict = await import("@/server/products/dictionary");
   type MemberContext = import("@/server/auth/context").MemberContext;
@@ -341,6 +366,85 @@ describe.skipIf(!process.env.DATABASE_URL)("会话学习（需要数据库）", 
     expect(task.messages.every((m) => !m.selected)).toBe(true);
     expect(enqueue).toHaveBeenCalledWith("learning.analyze", { taskId: task.id }, { singletonKey: task.id });
     expect((await job.pickCandidates(ctx.merchant.id)).map((x) => x.segmentId)).not.toContain(good.segId);
+  });
+
+  it("Agent 改卡期间卡被人改过：这次作废、标分析失败，卡保持人改的版本；原卡被下架：改为新卡交审核人", async () => {
+    const target = await writeCard(card({ title: "麦克风没声音：帮买家排查" }));
+    retestHook.before = async () => {
+      const [row] = await db().select().from(schema.experienceCard).where(eq(schema.experienceCard.id, target.id));
+      await db().transaction((tx) => store.writeCardVersion(tx, { row, content: { ...store.cardContentOf(row), tips: "人改的" }, author: { kind: "member", memberId: ctx.membership.id } }));
+    };
+    const a = await conversation([["buyer", "麦克风没声音"]]);
+    const ta = await svc.submitLearning(ctx, a.conv.id, { messageIds: a.ids });
+    await job.analyzeLearning({ taskId: ta.task.id });
+    retestHook.before = null;
+    const failed = await taskOf(ta.task.id);
+    expect(failed).toMatchObject({ status: "failed", targetCardId: target.id });
+    expect(failed.error).toContain("第 2 版");
+    expect((await db().select().from(schema.experienceCard).where(eq(schema.experienceCard.id, target.id)))[0]).toMatchObject({ version: 2, tips: "人改的", agentUnseen: false });
+
+    const gone = await writeCard(card({ title: "充电器发烫：帮买家排查" }));
+    retestHook.before = async () => {
+      await db().update(schema.experienceCard).set({ status: "archived" }).where(eq(schema.experienceCard.id, gone.id));
+    };
+    const b = await conversation([["buyer", "充电器发烫"]]);
+    const tb = await svc.submitLearning(ctx, b.conv.id, { messageIds: b.ids });
+    await job.analyzeLearning({ taskId: tb.task.id });
+    retestHook.before = null;
+    const proposed = await taskOf(tb.task.id);
+    expect(proposed).toMatchObject({ status: "pending_review", targetCardId: null });
+    expect(proposed.proposal?.title).toBeTruthy();
+    expect(proposed.suggestion).toContain("原卡在分析期间被下架或删除");
+  });
+
+  it("发布前要改的卡在复测后被改过：要重新复测，不覆盖那次改动", async () => {
+    const x = await writeCard(card({ title: "三脚架松动：帮买家拧紧", conditions: ["买家说三脚架松动"] }));
+    const c = await conversation([["buyer", "三脚架松动怎么办"]]);
+    const t = await svc.submitLearning(ctx, c.conv.id, { messageIds: c.ids, note: "新卡" });
+    await job.analyzeLearning({ taskId: t.task.id });
+    const pending = (await svc.getLearning(ctx, t.task.id)).task;
+    const edit = { ...store.cardContentOf(x), tips: "拧紧后再试一次" };
+    const retested = (await svc.retestLearning(ctx, t.task.id, { version: pending.version, card: edit, targetCardId: x.id })).task;
+    expect(retested.retest?.passed).toBe(true);
+    await db().transaction((tx) => store.writeCardVersion(tx, { row: x, content: { ...store.cardContentOf(x), conditions: ["买家说三脚架晃"] }, author: { kind: "member", memberId: ctx.membership.id } }));
+    expect((await problemOf(svc.publishLearning(ctx, t.task.id, { version: retested.version, card: edit, targetCardId: x.id }))).code).toBe("retest_required");
+    const again = (await svc.retestLearning(ctx, t.task.id, { version: retested.version, card: edit, targetCardId: x.id })).task;
+    const published = (await svc.publishLearning(ctx, t.task.id, { version: again.version, card: edit, targetCardId: x.id })).task;
+    expect(published).toMatchObject({ status: "published", result: "card_updated", publishedCard: { id: x.id, version: 3 } });
+  });
+
+  it("分析中超过 15 分钟没动静的标分析失败，刚开始分析的不动", async () => {
+    const c = await conversation([["buyer", "卡住的任务"]]);
+    const stale = await svc.submitLearning(ctx, c.conv.id, { messageIds: c.ids });
+    const fresh = await svc.submitLearning(ctx, c.conv.id, { messageIds: c.ids });
+    await db().update(schema.learningTask).set({ createdAt: at(20) }).where(eq(schema.learningTask.id, stale.task.id));
+    expect(await job.failStaleLearning()).toBeGreaterThanOrEqual(1);
+    expect(await taskOf(stale.task.id)).toMatchObject({ status: "failed", error: "分析任务中断，可以重新分析。" });
+    expect((await taskOf(fresh.task.id)).status).toBe("analyzing");
+  });
+
+  it("组长只看负责店铺的学习任务", async () => {
+    const lead = { ...ctx, membership: { ...ctx.membership, role: "lead" as const }, isOwner: false, shopIds: [] as string[] };
+    const c = await conversation([["buyer", "组长看不到的店"]]);
+    const t = await svc.submitLearning(ctx, c.conv.id, { messageIds: c.ids });
+    expect((await svc.listLearning(lead, { limit: 30 })).items).toEqual([]);
+    expect((await problemOf(svc.getLearning(lead, t.task.id))).status).toBe(404);
+    expect((await svc.listLearning({ ...lead, shopIds: [shopId] }, { limit: 100 })).items.map((x) => x.id)).toContain(t.task.id);
+  });
+
+  it("买家数据删除时：这位买家的学习任务删掉，别的任务复测记录里引用它的回归用例也去掉", async () => {
+    const a = await conversation([["buyer", "要被删的买家原话"]]);
+    const ta = await svc.submitLearning(ctx, a.conv.id, { messageIds: a.ids });
+    const b = await conversation([["buyer", "留下的任务"]]);
+    const tb = await svc.submitLearning(ctx, b.conv.id, { messageIds: b.ids });
+    const sim = { reply: "好", confidence: 0.9, handoff: false, handoffReason: null, insufficient: false, card: null, latencyMs: 1 };
+    await db()
+      .update(schema.learningTask)
+      .set({ retest: { at: new Date().toISOString(), proposalHash: "h", passed: true, failReason: null, original: sim, regressions: [{ taskId: ta.task.id, question: "要被删的买家原话", before: sim, after: sim, notWorse: true, reason: "" }] } })
+      .where(eq(schema.learningTask.id, tb.task.id));
+    await db().transaction((tx) => forget.forgetLearningTasks(tx, ctx.merchant.id, { conversationIds: [a.conv.id] }));
+    expect(await taskOf(ta.task.id)).toBeUndefined();
+    expect((await taskOf(tb.task.id)).retest?.regressions).toEqual([]);
   });
 
   it("会话删除后学习任务一并删除（买家删除数据、保留期清理都删会话或会话段）", async () => {

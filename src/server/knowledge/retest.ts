@@ -14,10 +14,13 @@ export type TaskRow = typeof T.$inferSelect;
 /** 每张卡最多取几个回归用例 */
 export const REGRESSIONS_MAX = 3;
 
-/** 拟发布内容的指纹：发布时要与最近一次复测的一致 */
-export function proposalHash(content: CardContent, targetCardId: string | null): string {
+/** 要改的卡与复测时它的版本；新卡为 null */
+export type RetestTarget = { id: string; version: number } | null;
+
+/** 拟发布内容的指纹：内容、要改的卡与它当时的版本；发布时要与最近一次复测的一致，卡在复测后被改过也要重新复测 */
+export function proposalHash(content: CardContent, target: RetestTarget): string {
   return createHash("sha256")
-    .update(JSON.stringify({ content, targetCardId }))
+    .update(JSON.stringify({ content, targetCardId: target?.id ?? null, targetVersion: target?.version ?? null }))
     .digest("hex");
 }
 
@@ -50,7 +53,8 @@ async function judge(question: string, conversation: SimTurn[], before: SimResul
 }
 
 /** 复测；模拟出稿或判定出错时抛 AiError，由调用方处理 */
-export async function retestProposal(task: TaskRow, content: CardContent, targetCardId: string | null): Promise<LearningRetest> {
+export async function retestProposal(task: TaskRow, content: CardContent, target: RetestTarget): Promise<LearningRetest> {
+  const targetCardId = target?.id ?? null;
   const base = { merchantId: task.merchantId, shopId: task.shopId, stage: task.stage, productIds: task.productIds };
   const override = { cardId: targetCardId, content };
   const own = simInputOf(task);
@@ -77,5 +81,5 @@ export async function retestProposal(task: TaskRow, content: CardContent, target
   const usedCard = original.card?.cardId === (targetCardId ?? PROPOSAL_CARD_ID);
   const worse = regressions.find((r) => !r.notWorse);
   const failReason = !usedCard ? "原问题的新回答没有用到这张卡" : worse ? `以前测过的问题「${[...worse.question].slice(0, 30).join("")}」改后变差：${worse.reason}` : null;
-  return { at: new Date().toISOString(), proposalHash: proposalHash(content, targetCardId), passed: failReason === null, failReason, original, regressions };
+  return { at: new Date().toISOString(), proposalHash: proposalHash(content, target), passed: failReason === null, failReason, original, regressions };
 }

@@ -12,6 +12,7 @@ import { env } from "../env";
 import { removeDataFile, writeDataFile } from "../files/storage";
 import { Problem } from "../http/problem";
 import { enqueue } from "../jobs/boss";
+import { forgetLearningTasks } from "../knowledge/learning-forget";
 
 const EXPORT_TTL_HOURS = 24;
 const EXPORT_TIMEOUT_MIN = 10;
@@ -85,7 +86,8 @@ export async function eraseBuyer(ctx: MemberContext, body: { platform: "shopee" 
       .set({ buyerExternalId: null })
       .where(and(eq(schema.afterSale.merchantId, merchantId), eq(schema.afterSale.platform, body.platform), eq(schema.afterSale.buyerExternalId, body.buyerExternalId)));
     if (convIds.length) await tx.update(schema.ticket).set({ buyerName: null }).where(and(eq(schema.ticket.merchantId, merchantId), inArray(schema.ticket.conversationId, convIds)));
-    // 会话删除级联消息、草稿、段
+    // 会话删除级联消息、草稿、段；学习任务连同别的任务里引用它们的回归用例先删
+    if (convIds.length) await forgetLearningTasks(tx, merchantId, { conversationIds: convIds });
     if (convIds.length) await tx.delete(schema.conversation).where(inArray(schema.conversation.id, convIds));
     await deleteFiles(fileIds, tx);
 
@@ -307,6 +309,7 @@ async function purgeMerchantData(merchant: typeof schema.merchant.$inferSelect) 
     if (segs.length === 0) break;
     await db().transaction(async (tx) => {
       const segIds = segs.map((s) => s.id);
+      await forgetLearningTasks(tx, merchant.id, { segmentIds: segIds });
       const msgs = await tx.delete(schema.message).where(inArray(schema.message.segmentId, segIds)).returning({ payload: schema.message.payload });
       const drafts = await tx.delete(schema.draft).where(inArray(schema.draft.segmentId, segIds)).returning({ id: schema.draft.id });
       await tx.delete(schema.segment).where(inArray(schema.segment.id, segIds));

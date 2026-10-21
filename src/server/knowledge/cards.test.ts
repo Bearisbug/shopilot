@@ -117,6 +117,11 @@ describe.skipIf(!process.env.DATABASE_URL)("经验卡管理（需要数据库）
 
     const same = await cards.updateCard(ctx, a.card.id, { version: 1, card: card() });
     expect(same.card.version).toBe(1);
+    // 库里读出的分支键序（goto 在前）与请求体不同，也算内容没变
+    const jumpy = card({ title: "带跳转的卡", steps: [{ text: "一", branches: [{ when: "已经换过线", action: "goto", goto: 2 }] }, { text: "二", branches: [] }] });
+    const j = await cards.createCard(ctx, jumpy);
+    expect((await cards.updateCard(ctx, j.card.id, { version: 1, card: jumpy })).card.version).toBe(1);
+    await cards.deleteCard(ctx, j.card.id);
     const b = await cards.updateCard(ctx, a.card.id, { version: 1, card: card({ tips: "每次只让买家做一步" }) });
     expect(b.card).toMatchObject({ version: 2, tips: "每次只让买家做一步" });
     const stale = await problemOf(cards.updateCard(ctx, a.card.id, { version: 1, card: card({ tips: "x" }) }));
@@ -179,6 +184,8 @@ describe.skipIf(!process.env.DATABASE_URL)("经验卡管理（需要数据库）
         { ...base, mode: "assist", status: "ignored", card: info("ticket") },
         { ...base, mode: "shadow", status: "shadow", card: info("handoff") },
         { ...base, mode: "assist", status: "sent", card: info("continue"), createdAt: new Date(Date.now() - 40 * 86400_000) },
+        // 自动模式按卡建工单：草稿与转人工审计都有，只算一次
+        { ...base, mode: "auto", status: "sent", card: info("ticket") },
       ])
       .returning();
     await db().insert(schema.draftReview).values({ merchantId: ctx.merchant.id, draftId: shadow.id, conversationId, kind: "shadow", draftStatus: "shadow", humanText: "好的", editClass: "polish", consistency: "same", model: "stub" });
@@ -192,9 +199,10 @@ describe.skipIf(!process.env.DATABASE_URL)("经验卡管理（需要数据库）
         handoff({ reason: "low_confidence", mode: "assist" }),
         handoff({ reason: "card", mode: "assist", card_id: randomUUID() }),
         handoff({ reason: "card", mode: "assist", card_id: a.id }, new Date(Date.now() - 40 * 86400_000)),
+        handoff({ reason: "card", mode: "auto", card_id: a.id, card_step: 1, card_action: "ticket" }),
       ]);
     const stats = (await cards.getCard(ctx, a.id)).card.stats;
-    expect(stats).toEqual({ calls: 6, sent: 1, edited: 1, ignored: 1, handoffs: 4, shadowSame: 1, shadowPartial: 0, shadowDifferent: 0 });
+    expect(stats).toEqual({ calls: 7, sent: 1, edited: 1, ignored: 1, handoffs: 5, shadowSame: 1, shadowPartial: 0, shadowDifferent: 0 });
   });
 
   it("删除：卡与版本一起删，草稿里的卡快照保留、卡 ID 置空；再删 404", async () => {
