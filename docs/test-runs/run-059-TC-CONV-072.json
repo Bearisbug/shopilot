@@ -1,0 +1,156 @@
+{
+  "C": {
+    "id": "01a15c1d-2e05-7473-bc09-0815d0eab4b1",
+    "cid": "3669987912132735763",
+    "push": [
+      200
+    ]
+  },
+  "s1_immediately": [
+    {
+      "name": "第 1 个附件：图片",
+      "color": "red",
+      "status": true,
+      "badge": false
+    },
+    {
+      "name": "第 2 个附件：图片",
+      "color": "green",
+      "status": true,
+      "badge": false
+    },
+    {
+      "name": "第 3 个附件：图片",
+      "color": "blue",
+      "status": true,
+      "badge": false
+    }
+  ],
+  "s1_dialog": 0,
+  "s1_uploaded": [
+    {
+      "name": "第 1 个附件：图片",
+      "color": "red",
+      "status": false,
+      "badge": false
+    },
+    {
+      "name": "第 2 个附件：图片",
+      "color": "green",
+      "status": false,
+      "badge": false
+    },
+    {
+      "name": "第 3 个附件：图片",
+      "color": "blue",
+      "status": false,
+      "badge": false
+    }
+  ],
+  "s2_height": {
+    "h0": 106,
+    "withStrip": 170
+  },
+  "s3": [
+    {
+      "name": "第 1 个附件：图片",
+      "color": "red",
+      "status": false,
+      "badge": false
+    },
+    {
+      "name": "第 2 个附件：图片",
+      "color": "blue",
+      "status": false,
+      "badge": false
+    }
+  ],
+  "s4_sendingLabel": 1,
+  "s4": {
+    "strip": 0,
+    "text": "",
+    "height": 106
+  },
+  "s5": [
+    {
+      "dir": "out",
+      "type": "text",
+      "text": "[译文] 先发文字，再按顺序发图片",
+      "originalText": "先发文字，再按顺序发图片",
+      "status": "sent",
+      "error": null
+    },
+    {
+      "dir": "out",
+      "type": "image",
+      "text": null,
+      "originalText": null,
+      "status": "sent",
+      "error": null,
+      "color": "red"
+    },
+    {
+      "dir": "out",
+      "type": "image",
+      "text": null,
+      "originalText": null,
+      "status": "sent",
+      "error": null,
+      "color": "blue"
+    }
+  ],
+  "s6": {
+    "sellerCount": 3,
+    "last": [
+      {
+        "kind": "text",
+        "rawType": "text",
+        "text": "[译文] 先发文字，再按顺序发图片"
+      },
+      {
+        "kind": "image",
+        "rawType": "image",
+        "text": null,
+        "color": "red"
+      },
+      {
+        "kind": "image",
+        "rawType": "image",
+        "text": null,
+        "color": "blue"
+      }
+    ]
+  },
+  "s7_clipboardWrite": "ok",
+  "s7": {
+    "text": "你好",
+    "strip": 0
+  },
+  "s8": {
+    "toasts": [
+      "没有可发的图片或视频 平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。"
+    ],
+    "strip": 0
+  },
+  "s9": {
+    "strip": [
+      {
+        "name": "第 1 个附件：图片",
+        "color": "rgb(198,198,198)",
+        "status": false,
+        "badge": false
+      },
+      {
+        "name": "第 2 个附件：图片",
+        "color": "rgb(198,198,198)",
+        "status": false,
+        "badge": false
+      }
+    ],
+    "messagesBefore": 4,
+    "after": {
+      "strip": 0,
+      "messagesAfter": 4
+    }
+  }
+}

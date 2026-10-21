@@ -1,0 +1,98 @@
+{
+  "C": {
+    "id": "01a15c1d-4d4f-76fb-85c0-129d75156f47",
+    "cid": "7091398145003215249",
+    "push": [
+      200
+    ]
+  },
+  "s1": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "items": [
+        {
+          "platform": "shopee",
+          "shopId": "220002",
+          "category": "send_message",
+          "kind": "error",
+          "mode": "once",
+          "hits": 0,
+          "createdAt": "2026-10-21T01:39:46.997Z"
+        }
+      ]
+    }
+  },
+  "s2": [
+    {
+      "name": "第 1 个附件：图片",
+      "color": "green",
+      "status": false,
+      "badge": false
+    },
+    {
+      "name": "第 2 个附件：图片",
+      "color": "red",
+      "status": false,
+      "badge": false
+    }
+  ],
+  "s3": {
+    "toasts": [
+      "发送失败 Shopee 返回错误（error_server）：Something wrong. Please try later.（请求编号 req_244c5f8d8a994ad3a3d6120811e606af）"
+    ],
+    "strip": [
+      {
+        "name": "第 1 个附件：图片",
+        "color": "red",
+        "status": false,
+        "badge": false
+      }
+    ],
+    "last": [
+      {
+        "dir": "in",
+        "type": "text",
+        "text": "Is this still available?",
+        "originalText": null,
+        "status": null,
+        "error": null
+      },
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "failed",
+        "error": "Shopee 返回错误（error_server）：Something wrong. Please try later.",
+        "color": "green"
+      }
+    ]
+  },
+  "s4": {
+    "strip": 0,
+    "last": [
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "failed",
+        "error": "Shopee 返回错误（error_server）：Something wrong. Please try later.",
+        "color": "green"
+      },
+      {
+        "dir": "out",
+        "type": "image",
+        "text": null,
+        "originalText": null,
+        "status": "sent",
+        "error": null,
+        "color": "red"
+      }
+    ]
+  },
+  "after": {
+    "items": []
+  }
+}

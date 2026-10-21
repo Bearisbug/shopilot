@@ -1,0 +1,52 @@
+{
+  "C": {
+    "id": "01a15c1f-f34e-7382-8cf1-ce78d4e9c807",
+    "cid": "7933035705789926627",
+    "push": [
+      200
+    ]
+  },
+  "s1": {
+    "toasts": [
+      "没有可发的图片或视频 图片 11.0 MB，超过 10 MB 上限。",
+      "已认领"
+    ],
+    "strip": 0,
+    "upload": {
+      "status": 413,
+      "type": "/errors/too-large",
+      "detail": "图片不能超过 10 MB。"
+    }
+  },
+  "s2": {
+    "toasts": [
+      "没有可发的图片或视频 只支持 JPG、PNG、WebP，不超过 10 MB。",
+      "没有可发的图片或视频 图片 11.0 MB，超过 10 MB 上限。",
+      "已认领"
+    ],
+    "strip": 0,
+    "upload": {
+      "status": 415,
+      "type": "/errors/unsupported-type",
+      "detail": "只支持 JPG、PNG、WebP 图片和 MP4 视频。"
+    }
+  },
+  "s3": {
+    "upload": 201,
+    "strip": 1,
+    "after": {
+      "strip": 0,
+      "last": [
+        {
+          "dir": "out",
+          "type": "image",
+          "text": null,
+          "originalText": null,
+          "status": "sent",
+          "error": null,
+          "color": "rgb(198,198,198)"
+        }
+      ]
+    }
+  }
+}
