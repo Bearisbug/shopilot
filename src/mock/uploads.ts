@@ -60,11 +60,23 @@ export async function saveUpload(platform: MockPlatform, shopId: string | null, 
 /** 聊天视频上传：只认 MP4（ftyp 头），宽高固定记 640×360（模拟平台不解码视频） */
 export async function saveVideoUpload(platform: MockPlatform, shopId: string | null, filename: string, data: Buffer): Promise<StoredUpload | null> {
   if (data.length < 12 || data.toString("ascii", 4, 8) !== "ftyp") return null;
+  return storeVideo(platform, shopId, filename, "video/mp4", data);
+}
+
+/** TikTok 大文件上传合并后的视频：MP4 / MOV 认 ftyp 头，WebM 认 EBML 头；类型取分块的 Content-Type */
+export async function saveChunkedVideo(shopId: string, filename: string, mime: string, data: Buffer): Promise<StoredUpload | null> {
+  const ftyp = data.length >= 12 && data.toString("ascii", 4, 8) === "ftyp";
+  const ebml = data.length >= 4 && data.readUInt32BE(0) === 0x1a45dfa3;
+  if (!(mime === "video/webm" ? ebml : ftyp)) return null;
+  return storeVideo("tiktok", shopId, filename, mime, data);
+}
+
+async function storeVideo(platform: MockPlatform, shopId: string | null, filename: string, mime: string, data: Buffer): Promise<StoredUpload> {
   const id = uploadId();
   await mkdir(uploadDir(), { recursive: true });
   await writeFile(path.join(uploadDir(), id), data);
-  await mockDb().insert(mockUpload).values({ id, platform, shopId, filename: filename.slice(0, 200), mime: "video/mp4", size: data.length, width: 640, height: 360 });
-  return { id, width: 640, height: 360, mime: "video/mp4", size: data.length };
+  await mockDb().insert(mockUpload).values({ id, platform, shopId, filename: filename.slice(0, 200), mime, size: data.length, width: 640, height: 360 });
+  return { id, width: 640, height: 360, mime, size: data.length };
 }
 
 /** 上传记录（视频处理结果按上传时间推算） */

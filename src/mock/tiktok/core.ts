@@ -66,7 +66,20 @@ export async function verifyTiktok(apiPath: string, query: URLSearchParams, head
   });
   if (!safeEqualHex(tiktokApiSign(app.secret, apiPath, params, rawBody), sign)) throw T.badSign();
 
-  const accessToken = headers.get("x-tts-access-token");
+  const alive = await tokenShops(appKey, headers.get("x-tts-access-token"));
+  const cipher = query.get("shop_cipher");
+  if (!shopLevel) {
+    if (cipher) throw T.unexpectedCipher();
+    return { app, shop: null, tokenShops: alive };
+  }
+  if (!cipher) throw T.noCipher();
+  const shop = alive.find((s) => s.cipher === cipher);
+  if (!shop) throw T.cipherMismatch();
+  return { app, shop, tokenShops: alive };
+}
+
+/** x-tts-access-token 授权的店：当前令牌未过期，或轮换后的上一个令牌还在宽限期 */
+export async function tokenShops(appKey: string, accessToken: string | null): Promise<TiktokShop[]> {
   if (!accessToken) throw T.badToken();
   const shops = await mockDb()
     .select()
@@ -80,14 +93,5 @@ export async function verifyTiktok(apiPath: string, query: URLSearchParams, head
       : (s.prevAccessExpiresAt?.getTime() ?? 0) > nowMs,
   );
   if (alive.length === 0) throw T.expiredToken();
-
-  const cipher = query.get("shop_cipher");
-  if (!shopLevel) {
-    if (cipher) throw T.unexpectedCipher();
-    return { app, shop: null, tokenShops: alive };
-  }
-  if (!cipher) throw T.noCipher();
-  const shop = alive.find((s) => s.cipher === cipher);
-  if (!shop) throw T.cipherMismatch();
-  return { app, shop, tokenShops: alive };
+  return alive;
 }

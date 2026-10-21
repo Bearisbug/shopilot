@@ -20,8 +20,9 @@ export const QUEUES = {
   // 重新拉各店商品目录写卖家 SKU 对应关系（导入产品清单后、或管理员点「重新对应」）
   "product.listing_sync": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 1, retryDelay: 60 },
   "message.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
-  // Shopee 聊天视频：上传最长 90 秒 + 等平台处理最长 120 秒 + 发送；失败记到消息上由客服重试，任务本身不重试
-  "message.video_send": { policy: "standard" as const, expireInSeconds: 300, retryLimit: 0 },
+  // 聊天视频：Shopee 上传最长 90 秒 + 等平台处理最长 120 秒 + 发送；TikTok 100 MB 分 5 块、每块最长 60 秒 + 初始化 + 发送；
+  // 失败记到消息上由客服重试，任务本身不重试
+  "message.video_send": { policy: "standard" as const, expireInSeconds: 600, retryLimit: 0 },
   "draft.translate": { policy: "standard" as const, expireInSeconds: 20, retryLimit: 1, retryDelay: 1 },
   "order.sync": { policy: "stately" as const, expireInSeconds: 300, retryLimit: 2, retryDelay: 30 },
   "shop.backfill": { policy: "stately" as const, expireInSeconds: 1800, retryLimit: 3, retryDelay: 60 },

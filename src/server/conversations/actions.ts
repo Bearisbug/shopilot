@@ -1,6 +1,7 @@
 // 会话写操作（DESIGN §11.1、§11.2、§11.7）：认领、取消认领、转交 / 改派、结束、发送、忽略草稿、改阶段、重试。
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import type { MessageItem, SendBody } from "@/contracts/conversations";
+import { VIDEO_RULES } from "@/lib/attachments";
 import { handoff } from "@/server/ai/draft";
 import { translateText } from "@/server/ai/translate";
 import type { MemberContext } from "@/server/auth/context";
@@ -236,8 +237,6 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
   if (shop.status !== "connected") throw notAllowed("店铺授权已失效，消息没有发出。请管理员到「店铺与连接」续期授权。", "shop_auth_expired");
   if (!conv.lastBuyerAt || Date.now() - conv.lastBuyerAt.getTime() > 7 * 86400_000) throw notAllowed("买家最后发言已超过 7 天，平台不允许再发消息。", "reply_window_closed");
   const caps = shop.capabilities;
-  // 视频只有 Shopee 能发（sellerchat/upload_video）；TikTok 客服接口发视频要平台视频 ID，没有上传接口
-  if (body.type === "video" && shop.platform !== "shopee") throw notAllowed("TikTok 接口暂不支持发视频。", "unsupported_type");
   // 商品卡两个平台都能发，前提是店铺授予了商品读取权限（能列出商品）
   if (body.type === "product_card" && !caps.productScope) throw notAllowed("店铺没有授予商品读取权限，不能发商品卡。", "unsupported_type");
   if (body.type !== "text" && body.type !== "image" && body.type !== "video" && body.type !== "product_card") {
@@ -252,6 +251,13 @@ export async function sendMessage(ctx: MemberContext, id: string, body: SendBody
       .where(and(eq(schema.file.id, body.fileId!), eq(schema.file.merchantId, ctx.merchant.id), eq(schema.file.kind, body.type === "image" ? "chat_image" : "chat_video")))
       .limit(1);
     if (!file) throw new Problem("validation", { detail: `${what}不存在，请重新上传。`, extra: { fields: { fileId: `${what}不存在` } } });
+    // 视频格式与上限按店铺平台（上传接口按两个平台里大的收）
+    if (body.type === "video") {
+      const rule = VIDEO_RULES[shop.platform];
+      const name = shop.platform === "shopee" ? "Shopee" : "TikTok";
+      if (!rule.types.includes(file.mime)) throw new Problem("unsupported-type", { detail: `${name} 只能发 ${rule.formats} 视频。` });
+      if (file.size > rule.maxMb * 1024 * 1024) throw new Problem("too-large", { detail: `${name} 视频不能超过 ${rule.maxMb} MB。` });
+    }
   }
 
   if (conv.handlingState !== "human" || !conv.claimedBy) conv = await claim(ctx, conv.id, null);

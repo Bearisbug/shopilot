@@ -3,34 +3,43 @@
 
 export const ATTACH_MAX = 9;
 export const IMAGE_RULE = "JPG、PNG、WebP，不超过 10 MB";
-export const MEDIA_RULE = "JPG、PNG、WebP 图片不超过 10 MB，MP4 视频不超过 30 MB";
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-const VIDEO_MAX_BYTES = 30 * 1024 * 1024;
 const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
+
+export type ChatPlatform = "shopee" | "tiktok";
+/**
+ * 聊天视频按平台：Shopee 只认 MP4，上限没有文档（6.2 MB 实测通过），先限 30 MB；
+ * TikTok 走大文件上传，平台对客服视频限 100 MB，Content-Type 支持 MP4、MOV、WebM
+ */
+export const VIDEO_RULES: Record<ChatPlatform, { types: string[]; formats: string; maxMb: number }> = {
+  shopee: { types: ["video/mp4"], formats: "MP4", maxMb: 30 },
+  tiktok: { types: ["video/mp4", "video/quicktime", "video/webm"], formats: "MP4、MOV、WebM", maxMb: 100 },
+};
+export const mediaRule = (p: ChatPlatform) => `JPG、PNG、WebP 图片不超过 10 MB，${VIDEO_RULES[p].formats} 视频不超过 ${VIDEO_RULES[p].maxMb} MB`;
 
 export type MediaKind = "image" | "video";
 type FileLike = { type: string; size: number };
 
-/** 能不能发、按什么发：视频只有 Shopee 能发（TikTok 客服接口没有视频上传）；不能发时给出原因 */
-export function checkMedia(f: FileLike, shopee: boolean): { kind: MediaKind } | { error: string } {
+/** 能不能发、按什么发：视频格式与上限按平台（VIDEO_RULES）；不能发时给出原因 */
+export function checkMedia(f: FileLike, platform: ChatPlatform): { kind: MediaKind } | { error: string } {
   if (IMAGE_TYPES.includes(f.type)) return f.size > IMAGE_MAX_BYTES ? { error: `图片 ${mb(f.size)} MB，超过 10 MB 上限。` } : { kind: "image" };
+  const v = VIDEO_RULES[platform];
   if (f.type.startsWith("video/")) {
-    if (!shopee) return { error: "TikTok 接口暂不支持发视频。" };
-    if (f.type !== "video/mp4") return { error: "只支持 MP4 视频，MOV 等格式请先导出为 MP4。" };
-    return f.size > VIDEO_MAX_BYTES ? { error: `视频 ${mb(f.size)} MB，超过 30 MB 上限。` } : { kind: "video" };
+    if (!v.types.includes(f.type)) return { error: `只支持 ${v.formats} 视频，${platform === "shopee" ? "MOV 等格式" : "其他格式"}请先导出为 MP4。` };
+    return f.size > v.maxMb * 1024 * 1024 ? { error: `视频 ${mb(f.size)} MB，超过 ${v.maxMb} MB 上限。` } : { kind: "video" };
   }
   if (f.type.startsWith("image/")) return { error: `只支持 ${IMAGE_RULE}。` };
-  return { error: shopee ? "平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。" : "平台聊天只能发图片，视频、PDF 等文件发不出去。" };
+  return { error: `平台聊天只能发图片和 ${v.formats} 视频，PDF 等文件发不出去。` };
 }
 
 /** 按给出的顺序挑出能加入的文件；已有 existing 个附件，总数不超过 ATTACH_MAX，超出的不加入 */
-export function acceptFiles<F extends FileLike>(files: F[], existing: number, shopee: boolean): { accepted: Array<{ file: F; kind: MediaKind }>; errors: string[] } {
+export function acceptFiles<F extends FileLike>(files: F[], existing: number, platform: ChatPlatform): { accepted: Array<{ file: F; kind: MediaKind }>; errors: string[] } {
   const accepted: Array<{ file: F; kind: MediaKind }> = [];
   const errors: string[] = [];
   let full = false;
   for (const file of files) {
-    const r = checkMedia(file, shopee);
+    const r = checkMedia(file, platform);
     if ("error" in r) errors.push(r.error);
     else if (existing + accepted.length >= ATTACH_MAX) full = true;
     else accepted.push({ file, kind: r.kind });

@@ -8,7 +8,7 @@ import { READ_ONLY_SEND_FAILED, ReadOnlyPlatformError } from "@/server/platforms
 import { enqueue } from "@/server/jobs/boss";
 import { shopeeSendImage, shopeeSendItem, shopeeSendOrderCard, shopeeSendText, shopeeSendVideo, type ShopeeChatVideo } from "@/server/platforms/shopee";
 import { SHOPEE_DOMAIN } from "@/server/products/info";
-import { tiktokSendCouponCard, tiktokSendImage, tiktokSendLogisticsCard, tiktokSendOrderCard, tiktokSendProductCard, tiktokSendReturnCard, tiktokSendText } from "@/server/platforms/tiktok";
+import { tiktokSendCouponCard, tiktokSendImage, tiktokSendLogisticsCard, tiktokSendOrderCard, tiktokSendProductCard, tiktokSendReturnCard, tiktokSendText, tiktokSendVideo } from "@/server/platforms/tiktok";
 import { PlatformError, platformErrorText } from "@/server/platforms/types";
 import { isInHours, receptionContext } from "./hours";
 import type { ConversationRow, MessageRow } from "./ingest";
@@ -114,6 +114,8 @@ async function deliver(conv: ConversationRow, msg: MessageRow): Promise<SendOutc
           return tiktokSendText(c.app, c.auth, id, msg.text ?? "");
         case "image":
           return tiktokSendImage(c.app, c.auth, id, await fileOf(p));
+        case "video":
+          return tiktokSendVideo(c.app, c.auth, id, await fileOf(p));
         case "order_card":
           return tiktokSendOrderCard(c.app, c.auth, id, String(p.orderId));
         case "logistics_card":

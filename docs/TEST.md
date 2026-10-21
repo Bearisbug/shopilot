@@ -6,7 +6,7 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.26，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.29，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
 | 最后更新 | 2026-10-21 |
 
@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-21 | 按 DESIGN v1.29 TikTok 会话可发视频：`TC-CONV-065` 废弃，Shopee 部分被 `TC-CONV-076` 取代（加发送接口拒 MOV 与超过 30 MB）；新增 `TC-CONV-077`（TikTok 会话粘贴视频和文字按顺序发出、MOV 与 WebM、100 MB 上限、31 MB 分两块上传）；原位给 `TC-CONV-068` 加第 5 步（真实 TikTok 会话发 20 MB 以上视频）；§3 测试视频加 `clip.webm`、`big31.mp4`、`big101.mp4` | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.26 粘贴改为放进输入框、和文字一起按顺序发：`TC-CONV-064` 废弃，被 `TC-CONV-072` 取代；新增 `TC-CONV-073`（平台没发出即停、再点发送接着发）与 `TC-CONV-074`（附件被拒不进时间线，标「没发出」后接着发，需拦截请求，执行者 AI）；原位修改 `TC-CONV-065` 前置与第 1、6 步、`TC-CONV-021` 第 1 步、`TC-CONV-022` 第 1、3 步（按钮改名「添加图片或视频」，选的文件先进附件条，再点发送） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.28 新增 `TC-CONV-075`（打开会话：列表静置不预取、指到会话行预取整页与详情、点下即显示会话头与骨架且不留旧会话、换成真实会话不跳动、窄屏立即换栏、新标签打开不占位、减少动效时骨架静止、窄屏占位上返回即回列表） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.27 新增 `TC-PERM-008`（侧栏切换整页预取与加载骨架：预取请求、点击不再取页面与脚本、未预取时骨架与真实页头对齐、接待设置骨架带分组列、工作台切会话不出整页骨架、减少动效时骨架静止） | 实现会话 |
@@ -220,7 +221,7 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
   - 以上三个配方换应用时，把 `2001001` 与 `mock-key-2001001` 换成对应的 Partner ID 与 Key，主机区域段换成该应用登记的区域（`1000101`、`2001001` 为 `sg`，`2001003` 为 `cn`，`2001002` 为 `sandbox`）。
 - 测试图片（放 `$SP_TMP/img/`，执行前准备）：约 2 MB 的 PNG、恰好 10,485,760 字节的 PNG、约 11 MB 的 JPG、一张 GIF。
-- 测试视频（同目录）：`ffmpeg -f lavfi -i testsrc=duration=3:size=320x240:rate=25 -pix_fmt yuv420p -y $SP_TMP/img/clip.mp4`，再把同样参数的输出换成 `clip.mov`。
+- 测试视频（同目录）：`ffmpeg -f lavfi -i testsrc=duration=3:size=320x240:rate=25 -pix_fmt yuv420p -y $SP_TMP/img/clip.mp4`，再把同样参数的输出换成 `clip.mov`；`ffmpeg -f lavfi -i testsrc=duration=2:size=320x240:rate=25 -c:v libvpx-vp9 -b:v 200k -y $SP_TMP/img/clip.webm`；只带 MP4 文件头、其余补零的大文件：`{ printf '\0\0\0\030ftypisom'; head -c $((31*1024*1024-12)) /dev/zero; } > $SP_TMP/img/big31.mp4`，把 31 换成 101 得到 `big101.mp4`。
 - 知识库测试文件（放 `$KB`，执行前在仓库根运行下面的命令生成）：PDF 每页挂一段随机字节，页大小可控；xlsx、docx 是只存不压的 zip，文件头与 Office 文件相同。
 
 ```bash
@@ -1943,7 +1944,9 @@ qaclear() {
 
 后置：无。
 
-#### `TC-CONV-065` Shopee 会话发 MP4 视频，TikTok 会话不能发视频 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+#### `TC-CONV-065` Shopee 会话发 MP4 视频，TikTok 会话不能发视频（已废弃） — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+已废弃，被 `TC-CONV-076` 取代：DESIGN v1.29 起 TikTok 会话也能发视频，第 6、7 步的预期不再成立，TikTok 部分见 `TC-CONV-077`。
 
 前置：基线；执行「curl 会话」，`login agent2@demo.test`；准备 §3 测试视频 clip.mp4 与 clip.mov；按 §3「模拟器发消息」给 Demo Shopee MY、Demo TikTok TH 各一个新买家发一条文字，记会话 C1、C2；浏览器以 agent2@demo.test（Mei Lin）登录，两个会话都点「认领」。粘贴做法同 `TC-CONV-072`。
 
@@ -1996,6 +1999,7 @@ qaclear() {
 | 2 | 同一会话点「发链接」 | 买家收到能打开的商品页地址 |
 | 3 | TikTok 会话发商品卡 | Shopilot 时间线已发送；卖家中心出现商品卡 |
 | 4 | Shopee 会话发一个 30 MB 以内的 MP4 | 2 分钟内变已发送；卖家中心可播放；Shopilot 时间线能播放 |
+| 5 | TikTok 会话发一个 20 MB 以上、100 MB 以内的 MP4 | 2 分钟内变已发送；卖家中心同一会话出现这条视频且可播放；Shopilot 时间线能播放 |
 
 后置：无。
 
@@ -2104,6 +2108,45 @@ qaclear() {
 | 9 | 窗口宽 390 px，打开 `/wb?view=queue`，把 `/wb/<C2>` 的页面请求延后 3 秒，点 C2 后立即点占位上的返回按钮 | 立即回到会话列表；4 秒后仍停在列表，没有自己打开 C2 |
 
 后置：无。
+
+#### `TC-CONV-076` Shopee 会话发 MP4 视频，MOV 与超过 30 MB 的不能发 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login agent2@demo.test`；准备 §3 测试视频 clip.mp4、clip.mov、big31.mp4；按 §3「模拟器发消息」给 Demo Shopee MY 一个新买家发一条文字，记会话 C；浏览器以 agent2@demo.test（Mei Lin）登录，打开 C 点「认领」。粘贴做法同 `TC-CONV-072`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 用输入框下方的附件按钮选 clip.mp4，等缩略图不再显示上传中后点发送 | 附件条出现一个视频缩略图；点发送后它移出附件条，时间线出现视频气泡，标「发送中」 |
+| 2 | 等 15 秒 | 视频气泡变为已发送，点播放能播放 |
+| 3 | `q "select type, send_status from message where conversation_id = '<C>' and type = 'video'"` | `video\|sent` |
+| 4 | 模拟器打开这个买家的会话 | 买家视图收到一条视频 |
+| 5 | 在输入框粘贴 clip.mov | 不发送；提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」；附件条不出现 |
+| 6 | 粘贴 big31.mp4 | 提示「视频 31.0 MB，超过 30 MB 上限。」；附件条不出现 |
+| 7 | `curl -s -b "$SP_TMP/agent2@demo.test" -H "Origin: $B" -F "file=@$SP_TMP/img/clip.mov" -w '\nHTTP %{http_code}\n' $B/api/v1/files`，记返回的 `id` 为 M | `HTTP 201`，`kind` 为 `video`；`q "select mime from file where id = '<M>'"` 为 `video/quicktime` |
+| 8 | `api agent2@demo.test -X POST $B/api/v1/conversations/<C>/messages -d '{"clientRequestId":"tc076-mov","type":"video","fileId":"<M>"}'` | `HTTP 415` `/errors/unsupported-type`，`detail` 为「Shopee 只能发 MP4 视频。」；时间线没有新增 |
+| 9 | 同第 7 步上传 big31.mp4 记为 G，再同第 8 步发 G（`clientRequestId` 换成 `tc076-big`） | 上传 `HTTP 201`；发送 `HTTP 413` `/errors/too-large`，`detail` 为「Shopee 视频不能超过 30 MB。」 |
+
+后置：无。
+
+#### `TC-CONV-077` TikTok 会话发视频：和文字按顺序发出，MOV、WebM 可发，上限 100 MB — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login owner@demo.test`；准备 §3 测试视频 clip.mp4、clip.mov、clip.webm、big31.mp4、big101.mp4；按 §3「模拟器发消息」给 Demo TikTok MY 一个新买家发一条文字，记会话 C，模拟器会话 ID 记 X；浏览器以 owner@demo.test 登录，打开 C。粘贴做法同 `TC-CONV-072`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 看输入框下方附件按钮的读屏名 | 「添加图片或视频（JPG、PNG、WebP 图片不超过 10 MB，MP4、MOV、WebM 视频不超过 100 MB）」 |
+| 2 | 在文字区输入「这是安装视频」，粘贴 clip.mp4 | 不弹提示；附件条出现一个视频缩略图 |
+| 3 | 等缩略图不再显示上传中，点发送 | 附件条消失；时间线先出现这句话（带译文），再出现视频气泡 |
+| 4 | 等 10 秒，点视频气泡 | 视频气泡已发送；灯箱里视频在播放，进度走动 |
+| 5 | `q "select type, send_status, external_message_id is not null, payload->>'url' from message where conversation_id = '<C>' and direction = 'out' order by created_at"` | 最后两行依次为 `text\|sent\|t\|`、`video\|sent\|t\|/api/v1/files/<文件 ID>` |
+| 6 | 模拟器打开这个买家的会话 | 买家视图依次收到这句话、一条视频 |
+| 7 | 用附件按钮一次选 clip.mov 与 clip.webm，等上传完点发送 | 两个视频缩略图按选择顺序进附件条；发出后时间线依次新增两条视频，10 秒内都已发送 |
+| 8 | 粘贴 big101.mp4 | 提示「视频 101.0 MB，超过 100 MB 上限。」；附件条不出现 |
+| 9 | `curl -s -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -F "file=@$SP_TMP/img/big101.mp4" -w '\nHTTP %{http_code}\n' $B/api/v1/files` | `HTTP 413` `/errors/too-large`，`detail` 为「视频不能超过 100 MB，图片不能超过 10 MB。」 |
+| 10 | 同第 9 步上传 big31.mp4，记返回的 `id` 为 G；`api owner@demo.test -X POST $B/api/v1/conversations/<C>/messages -d '{"clientRequestId":"tc077-big","type":"video","fileId":"<G>"}'` | 上传 `HTTP 201`；发送 `HTTP 201`，`sendStatus` 为 `sending` |
+| 11 | 等 10 秒；`q "select send_status from message where conversation_id = '<C>' and client_request_id = 'tc077-big'"`；看 `pnpm dev` 终端输出里这次发送的模拟平台请求 | `sent`；依次有 `POST /mock/tiktok/open-api/open/202512/file/init`、两次 `PUT /mock/tiktok/open-api/file/v1/upload`（`chunk_num=1`、`chunk_num=2`）、`POST /mock/tiktok/open-api/customer_service/202309/conversations/<X>/messages`，都是 200 |
+
+后置：无。
+
 #### `TC-AI-001` 主链路：买家消息生成 assist 草稿，员工认领并发送到买家 — 对应 `REQ-AI-001`、`REQ-AI-002`、`REQ-AI-003`、`REQ-CONV-001`、`REQ-CONV-004`、`REQ-CONV-005`、`REQ-MOCK-002` · 级别: 冒烟 · 执行者: 皆可
 
 前置：基线；浏览器 A 以 agent@demo.test（Nur）登录停在 `/wb`；浏览器 B 打开模拟器；浏览器 C 以 owner@demo.test 打开 `/billing`，记下本期已用 U 与 assist 次数 A0。
@@ -4928,6 +4971,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-059 | 2026-10-21 | 本地 | `053c092` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-072、TC-CONV-073、TC-CONV-074、TC-CONV-065、TC-CONV-068、TC-CONV-021、TC-CONV-022、TC-CONV-026、TC-CONV-070、TC-AI-010） | 通过 9/10 · 待人工 1 |
 | RUN-060 | 2026-10-21 | 本地 | `wt/navperf` 工作区改动（侧栏整页预取、`(app)` 与接待设置加载骨架；基于 `d54a586`） | AI（Claude Code 子会话；Playwright + Edge） | 局部（TC-PERM-008） | 通过 1/1 |
 | RUN-061 | 2026-10-21 | 本地 | `wt/convperf` 工作区改动（指到会话行预取会话、点下即显示会话头与骨架；基于 `d1ff89f`） | AI（Claude Code 子会话；Playwright + Edge） | 局部（TC-CONV-075、TC-PERM-008） | 通过 2/2 |
+| RUN-062 | 2026-10-21 | 本地 | `wt/ttvideo` 工作区改动（TikTok 会话发视频：分块上传后用 202309 版发出；基于 `bb3f383`） | AI（Claude Code 子会话；Playwright + Edge、Playwright 请求） | 局部（TC-CONV-076、TC-CONV-077、TC-CONV-072、TC-CONV-022、TC-CONV-068） | 通过 4/5 · 待人工 1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5047,6 +5091,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-057 | TC-KB-056 | 待人工 | 执行者为人工，要在线上真实 Cloudflare 向量化环境执行 | 交用户在 shopilot.live 执行 |
 | RUN-057 | TC-DASH-019 | 待人工 | 执行者为人工，要在线上草稿对比上线满 7 天后抽检 | 交用户在 shopilot.live 执行 |
 | RUN-059 | TC-CONV-068 | 待人工 | 执行者为人工，要在已接真实 Shopee、TikTok 店的环境里对真实会话执行 | 交用户在 shopilot.live 执行 |
+| RUN-062 | TC-CONV-068 | 待人工 | 执行者为人工，第 5 步要在已接真实 TikTok 店的环境里对真实会话发 20 MB 以上视频 | 交用户在 shopilot.live 执行 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -5121,6 +5166,8 @@ RUN-058 证据：复测轮，被测版本同 RUN-057（本地 main `e6994cc`）�
 RUN-059 证据：局部轮，DESIGN v1.26 输入框附件（粘贴、选择的图片视频先进附件条，和文字一起按顺序发）。被测版本是 `wt/attach` 分支 `053c092`，工作区只改了 `docs/`。受影响用例按 `REQ-CONV-015` 取，另加走输入框发送的 `TC-CONV-021`、`TC-CONV-022`、`TC-CONV-026`、`TC-CONV-070`、`TC-AI-010`（发送逻辑改写过，文字、译文、草稿、失败气泡的路径都要过一遍）；本轮没有跑其余冒烟用例。独立库 `shopilot_wt_attach`（同一 PostgreSQL 实例），Web 起在 3379、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3379，`AI_MODE=stub`，起跑前 `pnpm db:reset && pnpm db:seed`；每条用例按 §3 用 `create_buyer` 加 `buyer_message` 新建买家，推送 HTTP 200。买家视图读模拟器接口 `GET /api/mock/sim/state`；`AI_MODE=stub` 下本方文字的译文是「[译文] 」加原文，买家视图收到的文字都带这个前缀，按前缀后的内容判定。`TC-CONV-072`：粘贴后没有弹框，附件条依次红、绿、蓝，读屏名「第 1 个附件：图片」至「第 3 个附件：图片」，刚粘贴时三个都带转圈，传完消失；输入框外框 106 → 170 px；移除第 2 个后剩红、蓝；点发送时按钮变「发送中」，完成后附件条消失、文字区清空、外框回到 106 px；时间线最后三条依次是这句话（原文对照）、红图、蓝图，都已发送，买家视图同序；第 7 步用真实剪贴板（无头 Edge 写入文字「你好」与一张 PNG 后按 ⌘V），输入框为「你好」、附件条不出现；第 8 步提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」；第 9 步两张进附件条，消息数 4 → 4，移除后附件条消失（`run-059-TC-CONV-072.json`、`-2.png`、`-5.png`、`-9.png`）。`TC-CONV-073`：故障注入 Demo Shopee SG 一次平台错误后发绿、红两张，提示「发送失败 Shopee 返回错误（error_server）…」，时间线最后一条是绿图、发送失败，附件条只剩红图；再点发送红图已发送、附件条消失；一次性故障用掉后列表为空（`run-059-TC-CONV-073.json`、`-3.png`）。`TC-CONV-074`：拦截第 3 个发送请求返回 409 后，提示「没有发出 模拟：平台拒绝这张图」，时间线新增这句话与红图，附件条剩绿（标「没发出」）、蓝，文字区清空；取消拦截再点发送，时间线最后四条依次是这句话、红、绿、蓝（`run-059-TC-CONV-074.json`、`-2.png`）。`TC-CONV-065`：选 clip.mp4 后附件条出现视频缩略图；点发送后时间线第一次出现视频时它已是「发送中」、附件条已空；15 秒后 `sent`，时间线视频可播放（`currentTime` 0.60）；库里 `video|sent`；买家视图有一条 `rawType` 为 `video` 的卖家消息；粘贴 clip.mov 提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」；C2 粘贴 clip.mp4 提示「TikTok 接口暂不支持发视频。」、附件条不出现；接口发视频 409，detail「TikTok 接口暂不支持发视频。」（`run-059-TC-CONV-065.json`、`-1.png`、`-2.png`）。`TC-CONV-021`：选 2 MB PNG 后附件条出现这张图，点发送后附件条消失，时间线图片已发送，买家视图收到（`run-059-TC-CONV-021.json`、`-1.png`）。`TC-CONV-022`：11 MB JPG 提示「图片 11.0 MB，超过 10 MB 上限。」、附件条不出现，上传接口 413 `/errors/too-large`；GIF 提示「只支持 JPG、PNG、WebP，不超过 10 MB。」，上传接口 415 `/errors/unsupported-type`；10,485,760 字节 PNG 上传 201、进附件条，点发送后已发送（`run-059-TC-CONV-022.json`）。`TC-CONV-026`：502 `/errors/platform`、`platformCode` 为 `error_server`，提示平台错误的中文说明，气泡有「重试」、发送失败，买家视图没有这条；点「重试」后已发送，买家视图「失败重试测试」1 条；对它调 retry 返回 409 `/errors/conflict`（`run-059-TC-CONV-026.json`、`-2.png`、`-3.txt`）。`TC-CONV-070`：L 为马来语，预览译文 T「[译文] 好的，马上为您处理」，请求体 `translateTo` 为 `ms`、`translatedText` 为 T，201；时间线正文 T、原文对照符合；「请稍等」立刻发送的请求体没有 `translatedText`，201（`run-059-TC-CONV-070.json`）。`TC-AI-010`：改后发送填入的就是草稿正文 X，加「（已核实）」后买家视图收到「[译文] X（已核实）」；审计日志「Nur Aisyah 改后发送了 AI 草稿（编辑距离 5）」；本月 `editedSent` 1 → 2（`run-059-TC-AI-010.json`、`-3.png`）。`TC-CONV-022`、`TC-CONV-026`、`TC-AI-010` 第一遍因执行脚本出错没跑完：脚本手动移除提示框节点后页面渲染出错、草稿状态值写错、等待条件写成异步函数；修正脚本后按原步骤在新会话上重跑，证据文件是第二遍的输出。控制台只有故障注入引起的 502（`run-059-console.json`）。
 RUN-060 证据：被测为 `wt/navperf` 工作区的生产构建（`next build` + `next start`，端口 3380），独立库 `shopilot_wt_navperf`（种子基线），Edge headless，登录 owner@demo.test。第 1 步：停留 3 秒后 `/tickets`、`/orders`、`/dashboard`、`/reception`、`/shops`、`/team`、`/billing`、`/settings` 各有一次带 `Next-Router-Prefetch` 的预取，均 200。第 2 步：点「工单」后 67 ms 出现标题，点击触发的 `/tickets` 页面请求 0 个、脚本 0 个（只有页面自身的 `/api/v1/tickets` 与图标；新页面里链接的预取 14 个不计）。第 3、4 步用路由拦截代替网络面板：屏蔽预取请求、把切页的 RSC 请求延后 3 秒；订单与开票的骨架页头 2 条、加载行 6 条，骨架标题条与真实标题都是 x 264、y 80、高 32；接待设置骨架分组列 5 条、宽 200 px，与真实分组导航同宽，标题位置一致。第 5 步：工作台点另一个会话，2.5 秒内没有出现整页骨架。第 6 步：以 `reducedMotion: reduce` 打开时骨架灰条的 `animation-name` 为 `none`。执行中第 2 步的统计脚本一度把新页面里链接的预取算成页面请求、第 4 步一度量到页头灰条的宽度，都是脚本问题，修正后整轮重跑，用例第 2 步同时写明不计新页面里的预取。证据：`docs/test-runs/run-060-TC-PERM-008.json`、`run-060-TC-PERM-008-3-orders-{skeleton,ready}.png`、`run-060-TC-PERM-008-4-reception-{skeleton,ready}.png`、`run-060-TC-PERM-008-6-reduced-orders-skeleton.png`；前后性能对比 `docs/test-runs/run-060-nav-perf.txt`。
 RUN-061 证据：被测为 `wt/convperf` 工作区的生产构建（`next build` + `next start`，端口 3381）与同库 Worker，独立库 `shopilot_wt_convperf`，起跑前 `pnpm db:reset && pnpm db:seed`，Edge headless，登录 owner@demo.test。受影响用例取改动所在的 `TC-CONV-075` 与工作台切会话相关的 `TC-PERM-008`（第 5 步）；本轮没有跑冒烟用例。`TC-CONV-075`：第 1 步静置 3 秒，会话页与会话详情请求 0 个（待认领 6 行）；第 2 步指针停在 C2 上 1 秒，发出 C2 的详情、买家侧栏与 `/wb/<C2>`（`RSC: 1`）请求，都是 200；第 3 步点击后 47 ms 出现「与 พลอย 的会话」，500 ms 内详情请求 0 个；第 4 步用请求拦截把 C3 详情延后 3 秒，点击后 37 ms 出现「正在打开与 priyanair 的会话」，列表高亮在 C3，会话头为「priyanair Shopee · SG Demo Shopee SG · 待认领 买家已等 22 分钟，超过接待时限」，时间线骨架 5 条、输入框骨架 4 条、右栏骨架 5 条，没有 พลอย 的会话；第 5 步占位与真实会话的买家名都在 (616, 84)，会话头底边都是 171，输入框顶边都是 746；第 6 步 390 px 宽时列表隐藏，占位带返回按钮与 10 条骨架，详情返回后换成真实会话；第 7 步 Cmd 点 C2 新标签打开 `/wb/<C2>`，原标签仍是 C1、没有出现占位；第 8 步减少动效时骨架 `animation-name` 为 `none`；第 9 步 390 px 宽、C2 页面请求延后 3 秒，点 C2 后点占位上的返回按钮，1 ms 内回到列表，4 秒后仍在 `/wb`、没有占位、没有打开 C2。`TC-PERM-008`：第 1 步 8 个页面各有一次带 `Next-Router-Prefetch` 的预取，均 200；第 2 步点「工单」后 63 ms 出现标题，`/tickets` 页面请求 0 个、脚本 0 个；第 3、4 步屏蔽预取请求后按 Chrome 慢速 3G 预设限速（往返 2,000 ms、上下行 50 KB/s），订单与开票骨架页头 2 条、加载行 6 条，骨架标题条与真实标题都是 x 264、y 80、高 32；接待设置骨架分组列 5 条、宽 200 px，与真实分组导航同宽；第 5 步点另一个会话，2.5 秒内没有出现整页骨架；第 6 步减少动效时骨架 `animation-name` 为 `none`。执行中两处是脚本或用例写法问题，修正后整轮重跑：`TC-CONV-075` 第 2 步原写「其中一个请求头带 `Next-Router-Prefetch`」，先打开过别的会话后 Next 复用已取到的路由结构，只发整页数据请求，用例改为「请求头带 `RSC: 1`」；`TC-PERM-008` 第 3 步先按 RUN-060 的办法把切页请求整体延后 3 秒，骨架要等延后的响应到了才出现，改按用例原文的慢速 3G 限速后骨架在真实页面之前出现。第 9 步是执行中发现窄屏点下会话后立即返回会卡在占位上、修好后补的，补完后在新构建上从重置种子起整轮重跑，本段数字都是这一遍的。控制台 90 条都是被屏蔽的预取请求报的 `net::ERR_FAILED`（`run-061-console.json`）。证据：`docs/test-runs/run-061-TC-CONV-075.json`、`run-061-TC-CONV-075-4-placeholder.png`、`-5-ready.png`、`-6-390-placeholder.png`，`run-061-TC-PERM-008.json`、`run-061-TC-PERM-008-3-orders-{skeleton,ready}.png`、`run-061-TC-PERM-008-4-reception-{skeleton,ready}.png`；前后性能对比 `docs/test-runs/run-061-conv-perf.txt`。
+
+RUN-062 证据：局部轮，DESIGN v1.29 TikTok 会话发视频。被测为 `wt/ttvideo` 工作区（基于 `bb3f383`，改了上传接口、发送校验、TikTok 适配器、模拟平台与输入框规则），`next dev` 端口 3382 与同库 Worker，独立库 `shopilot_wt_ttvideo`，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3382，`AI_MODE=stub`，起跑前 `pnpm db:reset && pnpm db:seed`；Edge headless；每条用例用 `create_buyer` 加 `buyer_message` 新建买家，推送都是 HTTP 200。受影响用例按 `REQ-CONV-015` 取，另加上传接口改过的 `TC-CONV-022`；本轮没有跑冒烟用例。§3 测试文件按本版 §3 生成（clip.mp4 17,280 字节、clip.mov 17,227、clip.webm 29,174、big31.mp4 32,505,856、big101.mp4 105,906,176）；粘贴由 AI 对输入框派发 `paste` 事件，31 MB 与 101 MB 的粘贴在页面里造同样大小与类型的文件（输入框只看类型与大小，不上传）。`TC-CONV-076`：附件条「第 1 个附件：视频」，发送后附件条清空、库里 `sending`，之后 `sent`，灯箱播放 `currentTime` 0.51；买家视图 `buyer:text`、`seller:video`；粘贴 clip.mov 提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」，粘贴 31 MB 提示「视频 31.0 MB，超过 30 MB 上限。」，附件条都不出现；接口上传 clip.mov 201、`video/quicktime`，发送 415 `/errors/unsupported-type`「Shopee 只能发 MP4 视频。」，消息数 2 → 2；big31.mp4 上传 201、发送 413 `/errors/too-large`「Shopee 视频不能超过 30 MB。」。`TC-CONV-077`：附件按钮读屏名与用例一致；输入「这是安装视频」加粘贴 clip.mp4 不弹提示；发送后附件条清空，这句话在视频气泡之前，视频气泡「发送中」（`run-062-TC-CONV-077-3.png`），随后 `sent`，灯箱播放 `/api/v1/files/<文件 ID>`、`currentTime` 0.51；库里最后两行 `text|sent|t|`、`video|sent|t|/api/v1/files/<文件 ID>`；买家视图 `TEXT:[译文] 这是安装视频`、`VIDEO`；选 clip.mov 与 clip.webm 按顺序进附件条，发出后依次 `video/quicktime|sent`、`video/webm|sent`；粘贴 101 MB 提示「视频 101.0 MB，超过 100 MB 上限。」；接口上传 big101.mp4 413 `/errors/too-large`「视频不能超过 100 MB，图片不能超过 10 MB。」；big31.mp4 上传 201、发送 201 `sending`，10 秒后 `sent`，模拟平台请求依次是 init、`chunk_num=1`、`chunk_num=2` 两次 PUT、202309 发送，都是 200（`run-062-TC-CONV-077-11-weblog.txt`）。`TC-CONV-077` 前两遍是执行脚本的问题，修正后在新会话上重跑第三遍，本段数字都是第三遍的：第一遍第 5 步脚本把布尔列拼成字符串得到 `true`（用例原文的 `q` 输出 `t`），第 11 步脚本没解析出 `chunk_num`；第二遍第 11 步按 `client_request_id` 查到前一遍的同名消息，用例第 11 步的查询改为限定会话 C（§1 不另记，用例本轮新增）。`TC-CONV-072`：附件条三张读屏名第 1–3 个、无确认框；输入框外框 106 → 170 → 发送后 106 px；时间线最后三条 `text|sent`、红图、蓝图（文件 ID 与粘贴时的上传顺序一致），买家视图同序；真实剪贴板（文字「你好」加 PNG，⌘V）输入框为「你好」、附件条不出现；粘贴 a.pdf 提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」；附件按钮选两张进附件条、消息数 4 → 4，逐个移除后清空。`TC-CONV-022`：11 MB JPG 提示「图片 11.0 MB，超过 10 MB 上限。」，上传接口 413 `/errors/too-large`「图片不能超过 10 MB。」；GIF 提示「只支持 JPG、PNG、WebP，不超过 10 MB。」，上传接口 415 `/errors/unsupported-type`「只支持 JPG、PNG、WebP 图片和 MP4、MOV、WebM 视频。」；10,485,760 字节 PNG 上传 201、进附件条，发送后 `sent`。控制台没有报错。证据：`docs/test-runs/run-062-results.json`（各步实际值）、`run-062-TC-CONV-076-{1,2}.png`、`run-062-TC-CONV-077-{2,3,4}.png`、`run-062-TC-CONV-077-11-weblog.txt`、`run-062-TC-CONV-072-5.png`。
 
 ## 7. 遗留问题
 
