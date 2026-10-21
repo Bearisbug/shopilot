@@ -1,0 +1,9 @@
+## step1
+HTTP 201
+T=01a15f61-9065-74db-a39e-e4153ea82227
+published
+## step2
+{"version":2,"agentUnseen":true,"lastAuthor":"agent","products":[],"stage":"any","steps":4,"last":"替身补充的一步","v0":{"author":"agent","learningTaskId":"01a15f61-9065-74db-a39e-e4153ea82227","retest":{"passed":true,"failReason":null,"regressions":0}}}
+## 第二遍（登记的这一遍）step1-2
+published
+{"version":2,"agentUnseen":true,"lastAuthor":"agent","steps":4,"v0":{"author":"agent","learningTaskId":true,"retest":{"passed":true,"failReason":null,"regressions":0}}}

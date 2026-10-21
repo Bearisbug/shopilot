@@ -1,0 +1,2 @@
+{"type":"/errors/conflict","title":"状态已被他人改变","status":409,"detail":"内容或要改的卡在复测后有变化，请先复测。","instance":"/api/v1/knowledge/learning/01a15f5e-bc26-765b-b7c4-2f6e90e93235/publish","requestId":"req_01a15f5fec937766a446bb0aed04b697","code":"retest_required","extra":{"retestPassed":false}}
+HTTP 409

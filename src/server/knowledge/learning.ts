@@ -352,6 +352,16 @@ export async function retestLearning(ctx: MemberContext, id: string, body: Learn
   return view(updated);
 }
 
+/** 卡在某个时刻之后写过新版本（人改、Agent 改或回退） */
+async function cardChangedSince(cardId: string, at: string): Promise<boolean> {
+  const [hit] = await db()
+    .select({ id: schema.experienceCardVersion.id })
+    .from(schema.experienceCardVersion)
+    .where(and(eq(schema.experienceCardVersion.cardId, cardId), sql`${schema.experienceCardVersion.createdAt} > ${new Date(at)}`))
+    .limit(1);
+  return !!hit;
+}
+
 /** API-KB-041：最近一次复测通过、内容与复测时一致才发布；新卡建卡，指定了卡就写新版本 */
 export async function publishLearning(ctx: MemberContext, id: string, body: LearningProposalBody): Promise<LearningTaskResult> {
   const row = await loadTask(ctx, id);
@@ -359,8 +369,10 @@ export async function publishLearning(ctx: MemberContext, id: string, body: Lear
   await checkCardRefs(ctx.merchant.id, body.card);
   const target = await checkTarget(ctx.merchant.id, body.targetCardId);
   // 指纹含要改的卡当时的版本：复测之后卡被别人或 Agent 改过，要重新复测，不能把那次改动整卡盖掉
-  if (!row.retest?.passed || row.retest.proposalHash !== proposalHash(body.card, target ? { id: target.id, version: target.version } : null))
-    throw conflict("内容或要改的卡在复测后有变化，请先复测。", { retestPassed: row.retest?.passed ?? false }, "retest_required");
+  if (!row.retest?.passed || row.retest.proposalHash !== proposalHash(body.card, target ? { id: target.id, version: target.version } : null)) {
+    const cardChanged = !!target && !!row.retest?.passed && (await cardChangedSince(target.id, row.retest.at));
+    throw conflict(cardChanged ? "要改的经验卡在复测后被改过，请重新复测。" : "内容改过后还没复测通过，请先复测。", { retestPassed: row.retest?.passed ?? false }, "retest_required");
+  }
   const vec = needsEmbed(target, body.card) ? await tryEmbedCard(body.card) : undefined;
   const author = { kind: "member" as const, memberId: ctx.membership.id };
   const now = new Date();

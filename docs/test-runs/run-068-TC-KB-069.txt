@@ -1,0 +1,7 @@
+## step1
+published|card_updated
+{"version":2}
+## step2
+closed|retest_failed|以前测过的问题「摄像头识别不到，用了一周越来越变差」改后变差：替身：改后变差
+## step3
+{"version":2}

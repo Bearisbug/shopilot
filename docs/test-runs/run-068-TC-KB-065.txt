@@ -1,0 +1,11 @@
+## step1
+Stat A|generated|t|1|continue
+Stat B|generated|t|1|continue
+Stat C|generated|t|1|continue
+Stat D|awaiting_human|card
+## step2
+HTTP 201
+HTTP 201
+HTTP 200
+## step3
+{"calls":4,"sent":1,"edited":1,"ignored":1,"handoffs":1,"shadowSame":0,"shadowPartial":0,"shadowDifferent":0}

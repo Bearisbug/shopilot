@@ -1,0 +1,26 @@
+## step1
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/knowledge/cards","requestId":"req_01a15f5a3b0d74cc9343b76163fb565c","code":"knowledge.manage"}
+HTTP 403
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/knowledge/cards","requestId":"req_01a15f5a3b2d769baae16f7382c89e06","code":"knowledge.manage"}
+HTTP 403
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/knowledge/learning","requestId":"req_01a15f5a3cef70509cbb06de306b82e4","code":"knowledge.manage"}
+HTTP 403
+## step2
+HTTP 200
+HTTP 200
+## step3
+null,"testQuestion":"你好","error":null,"reviewedByName":null,"reviewedAt":null,"reviewNote":null,"publishedCard":null,"version":1,"createdAt":"2026-10-21T16:45:12.702Z","updatedAt":null}}
+HTTP 201
+## step4
+{"type":"/errors/not-found","title":"找不到或已删除","status":404,"instance":"/api/v1/conversations/01a15f59-77c6-70e4-a6fa-f283ca7e0a31/learning","requestId":"req_01a15f5a40a5743eaed443c65faed722"}
+HTTP 404
+## step6 submit
+HTTP 201
+T2=01a15f5a-aed3-77d6-8140-7c4555332eb7 T1=01a15f5a-407e-7209-9988-97efa4329667
+## lead get T2
+/errors/not-found","title":"找不到或已删除","status":404,"detail":"学习任务不存在或已删除。","instance":"/api/v1/knowledge/learning/01a15f5a-aed3-77d6-8140-7c4555332eb7","requestId":"req_01a15f5ab2857072b5a1e94cbfa56133"}
+HTTP 404
+## lead list ids
+["01a15f5a-407e-7209-9988-97efa4329667"]
+## owner list ids
+["01a15f5a-aed3-77d6-8140-7c4555332eb7","01a15f5a-407e-7209-9988-97efa4329667"]

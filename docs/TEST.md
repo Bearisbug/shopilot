@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-22 | 按 DESIGN v1.32 评审修正（组长只看负责店铺的学习任务）：原位给 `TC-PERM-009` 加第 6 步 | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.32 经验卡：新增 `TC-KB-058` 至 `TC-KB-065`（写卡、版本与回退、下架恢复删除、出稿按卡推进、按卡转人工与建工单、自动与影子模式、效果统计）、`TC-KB-066` 至 `TC-KB-071`（提交学习、新卡审核复测发布、Agent 改卡与复测没通过、审核结论、Agent 挑会话）、`TC-PERM-009`；§3 加经验卡与会话学习函数、卡 K、出稿用卡与会话学习的替身规则；RUN-066 后原位修正 `TC-KB-065` 第 2 步的 `clientRequestId`（接口要求至少 8 个字符） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.31 Shopee 会话可发 MOV：`TC-CONV-076` 废弃，被 `TC-CONV-079` 取代（源自缺陷：后缀 .mp4 的 QuickTime 视频在 Shopee 会话发送失败；不能发的格式改用 WebM 验证）；§3 测试视频加 `qt.mp4` | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.30 视频按真实宽高比显示：新增 `TC-CONV-078`（TikTok、Shopee 会话发横屏与竖屏视频的缩略图比例、买家视频、没有宽高的旧视频加载后调整、上传接口宽高校验）；§3 测试视频加 `wide.mp4`（1280×720）、`tall.mp4`（720×1280） | 实现会话 |
@@ -904,6 +905,7 @@ cardclear() { for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowle
 | 3 | `api agent2@demo.test -X POST $B/api/v1/conversations/<C>/learning -d '{"messageIds":["<MSG>"]}'` | `HTTP 201`，`task.status` `analyzing` |
 | 4 | `api agent2@demo.test -X POST $B/api/v1/conversations/<C2>/learning -d '{"messageIds":["<C2 的任一消息>"]}'` | `HTTP 404` |
 | 5 | 浏览器以 Mei Lin 登录，打开会话 C | 会话头有「提交学习」按钮；侧栏没有「接待设置」 |
+| 6 | `Y=$(newbuyer tiktok "$(q "select external_shop_id from shop where name = 'Demo TikTok TH'")" "Perm TH")`；`say $Y "你好"`；以 Mei Lin 对这个会话的买家那条消息提交学习（同第 3 步），记任务 ID 为 T2；`api lead@demo.test $B/api/v1/knowledge/learning/<T2>`；`api lead@demo.test "$B/api/v1/knowledge/learning?limit=100"`；`api owner@demo.test "$B/api/v1/knowledge/learning?limit=100"` | 提交 `HTTP 201`；组长取 T2 是 `HTTP 404`；组长的列表里没有 T2、有第 3 步的任务（Arif 负责 Demo Shopee MY，不负责 Demo TikTok TH）；林晓的列表里有 T2 |
 
 后置：`cardclear`。
 
@@ -5267,6 +5269,8 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-065 | 2026-10-21 | 本地 | `c956fea` + 工作区改动（`docs/`、`src/lib/attachments.ts` 与其测试） | AI（Claude Code 主会话；Playwright + Edge、curl） | 复测（RUN-064：TC-CONV-079） | 通过 1/1 |
 | RUN-066 | 2026-10-21 | 本地 | `d7a3c17` + 工作区改动（`docs/`、`learning-analyze.ts` 的审计动作名） | AI（Claude Code 子会话；Playwright + Edge、Node 请求） | 局部（TC-KB-058、TC-KB-059、TC-KB-060、TC-KB-061、TC-KB-062、TC-KB-063、TC-KB-064、TC-KB-065、TC-PERM-009、TC-KB-066、TC-KB-067、TC-KB-068、TC-KB-069、TC-KB-070、TC-KB-071、TC-AI-001、TC-KB-053、TC-PERM-001） | 通过 15/18 · 失败 3 |
 | RUN-067 | 2026-10-22 | 本地 | `d7a3c17` + 工作区改动（`docs/`、`learning-analyze.ts`、`learning-bar.tsx`、`timeline.tsx`、`learning-drawer.tsx`） | AI（Claude Code 子会话；Playwright + Edge、Node 请求） | 复测（RUN-066：TC-KB-065、TC-KB-066、TC-KB-067） | 通过 3/3 |
+| RUN-068 | 2026-10-22 | 本地 | `7c16dc7` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-PERM-009、TC-KB-065、TC-KB-067、TC-KB-068、TC-KB-069） | 通过 4/5 · 失败 1 |
+| RUN-069 | 2026-10-22 | 本地 | `7c16dc7` + 工作区改动（`docs/`、`src/server/knowledge/learning.ts` 与其测试） | AI（Claude Code 子会话；Playwright + Edge、curl） | 复测（RUN-068：TC-KB-067） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5391,6 +5395,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-066 | TC-KB-065 | 失败 | 第 2 步发送 A、B 的草稿返回 HTTP 422 `/errors/validation`，`clientRequestId`「数值过小：期望 string >=8 字符」：用例写的 `stat-a`、`stat-b` 只有 6 个字符，接口要求 8–80 个；第 3–5 步因此只统计到弃用 1、转人工 1（调用 4 次、采纳率 0%）。用例错；证据 `docs/test-runs/run-066-results.json` | 原位改为 `stat-card-a`、`stat-card-b`，RUN-067 复测通过 |
 | RUN-066 | TC-KB-066 | 失败 | 第 3 步刷新会话后两条消息下方仍只写「已提交学习」，预期「已提交学习 · 待审核」（DESIGN FLOW-KB-LEARN S9：员工在会话里看到「已提交学习」与结论）；此时 API-CONV-019 已返回 `pending_review`，界面没有显示；其余 5 步符合；证据 `docs/test-runs/run-066-TC-KB-066-3.png` | 实现缺陷：时间线标记后接最近一次提交的进度或结论，RUN-067 复测通过 |
 | RUN-066 | TC-KB-067 | 失败 | 第 2 步没有相似卡时任务抽屉整节不显示「相似内容」（六样材料只出现五样）；第 9 步消息下方只写「已提交学习」，预期「已提交学习 · 新建了经验卡」；其余 7 步符合；证据 `docs/test-runs/run-066-TC-KB-067-2.png`、`docs/test-runs/run-066-TC-KB-067-9.png` | 实现缺陷：抽屉一直显示「相似内容」，没有相似卡时写「没有找到相似的已发布经验卡。」；时间线标记补结论；RUN-067 复测通过 |
+| RUN-068 | TC-KB-067 | 失败 | 第 4 步 `HTTP 409`、`code` `retest_required` 符合，`detail` 为「内容或要改的卡在复测后有变化，请先复测。」，预期「内容改过后还没复测通过，请先复测。」（DESIGN FLOW-KB-LEARN S8 同此提示）；其余 8 步符合；证据 `docs/test-runs/run-068-TC-KB-067-4.txt` | 实现修复，RUN-069 复测通过 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -5477,6 +5482,10 @@ RUN-065 证据：复测轮，同一环境改了 `src/lib/attachments.ts`（Shope
 RUN-066 证据：局部轮，DESIGN v1.32 经验卡三条链路（FLOW-KB-CARD、FLOW-AI-CARD、FLOW-KB-LEARN）首轮，加 `TC-AI-001`、`TC-KB-053`、`TC-PERM-001` 作回归。主工作区 `d7a3c17`（经验卡三路实现已合并、未推送），起跑前 `pnpm db:reset && pnpm db:seed`（迁移到 0017）、`pnpm dev`（3360），`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`；`TC-KB-067` 前按前置要求停服务、重建基线再起。执行用 Node 脚本按步骤调接口、查库，界面步骤用 Playwright + Edge 无头；每步结果与观察值在 `docs/test-runs/run-066-results.json`。执行中按 test-doc 纪律处理过的情况：① 执行脚本自身的问题，修脚本后重新观察同一步、不算产品结果：`TC-KB-059` 第 4 步第一次读到第 2 步留下的提示，等提示消失后重看为「内容没有变化」；`TC-KB-064` 第一次没有展开影子回复（它是折叠的「AI 影子回复（未发送）」），删掉这位买家的会话后重跑；`TC-KB-066` 第 2 步把右上角提示标题也计成了标记、第 4 步按原文查本方消息查不到（库里存的是译文），按截图与接口重看都符合；`TC-KB-068` 抽屉打开时页签被遮住、脚本取不到，删掉会话后重跑；`TC-KB-071` 前置第一次没点弹窗里的「结束会话」，删掉会话后重跑；`TC-AI-001` 第一次打开的列表地址写错（应为 `view=ai`），换一位新买家重跑。② 执行前改的用例措辞（不改语义）：`TC-KB-058` 第 4 步「测试这张卡」是一节标题，不是按钮；`TC-KB-059`、`TC-KB-068` 的版本行按抽屉实际排版写（「第 n 版」与作者分开显示）；`TC-KB-070` 的 F 改说「退货」、`TC-KB-071` 改说「我要转人工」，避开或命中种子里的转人工关键词；`TC-KB-066` 第 5 步先等 60 秒再连续提交，避开第 2 步已用掉的次数。③ 会话学习那一路提过「模拟器里买家连发两条，第二条没进会话」：用接口对 Demo Shopee MY 与 Demo TikTok TH 新买家各试了并发两条与先后两条，四种情况两条都入库、入站事件都是 `done`，没有复现，未记遗留问题。旁证：加载 `.env` 后全量单测 58 个文件 430 条通过。
 
 RUN-067 证据：复测轮，承接 RUN-066。修复：工作台时间线「已提交学习」后接这条消息最近一次提交的进度或结论（`learning-bar.tsx#useLearnedMessages`、`timeline.tsx#LearnedMark`）；学习任务抽屉一直显示「相似内容」，没有相似卡时写「没有找到相似的已发布经验卡。」（`learning-drawer.tsx`）；`TC-KB-065` 原位改 `clientRequestId`。起跑前停服务、重建基线再起（第一次启动时 Next 取 Google Fonts 超时、页面 500，重启后正常）。三条用例全部步骤符合，`TC-KB-066` 第 3 步为「已提交学习 · 待审核」，`TC-KB-067` 第 9 步为「已提交学习 · 新建了经验卡」，`TC-KB-065` 统计为调用 4、原样 1、改后 1、弃用 1、转人工 1，抽屉采纳率 67%、转人工率 25%（`docs/test-runs/run-067-results.json`）。窄屏 390 宽下工作台标记与学习任务抽屉都没有横向溢出（`run-067-TC-KB-066-390.png`、`run-067-TC-KB-067-390.png`）。旁证：全量单测 430 条通过。
+
+RUN-068 证据：局部轮，DESIGN v1.32 评审修正（Agent 改卡沿用原卡适用范围、分析期间卡被改过不覆盖、发布指纹含要改的卡的版本、自动建单不重复统计、组长只看负责店铺的学习任务）。被测为主工作区 `7c16dc7` 加本轮原位修改的 `TC-PERM-009` 第 6 步；`pnpm db:reset && pnpm db:seed` 后 `pnpm dev`（3360），`AI_MODE=stub`。`TC-PERM-009`、`TC-KB-065` 跑完后又按 §3 重建了一次基线，再执行 `TC-KB-066` 第 1–3 步（`TC-KB-067` 的前置，不计入本轮）、`TC-KB-067`、`TC-KB-068`、`TC-KB-069`。`TC-KB-068` 第一次执行时脚本在第 5 步「标为已看」之后读页签名超时（卡抽屉是模态，页签不在无障碍树里），第 5 步之后的观察没留下；按前置重新建卡 K 与买家「Learn B」从第 1 步重跑，脚本改为先关抽屉再读页签，全部 6 步符合，登记的是这一遍。`TC-KB-067` 第 4 步的接口调用第一次因脚本引号写错没有发出，改成单独的 shell 脚本后执行。第 2 步核对：卡 K 被 Agent 改到第 2 版后阶段仍是「全部阶段」、产品仍为通用（适用范围沿用原卡）。证据 `docs/test-runs/run-068-*`。
+
+RUN-069 证据：复测轮，承接 RUN-068。修复：发布接口在没复测或复测后改了内容时恢复设计文档的提示「内容改过后还没复测通过，请先复测。」，只有要改的卡在复测后写过新版本时才提示「要改的经验卡在复测后被改过，请重新复测。」（`src/server/knowledge/learning.ts`，DESIGN FLOW-KB-LEARN S8 同步补上这条提示）。重新 `pnpm db:reset && pnpm db:seed` 后起 `pnpm dev`，先执行 `TC-KB-066` 第 1–3 步（前置），再完整执行 `TC-KB-067` 九步。旁证：加载 `.env` 后全量单测 58 个文件 436 条通过。证据 `docs/test-runs/run-069-*`。
 
 ## 7. 遗留问题
 

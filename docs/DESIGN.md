@@ -824,7 +824,7 @@
 | 失败 | 还没复测通过，或复测后又改了内容 | 409 `/errors/conflict`〔提示：内容改过后还没复测通过，请先复测〕 | `/errors/conflict`；API-KB-041 | TC-KB-067 |
 | 边界 | 复测没通过，或复测后又改了内容 | 界面上「发布」不可点 | API-KB-041 | TC-KB-067 |
 | 边界 | 待审核的任务 | 只有 AI 写的新卡与内容冲突；改已有卡一律由 Agent 复测后直接生效 | RULE-KB-006；迁移 ENT-LearningTask analyzing→published「agent_update」 | TC-KB-068 |
-| 失败 | 发布时要改的卡在复测后被别人或 Agent 改过 | 409 `retest_required`，重新复测后才能发布 | `/errors/conflict`；API-KB-041 | 不测：界面不提供改已有卡的入口，代码仓 learning.test.ts 覆盖 |
+| 失败 | 发布时要改的卡在复测后被别人或 Agent 改过 | 409 `retest_required`〔提示：要改的经验卡在复测后被改过，请重新复测〕 | `/errors/conflict`；API-KB-041 | 不测：界面不提供改已有卡的入口，代码仓 learning.test.ts 覆盖 |
 | 边界 | 发布时带要改的卡 | 给已有卡写新版本，记由这个学习任务产生；接口支持，界面不提供 | 字段 experience_card_version.learning_task_id；API-KB-041 | 不测：界面不提供入口，代码仓 learning.test.ts 覆盖 |
 | 边界 | 审核人发布 AI 写的新卡 | 新卡来源记为成员（审核人） | 字段 experience_card.source | TC-KB-067 |
 | 边界 | 无需更新或驳回 | 任务结束，材料与结论一直保留 | 迁移 ENT-LearningTask pending_review→closed「close」；API-KB-043 | TC-KB-070 |

@@ -296,7 +296,7 @@ describe.skipIf(!process.env.DATABASE_URL)("会话学习（需要数据库）", 
     const pending = (await svc.getLearning(ctx, t.task.id)).task;
     expect(pending.status).toBe("pending_review");
     const edited = { ...pending.proposal!, title: "手机支架装不上：帮买家装好", steps: [{ text: "先拧松底座", branches: [] }] };
-    expect((await problemOf(svc.publishLearning(ctx, t.task.id, { version: pending.version, card: edited }))).code).toBe("retest_required");
+    expect(await problemOf(svc.publishLearning(ctx, t.task.id, { version: pending.version, card: edited }))).toMatchObject({ code: "retest_required", detail: "内容改过后还没复测通过，请先复测。" });
 
     const retested = (await svc.retestLearning(ctx, t.task.id, { version: pending.version, card: edited })).task;
     expect(retested.retest).toMatchObject({ passed: true, original: { card: { cardId: "proposal", title: "手机支架装不上：帮买家装好" } } });
@@ -407,7 +407,7 @@ describe.skipIf(!process.env.DATABASE_URL)("会话学习（需要数据库）", 
     const retested = (await svc.retestLearning(ctx, t.task.id, { version: pending.version, card: edit, targetCardId: x.id })).task;
     expect(retested.retest?.passed).toBe(true);
     await db().transaction((tx) => store.writeCardVersion(tx, { row: x, content: { ...store.cardContentOf(x), conditions: ["买家说三脚架晃"] }, author: { kind: "member", memberId: ctx.membership.id } }));
-    expect((await problemOf(svc.publishLearning(ctx, t.task.id, { version: retested.version, card: edit, targetCardId: x.id }))).code).toBe("retest_required");
+    expect(await problemOf(svc.publishLearning(ctx, t.task.id, { version: retested.version, card: edit, targetCardId: x.id }))).toMatchObject({ code: "retest_required", detail: "要改的经验卡在复测后被改过，请重新复测。" });
     const again = (await svc.retestLearning(ctx, t.task.id, { version: retested.version, card: edit, targetCardId: x.id })).task;
     const published = (await svc.publishLearning(ctx, t.task.id, { version: again.version, card: edit, targetCardId: x.id })).task;
     expect(published).toMatchObject({ status: "published", result: "card_updated", publishedCard: { id: x.id, version: 3 } });
