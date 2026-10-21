@@ -113,7 +113,7 @@ export class PlatformError extends Error {
 /** 平台错误转成给用户看的中文（problem detail） */
 export function platformErrorText(e: PlatformError): string {
   const name = e.platform === "shopee" ? "Shopee" : "TikTok";
-  if (e.kind === "timeout") return `${name} 10 秒内没有响应，结果未知，请先刷新确认再决定是否重试。`;
+  if (e.kind === "timeout") return `${name} 没有及时响应，结果未知，请先刷新确认再决定是否重试。`;
   if (e.kind === "network") return `连不上 ${name} 开放平台，请稍后重试。`;
   if (e.kind === "auth") return `${name} 授权失效或凭证不对（${e.code}），请到「店铺与连接」续期授权或更新密钥。`;
   if (e.code === "read_only") return e.message;
