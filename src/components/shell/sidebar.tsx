@@ -53,6 +53,8 @@ function NavLink({ item, active, current = active, collapsed }: { item: Item; ac
   const link = (
     <Link
       href={item.href}
+      // 页面是薄的客户端外壳（数据由客户端请求取），整页预取只缓存外壳与脚本，不会给出旧数据
+      prefetch
       aria-label={collapsed ? name : undefined}
       aria-current={current ? "page" : undefined}
       className={cn(
@@ -205,6 +207,7 @@ export function Sidebar({
                         <Link
                           key={v.view}
                           href={`/wb?view=${v.view}`}
+                          prefetch
                           aria-current={active ? "page" : undefined}
                           className={cn("state-layer focus-ring flex scroll-my-10 items-center justify-between gap-3 rounded-md px-3 py-1", active ? "font-semibold text-(--semantic-color-text-link)" : "text-foreground")}
                         >

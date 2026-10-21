@@ -91,9 +91,39 @@ export function LoadingRows({ rows = 6 }: { rows?: number }) {
   return (
     <div className="flex flex-col gap-3" aria-busy="true" aria-label="加载中">
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-12 w-full rounded-md bg-muted motion-safe:animate-pulse" />
+        <Skeleton key={i} className="h-12 w-full animate-none rounded-md bg-muted motion-safe:animate-pulse" />
       ))}
     </div>
+  );
+}
+
+/** 路由切换时的加载态（loading.tsx）：页头与首屏加载行和真实页面对位，换成真实页面时不跳动 */
+export function RouteSkeleton({ aside = false }: { aside?: boolean }) {
+  const bar = "animate-none bg-muted motion-safe:animate-pulse";
+  return (
+    <PageScroll>
+      <div aria-busy="true">
+        <span className="sr-only">正在打开页面</span>
+        <div className="pt-2 pb-5" aria-hidden>
+          <Skeleton className={cn(bar, "h-8 w-40")} />
+          <Skeleton className={cn(bar, "mt-1 h-5 w-64 max-w-full")} />
+        </div>
+        {aside ? (
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[200px_minmax(0,1fr)]" aria-hidden>
+            <Panel as="div" className="flex flex-col gap-1 p-3">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Skeleton key={i} className={cn(bar, "h-9 w-full")} />
+              ))}
+            </Panel>
+            <Panel as="div">
+              <LoadingRows />
+            </Panel>
+          </div>
+        ) : (
+          <LoadingRows />
+        )}
+      </div>
+    </PageScroll>
   );
 }
 
