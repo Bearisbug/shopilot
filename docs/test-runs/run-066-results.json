@@ -1,0 +1,781 @@
+{
+  "TC-KB-058": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "selected": "true",
+        "empty": 1
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "missing": []
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "branchVals": [
+          "急用",
+          "保修"
+        ]
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": "用到了这张卡：第 1 步 · 转人工 | 按当前设置这条会转人工。"
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "toast": "已发布新经验卡",
+        "rowOk": true
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "status": 200,
+        "counts": {
+          "published": 1,
+          "archived": 0
+        },
+        "version": 1,
+        "source": "member",
+        "embedded": true
+      }
+    },
+    "7": {
+      "ok": true,
+      "actual": {
+        "status": 422,
+        "fields": {
+          "steps.0.branches.0.goto": "跳到的步骤要是本卡里的另一步"
+        }
+      }
+    },
+    "8": {
+      "ok": true,
+      "actual": {
+        "status": 422,
+        "fields": {
+          "conditions": "至少写一条调用条件",
+          "steps": "至少写一个步骤"
+        }
+      }
+    }
+  },
+  "TC-KB-059": {
+    "1": {
+      "ok": true,
+      "actual": "第 1 版 林晓 10-21 23:41 当前"
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "toast": "已保存为第 2 版",
+        "top": "第 2 版 林晓 10-21 23:42 当前"
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": [
+        "沟通提示 第 1 版 每次只让买家做一步 第 2 版 先安抚，再一步步排查"
+      ]
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "toast": "内容没有变化",
+        "version": 2
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "status": 409,
+        "code": "version_conflict",
+        "detail": "这张经验卡刚被别人改过，请刷新后再操作。"
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": "回退到第 1 版？ 用第 1 版的内容保存为新的第 3 版并立即生效；现在的第 2 版仍留在版本记录里。 取消 回退"
+    },
+    "7": {
+      "ok": true,
+      "actual": {
+        "toast": "已回退到第 1 版，保存为第 3 版"
+      }
+    },
+    "8": {
+      "ok": true,
+      "actual": {
+        "version": 3,
+        "versions": [
+          3,
+          2,
+          1
+        ],
+        "note": "回退到第 1 版"
+      }
+    }
+  },
+  "TC-KB-060": {
+    "1": {
+      "ok": true,
+      "actual": "已下架，AI 出稿不再用这张卡"
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "status": "archived",
+        "version": 1,
+        "versions": 1
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "status": 200,
+        "card": null
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "toast": "已恢复发布",
+        "card": {
+          "cardId": "01a15f20-80a4-730b-becd-cbee17da666f",
+          "title": "摄像头识别不到：帮买家恢复使用",
+          "step": 1,
+          "action": "continue",
+          "reason": "替身：调用条件成立",
+          "ticketSummary": null
+        }
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "status": 409,
+        "code": "invalid_state"
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": "删除经验卡「摄像头识别不到：帮买家恢复使用」？ 删除后不能恢复，版本记录一起删掉；已出的草稿里仍显示当时用的卡名。只想暂时停用请用「下架」。 取消 删除"
+    },
+    "7": {
+      "ok": true,
+      "actual": "已删除经验卡「摄像头识别不到：帮买家恢复使用」"
+    },
+    "8": {
+      "ok": true,
+      "actual": {
+        "status": 404
+      }
+    }
+  },
+  "TC-KB-061": {
+    "1": {
+      "ok": true,
+      "actual": "01a15f22-30cc-771e-9d53-3093e852b6ae"
+    },
+    "2": {
+      "ok": true,
+      "actual": "01a15f22-17f1-742c-9a84-8eb9b00e5357|1|continue"
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "line": "经验卡：「摄像头识别不到：帮买家恢复使用」 （在新标签打开） · 第 1 步看理由",
+        "reason": "用卡理由：替身：调用条件成立",
+        "link": 1
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": "http://127.0.0.1:3360/reception/knowledge?tab=cards&card=01a15f22-17f1-742c-9a84-8eb9b00e5357"
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "step": "2",
+        "line": "经验卡：「摄像头识别不到：帮买家恢复使用」 （在新标签打开） · 第 2 步看理由"
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "line": "经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 2 步看理由",
+        "links": 0
+      }
+    }
+  },
+  "TC-KB-062": {
+    "1": {
+      "ok": true,
+      "actual": "awaiting_human|card"
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "drafts": "0",
+        "audit": "card|01a15f22-7226-76c9-b32a-56c56bb4d367"
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "event": true,
+        "head": true
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": "经验卡：「摄像头识别不到：帮买家恢复使用」 （在新标签打开） · 第 2 步 · 按卡建工单看理由"
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "note": "摄像头识别不到：帮买家恢复使用：替身：保修",
+        "linked": true,
+        "hasType": true
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "toast": "已建工单 T-1006 内部确认 · 负责人 林晓 打开 T-1006",
+        "ticket": "internal|摄像头识别不到：帮买家恢复使用：替身：保修"
+      }
+    }
+  },
+  "TC-KB-063": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "draft": "sent",
+        "state": "bot",
+        "step": "1"
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": "awaiting_human|card"
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "ticket": "internal|rule|摄像头识别不到：帮买家恢复使用：替身：保修",
+        "aiMessages": "2"
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "reason": "card",
+        "aiMessages": "1",
+        "drafts": "0",
+        "simBuyerView": "buyer 1 条、seller 1 条「您好！关于「摄像头识别不到，我急用」…」"
+      }
+    }
+  },
+  "TC-KB-064": {
+    "1": {
+      "ok": true,
+      "actual": "handoff"
+    },
+    "2": {
+      "ok": true,
+      "actual": "awaiting_human|shadow"
+    },
+    "3": {
+      "ok": true,
+      "actual": "经验卡：「摄像头识别不到：帮买家恢复使用」 （在新标签打开） · 第 1 步 · 按卡转人工看理由"
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "line": "经验卡：「摄像头识别不到：帮买家恢复使用」（已下架） · 第 1 步 · 按卡转人工看理由",
+        "links": 0
+      }
+    }
+  },
+  "TC-KB-065": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "cards": [
+          true,
+          true,
+          true
+        ],
+        "D": "card"
+      }
+    },
+    "2": {
+      "ok": false,
+      "actual": {
+        "a": 422,
+        "b": 422,
+        "c": 200
+      }
+    },
+    "3": {
+      "ok": false,
+      "actual": {
+        "calls": 4,
+        "sent": 0,
+        "edited": 0,
+        "ignored": 1,
+        "handoffs": 1,
+        "shadowSame": 0,
+        "shadowPartial": 0,
+        "shadowDifferent": 0
+      }
+    },
+    "4": {
+      "ok": false,
+      "actual": "近 30 天效果 调用 4 次 采纳率 0% 原样 0 · 改后 0 · 弃用 1 改写率 — 转人工率 25% 转人工或建工单 1 次 版本（1） 第 1 版 林晓 10-21 23:46 当前 关闭"
+    },
+    "5": {
+      "ok": false,
+      "actual": "摄像头识别不到：帮买家恢复使用 全部满足：买家说摄像头识别不到 3 步 · 第 1 版 · 全部站点 通用 全部阶段 林晓 10-21 23:46 调用 4 次 采纳 0% · 转人工 25% "
+    }
+  },
+  "TC-PERM-009": {
+    "1": {
+      "ok": true,
+      "actual": [
+        403,
+        403,
+        403
+      ]
+    },
+    "2": {
+      "ok": true,
+      "actual": [
+        200,
+        200
+      ]
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "status": 201,
+        "taskStatus": "analyzing"
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "status": 404
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "button": 1,
+        "reception": false
+      }
+    }
+  },
+  "TC-KB-066": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "pressed": "true",
+        "boxes": 2,
+        "bar": "提交学习 已选 0 / 20 条 勾选能说明这次怎么处理的消息，买家和客服的都可以；AI 会连同前后几条对话一起分析。 备注（选填） 0 / 200 取消 提交"
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "toast": "已提交学习 / AI 分析后，组长或管理员会在知识库「学习」页签审核。",
+        "marks": "两条消息下方各一处「已提交学习」（截图 run-066-TC-KB-066-2.png；脚本第一次计数把提示标题也算进去）",
+        "selectMode": "已退出"
+      }
+    },
+    "3": {
+      "ok": false,
+      "actual": [
+        "已提交学习",
+        "已提交学习"
+      ]
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "status": 200,
+        "items": 1,
+        "source": "member",
+        "status2": "pending_review",
+        "by": "Mei Lin",
+        "messageIds": "买家「设备坏了想换货」与本方「[译文] 好的，给您安排换货」两条"
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "codes": [
+          201,
+          201,
+          201,
+          201,
+          201,
+          429
+        ],
+        "detail": "同一个会话每分钟最多提交 5 次学习，请稍后再试。"
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "status": 422,
+        "detail": "有消息不属于这个会话，请刷新后重新勾选。"
+      }
+    }
+  },
+  "TC-KB-067": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "tab": "学习1",
+        "row": "Learn A · Demo Shopee MY 10-21 23:56 「设备坏了想换货」 客服提交（Mei Lin） · 流程需要补充 待审核"
+      }
+    },
+    "2": {
+      "ok": false,
+      "actual": {
+        "sections": false,
+        "picked": 2,
+        "noProduct": true,
+        "reason": true,
+        "before": true,
+        "after": true,
+        "title": "替身：设备坏了想换货"
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "disabled": "true"
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "status": 409,
+        "code": "retest_required",
+        "detail": "内容改过后还没复测通过，请先复测。"
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "toast": "复测通过，可以发布",
+        "disabled": null
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "disabled": "true"
+      }
+    },
+    "7": {
+      "ok": true,
+      "actual": {
+        "toast": "已发布经验卡「换货流程：设备故障时安排换货」 下一次出稿起 AI 就会按这张卡处理。",
+        "outcome": "林晓 审核后新建了经验卡「换货流程：设备故障时安排换货」，现在是第 1 版 · 10-21 23:56 原始消息 高亮的是客服勾选的"
+      }
+    },
+    "8": {
+      "ok": true,
+      "actual": [
+        {
+          "v": 1,
+          "source": "member",
+          "tips": "先确认订单号"
+        }
+      ]
+    },
+    "9": {
+      "ok": false,
+      "actual": [
+        "已提交学习",
+        "已提交学习"
+      ]
+    }
+  },
+  "TC-KB-068": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "status": 201,
+        "task": "published"
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "version": 2,
+        "unseen": true,
+        "last": "agent",
+        "steps": 4,
+        "v0": {
+          "author": "agent",
+          "task": true,
+          "retest": {
+            "passed": true,
+            "failReason": null,
+            "regressions": 0
+          }
+        }
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "tab": "经验卡1",
+        "row": "摄像头识别不到：帮买家恢复使用 Agent 改过，未看 全部满足：买家说摄像头识别不到 4 步 · 第 2 版 · 全部站点 通用 全部阶段 Agent 10-21 23:59 调用 1 次 采纳 — · 转人工 0% ",
+        "filtered": 1
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": "第 2 版 Agent 10-21 23:59 当前 替身：按关键词判断 复测通过 · 回归用例 0 个"
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "toast": "已标为看过",
+        "unseen": false,
+        "seenBy": "林晓",
+        "tab": "经验卡"
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "selected": "true",
+        "outcome": "Agent 复测通过后直接改了经验卡「摄像头识别不到：帮买家恢复使用」，现在是第 2 版"
+      }
+    }
+  },
+  "TC-KB-069": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "status": "published",
+        "result": "card_updated",
+        "version": 2
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": "closed|retest_failed"
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "version": 2
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "outcome": "复测没通过 已结束 Learn C · Demo Shopee MY 10-21 23:59 「摄像头识别不到，用了一周越来越变差」 客服提交（Mei Lin） · 流程",
+        "regression": true
+      }
+    }
+  },
+  "TC-KB-070": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "task": "closed|covered|none_needed",
+        "row": "Learn E · Demo Shopee MY 10-22 00:00 「设备坏了想换货」 客服提交（Mei Lin） · 已有内容覆盖 · 无需更新 已结束"
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "F": "pending_review",
+        "G": "pending_review"
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "toast": "已驳回",
+        "reason": true
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": "已标为无需更新"
+    },
+    "5": {
+      "ok": true,
+      "actual": [
+        "Learn F · Demo Shopee MY"
+      ]
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "status": 409,
+        "code": "invalid_state"
+      }
+    }
+  },
+  "TC-KB-071": {
+    "1": {
+      "ok": true,
+      "actual": "true|true|true"
+    },
+    "2": {
+      "ok": true,
+      "actual": "{\"job\":\"learning.pick\",\"ok\":true,\"durationMs\":509}"
+    },
+    "3": {
+      "ok": true,
+      "actual": "agent|pending_review"
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "row": "Pick A · Demo Shopee MY 10-22 00:06 「我要转人工」 Agent 挑选 · 流程需要补充 待审核",
+        "whole": true
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": "1"
+    }
+  },
+  "TC-AI-001": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "before": 20,
+        "after": 21,
+        "last": {
+          "status": 200
+        }
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": "R Reg AI 001b 00:09 Shopee · MY Demo Shopee MY 我的包裹到哪了 AI 草稿待审 · 售前"
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "draft": "您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。"
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "outs": "1",
+        "mine": true
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "sellers": [
+          "您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。"
+        ]
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": "1"
+    },
+    "7": {
+      "ok": true,
+      "actual": {
+        "before": {
+          "used": 11,
+          "assist": 9
+        },
+        "after": {
+          "used": 12,
+          "assist": 10
+        }
+      }
+    }
+  },
+  "TC-KB-053": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "upload": 201
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "titles": [
+          "问答：towel set 可以退货吗",
+          "保修政策.md"
+        ]
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "productIds": [
+          "01a15f39-1e49-74bd-84c0-f780f4d638da"
+        ],
+        "merged": [
+          "QA1"
+        ]
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": "依据：问答「towel set 可以退货吗」"
+    }
+  },
+  "TC-PERM-001": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "missing": [],
+        "kb": false
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": "工作台 5 待认领 2 AI 草稿 3 我处理中 1 他人处理中 10 已结束 2 工单 订单与开票 看板 接待设置 收起侧栏"
+    },
+    "3": {
+      "ok": true,
+      "actual": "工作台 3 待认领 1 AI 草稿 2 我处理中 2 他人处理中 已结束 工单 订单与开票 收起侧栏"
+    },
+    "4": {
+      "ok": true,
+      "actual": [
+        200,
+        200,
+        200
+      ]
+    },
+    "5": {
+      "ok": true,
+      "actual": "http://127.0.0.1:3360/reception"
+    },
+    "6": {
+      "ok": true,
+      "actual": "http://127.0.0.1:3360/reception/knowledge"
+    }
+  }
+}

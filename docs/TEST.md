@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-21 | 按 DESIGN v1.32 经验卡：新增 `TC-KB-058` 至 `TC-KB-065`（写卡、版本与回退、下架恢复删除、出稿按卡推进、按卡转人工与建工单、自动与影子模式、效果统计）、`TC-KB-066` 至 `TC-KB-071`（提交学习、新卡审核复测发布、Agent 改卡与复测没通过、审核结论、Agent 挑会话）、`TC-PERM-009`；§3 加经验卡与会话学习函数、卡 K、出稿用卡与会话学习的替身规则；RUN-066 后原位修正 `TC-KB-065` 第 2 步的 `clientRequestId`（接口要求至少 8 个字符） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.31 Shopee 会话可发 MOV：`TC-CONV-076` 废弃，被 `TC-CONV-079` 取代（源自缺陷：后缀 .mp4 的 QuickTime 视频在 Shopee 会话发送失败；不能发的格式改用 WebM 验证）；§3 测试视频加 `qt.mp4` | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.30 视频按真实宽高比显示：新增 `TC-CONV-078`（TikTok、Shopee 会话发横屏与竖屏视频的缩略图比例、买家视频、没有宽高的旧视频加载后调整、上传接口宽高校验）；§3 测试视频加 `wide.mp4`（1280×720）、`tall.mp4`（720×1280） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.29 TikTok 会话可发视频：`TC-CONV-065` 废弃，Shopee 部分被 `TC-CONV-076` 取代（加发送接口拒 MOV 与超过 30 MB）；新增 `TC-CONV-077`（TikTok 会话粘贴视频和文字按顺序发出、MOV 与 WebM、100 MB 上限、31 MB 分两块上传）；原位给 `TC-CONV-068` 加第 5 步（真实 TikTok 会话发 20 MB 以上视频）；§3 测试视频加 `clip.webm`、`big31.mp4`、`big101.mp4` | 实现会话 |
@@ -263,6 +264,25 @@ qaclear() {
 ```
 
   - `qa` 与 `api` 相同，只是让问答步骤读起来更直；`qaclear` 先删 Demo Store 全部问答再删全部产品（问答还关联着产品时产品删不掉，所以顺序不能反）；列表每次最多 100 条，问答超过 100 条时重复执行。
+- 经验卡与会话学习函数（先执行「curl 会话」与知识库 curl 函数，再执行下面的定义；`newbuyer <平台> <店铺号> <买家名>` 用模拟器接口新建买家并输出模拟器会话 ID（Demo Shopee MY `220001`、Demo Shopee SG `220002`、Demo TikTok MY `7000001`）；`say <模拟器会话 ID> <文字>` 以买家身份发一句，输出 `true`；`conv <买家名>` 输出 Shopilot 会话 ID；`waitq <SQL>` 每秒查一次、直到 SQL 有输出，最多 60 秒，超时输出 `TIMEOUT`；`cardk` 以 owner 建一张「卡 K」并输出卡 ID；`cardclear` 删掉 Demo Store 全部经验卡）：
+
+```bash
+sim() { curl -s -X POST "$B/api/mock/sim/$1" -H 'Content-Type: application/json' -d "$2"; }
+newbuyer() { sim create_buyer "{\"platform\":\"$1\",\"shopId\":\"$2\",\"name\":\"$3\",\"language\":\"zh\"}" | jq -r .conversationId; }
+say() { sim buyer_message "{\"conversationId\":\"$1\",\"text\":\"$2\"}" | jq -r .ok; }
+conv() { q "select id from conversation where buyer_name = '$1' order by created_at desc limit 1"; }
+waitq() { n=0; r=$(q "$1"); until [ -n "$r" ] || [ $n -ge 60 ]; do sleep 1; n=$((n+1)); r=$(q "$1"); done; echo "${r:-TIMEOUT}"; }
+cat > "$SP_TMP/card-k.json" <<'JSON'
+{"title":"摄像头识别不到：帮买家恢复使用","stage":"any","markets":["ALL"],"conditions":["买家说摄像头识别不到"],"conditionMode":"all","steps":[{"text":"问清电脑系统和连接方式","branches":[{"when":"急用","action":"handoff"}]},{"text":"换线、换接口","branches":[{"when":"保修","action":"ticket"}]},{"text":"安装或更新配套软件","branches":[]}],"tips":"每次只让买家做一步"}
+JSON
+cardk() { curl -s -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -H 'Content-Type: application/json' -X POST "$B/api/v1/knowledge/cards" -d @"$SP_TMP/card-k.json" | jq -r .card.id; }
+cardclear() { for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowledge/cards?limit=100" | jq -r '.items[].id'); do curl -s -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -X DELETE "$B/api/v1/knowledge/cards/$id"; done; }
+```
+
+  - 卡 K：标题「摄像头识别不到：帮买家恢复使用」，阶段「全部阶段」，站点「全部站点」，一条调用条件「买家说摄像头识别不到」（全部满足）；第 1 步「问清电脑系统和连接方式」，分支「急用」→ 转人工；第 2 步「换线、换接口」，分支「保修」→ 建工单；第 3 步「安装或更新配套软件」；沟通提示「每次只让买家做一步」。
+  - 出稿替身用卡（`AI_MODE=stub`，出稿、测试问答、模拟出稿共用）：请求带候选卡时，本段有正在用的卡就接着用它、步骤加 1（不超过最后一步），否则用第 1 张候选卡（拟发布的卡、正在用的卡排在最前）的第 1 步；这一步某个分支的条件原文出现在买家最新一条消息里时按这个分支走（转人工、建工单、跳到第 n 步）。用卡理由一律「替身：调用条件成立」，建工单的说明是「替身：<分支条件>」；按卡转人工时替身同时给出 `handoff = true`、`reason = card`。
+  - 会话学习替身（`learn`）：备注或消息里有「无需」→ 诊断「已有内容覆盖」，任务结束、结论「无需更新」；有「新卡」，或相似卡里没有一张的标题与某条买家消息有两个相连的相同字 → 诊断「流程需要补充」，写一张新卡（标题「替身：<最后一条勾选的买家文字前 20 字>」，一条调用条件「买家提到「<同前>」」，一步「替身第一步：问清情况」），进待审核；否则改那张相似卡，在最后加一步「替身补充的一步」，直接复测。判断依据「替身：按关键词判断」，建议「替身：按建议更新」。复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」，否则「不比改前差」。替身不会给出「知识缺失」「证据不足」「内容冲突」，也不会分析失败。
+  - Agent 挑会话：`pnpm job learning.pick '{"merchantId":"<Demo Store 的商户 ID>"}'` 只挑这一家（商户 ID 用 `q "select id from merchant where name = 'Demo Store'"` 取）；挑出的段由 Worker 的 `learning.analyze` 分析，几秒内出结论。
 
 - 工具：浏览器自动化用 Playwright + 本机 Microsoft Edge（`channel: 'msedge'`），人工执行同样用 Edge；接口用 curl（见「curl 会话」）与 jq；两步验证码用验证器 App，或 `oathtool --totp -b <密钥>`（密钥取自开启时显示的 `totpURI` 里的 `secret`）；定时任务用 `pnpm job`，时间敏感数据用 `pnpm scenario`；邮件看 `/dev/outbox`。
 - 证据目录：`docs/test-runs/`。截图与响应体按 `run-NNN-<TC ID>-<步骤号>.png` / `.json` 命名，文中引用一律写以项目根为基准的相对路径。cookie 文件不放证据目录。
@@ -872,6 +892,21 @@ qaclear() {
 | 6 | 操作系统打开「减少动态效果」后重复第 3 步 | 骨架灰条静止，不闪动 |
 
 后置：无。
+
+#### `TC-PERM-009` 经验卡与学习审核只给管理员、组长，三种角色都能提交学习 — 对应 `REQ-KB-011`、`REQ-KB-013`、`REQ-PERM-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login lead@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`X=$(newbuyer shopee 220001 "Perm A")`；`say $X "你好"`；记 Shopilot 会话 ID 为 C、买家那条消息 ID 为 MSG；取一个 Demo TikTok MY 的会话 ID 为 C2（Mei Lin 不负责这家店）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api agent2@demo.test $B/api/v1/knowledge/cards`；`api agent2@demo.test -X POST $B/api/v1/knowledge/cards -d @$SP_TMP/card-k.json`；`api agent2@demo.test $B/api/v1/knowledge/learning` | 三次都是 `HTTP 403` `/errors/forbidden` |
+| 2 | `api lead@demo.test $B/api/v1/knowledge/cards`；`api lead@demo.test $B/api/v1/knowledge/learning` | 都是 `HTTP 200` |
+| 3 | `api agent2@demo.test -X POST $B/api/v1/conversations/<C>/learning -d '{"messageIds":["<MSG>"]}'` | `HTTP 201`，`task.status` `analyzing` |
+| 4 | `api agent2@demo.test -X POST $B/api/v1/conversations/<C2>/learning -d '{"messageIds":["<C2 的任一消息>"]}'` | `HTTP 404` |
+| 5 | 浏览器以 Mei Lin 登录，打开会话 C | 会话头有「提交学习」按钮；侧栏没有「接待设置」 |
+
+后置：`cardclear`。
+
 ### 店铺接入与授权
 
 #### `TC-SHOP-001` Shopee 接入全流程：主账号一次授权多店 — 对应 `REQ-SHOP-001`、`REQ-SHOP-002`、`REQ-SHOP-004`、`REQ-SHOP-005` · 级别: 冒烟 · 执行者: 皆可
@@ -3953,6 +3988,217 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 后置：`qaclear`；`kbclear`。
 
+#### `TC-KB-058` 写卡：步骤与分支、校验、测试这张卡，保存即发布 — 对应 `REQ-KB-011` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`cardclear`；浏览器以 owner（林晓）登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/reception/knowledge?tab=cards` | 页签「经验卡」选中；空态标题「还没有经验卡」，有「新建经验卡」按钮 |
+| 2 | 点「新建经验卡」 | 弹窗标题「新建经验卡」；有「标题与目标」「调用条件」「处理步骤」「沟通提示（选填）」「产品」「服务阶段」「适用站点」「关联问答（选填）」「标签（选填）」；底部主按钮「发布」 |
+| 3 | 按 §3「卡 K」填写：标题、调用条件 1 条（全部满足）、3 个步骤；第 1 步「加分支」，如果「急用」怎么办选「转人工」；第 2 步「加分支」，如果「保修」选「建工单」；服务阶段「全部阶段」；沟通提示 | 每一步左侧有步号 1、2、3；分支行显示条件与动作 |
+| 4 | 在弹窗里「测试这张卡」一节输入「摄像头识别不到，我急用」，点「测试」 | 数秒内出结果：「用到了这张卡：第 1 步 · 转人工」，下方「按当前设置这条会转人工。」 |
+| 5 | 点「发布」 | 提示「已发布新经验卡」；列表出现一行：标题，下方「全部满足：买家说摄像头识别不到」，再下「3 步 · 第 1 版」；页头「已发布 1」 |
+| 6 | `api owner@demo.test "$B/api/v1/knowledge/cards"` | `HTTP 200`；`counts.published` 为 1；唯一一项 `version` 1、`status` `published`、`source` `member`、`embedded` true、`steps` 3 项、`agentUnseen` false |
+| 7 | `api owner@demo.test -X POST $B/api/v1/knowledge/cards -d '{"title":"x","stage":"any","conditions":["a"],"conditionMode":"all","steps":[{"text":"一","branches":[{"when":"x","action":"goto","goto":1}]},{"text":"二","branches":[]}]}'` | `HTTP 422` `/errors/validation`；`extra.fields` 里 `steps.0.branches.0.goto` 为「跳到的步骤要是本卡里的另一步」 |
+| 8 | 同第 7 步，把 `conditions` 改成 `[]`、`steps` 改成 `[]` | `HTTP 422`；`extra.fields` 有 `conditions`「至少写一条调用条件」与 `steps`「至少写一个步骤」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-059` 改卡写新版本、版本对比、内容不变不写版本、并发 409、回退 — 对应 `REQ-KB-011` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`cardclear`；`cardk` 记卡 ID 为 K；浏览器以林晓打开 `/reception/knowledge?tab=cards&card=<K>`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 看卡抽屉 | 显示「调用条件（全部满足）」「处理步骤」3 步与分支、「沟通提示」「适用范围」「近 30 天效果」（「近 30 天 AI 出稿还没有用到这张卡。」）；版本列表一行「第 1 版」、作者林晓，标「当前」 |
+| 2 | 点「编辑」，把沟通提示改为「先安抚，再一步步排查」，点「保存」 | 提示「已保存为第 2 版」；抽屉版本列表最上面一行是「第 2 版」、作者林晓，标「当前」 |
+| 3 | 在「对比」里旧版本选第 1 版、新版本选第 2 版 | 只列出「沟通提示」一项，改前「每次只让买家做一步」，改后「先安抚，再一步步排查」 |
+| 4 | 再点「编辑」，不改任何内容直接「保存」 | 提示「内容没有变化」；版本仍是第 2 版 |
+| 5 | `api owner@demo.test -X PATCH $B/api/v1/knowledge/cards/<K> -d "{\"version\":1,\"card\":$(cat $SP_TMP/card-k.json)}"` | `HTTP 409` `/errors/conflict`，`code` `version_conflict`，`detail`「这张经验卡刚被别人改过，请刷新后再操作。」 |
+| 6 | 抽屉里第 1 版那行点「回退到这一版」 | 确认框标题「回退到第 1 版？」，正文写「用第 1 版的内容保存为新的第 3 版并立即生效……」 |
+| 7 | 点「回退」 | 提示「已回退到第 1 版，保存为第 3 版」；沟通提示变回「每次只让买家做一步」 |
+| 8 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `card.version` 3；`versions` 依次为 3、2、1，第 3 版 `note`「回退到第 1 版」、`author` `member` |
+
+后置：`cardclear`。
+
+#### `TC-KB-060` 下架、恢复与删除，下架的卡不参与出稿 — 对应 `REQ-KB-011` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`cardclear`；`cardk` 记为 K；浏览器以林晓打开卡 K 的抽屉。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 点「下架」 | 提示「已下架，AI 出稿不再用这张卡」；抽屉标「已下架」 |
+| 2 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `card.status` `archived`；`card.version` 仍是 1；`versions` 只有 1 项 |
+| 3 | `api owner@demo.test -X POST $B/api/v1/knowledge/test -d '{"question":"摄像头识别不到，怎么办"}'` | `HTTP 200`；`card` 为 null |
+| 4 | 点「恢复发布」，再重复第 3 步 | 提示「已恢复发布」；第 3 步的 `card.cardId` 为 K、`step` 1 |
+| 5 | `api owner@demo.test -X POST $B/api/v1/knowledge/cards/<K>/restore -d '{"version":1}'` | `HTTP 409`，`code` `invalid_state` |
+| 6 | 点「删除」 | 确认框「删除经验卡「摄像头识别不到：帮买家恢复使用」？」，写明版本记录一起删掉 |
+| 7 | 点确认框里的「删除」 | 提示「已删除经验卡「摄像头识别不到：帮买家恢复使用」」；列表回到空态 |
+| 8 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `HTTP 404` |
+
+后置：无。
+
+#### `TC-KB-061` 辅助草稿按卡出稿：显示卡与第几步、同段接着走、员工只看文字 — 对应 `REQ-KB-012` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`；`cardclear`；`cardk` 记为 K。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `X=$(newbuyer shopee 220001 "Card Draft A")`；`say $X "摄像头识别不到，怎么办"`；`waitq "select d.id from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = 'Card Draft A' and d.status = 'generated'"` | 输出草稿 ID |
+| 2 | `q "select d.card_id, d.card->>'step', d.card->>'action' from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = 'Card Draft A'"` | `<K>\|1\|continue` |
+| 3 | 林晓打开该会话（`/wb/$(conv "Card Draft A")`） | 草稿下方一行「经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 1 步」，标题是链接；点「看理由」展开「用卡理由：替身：调用条件成立」 |
+| 4 | 点卡标题 | 新标签打开 `/reception/knowledge?tab=cards&card=<K>`，卡抽屉显示卡 K |
+| 5 | `say $X "换了线还是不行"`，等新草稿出现 | 新草稿那行是「· 第 2 步」；库里新草稿 `card->>'step'` 为 2 |
+| 6 | 浏览器以 Nur（agent@demo.test）打开同一会话 | 看到同一行文字，卡标题不是链接 |
+
+后置：无。
+
+#### `TC-KB-062` 按卡转人工与辅助模式「按卡建工单」 — 对应 `REQ-KB-012` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`；`cardclear`；`cardk` 记为 K；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `X=$(newbuyer shopee 220001 "Card Handoff A")`；`say $X "摄像头识别不到，我急用"`；`waitq "select handling_state \|\| '\|' \|\| handoff_reason from conversation where buyer_name = 'Card Handoff A' and handling_state = 'awaiting_human'"` | `awaiting_human\|card` |
+| 2 | `q "select count(*) from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = 'Card Handoff A'"`；`q "select data->>'reason', data->>'card_id' from audit_log where action = 'handoff' and target_id = '$(conv "Card Handoff A")'"` | 草稿数 0；审计一行 `card\|<K>` |
+| 3 | 林晓打开该会话 | 时间线有系统消息「转人工：经验卡要求转人工」；会话头显示待认领 · 经验卡要求转人工 |
+| 4 | `Y=$(newbuyer shopee 220001 "Card Ticket A")`；`say $Y "摄像头识别不到"`，等草稿出现；再 `say $Y "这台还在保修期内"`，等新草稿出现 | 新草稿那行「经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 2 步 · 按卡建工单」；草稿按钮多一个「按卡建工单」 |
+| 5 | 点「按卡建工单」 | 弹窗「建工单」：类型已选「内部确认」，说明预填「摄像头识别不到：帮买家恢复使用：替身：保修」，「关联当前会话（Card Ticket A）」已勾选 |
+| 6 | 点弹窗的建单按钮 | 提示建成；`q "select type, description from ticket where conversation_id = '$(conv "Card Ticket A")'"` 为 `internal\|摄像头识别不到：帮买家恢复使用：替身：保修` |
+
+后置：无。
+
+#### `TC-KB-063` 自动模式按卡建工单后转人工、按卡转人工发回复 — 对应 `REQ-KB-012` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间外」（Demo TikTok MY 工作时间外为 auto）；`login owner@demo.test`；`cardclear`；`cardk` 记为 K。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `X=$(newbuyer tiktok 7000001 "Card Auto A")`；`say $X "摄像头识别不到"`；`waitq "select d.status from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = 'Card Auto A' and d.status = 'sent'"` | `sent`；会话 `handling_state` 仍为 `bot`；草稿 `card->>'step'` 为 1 |
+| 2 | `say $X "这台还在保修期内"`；`waitq "select handling_state \|\| '\|' \|\| handoff_reason from conversation where buyer_name = 'Card Auto A' and handling_state = 'awaiting_human'"` | `awaiting_human\|card` |
+| 3 | `q "select type, origin, description from ticket where conversation_id = '$(conv "Card Auto A")'"`；`q "select count(*) from message where conversation_id = '$(conv "Card Auto A")' and sender_role = 'ai'"` | 工单一行 `internal\|rule\|摄像头识别不到：帮买家恢复使用：替身：保修`；AI 发出的消息共 2 条（第 1、2 步各一条，没有另发安抚句） |
+| 4 | `Y=$(newbuyer tiktok 7000001 "Card Auto B")`；`say $Y "摄像头识别不到，我急用"`；等会话进入待认领 | `handoff_reason` 为 `card`；模拟器里买家 B 收到 1 条卖家消息（模型的回复作安抚句）；`q "select count(*) from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = 'Card Auto B'"` 为 0 |
+
+后置：按 §3「固定为工作时间内」。
+
+#### `TC-KB-064` 影子模式只记录用卡；卡下架后草稿标「已下架」 — 对应 `REQ-KB-012` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`cardclear`；`cardk` 记为 K；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `X=$(newbuyer shopee 220002 "Card Shadow A")`；`say $X "摄像头识别不到，我急用"`；`waitq "select d.card->>'action' from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = 'Card Shadow A' and d.status = 'shadow'"` | `handoff` |
+| 2 | `q "select handling_state, handoff_reason from conversation where buyer_name = 'Card Shadow A'"` | `awaiting_human\|shadow`（没有改成 card） |
+| 3 | 林晓打开该会话，展开影子回复 | 影子回复里一行「经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 1 步 · 按卡转人工」 |
+| 4 | `api owner@demo.test -X POST $B/api/v1/knowledge/cards/<K>/archive -d '{"version":1}'`，刷新会话 | 那一行变为「经验卡：「摄像头识别不到：帮买家恢复使用」（已下架） · 第 1 步 · 按卡转人工」，标题不是链接 |
+
+后置：`cardclear`。
+
+#### `TC-KB-065` 卡的近 30 天效果：调用、采纳、转人工 — 对应 `REQ-KB-011`、`REQ-KB-012` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 对买家名 Stat A、Stat B、Stat C 各执行 `newbuyer shopee 220001 <名>` 并 `say <ID> "摄像头识别不到"`；Stat D 执行 `say <ID> "摄像头识别不到，我急用"`；等 A、B、C 各有一份待审草稿、D 进入待认领 | 三份草稿 `card_id` 都是 K |
+| 2 | 取 A 的草稿 ID 与正文，`api agent2@demo.test -X POST $B/api/v1/conversations/<A>/messages -d '{"clientRequestId":"stat-card-a","type":"text","text":"<草稿正文>","draftId":"<A 草稿>","disposition":"sent"}'`；B 同样发，`clientRequestId` 为 `stat-card-b`，正文末尾加「（已改）」、`disposition` 为 `edited_sent`；`api agent2@demo.test -X POST $B/api/v1/conversations/<C>/drafts/<C 草稿>/ignore` | 前两次 `HTTP 201`，第三次 `HTTP 200` |
+| 3 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `card.stats` 为 `calls` 4、`sent` 1、`edited` 1、`ignored` 1、`handoffs` 1 |
+| 4 | 林晓打开卡 K 的抽屉看「近 30 天效果」 | 调用「4 次」；采纳率「67%」，注「原样 1 · 改后 1 · 弃用 1」；转人工率「25%」，注「转人工或建工单 1 次」 |
+| 5 | 看「经验卡」列表这一行的「近 30 天」 | 「调用 4 次」，下方「采纳 67% · 转人工 25%」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-066` 员工提交学习：勾选消息与备注、「已提交学习」与进度、校验与限流 — 对应 `REQ-KB-013` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；`login agent2@demo.test`；`cardclear`；`X=$(newbuyer shopee 220001 "Learn A")`；`say $X "设备坏了想换货"`；等「AI 草稿」里出现该会话；浏览器以 Mei Lin（agent2@demo.test）打开该会话并点「认领」，回复一句「好的，给您安排换货」。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 点会话头的「提交学习」按钮 | 按钮呈按下状态；时间线每条消息左侧出复选框；输入框换成底部条「提交学习」，写着「勾选能说明这次怎么处理的消息……」 |
+| 2 | 勾选买家「设备坏了想换货」与本方「好的，给您安排换货」，备注填「换货流程要记下来」，点「提交」 | 提示「已提交学习」，说明「AI 分析后，组长或管理员会在知识库「学习」页签审核。」；选择模式退出，两条消息下方各标「已提交学习」 |
+| 3 | 等 10 秒后刷新会话 | 两条消息下方标「已提交学习 · 待审核」 |
+| 4 | `api agent2@demo.test $B/api/v1/conversations/$(conv "Learn A")/learning` | `HTTP 200`；`items` 1 项，`source` `member`，`status` `pending_review`，`messageIds` 是这两条消息、`submittedByName` 为 Mei Lin |
+| 5 | 等 60 秒，再以 `{"messageIds":["<买家那条>"]}` 连续调用 `api agent2@demo.test -X POST $B/api/v1/conversations/$(conv "Learn A")/learning` 6 次 | 前 5 次 `HTTP 201`；第 6 次 `HTTP 429` `/errors/rate-limited`，`detail`「同一个会话每分钟最多提交 5 次学习，请稍后再试。」 |
+| 6 | 等 60 秒，以 `{"messageIds":["<任意另一会话的消息 ID>"]}` 提交 | `HTTP 422` `/errors/validation`，`detail`「有消息不属于这个会话，请刷新后重新勾选。」 |
+
+后置：无。
+
+#### `TC-KB-067` 新卡：内部测试、审核改内容、复测通过才能发布 — 对应 `REQ-KB-013` · 级别: 冒烟 · 执行者: 皆可
+
+前置：先执行 `TC-KB-066` 第 1–3 步（不做后续步骤）；`login owner@demo.test`；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/reception/knowledge?tab=learning` | 页签「学习」带待审核数 1；列表一行「Learn A · Demo Shopee MY」，下方「「设备坏了想换货」」与「客服提交（Mei Lin） · 流程需要补充」，状态「待审核」 |
+| 2 | 点这一行 | 任务抽屉依次有「原始消息」（勾选的两条标「（已勾选）」）、「背景」（产品「没识别到」与「待确认产品：在下方的建议内容里选定」）、「判断依据与建议」（「替身：按关键词判断」）、「相似内容」、「测试结果」（「改前（现有知识）」写「没有用经验卡」，「改后（加上这张卡）」写「经验卡：替身：设备坏了想换货 · 第 1 步 · 继续处理」）、「建议更新内容」（标题「替身：设备坏了想换货」） |
+| 3 | 看底部 | 「复测：当前内容还没复测，复测通过才能发布」；「发布」不可点 |
+| 4 | `api owner@demo.test -X POST $B/api/v1/knowledge/learning/<任务 ID>/publish -d "{\"version\":<任务 version>,\"card\":<任务 proposal>}"` | `HTTP 409`，`code` `retest_required`，`detail`「内容改过后还没复测通过，请先复测。」 |
+| 5 | 把标题改为「换货流程：设备故障时安排换货」，点「复测」 | 数秒到 40 秒内提示「复测通过，可以发布」；底部「复测：当前内容已复测通过」；复测区「原问题（用拟发布的内容）」用到这张卡；「发布」可点 |
+| 6 | 把沟通提示改为「先确认订单号」 | 底部变回「复测：当前内容还没复测，复测通过才能发布」，「发布」不可点 |
+| 7 | 点「复测」，通过后点「发布」 | 提示「已发布经验卡「换货流程：设备故障时安排换货」」；任务状态「已发布」，结论写「林晓 审核后新建了」这张卡 |
+| 8 | `api owner@demo.test "$B/api/v1/knowledge/cards?q=换货流程"` | 一张卡，`version` 1、`source` `member`、`tips`「先确认订单号」 |
+| 9 | Mei Lin 刷新会话 | 两条消息下方标「已提交学习 · 新建了经验卡」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-068` Agent 改已有卡：复测通过写 Agent 版本、标还没人看过、标为已看 — 对应 `REQ-KB-013`、`REQ-KB-011` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`X=$(newbuyer shopee 220001 "Learn B")`；`say $X "摄像头识别不到，换线也没用"`；Mei Lin 认领并回复「请装最新的配套软件试试」；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api agent2@demo.test -X POST $B/api/v1/conversations/$(conv "Learn B")/learning -d '{"messageIds":["<买家那条消息 ID>"]}'` 记任务 ID 为 T；`waitq "select status from learning_task where id = '<T>' and status <> 'analyzing'"` | `HTTP 201`；状态 `published` |
+| 2 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `card.version` 2，`agentUnseen` true，`lastAuthor` `agent`，`steps` 4 项、最后一步「替身补充的一步」；`versions[0]` 的 `author` `agent`、`learningTaskId` 为 T、`retest.passed` true |
+| 3 | 林晓打开 `/reception/knowledge?tab=cards` | 页签「经验卡」带数字 1；卡 K 那行标「Agent 改过，未看」，最近改动「Agent」；打开「Agent 改过未看」开关后只列卡 K |
+| 4 | 打开卡 K 抽屉 | 版本列表最上面一行「第 2 版」、作者「Agent」，下方「复测通过 · 回归用例 0 个」；有「标为已看」按钮 |
+| 5 | 点「标为已看」 | 提示「已标为看过」；「Agent 改过，未看」标记消失，页签数字消失；`api owner@demo.test $B/api/v1/knowledge/cards/<K>` 的 `versions[0].seenByName` 为林晓 |
+| 6 | 打开 `/reception/knowledge?task=<T>` | 停在「学习」页签并打开任务 T：状态「已发布」，结论写「Agent 复测通过后直接改了」卡 K（第 2 版），并提示可在经验卡里查看改前改后或一键回退 |
+
+后置：`cardclear`。
+
+#### `TC-KB-069` Agent 改卡复测没通过：任务结束、卡不变 — 对应 `REQ-KB-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `X=$(newbuyer shopee 220001 "Learn C")`；`say $X "摄像头识别不到，用了一周越来越变差"`；Mei Lin 认领后对买家那条消息提交学习（接口同 `TC-KB-068` 第 1 步），等任务结束 | 任务 `published`、结论 `card_updated`；卡 K 为第 2 版 |
+| 2 | `Y=$(newbuyer shopee 220001 "Learn D")`；`say $Y "摄像头识别不到，还是不行"`；同样提交学习，记任务 ID 为 T2，等任务结束 | T2 `status` `closed`、`result` `retest_failed` |
+| 3 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `card.version` 仍为 2 |
+| 4 | 林晓打开 `/reception/knowledge?task=<T2>` | 状态「已结束」，结论写「Agent 想改「摄像头识别不到：帮买家恢复使用」，复测没通过，卡没有改动。」；复测区有一条以前测过的问题「摄像头识别不到，用了一周越来越变差」，标「改后变差」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-070` 审核结论：已有内容覆盖、驳回、无需更新 — 对应 `REQ-KB-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；新建买家 Learn E、Learn F、Learn G（Demo Shopee MY），各 `say` 一句：E「设备坏了想换货」、F「设备坏了想退货」、G「设备坏了想维修」；Mei Lin 认领三个会话；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 对 E 提交学习，`note` 为「这个无需记」，等任务结束 | 任务 `closed`、诊断 `covered`、结论 `none_needed`；「学习」列表这一行写「客服提交（Mei Lin） · 已有内容覆盖 · 无需更新」 |
+| 2 | 对 F、G 各提交学习，等两个任务都进待审核 | 两个任务 `pending_review` |
+| 3 | 打开 F 的任务，点「驳回」，原因填「不是通用流程」，确认 | 确认框标题「驳回这个学习任务？」；提示「已驳回」；任务「已结束」，结论处显示「原因：不是通用流程」 |
+| 4 | 打开 G 的任务，点「无需更新」并确认 | 提示「已标为无需更新」；任务「已结束」 |
+| 5 | 在「学习」页签按结论筛「已驳回」 | 只列 F |
+| 6 | `api owner@demo.test -X POST $B/api/v1/knowledge/learning/<G 的任务>/reanalyze -d '{"version":<G 的 version>}'` | `HTTP 409`，`code` `invalid_state` |
+
+后置：无。
+
+#### `TC-KB-071` Agent 每天挑会话：按信号挑段、不重复挑 — 对应 `REQ-KB-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login agent2@demo.test`；`cardclear`；`X=$(newbuyer shopee 220001 "Pick A")`；`say $X "我要转人工"`（命中转人工关键词「转人工」）；Mei Lin 认领并回复「您好，我来处理」，再点会话头的「结束会话」并在弹窗里点「结束会话」；记 Demo Store 商户 ID 为 M。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `q "select handed_off, human_replied, ended_at is not null from segment where conversation_id = '$(conv "Pick A")'"` | `t\|t\|t` |
+| 2 | `pnpm job learning.pick "{\"merchantId\":\"<M>\"}"` | 输出 `"ok":true` |
+| 3 | `waitq "select source \|\| '\|' \|\| status from learning_task where conversation_id = '$(conv "Pick A")' and status <> 'analyzing'"` | `agent\|pending_review` |
+| 4 | 林晓打开 `/reception/knowledge?tab=learning`，按来源筛「Agent 挑选」 | 有「Pick A · Demo Shopee MY」这一行，来源写「Agent 挑选」；打开后「原始消息」标「Agent 挑的整段会话」 |
+| 5 | 再执行第 2 步 | `q "select count(*) from learning_task where conversation_id = '$(conv "Pick A")'"` 仍为 1 |
+
+后置：无。
+
 ### 看板
 
 #### `TC-DASH-001` 组长的看板只含负责店铺 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
@@ -5019,6 +5265,8 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-063 | 2026-10-21 | 本地 | `wt/vdims` 工作区改动（视频上传带宽高、时间线按真实比例显示；基于 `fcd1ea8`） | AI（Claude Code 子会话；Playwright + Edge、Playwright 请求） | 局部（TC-CONV-078） | 通过 1/1 |
 | RUN-064 | 2026-10-21 | 本地 | `c956fea` + 工作区改动（只改 `docs/`；未修复） | AI（Claude Code 主会话；Playwright + Edge、curl） | 局部（TC-CONV-079） | 通过 0/1 · 失败 1 |
 | RUN-065 | 2026-10-21 | 本地 | `c956fea` + 工作区改动（`docs/`、`src/lib/attachments.ts` 与其测试） | AI（Claude Code 主会话；Playwright + Edge、curl） | 复测（RUN-064：TC-CONV-079） | 通过 1/1 |
+| RUN-066 | 2026-10-21 | 本地 | `d7a3c17` + 工作区改动（`docs/`、`learning-analyze.ts` 的审计动作名） | AI（Claude Code 子会话；Playwright + Edge、Node 请求） | 局部（TC-KB-058、TC-KB-059、TC-KB-060、TC-KB-061、TC-KB-062、TC-KB-063、TC-KB-064、TC-KB-065、TC-PERM-009、TC-KB-066、TC-KB-067、TC-KB-068、TC-KB-069、TC-KB-070、TC-KB-071、TC-AI-001、TC-KB-053、TC-PERM-001） | 通过 15/18 · 失败 3 |
+| RUN-067 | 2026-10-22 | 本地 | `d7a3c17` + 工作区改动（`docs/`、`learning-analyze.ts`、`learning-bar.tsx`、`timeline.tsx`、`learning-drawer.tsx`） | AI（Claude Code 子会话；Playwright + Edge、Node 请求） | 复测（RUN-066：TC-KB-065、TC-KB-066、TC-KB-067） | 通过 3/3 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5140,6 +5388,9 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-059 | TC-CONV-068 | 待人工 | 执行者为人工，要在已接真实 Shopee、TikTok 店的环境里对真实会话执行 | 交用户在 shopilot.live 执行 |
 | RUN-062 | TC-CONV-068 | 待人工 | 执行者为人工，第 5 步要在已接真实 TikTok 店的环境里对真实会话发 20 MB 以上视频 | 交用户在 shopilot.live 执行 |
 | RUN-064 | TC-CONV-079 | 失败 | 第 3 步 qt.mp4 上传 HTTP 201，点发送后它在附件条里标「没发出」，时间线没有新增视频，库里视频消息仍只有 clip.mp4 一条：文件头是 QuickTime，上传记为 `video/quicktime`，发送接口按 Shopee 只收 MP4 拒绝。连带：第 4 步粘贴 clip.mov 提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」不进附件条，第 5、6 步只有一条视频，第 7 步是同一句旧提示，第 10 步 `detail` 为「Shopee 只能发 MP4 视频。」；第 1、2、8、9、11 步符合；证据 `docs/test-runs/run-064-TC-CONV-079-3.png`、`docs/test-runs/run-064-TC-CONV-079.json` | 实现修复，RUN-065 复测通过 |
+| RUN-066 | TC-KB-065 | 失败 | 第 2 步发送 A、B 的草稿返回 HTTP 422 `/errors/validation`，`clientRequestId`「数值过小：期望 string >=8 字符」：用例写的 `stat-a`、`stat-b` 只有 6 个字符，接口要求 8–80 个；第 3–5 步因此只统计到弃用 1、转人工 1（调用 4 次、采纳率 0%）。用例错；证据 `docs/test-runs/run-066-results.json` | 原位改为 `stat-card-a`、`stat-card-b`，RUN-067 复测通过 |
+| RUN-066 | TC-KB-066 | 失败 | 第 3 步刷新会话后两条消息下方仍只写「已提交学习」，预期「已提交学习 · 待审核」（DESIGN FLOW-KB-LEARN S9：员工在会话里看到「已提交学习」与结论）；此时 API-CONV-019 已返回 `pending_review`，界面没有显示；其余 5 步符合；证据 `docs/test-runs/run-066-TC-KB-066-3.png` | 实现缺陷：时间线标记后接最近一次提交的进度或结论，RUN-067 复测通过 |
+| RUN-066 | TC-KB-067 | 失败 | 第 2 步没有相似卡时任务抽屉整节不显示「相似内容」（六样材料只出现五样）；第 9 步消息下方只写「已提交学习」，预期「已提交学习 · 新建了经验卡」；其余 7 步符合；证据 `docs/test-runs/run-066-TC-KB-067-2.png`、`docs/test-runs/run-066-TC-KB-067-9.png` | 实现缺陷：抽屉一直显示「相似内容」，没有相似卡时写「没有找到相似的已发布经验卡。」；时间线标记补结论；RUN-067 复测通过 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -5222,6 +5473,10 @@ RUN-063 证据：局部轮，DESIGN v1.30 视频按真实宽高比显示。被�
 RUN-064 证据：修复前那一轮，只跑源自缺陷的 `TC-CONV-079`。被测为主工作区 `c956fea`（只改了 `docs/`），`pnpm db:reset && pnpm db:seed` 后 `pnpm dev`（3360），`AI_MODE=stub`。测试视频按 §3 生成，`qt.mp4` 第 5–12 字节为 `ftypqt  `；附件按钮选文件由 Playwright `setInputFiles` 完成，浏览器按后缀给出 `video/mp4`，与用户 2026-10-21 在 shopilot.live 报的 TH.mp4 走同一条路径（那份文件是 QuickTime 容器、HEVC 编码，同日在生产只上传到 Shopee 试处理，按 .mov、.mp4 两种文件名都处理成功，没有发给买家）。
 
 RUN-065 证据：复测轮，同一环境改了 `src/lib/attachments.ts`（Shopee 视频格式加 MOV）后执行。第 4 步截图时第三条气泡还显示「发送中」（界面轮询晚于库），库里已为 `sent`；随后重开会话三条都是「已发送」，灯箱里三条都在播放（`run-065-TC-CONV-079-4b.png`）。旁证：加载 `.env` 后全量单测 53 个文件 396 条通过。
+
+RUN-066 证据：局部轮，DESIGN v1.32 经验卡三条链路（FLOW-KB-CARD、FLOW-AI-CARD、FLOW-KB-LEARN）首轮，加 `TC-AI-001`、`TC-KB-053`、`TC-PERM-001` 作回归。主工作区 `d7a3c17`（经验卡三路实现已合并、未推送），起跑前 `pnpm db:reset && pnpm db:seed`（迁移到 0017）、`pnpm dev`（3360），`AI_MODE=stub`、`KNOWLEDGE_MODE=stub`；`TC-KB-067` 前按前置要求停服务、重建基线再起。执行用 Node 脚本按步骤调接口、查库，界面步骤用 Playwright + Edge 无头；每步结果与观察值在 `docs/test-runs/run-066-results.json`。执行中按 test-doc 纪律处理过的情况：① 执行脚本自身的问题，修脚本后重新观察同一步、不算产品结果：`TC-KB-059` 第 4 步第一次读到第 2 步留下的提示，等提示消失后重看为「内容没有变化」；`TC-KB-064` 第一次没有展开影子回复（它是折叠的「AI 影子回复（未发送）」），删掉这位买家的会话后重跑；`TC-KB-066` 第 2 步把右上角提示标题也计成了标记、第 4 步按原文查本方消息查不到（库里存的是译文），按截图与接口重看都符合；`TC-KB-068` 抽屉打开时页签被遮住、脚本取不到，删掉会话后重跑；`TC-KB-071` 前置第一次没点弹窗里的「结束会话」，删掉会话后重跑；`TC-AI-001` 第一次打开的列表地址写错（应为 `view=ai`），换一位新买家重跑。② 执行前改的用例措辞（不改语义）：`TC-KB-058` 第 4 步「测试这张卡」是一节标题，不是按钮；`TC-KB-059`、`TC-KB-068` 的版本行按抽屉实际排版写（「第 n 版」与作者分开显示）；`TC-KB-070` 的 F 改说「退货」、`TC-KB-071` 改说「我要转人工」，避开或命中种子里的转人工关键词；`TC-KB-066` 第 5 步先等 60 秒再连续提交，避开第 2 步已用掉的次数。③ 会话学习那一路提过「模拟器里买家连发两条，第二条没进会话」：用接口对 Demo Shopee MY 与 Demo TikTok TH 新买家各试了并发两条与先后两条，四种情况两条都入库、入站事件都是 `done`，没有复现，未记遗留问题。旁证：加载 `.env` 后全量单测 58 个文件 430 条通过。
+
+RUN-067 证据：复测轮，承接 RUN-066。修复：工作台时间线「已提交学习」后接这条消息最近一次提交的进度或结论（`learning-bar.tsx#useLearnedMessages`、`timeline.tsx#LearnedMark`）；学习任务抽屉一直显示「相似内容」，没有相似卡时写「没有找到相似的已发布经验卡。」（`learning-drawer.tsx`）；`TC-KB-065` 原位改 `clientRequestId`。起跑前停服务、重建基线再起（第一次启动时 Next 取 Google Fonts 超时、页面 500，重启后正常）。三条用例全部步骤符合，`TC-KB-066` 第 3 步为「已提交学习 · 待审核」，`TC-KB-067` 第 9 步为「已提交学习 · 新建了经验卡」，`TC-KB-065` 统计为调用 4、原样 1、改后 1、弃用 1、转人工 1，抽屉采纳率 67%、转人工率 25%（`docs/test-runs/run-067-results.json`）。窄屏 390 宽下工作台标记与学习任务抽屉都没有横向溢出（`run-067-TC-KB-066-390.png`、`run-067-TC-KB-067-390.png`）。旁证：全量单测 430 条通过。
 
 ## 7. 遗留问题
 

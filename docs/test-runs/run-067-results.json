@@ -1,0 +1,174 @@
+{
+  "TC-KB-067": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "tab": "学习1",
+        "row": "Learn A · Demo Shopee MY 10-22 00:17 「设备坏了想换货」 客服提交（Mei Lin） · 流程需要补充 待审核"
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "sections": true,
+        "picked": 2,
+        "noProduct": true,
+        "reason": true,
+        "before": true,
+        "after": true,
+        "title": "替身：设备坏了想换货"
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "disabled": "true"
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "status": 409,
+        "code": "retest_required",
+        "detail": "内容改过后还没复测通过，请先复测。"
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "toast": "复测通过，可以发布",
+        "disabled": null
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "disabled": "true"
+      }
+    },
+    "7": {
+      "ok": true,
+      "actual": {
+        "toast": "已发布经验卡「换货流程：设备故障时安排换货」 下一次出稿起 AI 就会按这张卡处理。",
+        "outcome": "林晓 审核后新建了经验卡「换货流程：设备故障时安排换货」，现在是第 1 版 · 10-22 00:17 原始消息 高亮的是客服勾选的"
+      }
+    },
+    "8": {
+      "ok": true,
+      "actual": [
+        {
+          "v": 1,
+          "source": "member",
+          "tips": "先确认订单号"
+        }
+      ]
+    },
+    "9": {
+      "ok": true,
+      "actual": [
+        "已提交学习 · 新建了经验卡",
+        "已提交学习 · 新建了经验卡"
+      ]
+    }
+  },
+  "TC-KB-066": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "pressed": "true",
+        "boxes": 2,
+        "bar": "提交学习 已选 0 / 20 条 勾选能说明这次怎么处理的消息，买家和客服的都可以；AI 会连同前后几条对话一起分析。 备注（选填） 0 / 200 取消 提交"
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "toast": "已提交学习 AI 分析后，组长或管理员会在知识库「学习」页签审核。",
+        "marks": 2
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": [
+        "已提交学习 · 待审核",
+        "已提交学习 · 待审核"
+      ]
+    },
+    "4": {
+      "ok": true,
+      "actual": {
+        "status": 200,
+        "n": 1,
+        "item": {
+          "source": "member",
+          "status": "pending_review",
+          "by": "Mei Lin",
+          "ids": 2
+        }
+      }
+    },
+    "5": {
+      "ok": true,
+      "actual": {
+        "codes": [
+          201,
+          201,
+          201,
+          201,
+          201,
+          429
+        ],
+        "detail": "同一个会话每分钟最多提交 5 次学习，请稍后再试。"
+      }
+    },
+    "6": {
+      "ok": true,
+      "actual": {
+        "status": 422,
+        "detail": "有消息不属于这个会话，请刷新后重新勾选。"
+      }
+    }
+  },
+  "TC-KB-065": {
+    "1": {
+      "ok": true,
+      "actual": {
+        "cards": [
+          true,
+          true,
+          true
+        ],
+        "D": "card"
+      }
+    },
+    "2": {
+      "ok": true,
+      "actual": {
+        "a": 201,
+        "b": 201,
+        "c": 200
+      }
+    },
+    "3": {
+      "ok": true,
+      "actual": {
+        "calls": 4,
+        "sent": 1,
+        "edited": 1,
+        "ignored": 1,
+        "handoffs": 1,
+        "shadowSame": 0,
+        "shadowPartial": 0,
+        "shadowDifferent": 0
+      }
+    },
+    "4": {
+      "ok": true,
+      "actual": "近 30 天效果 调用 4 次 采纳率 67% 原样 1 · 改后 1 · 弃用 1 改写率 50% 转人工率 25% 转人工或建工单 1 次 版本（1） 第 1 版 林晓 10-22 00:20 当前 关闭"
+    },
+    "5": {
+      "ok": true,
+      "actual": "摄像头识别不到：帮买家恢复使用 全部满足：买家说摄像头识别不到 3 步 · 第 1 版 · 全部站点 通用 全部阶段 林晓 10-22 00:20 调用 4 次 采纳 67% · 转人工 25% "
+    }
+  }
+}

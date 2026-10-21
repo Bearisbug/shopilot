@@ -77,8 +77,8 @@ export function Timeline({
   orderUrl: (orderNo: string) => string | null;
   /** 提交学习的选择模式：每条消息左侧出复选框；选满后没选的不能再选 */
   select?: { picked: ReadonlySet<string>; toggle: (messageId: string) => void; full: boolean };
-  /** 已提交过学习的消息：消息下方标「已提交学习」 */
-  submitted?: ReadonlySet<string>;
+  /** 已提交过学习的消息 → 最近一次提交的进度或结论：消息下方标「已提交学习 · 待审核」这样一行 */
+  submitted?: ReadonlyMap<string, string>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -189,13 +189,13 @@ export function Timeline({
                     />
                     <div className="flex min-w-0 flex-1 flex-col">
                       <MessageRow m={m} ctx={ctx} onRetry={onRetry} retrying={retryingId === m.id} />
-                      {submitted?.has(m.id) && <LearnedMark m={m} />}
+                      {submitted?.has(m.id) && <LearnedMark m={m} progress={submitted.get(m.id)!} />}
                     </div>
                   </div>
                 ) : (
                   <div className="flex min-w-0 flex-col">
                     <MessageRow m={m} ctx={ctx} onRetry={onRetry} retrying={retryingId === m.id} />
-                    {submitted?.has(m.id) && <LearnedMark m={m} />}
+                    {submitted?.has(m.id) && <LearnedMark m={m} progress={submitted.get(m.id)!} />}
                   </div>
                 )}
                 {(shadowByTrigger.get(m.id) ?? []).map((d) => (
@@ -235,12 +235,12 @@ export function Timeline({
   );
 }
 
-/** 被提交过学习的消息：跟在消息下方、与消息同侧 */
-function LearnedMark({ m }: { m: MessageItem }) {
+/** 被提交过学习的消息：跟在消息下方、与消息同侧，后接学习任务的进度或结论 */
+function LearnedMark({ m, progress }: { m: MessageItem; progress: string }) {
   return (
     <span className={cn("mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground", m.senderRole === "system" ? "self-center" : m.direction === "out" ? "self-end" : "self-start")}>
       <GraduationCapIcon className="size-3.5" aria-hidden />
-      已提交学习
+      已提交学习 · {progress}
     </span>
   );
 }

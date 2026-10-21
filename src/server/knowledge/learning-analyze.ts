@@ -238,7 +238,7 @@ async function analyze(task: TaskRow, finish: (set: Partial<typeof T.$inferInser
       .update(T)
       .set({ ...common, status: "published", result: "card_updated", proposal: content, targetCardId: card.id, retest, publishedCardId: card.id, publishedVersion: card.version, version: task.version + 1, updatedAt: new Date() })
       .where(and(eq(T.id, task.id), eq(T.version, task.version)));
-    await audit(systemActor(task.merchantId), { module: "reception", action: "card_updated_by_agent", summary: `Agent 改了经验卡「${card.title}」（第 ${card.version} 版）`, targetType: "experience_card", targetId: card.id, data: { learningTaskId: task.id, version: card.version, regressions: retest.regressions.length } }, tx);
+    await audit(systemActor(task.merchantId), { module: "reception", action: "knowledge_card_agent_updated", summary: `Agent 改了经验卡「${card.title}」（第 ${card.version} 版）`, targetType: "experience_card", targetId: card.id, data: { learningTaskId: task.id, version: card.version, regressions: retest.regressions.length } }, tx);
   });
 }
 

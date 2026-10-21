@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { GraduationCapIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LEARNING_MESSAGES_MAX, LEARNING_NOTE_MAX, type ConversationLearning, type LearningTaskResult } from "@/contracts/cards";
+import { LEARNING_MESSAGES_MAX, LEARNING_NOTE_MAX, LEARNING_RESULT_LABEL, LEARNING_STATUS_LABEL, type ConversationLearning, type LearningTaskResult } from "@/contracts/cards";
 import { charCount } from "@/contracts/reception";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +16,13 @@ import { cn } from "@/lib/utils";
 
 export const conversationLearningKey = (id: string) => ["conversation-learning", id] as const;
 
-/** 本会话被提交过学习的消息 ID */
-export function useLearnedMessages(conversationId: string): ReadonlySet<string> {
+/** 本会话被提交过学习的消息 → 最近一次提交的进度或结论（有结论写结论，没有写状态，如「待审核」「新建了经验卡」） */
+export function useLearnedMessages(conversationId: string): ReadonlyMap<string, string> {
   const q = useQuery({ queryKey: conversationLearningKey(conversationId), queryFn: () => api.get<ConversationLearning>(`/api/v1/conversations/${conversationId}/learning`) });
-  return new Set(q.data?.items.flatMap((t) => t.messageIds) ?? []);
+  const marks = new Map<string, string>();
+  // 接口按提交时间倒序：同一条消息被提交过多次时取最近一次
+  for (const t of q.data?.items ?? []) for (const id of t.messageIds) if (!marks.has(id)) marks.set(id, t.result ? LEARNING_RESULT_LABEL[t.result] : LEARNING_STATUS_LABEL[t.status]);
+  return marks;
 }
 
 /** 选择模式下替换输入框的底部条：已选数、备注、提交、取消 */

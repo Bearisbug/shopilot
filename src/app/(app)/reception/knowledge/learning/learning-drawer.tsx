@@ -165,8 +165,10 @@ function TaskDetail({ me, t }: { me: Me; t: LearningTask }) {
               {t.suggestion && <p className="text-sm leading-relaxed [overflow-wrap:anywhere]">建议：{t.suggestion}</p>}
             </Section>
           )}
-          {t.similar.length > 0 && (
-            <Section title="相似内容" hint="AI 分析时参考的已发布经验卡">
+          <Section title="相似内容" hint="AI 分析时参考的已发布经验卡">
+            {t.similar.length === 0 ? (
+              <p className="text-xs text-muted-foreground">没有找到相似的已发布经验卡。</p>
+            ) : (
               <ul className="flex flex-col gap-1.5">
                 {t.similar.map((s) => (
                   <li key={s.cardId} className="flex flex-wrap items-baseline gap-x-2 text-sm">
@@ -179,8 +181,8 @@ function TaskDetail({ me, t }: { me: Me; t: LearningTask }) {
                   </li>
                 ))}
               </ul>
-            </Section>
-          )}
+            )}
+          </Section>
           {(t.test || t.retest) && (
             <Section title="测试结果" hint={t.testQuestion ? `用买家的「${t.testQuestion}」按现在的出稿流程试跑，不发给买家` : undefined}>
               {t.test && (
