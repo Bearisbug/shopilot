@@ -10,9 +10,10 @@ describe("输入框附件：能不能加", () => {
     expect(checkMedia({ type: "image/png", size: 11 * MB }, "shopee")).toEqual({ error: "图片 11.0 MB，超过 10 MB 上限。" });
     expect(checkMedia({ type: "image/gif", size: MB }, "shopee")).toEqual({ error: "只支持 JPG、PNG、WebP，不超过 10 MB。" });
     expect(checkMedia({ type: "video/mp4", size: MB }, "shopee")).toEqual({ kind: "video" });
-    expect(checkMedia({ type: "video/quicktime", size: MB }, "shopee")).toEqual({ error: "只支持 MP4 视频，MOV 等格式请先导出为 MP4。" });
+    expect(checkMedia({ type: "video/quicktime", size: MB }, "shopee")).toEqual({ kind: "video" });
+    expect(checkMedia({ type: "video/webm", size: MB }, "shopee")).toEqual({ error: "只支持 MP4、MOV 视频，其他格式请先导出为 MP4。" });
     expect(checkMedia({ type: "video/mp4", size: 31 * MB }, "shopee")).toEqual({ error: "视频 31.0 MB，超过 30 MB 上限。" });
-    expect(checkMedia({ type: "application/pdf", size: MB }, "shopee")).toEqual({ error: "平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。" });
+    expect(checkMedia({ type: "application/pdf", size: MB }, "shopee")).toEqual({ error: "平台聊天只能发图片和 MP4、MOV 视频，PDF 等文件发不出去。" });
   });
 
   it("TikTok 视频：MP4、MOV、WebM 不超过 100 MB", () => {
@@ -28,7 +29,7 @@ describe("输入框附件：能不能加", () => {
     const files = [img("a"), { name: "b.pdf", type: "application/pdf", size: MB }, img("c"), img("d")];
     const r = acceptFiles(files, ATTACH_MAX - 2, "shopee");
     expect(r.accepted.map((x) => x.file.name)).toEqual(["a", "c"]);
-    expect(r.errors).toEqual(["平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。", `一次最多放 ${ATTACH_MAX} 个，后面的没有加入。`]);
+    expect(r.errors).toEqual(["平台聊天只能发图片和 MP4、MOV 视频，PDF 等文件发不出去。", `一次最多放 ${ATTACH_MAX} 个，后面的没有加入。`]);
     expect(acceptFiles([img("x"), img("y")], ATTACH_MAX, "tiktok").accepted).toEqual([]);
     expect(acceptFiles([{ name: "v", type: "video/mp4", size: MB }, { name: "w", type: "video/quicktime", size: MB }], 0, "tiktok").accepted.map((x) => x.kind)).toEqual(["video", "video"]);
   });

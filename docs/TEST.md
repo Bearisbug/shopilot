@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-21 | 按 DESIGN v1.31 Shopee 会话可发 MOV：`TC-CONV-076` 废弃，被 `TC-CONV-079` 取代（源自缺陷：后缀 .mp4 的 QuickTime 视频在 Shopee 会话发送失败；不能发的格式改用 WebM 验证）；§3 测试视频加 `qt.mp4` | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.30 视频按真实宽高比显示：新增 `TC-CONV-078`（TikTok、Shopee 会话发横屏与竖屏视频的缩略图比例、买家视频、没有宽高的旧视频加载后调整、上传接口宽高校验）；§3 测试视频加 `wide.mp4`（1280×720）、`tall.mp4`（720×1280） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.29 TikTok 会话可发视频：`TC-CONV-065` 废弃，Shopee 部分被 `TC-CONV-076` 取代（加发送接口拒 MOV 与超过 30 MB）；新增 `TC-CONV-077`（TikTok 会话粘贴视频和文字按顺序发出、MOV 与 WebM、100 MB 上限、31 MB 分两块上传）；原位给 `TC-CONV-068` 加第 5 步（真实 TikTok 会话发 20 MB 以上视频）；§3 测试视频加 `clip.webm`、`big31.mp4`、`big101.mp4` | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.26 粘贴改为放进输入框、和文字一起按顺序发：`TC-CONV-064` 废弃，被 `TC-CONV-072` 取代；新增 `TC-CONV-073`（平台没发出即停、再点发送接着发）与 `TC-CONV-074`（附件被拒不进时间线，标「没发出」后接着发，需拦截请求，执行者 AI）；原位修改 `TC-CONV-065` 前置与第 1、6 步、`TC-CONV-021` 第 1 步、`TC-CONV-022` 第 1、3 步（按钮改名「添加图片或视频」，选的文件先进附件条，再点发送） | 实现会话 |
@@ -222,7 +223,7 @@ curl -s -X POST "$B/mock/shopee/sg${api_path}?partner_id=2001001&timestamp=${ts}
 
   - 以上三个配方换应用时，把 `2001001` 与 `mock-key-2001001` 换成对应的 Partner ID 与 Key，主机区域段换成该应用登记的区域（`1000101`、`2001001` 为 `sg`，`2001003` 为 `cn`，`2001002` 为 `sandbox`）。
 - 测试图片（放 `$SP_TMP/img/`，执行前准备）：约 2 MB 的 PNG、恰好 10,485,760 字节的 PNG、约 11 MB 的 JPG、一张 GIF。
-- 测试视频（同目录）：`ffmpeg -f lavfi -i testsrc=duration=3:size=320x240:rate=25 -pix_fmt yuv420p -y $SP_TMP/img/clip.mp4`，再把同样参数的输出换成 `clip.mov`；`ffmpeg -f lavfi -i testsrc=duration=2:size=320x240:rate=25 -c:v libvpx-vp9 -b:v 200k -y $SP_TMP/img/clip.webm`；只带 MP4 文件头、其余补零的大文件：`{ printf '\0\0\0\030ftypisom'; head -c $((31*1024*1024-12)) /dev/zero; } > $SP_TMP/img/big31.mp4`，把 31 换成 101 得到 `big101.mp4`；横屏与竖屏视频：`ffmpeg -f lavfi -i testsrc=duration=3:size=1280x720:rate=25 -pix_fmt yuv420p -y $SP_TMP/img/wide.mp4`，把 `1280x720` 换成 `720x1280` 输出 `tall.mp4`。
+- 测试视频（同目录）：`ffmpeg -f lavfi -i testsrc=duration=3:size=320x240:rate=25 -pix_fmt yuv420p -y $SP_TMP/img/clip.mp4`，再把同样参数的输出换成 `clip.mov`；`ffmpeg -f lavfi -i testsrc=duration=2:size=320x240:rate=25 -c:v libvpx-vp9 -b:v 200k -y $SP_TMP/img/clip.webm`；只带 MP4 文件头、其余补零的大文件：`{ printf '\0\0\0\030ftypisom'; head -c $((31*1024*1024-12)) /dev/zero; } > $SP_TMP/img/big31.mp4`，把 31 换成 101 得到 `big101.mp4`；文件头是 QuickTime、后缀是 .mp4 的视频：`cp $SP_TMP/img/clip.mov $SP_TMP/img/qt.mp4`；横屏与竖屏视频：`ffmpeg -f lavfi -i testsrc=duration=3:size=1280x720:rate=25 -pix_fmt yuv420p -y $SP_TMP/img/wide.mp4`，把 `1280x720` 换成 `720x1280` 输出 `tall.mp4`。
 - 知识库测试文件（放 `$KB`，执行前在仓库根运行下面的命令生成）：PDF 每页挂一段随机字节，页大小可控；xlsx、docx 是只存不压的 zip，文件头与 Office 文件相同。
 
 ```bash
@@ -2110,7 +2111,9 @@ qaclear() {
 
 后置：无。
 
-#### `TC-CONV-076` Shopee 会话发 MP4 视频，MOV 与超过 30 MB 的不能发 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+#### `TC-CONV-076` Shopee 会话发 MP4 视频，MOV 与超过 30 MB 的不能发（已废弃） — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可
+
+已废弃，被 `TC-CONV-079` 取代：DESIGN v1.31 起 Shopee 会话也能发 MOV 视频，第 5、8 步的预期不再成立。
 
 前置：基线；执行「curl 会话」，`login agent2@demo.test`；准备 §3 测试视频 clip.mp4、clip.mov、big31.mp4；按 §3「模拟器发消息」给 Demo Shopee MY 一个新买家发一条文字，记会话 C；浏览器以 agent2@demo.test（Mei Lin）登录，打开 C 点「认领」。粘贴做法同 `TC-CONV-072`。
 
@@ -2165,6 +2168,26 @@ qaclear() {
 | 9 | 窗口改为宽 390 px，打开 C1 | 三条视频缩略图都在对话栏内，页面没有横向滚动；横屏一条宽高比 16:9，竖屏两条 9:16 |
 | 10 | `curl -s -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -F "file=@$SP_TMP/img/wide.mp4" -F width=0 -F height=720 -w '\nHTTP %{http_code}\n' $B/api/v1/files`；再只带 `-F width=1280` 上传一次 | 两次都是 `HTTP 422` `/errors/validation`，`detail` 为「视频宽高要是 1–8192 的整数，两个要一起给。」 |
 | 11 | 同第 10 步，带 `-F width=1280 -F height=720` 上传一次，再不带宽高上传一次 | 两次都是 `HTTP 201`；第一次 `width` 1280、`height` 720，第二次 `width`、`height` 都是 null |
+
+后置：无。
+
+#### `TC-CONV-079` Shopee 会话发 MP4 与 MOV 视频，WebM 与超过 30 MB 的不能发 — 对应 `REQ-CONV-015` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-21 后缀 .mp4 的 QuickTime 视频在 Shopee 会话发送失败
+
+前置：基线；执行「curl 会话」，`login agent2@demo.test`；准备 §3 测试视频 clip.mp4、qt.mp4、clip.mov、clip.webm、big31.mp4；按 §3「模拟器发消息」给 Demo Shopee MY 一个新买家发一条文字，记会话 C；浏览器以 agent2@demo.test（Mei Lin）登录，打开 C 点「认领」。粘贴做法同 `TC-CONV-072`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 用输入框下方的附件按钮选 clip.mp4，等缩略图不再显示上传中后点发送 | 附件条出现一个视频缩略图；点发送后它移出附件条，时间线出现视频气泡，标「发送中」 |
+| 2 | 等 15 秒 | 视频气泡变为已发送，点播放能播放 |
+| 3 | 用附件按钮选 qt.mp4，等缩略图不再显示上传中后点发送，等 15 秒 | 附件条出现视频缩略图，没有提示；点发送后时间线出现视频气泡，15 秒内变为已发送，没有「发送失败」或「没发出」 |
+| 4 | 在输入框粘贴 clip.mov，点发送，等 15 秒 | 附件条出现视频缩略图，没有提示；发送后视频气泡变为已发送 |
+| 5 | `q "select f.mime, m.send_status from message m join file f on f.id = (m.payload->>'fileId')::uuid where m.conversation_id = '<C>' and m.type = 'video' order by m.created_at"` | 三行依次为 `video/mp4\|sent`、`video/quicktime\|sent`、`video/quicktime\|sent` |
+| 6 | 模拟器打开这个买家的会话 | 买家视图收到三条视频 |
+| 7 | 在输入框粘贴 clip.webm | 不发送；提示「只支持 MP4、MOV 视频，其他格式请先导出为 MP4。」；附件条不出现 |
+| 8 | 粘贴 big31.mp4 | 提示「视频 31.0 MB，超过 30 MB 上限。」；附件条不出现 |
+| 9 | `curl -s -b "$SP_TMP/agent2@demo.test" -H "Origin: $B" -F "file=@$SP_TMP/img/clip.webm" -w '\nHTTP %{http_code}\n' $B/api/v1/files`，记返回的 `id` 为 W | `HTTP 201`，`kind` 为 `video`；`q "select mime from file where id = '<W>'"` 为 `video/webm` |
+| 10 | `api agent2@demo.test -X POST $B/api/v1/conversations/<C>/messages -d '{"clientRequestId":"tc079-webm","type":"video","fileId":"<W>"}'` | `HTTP 415` `/errors/unsupported-type`，`detail` 为「Shopee 只能发 MP4、MOV 视频。」；时间线没有新增 |
+| 11 | 同第 9 步上传 big31.mp4 记为 G，再同第 10 步发 G（`clientRequestId` 换成 `tc079-big`） | 上传 `HTTP 201`；发送 `HTTP 413` `/errors/too-large`，`detail` 为「Shopee 视频不能超过 30 MB。」 |
 
 后置：无。
 
@@ -4994,6 +5017,8 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-061 | 2026-10-21 | 本地 | `wt/convperf` 工作区改动（指到会话行预取会话、点下即显示会话头与骨架；基于 `d1ff89f`） | AI（Claude Code 子会话；Playwright + Edge） | 局部（TC-CONV-075、TC-PERM-008） | 通过 2/2 |
 | RUN-062 | 2026-10-21 | 本地 | `wt/ttvideo` 工作区改动（TikTok 会话发视频：分块上传后用 202309 版发出；基于 `bb3f383`） | AI（Claude Code 子会话；Playwright + Edge、Playwright 请求） | 局部（TC-CONV-076、TC-CONV-077、TC-CONV-072、TC-CONV-022、TC-CONV-068） | 通过 4/5 · 待人工 1 |
 | RUN-063 | 2026-10-21 | 本地 | `wt/vdims` 工作区改动（视频上传带宽高、时间线按真实比例显示；基于 `fcd1ea8`） | AI（Claude Code 子会话；Playwright + Edge、Playwright 请求） | 局部（TC-CONV-078） | 通过 1/1 |
+| RUN-064 | 2026-10-21 | 本地 | `c956fea` + 工作区改动（只改 `docs/`；未修复） | AI（Claude Code 主会话；Playwright + Edge、curl） | 局部（TC-CONV-079） | 通过 0/1 · 失败 1 |
+| RUN-065 | 2026-10-21 | 本地 | `c956fea` + 工作区改动（`docs/`、`src/lib/attachments.ts` 与其测试） | AI（Claude Code 主会话；Playwright + Edge、curl） | 复测（RUN-064：TC-CONV-079） | 通过 1/1 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5114,6 +5139,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-057 | TC-DASH-019 | 待人工 | 执行者为人工，要在线上草稿对比上线满 7 天后抽检 | 交用户在 shopilot.live 执行 |
 | RUN-059 | TC-CONV-068 | 待人工 | 执行者为人工，要在已接真实 Shopee、TikTok 店的环境里对真实会话执行 | 交用户在 shopilot.live 执行 |
 | RUN-062 | TC-CONV-068 | 待人工 | 执行者为人工，第 5 步要在已接真实 TikTok 店的环境里对真实会话发 20 MB 以上视频 | 交用户在 shopilot.live 执行 |
+| RUN-064 | TC-CONV-079 | 失败 | 第 3 步 qt.mp4 上传 HTTP 201，点发送后它在附件条里标「没发出」，时间线没有新增视频，库里视频消息仍只有 clip.mp4 一条：文件头是 QuickTime，上传记为 `video/quicktime`，发送接口按 Shopee 只收 MP4 拒绝。连带：第 4 步粘贴 clip.mov 提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」不进附件条，第 5、6 步只有一条视频，第 7 步是同一句旧提示，第 10 步 `detail` 为「Shopee 只能发 MP4 视频。」；第 1、2、8、9、11 步符合；证据 `docs/test-runs/run-064-TC-CONV-079-3.png`、`docs/test-runs/run-064-TC-CONV-079.json` | 实现修复，RUN-065 复测通过 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -5192,6 +5218,10 @@ RUN-061 证据：被测为 `wt/convperf` 工作区的生产构建（`next build`
 RUN-062 证据：局部轮，DESIGN v1.29 TikTok 会话发视频。被测为 `wt/ttvideo` 工作区（基于 `bb3f383`，改了上传接口、发送校验、TikTok 适配器、模拟平台与输入框规则），`next dev` 端口 3382 与同库 Worker，独立库 `shopilot_wt_ttvideo`，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3382，`AI_MODE=stub`，起跑前 `pnpm db:reset && pnpm db:seed`；Edge headless；每条用例用 `create_buyer` 加 `buyer_message` 新建买家，推送都是 HTTP 200。受影响用例按 `REQ-CONV-015` 取，另加上传接口改过的 `TC-CONV-022`；本轮没有跑冒烟用例。§3 测试文件按本版 §3 生成（clip.mp4 17,280 字节、clip.mov 17,227、clip.webm 29,174、big31.mp4 32,505,856、big101.mp4 105,906,176）；粘贴由 AI 对输入框派发 `paste` 事件，31 MB 与 101 MB 的粘贴在页面里造同样大小与类型的文件（输入框只看类型与大小，不上传）。`TC-CONV-076`：附件条「第 1 个附件：视频」，发送后附件条清空、库里 `sending`，之后 `sent`，灯箱播放 `currentTime` 0.51；买家视图 `buyer:text`、`seller:video`；粘贴 clip.mov 提示「只支持 MP4 视频，MOV 等格式请先导出为 MP4。」，粘贴 31 MB 提示「视频 31.0 MB，超过 30 MB 上限。」，附件条都不出现；接口上传 clip.mov 201、`video/quicktime`，发送 415 `/errors/unsupported-type`「Shopee 只能发 MP4 视频。」，消息数 2 → 2；big31.mp4 上传 201、发送 413 `/errors/too-large`「Shopee 视频不能超过 30 MB。」。`TC-CONV-077`：附件按钮读屏名与用例一致；输入「这是安装视频」加粘贴 clip.mp4 不弹提示；发送后附件条清空，这句话在视频气泡之前，视频气泡「发送中」（`run-062-TC-CONV-077-3.png`），随后 `sent`，灯箱播放 `/api/v1/files/<文件 ID>`、`currentTime` 0.51；库里最后两行 `text|sent|t|`、`video|sent|t|/api/v1/files/<文件 ID>`；买家视图 `TEXT:[译文] 这是安装视频`、`VIDEO`；选 clip.mov 与 clip.webm 按顺序进附件条，发出后依次 `video/quicktime|sent`、`video/webm|sent`；粘贴 101 MB 提示「视频 101.0 MB，超过 100 MB 上限。」；接口上传 big101.mp4 413 `/errors/too-large`「视频不能超过 100 MB，图片不能超过 10 MB。」；big31.mp4 上传 201、发送 201 `sending`，10 秒后 `sent`，模拟平台请求依次是 init、`chunk_num=1`、`chunk_num=2` 两次 PUT、202309 发送，都是 200（`run-062-TC-CONV-077-11-weblog.txt`）。`TC-CONV-077` 前两遍是执行脚本的问题，修正后在新会话上重跑第三遍，本段数字都是第三遍的：第一遍第 5 步脚本把布尔列拼成字符串得到 `true`（用例原文的 `q` 输出 `t`），第 11 步脚本没解析出 `chunk_num`；第二遍第 11 步按 `client_request_id` 查到前一遍的同名消息，用例第 11 步的查询改为限定会话 C（§1 不另记，用例本轮新增）。`TC-CONV-072`：附件条三张读屏名第 1–3 个、无确认框；输入框外框 106 → 170 → 发送后 106 px；时间线最后三条 `text|sent`、红图、蓝图（文件 ID 与粘贴时的上传顺序一致），买家视图同序；真实剪贴板（文字「你好」加 PNG，⌘V）输入框为「你好」、附件条不出现；粘贴 a.pdf 提示「平台聊天只能发图片和 MP4 视频，PDF 等文件发不出去。」；附件按钮选两张进附件条、消息数 4 → 4，逐个移除后清空。`TC-CONV-022`：11 MB JPG 提示「图片 11.0 MB，超过 10 MB 上限。」，上传接口 413 `/errors/too-large`「图片不能超过 10 MB。」；GIF 提示「只支持 JPG、PNG、WebP，不超过 10 MB。」，上传接口 415 `/errors/unsupported-type`「只支持 JPG、PNG、WebP 图片和 MP4、MOV、WebM 视频。」；10,485,760 字节 PNG 上传 201、进附件条，发送后 `sent`。控制台没有报错。证据：`docs/test-runs/run-062-results.json`（各步实际值）、`run-062-TC-CONV-076-{1,2}.png`、`run-062-TC-CONV-077-{2,3,4}.png`、`run-062-TC-CONV-077-11-weblog.txt`、`run-062-TC-CONV-072-5.png`。
 
 RUN-063 证据：局部轮，DESIGN v1.30 视频按真实宽高比显示。被测为 `wt/vdims` 工作区（基于 `fcd1ea8`，改了输入框上传、上传接口、Shopee 视频结果合并与时间线视频缩略图），`next dev` 端口 3383 与同库 Worker，独立库 `shopilot_wt_vdims`，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3383，`AI_MODE=stub`，`DATA_DIR` 用临时目录，起跑前 `pnpm db:reset && pnpm db:seed`；Edge headless，登录 owner@demo.test；会话用 `create_buyer` 加 `buyer_message` 新建，C1 在 Demo TikTok MY、C2 在 Demo Shopee MY。§3 测试视频按本版生成（wide.mp4 1280×720、43,512 字节，tall.mp4 720×1280、35,934 字节）。只跑新增的 `TC-CONV-078`；视频发送链路除带上宽高外没有改动，`TC-CONV-076`、`TC-CONV-077`、`TC-CONV-072`、`TC-CONV-022` 与冒烟用例本轮没有跑，代码仓 `video.test.ts`、`video-tiktok.test.ts` 在同一工作区全量 vitest 中通过（53 个文件、396 条）。第 1 步上传表单为 `file`、`width` 1280、`height` 720（页面里记录 `XMLHttpRequest` 发出的表单，Playwright 读不到带文件的请求体），响应 201、`width` 1280、`height` 720；第 2 步缩略图 240 × 135，缩略图里视频画面框比例 1.789、视频本身 1.778，没有黑边；第 3 步灯箱播放 2 秒后 `currentTime` 1.99；第 4 步 tall.mp4 缩略图 144 × 256，灯箱 `currentTime` 2.00；第 5 步 `1280|720`、`720|1280`；第 6 步 Shopee 视频已发送，缩略图 240 × 135，消息里播放地址换成模拟平台地址，宽高为模拟平台返回的 640 × 360，灯箱 `currentTime` 2.00；第 7 步买家视频在左侧（x 616，对话栏 x 600、宽 464），144 × 256；第 8 步每 250 ms 量一次、共 7 秒，只出现两个尺寸：先 144 × 256，第 3.06 秒变为 240 × 135，之后不变；第 9 步 390 px 宽三条缩略图依次 240 × 135、144 × 256、144 × 256（比例 1.778、0.563、0.563），都在对话栏（x 12、宽 366）内，`scrollWidth` 390 等于窗口宽，Shopee 那条 240 × 135；第 10 步两次 `HTTP 422` `/errors/validation`，`detail` 与用例一致；第 11 步 `HTTP 201` 宽高 1280、720，不带宽高的 `HTTP 201` 宽高都是 null。控制台没有报错。用例第 7 步原写的插入语句没给 `id`（消息表的 ID 由应用生成，库里没有默认值），执行时报非空约束错误，改为 `gen_random_uuid()` 后整条重跑，本段数字都是重跑的（用例本轮新增，§1 不另记）。证据：`docs/test-runs/run-063-TC-CONV-078.json`（各步实际值）、`run-063-TC-CONV-078-1440-tiktok.png`、`run-063-TC-CONV-078-1440-shopee.png`、`run-063-TC-CONV-078-390-tiktok-top.png`、`run-063-TC-CONV-078-390-tiktok-bottom.png`。
+
+RUN-064 证据：修复前那一轮，只跑源自缺陷的 `TC-CONV-079`。被测为主工作区 `c956fea`（只改了 `docs/`），`pnpm db:reset && pnpm db:seed` 后 `pnpm dev`（3360），`AI_MODE=stub`。测试视频按 §3 生成，`qt.mp4` 第 5–12 字节为 `ftypqt  `；附件按钮选文件由 Playwright `setInputFiles` 完成，浏览器按后缀给出 `video/mp4`，与用户 2026-10-21 在 shopilot.live 报的 TH.mp4 走同一条路径（那份文件是 QuickTime 容器、HEVC 编码，同日在生产只上传到 Shopee 试处理，按 .mov、.mp4 两种文件名都处理成功，没有发给买家）。
+
+RUN-065 证据：复测轮，同一环境改了 `src/lib/attachments.ts`（Shopee 视频格式加 MOV）后执行。第 4 步截图时第三条气泡还显示「发送中」（界面轮询晚于库），库里已为 `sent`；随后重开会话三条都是「已发送」，灯箱里三条都在播放（`run-065-TC-CONV-079-4b.png`）。旁证：加载 `.env` 后全量单测 53 个文件 396 条通过。
 
 ## 7. 遗留问题
 

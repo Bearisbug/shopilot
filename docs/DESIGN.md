@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-21 | v1.31 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-007 | Shopee 会话也能发 MOV 视频，后缀 .mp4、文件头是 QuickTime 的视频不再在发送时被拒 | 功能 |
 | 2026-10-21 | v1.30 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-010 | 上传视频时带上浏览器读出的宽高，时间线按真实比例显示横屏、竖屏与正方形视频；早先没有宽高的视频加载出尺寸后调整一次 | 功能 |
 | 2026-10-21 | v1.29 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-007、API-CONV-010、API-MOCK-002 | TikTok 会话可发 MP4、MOV、WebM 视频（≤ 100 MB）：后台分块传到 TikTok，再发出 | 功能 |
 | 2026-10-21 | v1.28 | PAGE-WB | 悬停或按下会话行即预取，点下先显示会话头与骨架；悬停后再点到内容就绪从 0.5 秒降到 52 毫秒 | 功能 |
@@ -979,7 +980,7 @@
 | --- | --- | --- | --- | --- |
 | 边界 | 剪贴板同时带文字 | 按文字粘贴，不放进附件条 | API-CONV-007 | TC-CONV-072 |
 | 失败 | 粘贴或选择 PDF 等文件 | 提示平台接口不支持这类文件，不加入 | `/errors/unsupported-type`；API-CONV-010 | TC-CONV-072 |
-| 失败 | Shopee 会话加 MOV 或超过 30 MB 的视频 | 提示只支持 MP4 或超过上限，不加入 | §15 输入框附件 | TC-CONV-076 |
+| 失败 | Shopee 会话加 WebM 等视频，或超过 30 MB 的视频 | 提示只支持 MP4、MOV 或超过上限，不加入 | §15 输入框附件 | TC-CONV-079 |
 | 边界 | TikTok 会话加 MP4、MOV、WebM 视频 | 不超过 100 MB 的加入附件条 | §15 输入框附件 | TC-CONV-077 |
 | 边界 | 附件条已有 9 个还要加 | 提示一次最多放 9 个，后面的不加入 | §15 输入框附件 | 不测：代码仓 attachments.test.ts 覆盖 |
 | 边界 | 用附件按钮选文件 | 可多选，按选择顺序加入附件条，不直接发 | API-CONV-010 | TC-CONV-072 |
@@ -1014,8 +1015,9 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | Shopee 会话提交 MOV 视频 | 415 `/errors/unsupported-type`〔提示：Shopee 只能发 MP4 视频〕 | `/errors/unsupported-type`；API-CONV-007 | TC-CONV-076 |
-| 失败 | Shopee 会话提交超过 30 MB 的视频 | 413 `/errors/too-large`〔提示：Shopee 视频不能超过 30 MB〕 | `/errors/too-large`；API-CONV-007 | TC-CONV-076 |
+| 边界 | Shopee 会话提交 MOV（含后缀 .mp4 的 QuickTime 文件） | 受理，照常传到 Shopee 发出 | API-CONV-007 | TC-CONV-079 |
+| 失败 | Shopee 会话提交 WebM 视频 | 415 `/errors/unsupported-type`〔提示：Shopee 只能发 MP4、MOV 视频〕 | `/errors/unsupported-type`；API-CONV-007 | TC-CONV-079 |
+| 失败 | Shopee 会话提交超过 30 MB 的视频 | 413 `/errors/too-large`〔提示：Shopee 视频不能超过 30 MB〕 | `/errors/too-large`；API-CONV-007 | TC-CONV-079 |
 
 ##### S5 传视频到平台
 
@@ -1031,7 +1033,7 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | Shopee 视频发出后 | 播放地址与封面换成 Shopee 返回的地址 | 字段 message.payload | TC-CONV-076 |
+| 边界 | Shopee 视频发出后 | 播放地址与封面换成 Shopee 返回的地址 | 字段 message.payload | TC-CONV-079 |
 | 边界 | TikTok 视频发出后 | 继续用 Shopilot 存的文件播放 | 字段 message.payload | TC-CONV-077 |
 | 边界 | 店铺站点认不出 | 继续用 Shopilot 存的文件播放 | 字段 message.payload | 无用例 |
 | 边界 | 视频带宽高 | 按宽高比先占好位置，横屏、竖屏、正方形都不变形 | 字段 message.payload；§15 时间线图片与视频 | TC-CONV-078 |
@@ -1649,7 +1651,7 @@
 - REQ-CONV-015：一次最多放 9 个附件，剪贴板同时带文字时按文字粘贴；先发文字再按附件顺序发，某条失败就停下
 - REQ-CONV-015：PDF 等文件不能发，视频格式或大小不合店铺平台的不能发，都给出原因
 - REQ-CONV-015：粘贴或用附件按钮选择都先放进输入框
-- REQ-CONV-015：Shopee 会话只收 MP4、≤ 30 MB；TikTok 会话收 MP4、MOV、WebM，≤ 100 MB
+- REQ-CONV-015：Shopee 会话收 MP4、MOV，≤ 30 MB；TikTok 会话收 MP4、MOV、WebM，≤ 100 MB
 - REQ-CONV-015：视频由内部任务 `message.video_send` 传到平台后发出，见 12.12
 - REQ-CONV-016：停止输入 800 毫秒后预翻译，按文字与目标语言缓存最近 50 条，见 FLOW-WB-PRETRANSLATE
 - REQ-CONV-016：服务端不核对预译文是否对应原文，与客服直接输入的内容同样对待
@@ -2619,7 +2621,7 @@ erDiagram
 | `API-CONV-004` | `POST /api/v1/conversations/{id}/claim` | REQ-CONV-004、REQ-FEISHU-006 | `{ version? }`：带了只在版本一致时认领；不带不比对版本，飞书卡片落地时用。可认领：AI 接待中、待认领，以及平台后台有人回复过、没有 Shopilot 处理人的处理中会话（11.1 take_over） | 200 会话 | 409 `/errors/conflict`（已被他人认领，附 `claimedBy`；员工看不到同事处理中的会话时同样返回它） | 重复认领本人已认领的会话返回 200 |
 | `API-CONV-005` | `POST /api/v1/conversations/{id}/assign` | REQ-CONV-004 | `{ toMembershipId, withTickets: boolean, version }` | 200 会话 | 409 `/errors/conflict`；422（目标不负责该店或已停用） | 目标已是处理人返回 200 |
 | `API-CONV-006` | `POST /api/v1/conversations/{id}/close` | REQ-CONV-004 | `{ reason?, version }` | 200 会话；TikTok 结束会话失败只记录，不阻断 | 409 `/errors/conflict` | 已结束再结束返回 200 |
-| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, translatedText?, draftId?, disposition?: sent\|edited_sent }`；`translatedText` 是输入框的预译文（1–2,000 字），只能随文字消息与 `translateTo` 一起提交，带了就直接发出、不再同步翻译，原文仍记在 `original_text`；待认领会话发送 = 先认领再发送；`video` 按店铺平台校验格式与大小（Shopee 只收 MP4 ≤ 30 MB，TikTok 收 MP4 / MOV / WebM ≤ 100 MB），先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 422 `/errors/validation`（`translatedText` 没有 `translateTo`、不是文字消息、为空或超过 2,000 字、超过店铺字数上限）；409 `/errors/conflict`（会话已被他人认领或已结束）；413 `/errors/too-large`、415 `/errors/unsupported-type`（视频超过或不合店铺平台的上限与格式）；409 `/errors/not-allowed`（能力表不支持该类型、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
+| `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, translatedText?, draftId?, disposition?: sent\|edited_sent }`；`translatedText` 是输入框的预译文（1–2,000 字），只能随文字消息与 `translateTo` 一起提交，带了就直接发出、不再同步翻译，原文仍记在 `original_text`；待认领会话发送 = 先认领再发送；`video` 按店铺平台校验格式与大小（Shopee 收 MP4 / MOV ≤ 30 MB，TikTok 收 MP4 / MOV / WebM ≤ 100 MB；格式按文件头认，不看后缀），先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 422 `/errors/validation`（`translatedText` 没有 `translateTo`、不是文字消息、为空或超过 2,000 字、超过店铺字数上限）；409 `/errors/conflict`（会话已被他人认领或已结束）；413 `/errors/too-large`、415 `/errors/unsupported-type`（视频超过或不合店铺平台的上限与格式）；409 `/errors/not-allowed`（能力表不支持该类型、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
 | `API-CONV-008` | `POST /api/v1/conversations/{id}/drafts/{draftId}/ignore` | REQ-AI-003 | — | 200 | 409 `/errors/conflict`（草稿已处置或过期） | 已忽略再忽略返回 200 |
 | `API-CONV-009` | `PATCH /api/v1/conversations/{id}/segment` | REQ-CONV-007 | `{ stage: presale\|insale\|aftersale\|unknown }` | 200 段 | — | 幂等 |
 | `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005、REQ-CONV-015 | multipart `file`（JPG / PNG / WebP ≤ 10 MB，或 MP4 / MOV / WebM ≤ 100 MB；按店铺平台的视频上限在发送时校验）；视频可带 `width`、`height`：浏览器读出的显示宽高，1–8,192 的整数，两个一起给，读不出就都不带；图片带了也不用，宽高从文件头读 | 201 `{ id, url, width, height, kind: image\|video }`；视频存 `file.kind = chat_video`，类型按文件头认，宽高存请求里给的值，没给为 null；发视频消息时宽高随文件写进消息 | 413 `/errors/too-large`；415 `/errors/unsupported-type`；422 `/errors/validation`（视频宽高不是 1–8,192 的整数，或只给了一个） | — |
@@ -5409,9 +5411,12 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   Given Shopee 会话，处理人选了一个 MP4 视频，它进了附件条
   When 点发送
   Then 时间线先显示发送中，后台把视频传到 Shopee、处理完后发出，可播放
+  Given 同一会话，处理人选了一个后缀 .mp4、文件头是 QuickTime 的视频
+  When 点发送
+  Then 和 MP4 一样发出，可播放
   Given 同一会话
-  When 粘贴 MOV 视频
-  Then 提示只支持 MP4 视频，不放进附件条
+  When 粘贴 WebM 视频
+  Then 提示只支持 MP4、MOV 视频，不放进附件条
 
 场景: TikTok 会话发视频 (REQ-CONV-015)
   Given TikTok 会话，处理人在输入框写了一句话并粘贴了一个 MP4 视频
@@ -6225,7 +6230,7 @@ N/A — 本期不上线。
 | 已决 | Shopee 常见问题记录（`bundle_message`）的成员能拉回：2026-10-20 生产实测 `get_message` 带 `message_id_list=[原样数字串]` 返回成员，会话分页里读不到；按此实现 REQ-CONV-013 | 实现 | 已定（v1.23） |
 | 风险 | 常见问题记录从收到到拉完的耗时没量过；出稿与飞书构卡只等 4 秒，超出时这两处缺买家原话 | 实现 | 上线后看两周 `shopee.bundle` 日志 |
 | 风险 | 商品卡与商品链接没在真实平台发过：Shopee `item` 的字段名经 2026-10-20 生产参数校验确认，TikTok 商品搜索与 `PRODUCT_CARD` 只按文档实现 | 实现 | 上线后第一次真发时核对 |
-| 风险 | Shopee 聊天视频上限与 CDN 地址拼法未实测：30 MB 是自定上限，6.2 MB 实测通过；时间线播放地址按站点拼 `cvf.`、`cf.` 域名 | 实现 | 上线后第一次发大视频时核对 |
+| 风险 | Shopee 聊天视频上限与 CDN 地址拼法未实测：30 MB 是自定上限，6.2 MB 实测通过，2026-10-21 实测 15.9 MB 的 QuickTime 容器（HEVC）视频按 .mov、.mp4 两种文件名上传都处理成功；时间线播放地址按站点拼 `cvf.`、`cf.` 域名 | 实现 | 上线后第一次发大视频时核对 |
 | 风险 | TikTok 聊天视频只实测过单块：2026-10-21 生产发出 1 条不足 5 MB 的商品视频；多块上传、MOV 与 WebM、100 MB 上限只按文档实现 | 实现 | 上线后第一次发 20 MB 以上视频时核对 |
 | 已决 | TikTok 聊天视频的 `vid` 来源：商品视频的 ID 与 `/product/202309/files/upload` 返回的 ID 发出去都报 45101001「不属于该卖家」，客服模块没有视频上传接口（404）；只有大文件上传返回的 `resource_id` 能发，且须用 202309 版 Send Message；按此实现 | 实现 | 已定（v1.29） |
 | 风险 | 卖家后台订单链接的格式没在真实平台核对过（Shopee 按订单号搜索、TikTok 跨境店订单详情） | 实现 | 第一次转发真实工单时核对 |

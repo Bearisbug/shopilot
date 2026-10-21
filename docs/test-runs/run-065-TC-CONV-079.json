@@ -1,0 +1,94 @@
+{
+  "1": {
+    "upload": {
+      "status": 201,
+      "kind": "video"
+    },
+    "toastsAfterAdd": [
+      "已认领"
+    ],
+    "inStripAfterAdd": 1,
+    "rows": [
+      "video/mp4|sent"
+    ],
+    "notSentInStrip": 0,
+    "toastsAfterSend": [],
+    "lastBubbleStatus": null
+  },
+  "2": {
+    "rows": [
+      "video/mp4|sent"
+    ],
+    "bubble": null
+  },
+  "3": {
+    "upload": {
+      "status": 201,
+      "kind": "video"
+    },
+    "toastsAfterAdd": [],
+    "inStripAfterAdd": 1,
+    "rows": [
+      "video/mp4|sent",
+      "video/quicktime|sent"
+    ],
+    "notSentInStrip": 0,
+    "toastsAfterSend": [],
+    "lastBubbleStatus": null
+  },
+  "4": {
+    "upload": {
+      "status": 201,
+      "kind": "video"
+    },
+    "toastsAfterAdd": [],
+    "inStripAfterAdd": 1,
+    "rows": [
+      "video/mp4|sent",
+      "video/quicktime|sent",
+      "video/quicktime|sent"
+    ],
+    "notSentInStrip": 0,
+    "toastsAfterSend": [],
+    "lastBubbleStatus": null
+  },
+  "5": [
+    "video/mp4|sent",
+    "video/quicktime|sent",
+    "video/quicktime|sent"
+  ],
+  "6": {
+    "videosInBuyerView": 3
+  },
+  "7": {
+    "toasts": [
+      "没有可发的图片或视频 只支持 MP4、MOV 视频，其他格式请先导出为 MP4。"
+    ],
+    "stripBefore": 0,
+    "stripAfter": 0
+  },
+  "8": {
+    "toasts": [
+      "没有可发的图片或视频 视频 31.0 MB，超过 30 MB 上限。"
+    ],
+    "stripBefore": 0,
+    "stripAfter": 0
+  },
+  "9": {
+    "resp": "{\"id\":\"ce7a5902-9d1b-4a12-b11b-fc5d21665e87\",\"url\":\"/api/v1/files/ce7a5902-9d1b-4a12-b11b-fc5d21665e87\",\"width\":null,\"height\":null,\"kind\":\"video\"} HTTP 201",
+    "mime": "video/webm"
+  },
+  "10": {
+    "resp": "{\"type\":\"/errors/unsupported-type\",\"title\":\"文件类型不支持\",\"status\":415,\"detail\":\"Shopee 只能发 MP4、MOV 视频。\",\"instance\":\"/api/v1/conversations/01a15dcd-da00-7694-97ea-9185649002c2/messages\",\"requestId\":\"req_01a15dce5acc737a87a014e8752be178\"} HTTP 415",
+    "messagesBefore": "4",
+    "messagesAfter": "4"
+  },
+  "11": {
+    "upload": "HTTP 201",
+    "send": "{\"type\":\"/errors/too-large\",\"title\":\"文件太大\",\"status\":413,\"detail\":\"Shopee 视频不能超过 30 MB。\",\"instance\":\"/api/v1/conversations/01a15dcd-da00-7694-97ea-9185649002c2/messages\",\"requestId\":\"req_01a15dce5ffe76a397644cf453fbff99\"} HTTP 413"
+  },
+  "前置": {
+    "buyer": "TC079 mvhwy8qh",
+    "C": "01a15dcd-da00-7694-97ea-9185649002c2"
+  }
+}

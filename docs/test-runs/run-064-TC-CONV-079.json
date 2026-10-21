@@ -1,0 +1,86 @@
+{
+  "1": {
+    "upload": {
+      "status": 201,
+      "kind": "video"
+    },
+    "toastsAfterAdd": [
+      "已认领"
+    ],
+    "inStripAfterAdd": 1,
+    "rows": [
+      "video/mp4|sent"
+    ],
+    "notSentInStrip": 0,
+    "toastsAfterSend": [],
+    "lastBubbleStatus": null
+  },
+  "2": {
+    "rows": [
+      "video/mp4|sent"
+    ],
+    "bubble": null
+  },
+  "3": {
+    "upload": {
+      "status": 201,
+      "kind": "video"
+    },
+    "toastsAfterAdd": [],
+    "inStripAfterAdd": 1,
+    "rows": [
+      "video/mp4|sent"
+    ],
+    "notSentInStrip": 1,
+    "toastsAfterSend": [],
+    "lastBubbleStatus": null
+  },
+  "4": {
+    "upload": null,
+    "toastsAfterAdd": [],
+    "inStripAfterAdd": 1,
+    "rows": [
+      "video/mp4|sent"
+    ],
+    "notSentInStrip": 1,
+    "toastsAfterSend": [],
+    "lastBubbleStatus": null
+  },
+  "5": [
+    "video/mp4|sent"
+  ],
+  "6": {
+    "videosInBuyerView": 0
+  },
+  "7": {
+    "toasts": [
+      "没有可发的图片或视频 只支持 MP4 视频，MOV 等格式请先导出为 MP4。"
+    ],
+    "stripBefore": 1,
+    "stripAfter": 1
+  },
+  "8": {
+    "toasts": [
+      "没有可发的图片或视频 视频 31.0 MB，超过 30 MB 上限。"
+    ],
+    "stripBefore": 1,
+    "stripAfter": 1
+  },
+  "9": {
+    "resp": "{\"id\":\"cfae1d52-d3bc-4d3d-ac39-09024ac373c9\",\"url\":\"/api/v1/files/cfae1d52-d3bc-4d3d-ac39-09024ac373c9\",\"width\":null,\"height\":null,\"kind\":\"video\"} HTTP 201",
+    "mime": "video/webm"
+  },
+  "10": {
+    "resp": "{\"type\":\"/errors/unsupported-type\",\"title\":\"文件类型不支持\",\"status\":415,\"detail\":\"Shopee 只能发 MP4 视频。\",\"instance\":\"/api/v1/conversations/01a15dca-8f67-730f-9ad2-482f4b0a4ebe/messages\",\"requestId\":\"req_01a15dcc422e74fb9720799dc8eea017\"} HTTP 415",
+    "messagesBefore": "2",
+    "messagesAfter": "2"
+  },
+  "11": {
+    "upload": "HTTP 201",
+    "send": "{\"type\":\"/errors/too-large\",\"title\":\"文件太大\",\"status\":413,\"detail\":\"Shopee 视频不能超过 30 MB。\",\"instance\":\"/api/v1/conversations/01a15dca-8f67-730f-9ad2-482f4b0a4ebe/messages\",\"requestId\":\"req_01a15dcc4739754a92cc577ff507ae36\"} HTTP 413"
+  },
+  "前置": {
+    "buyer": "TC079 mvhwtlcj",
+    "C": "01a15dca-8f67-730f-9ad2-482f4b0a4ebe"
+  }
+}

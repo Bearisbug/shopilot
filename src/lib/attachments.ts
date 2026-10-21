@@ -9,11 +9,12 @@ const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
 
 export type ChatPlatform = "shopee" | "tiktok";
 /**
- * 聊天视频按平台：Shopee 只认 MP4，上限没有文档（6.2 MB 实测通过），先限 30 MB；
+ * 聊天视频按平台：Shopee 收 MP4、MOV（2026-10-21 实测 QuickTime 容器的 HEVC 视频能处理；后缀 .mp4、文件头是 QuickTime 的，
+ * 服务端按文件头认成 MOV），上限没有文档（6.2 MB、15.9 MB 实测通过），先限 30 MB；
  * TikTok 走大文件上传，平台对客服视频限 100 MB，Content-Type 支持 MP4、MOV、WebM
  */
 export const VIDEO_RULES: Record<ChatPlatform, { types: string[]; formats: string; maxMb: number }> = {
-  shopee: { types: ["video/mp4"], formats: "MP4", maxMb: 30 },
+  shopee: { types: ["video/mp4", "video/quicktime"], formats: "MP4、MOV", maxMb: 30 },
   tiktok: { types: ["video/mp4", "video/quicktime", "video/webm"], formats: "MP4、MOV、WebM", maxMb: 100 },
 };
 export const mediaRule = (p: ChatPlatform) => `JPG、PNG、WebP 图片不超过 10 MB，${VIDEO_RULES[p].formats} 视频不超过 ${VIDEO_RULES[p].maxMb} MB`;
@@ -26,7 +27,7 @@ export function checkMedia(f: FileLike, platform: ChatPlatform): { kind: MediaKi
   if (IMAGE_TYPES.includes(f.type)) return f.size > IMAGE_MAX_BYTES ? { error: `图片 ${mb(f.size)} MB，超过 10 MB 上限。` } : { kind: "image" };
   const v = VIDEO_RULES[platform];
   if (f.type.startsWith("video/")) {
-    if (!v.types.includes(f.type)) return { error: `只支持 ${v.formats} 视频，${platform === "shopee" ? "MOV 等格式" : "其他格式"}请先导出为 MP4。` };
+    if (!v.types.includes(f.type)) return { error: `只支持 ${v.formats} 视频，其他格式请先导出为 MP4。` };
     return f.size > v.maxMb * 1024 * 1024 ? { error: `视频 ${mb(f.size)} MB，超过 ${v.maxMb} MB 上限。` } : { kind: "video" };
   }
   if (f.type.startsWith("image/")) return { error: `只支持 ${IMAGE_RULE}。` };
