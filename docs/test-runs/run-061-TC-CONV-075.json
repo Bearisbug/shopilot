@@ -1,0 +1,47 @@
+[
+  {
+    "step": 1,
+    "ok": true,
+    "detail": "静置 3 秒，会话页与会话详情请求 0 个；待认领列表 6 行"
+  },
+  {
+    "step": 2,
+    "ok": true,
+    "detail": "[{\"path\":\"/api/v1/conversations/01a15c76-50f1-753b-a23c-f96b105a8f48\",\"rsc\":null,\"prefetch\":null,\"status\":200},{\"path\":\"/api/v1/conversations/01a15c76-50f1-753b-a23c-f96b105a8f48/buyer\",\"rsc\":null,\"prefetch\":null,\"status\":200},{\"path\":\"/wb/01a15c76-50f1-753b-a23c-f96b105a8f48\",\"rsc\":\"1\",\"prefetch\":null,\"status\":200}]"
+  },
+  {
+    "step": 3,
+    "ok": true,
+    "detail": "点击后 47 ms 出现「与 พลอย 的会话」；点击后 500 ms 内详情请求 0 个"
+  },
+  {
+    "step": 4,
+    "ok": true,
+    "detail": "点击后 37 ms 出现占位；{\"current\":true,\"header\":\"P priyanair Shopee · SG Demo Shopee SG · 待认领 买家已等 22 分钟，超过接待时限\",\"timelineSkeletons\":5,\"composerSkeletons\":4,\"asideSkeletons\":5,\"oldShown\":false}"
+  },
+  {
+    "step": 5,
+    "ok": true,
+    "detail": "占位 名 (616,84) 头底 171 输入框顶 746；真实 名 (616,84) 头底 171 输入框顶 746；时间线文字 131 字"
+  },
+  {
+    "step": 6,
+    "ok": true,
+    "detail": "{\"listVisible\":false,\"back\":true,\"skeletons\":10,\"realShown\":true}"
+  },
+  {
+    "step": 7,
+    "ok": true,
+    "detail": "{\"newTab\":\"/wb/01a15c76-50f1-753b-a23c-f96b105a8f48\",\"origUrl\":\"/wb/01a15c76-50e4-7586-924f-73145e7bd091\",\"origShows\":true,\"placeholderSeen\":false}"
+  },
+  {
+    "step": 8,
+    "ok": true,
+    "detail": "减少动效时骨架 animation-name：none"
+  },
+  {
+    "step": 9,
+    "ok": true,
+    "detail": "{\"backMs\":1,\"url\":\"/wb\",\"listVisible\":true,\"placeholder\":0,\"opened\":0}"
+  }
+]

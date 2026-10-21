@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { BuyerOrder, ConversationDetail, DraftItem, MessageItem, ProductCardInfo } from "@/contracts/conversations";
-import { ErrorState, LoadingRows } from "@/components/shell/page";
+import { ErrorState } from "@/components/shell/page";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,8 +16,9 @@ import { inTz } from "@/lib/format";
 import { sellerOrderUrl } from "@/lib/seller-center";
 import { cn } from "@/lib/utils";
 import { Composer, DraftCard, type EditingDraft } from "./composer";
+import { ConversationPlaceholder } from "./conversation-placeholder";
 import { Timeline } from "./timeline";
-import { Avatar, focusReply, HANDOFF_LABEL, PlatformTag, PollErrorBar, readReply, rememberClaimLost, useBuyer, useConversation, useProductProgress, useReplyText, useWbParams, waitText, writeReply } from "./wb-shared";
+import { Avatar, focusReply, HANDOFF_LABEL, listItemFor, PlatformTag, PollErrorBar, readReply, rememberClaimLost, useBuyer, useConversation, useProductProgress, useReplyText, useWbParams, waitText, writeReply } from "./wb-shared";
 
 export function ConversationPane({ id }: { id: string }) {
   const q = useConversation(id);
@@ -69,13 +70,8 @@ export function ConversationPane({ id }: { id: string }) {
     }
   };
 
-  if (q.isPending) {
-    return (
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-card p-4">
-        <LoadingRows rows={6} />
-      </section>
-    );
-  }
+  // 详情没到：和点下列表行时的占位一样（会话头用列表这一行），两段之间不换样子
+  if (q.isPending) return <ConversationPlaceholder item={listItemFor(qc, id)} />;
   // 会话看不到了（404）才换成说明页；其他错误在已有数据时只提示、不替换内容
   const gone = q.error instanceof ApiError && q.error.status === 404;
   if (gone || !q.data) {
