@@ -4,7 +4,7 @@ import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-export type AiKind = "draft" | "simulate" | "translate" | "extract" | "rewrite" | "summary" | "issue" | "compare" | "qa_extract";
+export type AiKind = "draft" | "simulate" | "translate" | "extract" | "rewrite" | "summary" | "issue" | "compare" | "qa_extract" | "learn" | "judge";
 
 export class AiError extends Error {
   constructor(public kind: "timeout" | "model_error" | "invalid_json", message: string) {
@@ -14,7 +14,7 @@ export class AiError extends Error {
 
 export type AiResult = { content: string; model: string; latencyMs: number };
 
-const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, simulate: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000, compare: 15_000, qa_extract: 90_000 };
+const TIMEOUT_MS: Record<AiKind, number> = { draft: 25_000, simulate: 25_000, translate: 10_000, extract: 15_000, rewrite: 6_000, summary: 6_000, issue: 15_000, compare: 15_000, qa_extract: 90_000, learn: 60_000, judge: 15_000 };
 
 export async function chat(kind: AiKind, messages: ChatMessage[], opts: { json?: boolean; maxTokens?: number; stubHint?: string } = {}): Promise<AiResult> {
   const e = env();
@@ -193,6 +193,74 @@ function stubQaExtract(rest: Array<{ role: string; content: string }>): string {
   return JSON.stringify({ items });
 }
 
+type StubLearnPayload = {
+  note?: string | null;
+  stage?: string;
+  products?: Array<{ code: string }>;
+  conversation?: Array<{ from: string; text: string; selected?: boolean }>;
+  similar_cards?: Array<{ id: string; title: string; conditions: string[]; condition_mode: string; steps: Array<{ text: string; branches: unknown[] }>; tips: string | null; stage: string }>;
+};
+
+/** 两段文字有没有共同的连续 2 个字（去掉空白与标点） */
+function shareTwoChars(a: string, b: string): boolean {
+  const clean = (x: string) => [...x.toLowerCase()].filter((c) => !/[\s\p{P}]/u.test(c));
+  const ca = clean(a);
+  const tb = clean(b).join("");
+  for (let i = 0; i + 1 < ca.length; i++) if (tb.includes(ca[i] + ca[i + 1])) return true;
+  return false;
+}
+
+/**
+ * 替身会话学习：备注或消息含「无需」→ 已有内容覆盖；含「新卡」→ 新建卡；相似卡里有一张的标题与买家消息有共同的 2 个字 → 改这张卡（加一步「替身补充的一步」）；
+ * 否则按流程需要补充新建卡。新卡按最后一条买家文字生成最小的一张。
+ */
+function stubLearn(rest: Array<{ role: string; content: string }>): string {
+  let p: StubLearnPayload = {};
+  try {
+    p = JSON.parse(rest.find((m) => m.role === "user")?.content ?? "{}") as StubLearnPayload;
+  } catch {
+    // 落到空载荷
+  }
+  const buyer = (p.conversation ?? []).filter((m) => m.from === "buyer" && m.text);
+  const picked = buyer.filter((m) => m.selected);
+  const question = (picked.length ? picked : buyer).at(-1)?.text ?? "";
+  const all = [p.note ?? "", ...(p.conversation ?? []).map((m) => m.text)].join("\n");
+  const base = { reason: "替身：按关键词判断", suggestion: "替身：按建议更新", test_question: question };
+  if (all.includes("无需")) return JSON.stringify({ ...base, diagnosis: "covered", action: "none", target_card: null, card: null });
+  const target = all.includes("新卡") ? undefined : (p.similar_cards ?? []).find((c) => buyer.some((m) => shareTwoChars(c.title, m.text)));
+  if (target)
+    return JSON.stringify({
+      ...base,
+      diagnosis: "process",
+      action: "edit_card",
+      target_card: target.id,
+      card: { title: target.title, conditions: target.conditions, condition_mode: target.condition_mode, steps: [...target.steps, { text: "替身补充的一步", branches: [] }], tips: target.tips, stage: target.stage, product_codes: null },
+    });
+  const head = [...question].slice(0, 20).join("") || "买家的问题";
+  return JSON.stringify({
+    ...base,
+    diagnosis: "process",
+    action: "new_card",
+    target_card: null,
+    card: {
+      title: `替身：${head}`,
+      conditions: [`买家提到「${head}」`],
+      condition_mode: "all",
+      steps: [{ text: "替身第一步：问清情况", branches: [] }],
+      tips: null,
+      stage: p.stage && p.stage !== "unknown" ? p.stage : "any",
+      product_codes: (p.products ?? []).map((x) => x.code),
+    },
+  });
+}
+
+/** 替身复测判定：一律不比改前差；载荷里出现「变差」时判变差 */
+function stubJudge(rest: Array<{ role: string; content: string }>): string {
+  const content = rest.find((m) => m.role === "user")?.content ?? "";
+  const worse = content.includes("变差");
+  return JSON.stringify({ not_worse: !worse, reason: worse ? "替身：改后变差" : "替身：改后不比改前差" });
+}
+
 /** 出稿请求 user 载荷里有没有资料片段 */
 function stubHasKnowledge(rest: Array<{ role: string; content: string }>): boolean {
   try {
@@ -225,6 +293,8 @@ async function stubChat(kind: AiKind, messages: ChatMessage[], hint: string | un
   if (kind === "issue") return done(stubIssue(system, hint ?? ""));
   if (kind === "compare") return done(stubCompare(rest));
   if (kind === "qa_extract") return done(stubQaExtract(rest));
+  if (kind === "learn") return done(stubLearn(rest));
+  if (kind === "judge") return done(stubJudge(rest));
   if (kind === "extract") return done(JSON.stringify({ buyerName: "PT Contoh Sdn Bhd", address: "12 Jalan Contoh, 50000 Kuala Lumpur", email: "finance@contoh.example", taxId: "C1234567890" }));
   const reply = STUB_REPLIES[next];
   if (!reply) throw new AiError("timeout", "替身：超时");

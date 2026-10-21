@@ -1,0 +1,1 @@
+ALTER TABLE "learning_task" ADD COLUMN "review_note" text;

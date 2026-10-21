@@ -54,6 +54,10 @@ export const QUEUES = {
   "issue.extract": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
   // AI 草稿与人工回复对比：每轮最多 50 份、4 路并发，每份 AI 限时 15 秒
   "draft.compare": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
+  // 会话学习：每个任务一次分析（DeepSeek 60 秒 + 内部测试或复测的模拟出稿），失败记到任务上由审核人重新分析，任务本身不重试
+  "learning.analyze": { policy: "standard" as const, expireInSeconds: 600, retryLimit: 0 },
+  // Agent 每天挑已结束的会话段建学习任务（每商户最多 20 段）
+  "learning.pick": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
 } as const;
 
 export type QueueName = keyof typeof QUEUES;
@@ -79,6 +83,7 @@ export const SCHEDULES: Partial<Record<QueueName, string>> = {
   "issue.extract": "*/10 * * * *",
   "draft.compare": "3-59/10 * * * *",
   "knowledge.qa_embed": "*/5 * * * *",
+  "learning.pick": "20 19 * * *",
 };
 
 /** pg-boss 定时投递用的内部队列名（pg-boss 未导出该常量） */

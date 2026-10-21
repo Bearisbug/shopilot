@@ -1277,6 +1277,8 @@ export const learningTask = pgTable(
     error: text("error"),
     reviewedBy: uuid("reviewed_by").references(() => membership.id, { onDelete: "set null" }),
     reviewedAt: ts("reviewed_at"),
+    /** 审核人结束任务（无需更新、驳回）时写的原因 */
+    reviewNote: text("review_note"),
     publishedCardId: uuid("published_card_id").references(() => experienceCard.id, { onDelete: "set null" }),
     publishedVersion: integer("published_version"),
     version: integer("version").notNull().default(1),

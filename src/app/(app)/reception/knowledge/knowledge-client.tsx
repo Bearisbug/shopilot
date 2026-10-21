@@ -30,6 +30,9 @@ import { CardsTab } from "./cards-tab";
 import { CategoriesDialog } from "./categories-dialog";
 import { DocumentDrawer } from "./document-drawer";
 import { ACCEPT, DOC_STATE_LABEL, DOC_STATE_QUERY, DOC_STATES, DocStatus, docsKey, inProgress, MARKET_LABEL, marketsText, UPLOAD_FORMATS, UPLOAD_LIMITS, useCategories, useUrlParams, type DocState } from "./knowledge-ui";
+import { LearningDrawer } from "./learning/learning-drawer";
+import { LearningTab } from "./learning/learning-tab";
+import { useLearningPendingCount } from "./learning/learning-ui";
 import { ProductsTab } from "./products-tab";
 import { QaDialog } from "./qa-dialog";
 import { QaTab, useQaDialog } from "./qa-tab";
@@ -101,9 +104,10 @@ const extracting = (d: Pick<KnowledgeDocument, "qaExtract">) => d.qaExtract.stat
 
 export function KnowledgePage({ me }: { me: Me }) {
   const { params, update } = useUrlParams();
-  const tab = kbTab(params.get("tab"), params.has("doc"), params.has("card"));
+  const tab = kbTab(params.get("tab"), params.has("doc"), params.has("card"), params.has("task"));
   const pending = usePendingCount();
   const unseen = useUnseenCount();
+  const learningPending = useLearningPendingCount();
   const qaDialog = useQaDialog();
   const card = useCardParams();
   const go = (t: KbTab) => update({ tab: t === "qa" ? null : t }, "push");
@@ -122,6 +126,14 @@ export function KnowledgePage({ me }: { me: Me }) {
       label: (
         <>
           待审核{pending ? <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-(--semantic-color-text-link) tabular-nums">{pending}</span> : null}
+        </>
+      ),
+    },
+    {
+      value: "learning",
+      label: (
+        <>
+          学习{learningPending ? <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-(--semantic-color-text-link) tabular-nums">{learningPending}</span> : null}
         </>
       ),
     },
@@ -153,6 +165,9 @@ export function KnowledgePage({ me }: { me: Me }) {
         <TabsContent value="review">
           <ReviewTab onEdit={qaDialog.openFor} onReject={qaDialog.reject} onGoDocs={() => go("docs")} />
         </TabsContent>
+        <TabsContent value="learning">
+          <LearningTab me={me} />
+        </TabsContent>
         <TabsContent value="docs">
           <DocsTab me={me} onGoReview={() => go("review")} />
         </TabsContent>
@@ -170,6 +185,7 @@ export function KnowledgePage({ me }: { me: Me }) {
       <DocumentDrawer me={me} />
       <CardDialog me={me} open={card.dialogOpen} cardId={card.cardId} onClose={card.closeDialog} />
       <CardDrawer me={me} />
+      <LearningDrawer me={me} />
     </ReceptionFrame>
   );
 }
