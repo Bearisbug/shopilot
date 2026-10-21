@@ -1,0 +1,15 @@
+[2m  - waiting for getByRole('button', { name: '辅助草稿' }).first()[22m
+
+    at /Users/bug/Documents/VAULT/Shopilot/_r057_k.mjs:16:55 {
+  log: [ "  - waiting for getByRole('button', { name: '辅助草稿' }).first()" ],
+  name: 'TimeoutError'
+}
+
+Node.js v26.5.0
+== 018.4
+{"type":"/errors/validation"}
+HTTP 422
+== 018.5
+(end)
+== 018.6
+HTTP 403

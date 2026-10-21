@@ -1,0 +1,2 @@
+try1 status-before=queued extract=> {"type":"/errors/conflict","title":"状态已被他人改变","status":409,"detail":"这份资料还在解析，解析完成后再整理。","instance":"/api/v1/knowledge/documents/01a15b81-8ccd-7479-927a-2cccb2250029/qa-extract","requestId":"req_01a15
+try2 status-before=queued extract=> {"type":"/errors/conflict","title":"状态已被他人改变","status":409,"detail":"这份资料还在解析，解析完成后再整理。","instance":"/api/v1/knowledge/documents/01a15b81-9176-7637-ba6a-1279557a6894/qa-extract","requestId":"req_01a15

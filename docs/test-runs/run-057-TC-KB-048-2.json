@@ -1,0 +1,2 @@
+{"type":"/errors/conflict","title":"状态已被他人改变","status":409,"detail":"这条问答刚被别人改过，请刷新后再操作。","instance":"/api/v1/knowledge/qa/01a15b7e-cc48-7260-ab26-b4ffd16b5b6a","requestId":"req_01a15b7ecc787488bd8e089f93feb63a","code":"version_conflict","extra":{"version":2}}
+HTTP 409

@@ -1,0 +1,17 @@
+== 016.1
+{"compared":0,"sent":0,"editedSent":0,"ignored":0}
+== 016.2
+Compare Edited|01a15b89-d258-7437-b2c8-17333b09fdc6|01a15b89-b8ba-71e7-8eb9-77d883732b53|您好！关于「Is the camera in stock?」，我们已经收到，会尽快为您处理。
+Compare Sent|01a15b89-d258-7437-b2c8-184289dcb753|01a15b89-b6c6-76b7-9ce7-1faa4771470d|您好！关于「Is the camera in stock?」，我们已经收到，会尽快为您处理。
+== 016.3
+HTTP 201
+== 016.4
+HTTP 201
+== 016.5
+UPDATE 2
+{"job":"draft.compare","ok":true,"durationMs":39}
+sent|same|same|rule|原样发送
+== 016.6
+edited_sent|rewrite|different|stub|Hi! We have received your question about the camera. Order today and it ships tomorrow.
+== 016.7
+{"compared":2,"sent":1,"editedSent":1,"ignored":0}

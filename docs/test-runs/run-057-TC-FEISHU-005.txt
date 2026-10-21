@@ -1,0 +1,12 @@
+HTTP 200
+HTTP 200
+== fs005.1
+send 200
+{"event":10,"httpStatus":200}
+== fs005.2-4
+{"title":"待认领 · Demo TikTok TH","color":"orange","target":"Shopilot 客服群（替身）","kind":"unclaimed","status":"sent","body":"","buttons":[]}
+merchant=01a15be0-30c8-75c8-af55-41be79efed94 conv=01a15beb-1e16-75c5-aaa7-7da98c69b357
+["**AI 总结**　AI 替身总结：买家发来新消息，正在等待客服认领。","**平台** TikTok Shop · 泰国　**买家** FS005 Buyer　**已等** 不到 1 分钟","**最近对话**","**买家** <font color='grey'>08:44</font>　Halo, kamera ini bisa dipakai di Mac?\n<font color='grey'>译文：&#91;译文&#93; Halo, kamera ini bisa dipakai di Mac?</font>","认领","打开会话","<font color='grey'>Shopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推</font>","待认领 · Demo TikTok TH"]
+[["认领","http://127.0.0.1:3377/wb/01a15beb-1e16-75c5-aaa7-7da98c69b357?claim=1&m=01a15be0-30c8-75c8-af55-41be79efed94"],["打开会话","http://127.0.0.1:3377/wb/01a15beb-1e16-75c5-aaa7-7da98c69b357?m=01a15be0-30c8-75c8-af55-41be79efed94"]]
+fs005.5 url: /wb/01a15beb-1e16-75c5-aaa7-7da98c69b357
+errors 0

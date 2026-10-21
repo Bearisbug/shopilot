@@ -1,0 +1,15 @@
+保修政策.md 01a15be6-b3a4-71a4-8475-07c8c59d38e0 "ready"
+运费说明.txt 01a15be6-bc30-70e7-a9db-57cc450e28d4 "ready"
+== 024.1
+send 200
+null
+== 024.3
+== 024.4
+[{"query":"保修多久","retrievalType":"hybrid"},{"query":"保修多久","retrievalType":"hybrid"}]
+024.2: 依据：《保修政策.md》 | 认领并发送 | 改后发送 | 忽略 | 回复 KB | links: 0
+draft area: 置信度 0.85 | 您好！关于「保修多久」，我们已经收到，会尽快为您处理。 | 
+024.5: /reception/knowledge?tab=docs&doc=01a15be6-b3a4-71a4-8475-07c8c59d38e0 ok: true | drawer: 保修政策.md
+errors 0 0
+== 024.6 buyer view
+["您好！关于「保修多久」，我们已经收到，会尽快为您处理。"]
+您好！关于「保修多久」，我们已经收到，会尽快为您处理。

@@ -1,0 +1,2 @@
+{"type":"/errors/conflict","title":"状态已被他人改变","status":409,"detail":"有 1 条问答关联这个产品，请先在问答里去掉它再删除。","instance":"/api/v1/products/01a15b7b-f4a9-7542-a568-8ad5fff9cce0","requestId":"req_01a15b7bf51973efbc5c7a169c17e12d","code":"product_in_use","extra":{"qaCount":1}}
+HTTP 409

@@ -1,0 +1,13 @@
+pre: {"status":"done","count":2,"error":null,"extractedAt":"2026-10-20T22:53:45.220Z"}
+A=01a15b85-4d83-7379-ba97-a4a0ff6fce48 v1 B=01a15b85-4d80-75de-b62f-f4054a18bda3 v1
+== 052.1
+{"status":"published","questions":["保修期多长"],"reviewedByName":"Arif Rahman","embedded":true}
+HTTP 200
+== 052.2
+{"code":"version_conflict"}
+HTTP 409
+== 052.3
+{"status":"rejected","rejectReason":"与政策不符"}
+HTTP 200
+== 052.4
+{"publishedQaCount":1,"aiEnabled":true}

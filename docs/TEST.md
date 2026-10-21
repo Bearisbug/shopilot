@@ -6,14 +6,16 @@
 | --- | --- |
 | 状态 | 草稿 |
 | Owner | 实现会话 |
-| 关联设计文档 | `docs/DESIGN.md`（v1.23，已批准） |
+| 关联设计文档 | `docs/DESIGN.md`（v1.25，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
-| 最后更新 | 2026-10-20 |
+| 最后更新 | 2026-10-21 |
 
 变更记录（登用例增改，不登执行轮次）：
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-21 | 按 DESIGN v1.25 新增草稿对比 `TC-DASH-015` 至 `TC-DASH-019`（影子回复对比与数据不足、辅助草稿原样与修改后发送、买家插话与弃用后另回、看板面板与样例抽屉、线上人工抽检分类）；§3 `q` 的说明改为可执行任意 SQL（草稿对比用例要把草稿生成时间往前改） | 实现会话 |
+| 2026-10-21 | 按 DESIGN v1.25 新增知识库第一批 `TC-KB-043` 至 `TC-KB-057`（产品清单 4 条、问答维护 3 条、整理与审核 3 条、出稿与测试问答检索问答 2 条、问答接口权限、线上真实向量化 1 条人工、工作台问答依据）；§3 加 `qaclear` 与 `qa` 函数；知识库页改为五个页签后原位修改 `TC-KB-024` 第 5 步（资料依据链接带 `tab=docs`） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.24 新增 `TC-CONV-069` 至 `TC-CONV-071`（发送前预翻译：预览与高度不变、带预译文发送、提交校验）；TikTok 读接口排队与限流重试只在代码仓 `pace.test.ts` 覆盖，模拟平台不产生限流，不新增用例 | 实现会话 |
 | 2026-10-20 | 按 DESIGN v1.23 新增：会话 `TC-CONV-056` 至 `TC-CONV-068`（常见问题记录、发商品、粘贴与发视频、快捷回复语言版本，其中 `TC-CONV-057` 源自缺陷：常见问题记录早于买家首条消息到达时整条丢失，`TC-CONV-068` 人工在真实平台执行）、`TC-AI-035`、`TC-FEISHU-018`、工单 `TC-TKT-021` 至 `TC-TKT-024`、看板 `TC-DASH-010` 至 `TC-DASH-014`（`TC-DASH-011` 源自缺陷：多个客服首响显示 0 秒）；`TC-DASH-007` 废弃，被 `TC-DASH-010` 取代（首响改按平均）；原位修改 `TC-DASH-001` 第 1 步与 `TC-DASH-008` 第 1 步的「人工首响中位」为「人工首响平均」、`TC-DASH-006` 第 4 步的 CSV 列；§3 加「新建模拟买家」「问过 AI 助手后转人工」与测试视频 | 实现会话 |
 | 2026-10-17 | 按 DESIGN v1.22 新增 `TC-AI-034`（影子模式开段是商品卡、之后补文字时按第一句文字出一份影子回复） | 实现会话 |
@@ -235,7 +237,7 @@ printf 'not really a ppt' > "$KB/产品介绍.pptx"; printf 'plain text, not a p
 ```
 
   得到：保修政策.pdf 约 3 MB（2 页）、大文件.pdf 约 25 MB、拆分.pdf 约 18 MB（30 页，每页约 0.6 MB）、单页超限.pdf 约 14 MB（15 页，第 12 页 11 MB）、型号对照.xlsx 约 1 MB、说明书.docx 约 5 MB、保修政策.md、运费说明.txt、产品介绍.pptx、伪装.pdf（扩展名是 pdf、内容是文本）、工具.exe。
-- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类（先 `login owner@demo.test` 一次；登录每 IP 每分钟限 30 次，函数里不重复登录）；`q` 在本机库执行一条只读 SQL，库名默认 `shopilot`）：
+- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类（先 `login owner@demo.test` 一次；登录每 IP 每分钟限 30 次，函数里不重复登录）；`q` 在本机库执行一条 SQL，库名默认 `shopilot`；除草稿对比用例把草稿生成时间往前改之外，用例里都只读）：
 
 ```bash
 kbup() { who=$1; f=$2; shift 2; curl -s -b "$SP_TMP/$who" -H "Origin: $B" -F "file=@$f" "$@" -w '\nHTTP %{http_code}\n' "$B/api/v1/knowledge/documents"; }
@@ -245,7 +247,15 @@ kbclear() {
   for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowledge/categories" | jq -r '.items[] | select(.builtin | not) | .id'); do
     curl -s -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -X DELETE "$B/api/v1/knowledge/categories/$id"; done; }
 q() { docker compose exec -T postgres psql -U shopilot -d "${SP_DB:-shopilot}" -Atc "$1"; }
+qa() { who=$1; shift; api "$who" "$@"; }
+qaclear() {
+  for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowledge/qa?limit=100" | jq -r '.items[].id'); do
+    curl -s -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -X DELETE "$B/api/v1/knowledge/qa/$id"; done
+  for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/products" | jq -r '.items[].id'); do
+    curl -s -o /dev/null -b "$SP_TMP/owner@demo.test" -H "Origin: $B" -X DELETE "$B/api/v1/products/$id"; done; }
 ```
+
+  - `qa` 与 `api` 相同，只是让问答步骤读起来更直；`qaclear` 先删 Demo Store 全部问答再删全部产品（问答还关联着产品时产品删不掉，所以顺序不能反）；列表每次最多 100 条，问答超过 100 条时重复执行。
 
 - 工具：浏览器自动化用 Playwright + 本机 Microsoft Edge（`channel: 'msedge'`），人工执行同样用 Edge；接口用 curl（见「curl 会话」）与 jq；两步验证码用验证器 App，或 `oathtool --totp -b <密钥>`（密钥取自开启时显示的 `totpURI` 里的 `secret`）；定时任务用 `pnpm job`，时间敏感数据用 `pnpm scenario`；邮件看 `/dev/outbox`。
 - 证据目录：`docs/test-runs/`。截图与响应体按 `run-NNN-<TC ID>-<步骤号>.png` / `.json` 命名，文中引用一律写以项目根为基准的相对路径。cookie 文件不放证据目录。
@@ -3405,7 +3415,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 2 | A：20 秒内打开「AI 草稿」里该买家的会话 | 草稿正文下方一行「依据：《保修政策.md》」；文件名是普通文字，点了不跳转 |
 | 3 | 看「AI 替身」面板「最近一次请求」 | user 载荷有 `knowledge` 数组，第一项 `n` 为 1、`title` 为「保修政策.md」、`text` 含「保修 12 个月」；system 末尾护栏写「产品参数、兼容性、保修与政策只能依据 knowledge 与 order_facts」 |
 | 4 | `curl -s $B/api/dev/knowledge-stub` | `lastQuery` 最后两条是这次出稿的两路检索：`query` 都是「保修多久」（替身改写返回原话），`retrievalType` 都是 `hybrid` |
-| 5 | C：打开同一会话，点依据里的《保修政策.md》 | 新开一个标签，地址为 `/reception/knowledge?doc=<保修政策.md 的 ID>`，资料抽屉显示保修政策.md |
+| 5 | C：打开同一会话，点依据里的《保修政策.md》 | 新开一个标签，地址为 `/reception/knowledge?tab=docs&doc=<保修政策.md 的 ID>`，停在资料页签，资料抽屉显示保修政策.md |
 | 6 | A：点「认领并发送」；B：看该买家的买家视图 | 买家收到 1 条卖家消息，正文与草稿正文相同，不含「依据」、文件名或片段编号 |
 
 后置：`kbclear`。
@@ -3572,6 +3582,206 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 3 | `curl -s $B/api/dev/knowledge-stub \| jq '.lastQuery'` | 仍为 `null` 或 `[]`：检索服务没有收到请求，没有 `query` 为空串的条目 |
 
 后置：`kbclear`。
+
+#### `TC-KB-043` 导入产品清单：新增、更新、跳过与逐行错误 — 对应 `REQ-KB-007` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`qaclear`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa owner@demo.test -X POST "$B/api/v1/products/import" -d '{"text":"物料编码,官方产品名称,别名\n1729582718312480101,竹纤维浴巾三件套,towel set;浴巾套装\n\nTMB-900,保温杯 900ml\nNONAME-1"}'` | HTTP 200；`created` 为 2，`skipped` 为 2（表头与空行），`errors` 只有一条，`line` 为 5、`message` 含「缺少官方产品名称」 |
+| 2 | `qa owner@demo.test "$B/api/v1/products"` | `items` 按编码排序两条：`1729582718312480101` 名称「竹纤维浴巾三件套」、别名 `towel set`、`浴巾套装`；`TMB-900` 名称「保温杯 900ml」、别名为空 |
+| 3 | `qa owner@demo.test -X POST "$B/api/v1/products/import" -d '{"text":"TMB-900,不锈钢保温杯 900ml"}'` | HTTP 200；`created` 0、`updated` 1；再列表时 `TMB-900` 名称变为「不锈钢保温杯 900ml」，别名仍为空 |
+| 4 | 浏览器以 owner 打开 `/reception/knowledge?tab=products` | 清单显示两个产品，物料编码、官方名称、别名、对应平台商品数各一列 |
+
+后置：`qaclear`。
+
+#### `TC-KB-044` 改产品名称与别名，被问答关联的产品不能删 — 对应 `REQ-KB-007` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`qaclear`；导入一行 `TMB-900,保温杯 900ml`，记下它的 `id` 为 P。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa owner@demo.test -X PATCH "$B/api/v1/products/P" -d '{"aliases":["tumbler"]}'` | HTTP 200；`product.aliases` 为 `["tumbler"]`，`code` 不变 |
+| 2 | `qa owner@demo.test -X POST "$B/api/v1/knowledge/qa" -d '{"questions":["保温杯能保温多久"],"answer":"保温 12 小时。","productIds":["P"],"stage":"any"}'` | HTTP 201；`qa.products` 含 TMB-900 |
+| 3 | `qa owner@demo.test -X DELETE "$B/api/v1/products/P"` | HTTP 409，`type` 为 `/errors/conflict`，`code` 为 `product_in_use`，`detail` 为「有 1 条问答关联这个产品，请先在问答里去掉它再删除。」 |
+| 4 | 删掉第 2 步的问答，再删 P | 两次都 HTTP 204；`qa owner@demo.test "$B/api/v1/products"` 的 `items` 为空 |
+
+后置：`qaclear`。
+
+#### `TC-KB-045` 同步平台商品，按卖家 SKU 对应产品，列出未对应的商品 — 对应 `REQ-KB-007` · 级别: 回归 · 执行者: 皆可
+
+前置：基线（Demo TikTok MY 授予了商品读取权限，它的商品「Bamboo Fibre Bath Towel Set (3 pcs)」卖家 SKU 为 `1729582718312480101`）；`login owner@demo.test`；`qaclear`；Worker 在跑。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa owner@demo.test -X POST "$B/api/v1/products/listings/sync"` | HTTP 202；`queuedShops` 大于 0 |
+| 2 | 等 20 秒，`qa owner@demo.test "$B/api/v1/products/unmapped"` | Demo TikTok MY 一组里列出 `1729582718312480101` 等卖家 SKU（还没有产品清单，全部未对应） |
+| 3 | 导入一行 ` 1729582718312480101 ,竹纤维浴巾三件套`（编码首尾带空格），等 20 秒 | 导入 `created` 为 1；产品列表里这个产品的 `listingCount` 为 1 |
+| 4 | 再请求未对应列表 | `1729582718312480101` 不在列表里，同店其他卖家 SKU 仍在 |
+
+后置：`qaclear`。
+
+#### `TC-KB-046` 产品清单：组长只读，员工无权 — 对应 `REQ-KB-007` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login lead@demo.test`；`login agent@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa lead@demo.test "$B/api/v1/products"` | HTTP 200 |
+| 2 | `qa lead@demo.test -X POST "$B/api/v1/products/import" -d '{"text":"X-1,测试"}'` | HTTP 403，`type` 为 `/errors/forbidden` |
+| 3 | `qa agent@demo.test "$B/api/v1/products"` | HTTP 403 |
+| 4 | 浏览器以 Arif 打开 `/reception/knowledge?tab=products` | 能看清单，顶部提示「产品清单由管理员导入和维护，组长可以查看。」；没有「导入产品」「同步平台商品」按钮，行上没有修改与删除操作 |
+
+后置：无（只读请求或被拒的写请求，不留数据）。
+
+#### `TC-KB-047` 手写问答保存即发布，字段校验 — 对应 `REQ-KB-008` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；`login lead@demo.test`；`login owner@demo.test`；`qaclear`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa lead@demo.test -X POST "$B/api/v1/knowledge/qa" -d '{"questions":["可以退货吗","怎么退货"],"answer":"签收后 7 天内可申请退货。","productIds":[],"stage":"aftersale"}'` | HTTP 201；`qa.status` 为 `published`，`source` 为 `manual`，`products` 为空，`markets` 为 `["ALL"]`，`embedded` 为 true，`version` 为 1 |
+| 2 | `qa lead@demo.test -X POST "$B/api/v1/knowledge/qa" -d '{"questions":["a","a"],"answer":"x","stage":"any"}'` | HTTP 422，`type` 为 `/errors/validation`，字段错误含「问法不能重复」 |
+| 3 | 同上，`questions` 为空数组 | HTTP 422，字段错误含「至少写一个问法」 |
+| 4 | 浏览器以 Arif 打开 `/reception/knowledge?tab=qa` | 列表第一行是「可以退货吗」，显示「通用」、阶段售后、已发布 |
+
+后置：`qaclear`。
+
+#### `TC-KB-048` 编辑问答：版本冲突被拒，改问法重算向量 — 对应 `REQ-KB-008` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`qaclear`；按 `TC-KB-047` 第 1 步建一条问答，记 `id` 为 Q。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa owner@demo.test -X PATCH "$B/api/v1/knowledge/qa/Q" -d '{"version":1,"answer":"签收后 7 天内可申请退货，需保留包装。"}'` | HTTP 200；`version` 为 2，`status` 仍为 `published` |
+| 2 | 再用 `"version":1` 改一次回复 | HTTP 409，`type` 为 `/errors/conflict`，`code` 为 `version_conflict`，`detail` 为「这条问答刚被别人改过，请刷新后再操作。」 |
+| 3 | `q "select md5(embedding::text) from knowledge_qa where id = 'Q'"` 记为 H1；用 `"version":2` 把问法改成 `["支持退换吗"]` 后再查一次 | 第二次的值与 H1 不同；HTTP 200，`version` 为 3 |
+
+后置：`qaclear`。
+
+#### `TC-KB-049` 下架、恢复与删除问答，下架后测试问答不再命中 — 对应 `REQ-KB-008`、`REQ-KB-010` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`；`qaclear`；`kbclear`；按 `TC-KB-047` 第 1 步建问答 Q（阶段改为 `any`）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa owner@demo.test -X POST "$B/api/v1/knowledge/test" -d '{"question":"可以退货吗"}'` | HTTP 200；`qa.merged` 有一条且 `qaId` 为 Q；`qa.hits` 里 Q 的 `distance` 为 0 |
+| 2 | `qa owner@demo.test -X POST "$B/api/v1/knowledge/qa/Q/archive" -d '{"version":1}'` | HTTP 200；`status` 为 `archived` |
+| 3 | 重复第 1 步 | `qa.merged` 为空 |
+| 4 | 再下架一次（`"version":2`） | HTTP 409，`code` 为 `invalid_state` |
+| 5 | `/restore`（`"version":2`），再重复第 1 步 | 恢复后 `status` 为 `published`；测试问答再次命中 Q |
+| 6 | `qa owner@demo.test -X DELETE "$B/api/v1/knowledge/qa/Q"` 两次 | 两次都 HTTP 204；再查 Q 返回 404 |
+
+后置：`qaclear`。
+
+#### `TC-KB-050` 资料整理成问答候选：状态、守卫与产品只从清单选 — 对应 `REQ-KB-009` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`$KB` 已备；`login owner@demo.test`；`qaclear`；`kbclear`；导入一行 `TMB-900,保温杯 900ml`；Worker 在跑；AI 替身设为 `normal`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `kbup owner@demo.test "$KB/保修政策.md"` 后立即对它 `POST $B/api/v1/knowledge/documents/<ID>/qa-extract` | HTTP 409，`code` 为 `not_ready`，`detail` 为「这份资料还在解析，解析完成后再整理。」 |
+| 2 | 等资料可用，再发起整理 | HTTP 202；`document.qaExtract.status` 为 `running` |
+| 3 | 立刻再发起一次 | HTTP 409，`code` 为 `extract_running` |
+| 4 | 每 2 秒查资料，60 秒内 | `qaExtract.status` 变为 `done`，`count` 大于 0 |
+| 5 | `qa owner@demo.test "$B/api/v1/knowledge/qa?status=pending&documentId=<ID>"` | 条数等于 `count`；每条 `source` 为 `import`、`sourceDocument.name` 为「保修政策.md」、`sourceExcerpt` 非空、`markets` 与资料相同；`products` 只含清单里的产品或为空 |
+| 6 | 浏览器打开 `/reception/knowledge?tab=review` | 页签「待审核」后面的数字等于候选数；列出这些候选，每条有「通过」「改后通过」「驳回」，可展开原文片段 |
+
+后置：`qaclear`；`kbclear`。
+
+#### `TC-KB-051` 重新整理先删旧候选，疑似重复并排显示 — 对应 `REQ-KB-009` · 级别: 边缘 · 执行者: 皆可
+
+前置：先执行 `TC-KB-050` 第 1–4 步（不做后置），记下候选 ID 集合 C1；任选一条候选的第一个问法 X。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 以 X 为问法手写一条已发布问答（阶段 `any`） | HTTP 201 |
+| 2 | 对同一份资料再发起整理，等 `done` | 待审核候选的 ID 与 C1 没有交集（旧候选已删） |
+| 3 | 找问法为 X 的新候选 | `duplicateOf.id` 是第 1 步那条问答，`duplicateOf.status` 为 `published` |
+| 4 | 浏览器打开待审核页签里这条候选 | 候选与已有问答并排显示 |
+
+后置：`qaclear`；`kbclear`。
+
+#### `TC-KB-052` 审核：改后通过、驳回，资料提示可关掉 AI 可用 — 对应 `REQ-KB-009` · 级别: 回归 · 执行者: 皆可
+
+前置：先执行 `TC-KB-050` 第 1–4 步（不做后置）；取两条候选 A、B 与各自的 `version`；`login lead@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa lead@demo.test -X POST "$B/api/v1/knowledge/qa/A/approve" -d '{"version":<A 的版本>,"questions":["保修期多长"],"stage":"any"}'` | HTTP 200；`status` 为 `published`，`questions` 为「保修期多长」，`reviewedByName` 为 Arif Rahman，`embedded` 为 true |
+| 2 | 用同一个旧版本号再通过 A | HTTP 409，`code` 为 `version_conflict` |
+| 3 | `qa lead@demo.test -X POST "$B/api/v1/knowledge/qa/B/reject" -d '{"version":<B 的版本>,"reason":"与政策不符"}'` | HTTP 200；`status` 为 `rejected`，`rejectReason` 为「与政策不符」 |
+| 4 | 查资料 | `publishedQaCount` 为 1，`aiEnabled` 仍为 true |
+| 5 | 浏览器打开资料页签 | 这份资料行下写「已有 1 条问答由它整理发布，可以关掉这份资料的「AI 可用」，让 AI 只引用审核过的问答。」 |
+
+后置：`qaclear`；`kbclear`。
+
+#### `TC-KB-053` 出稿先查问答：编号在资料前，按站点、阶段与产品过滤 — 对应 `REQ-KB-010` · 规则 `RULE-KB-004` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线（Demo Shopee MY 工作时间内为 assist）；`$KB` 已备；`login owner@demo.test`；`qaclear`；`kbclear`；`kbup owner@demo.test "$KB/保修政策.md"` 等可用；导入 `1729582718312480101,竹纤维浴巾三件套,towel set` 与 `TMB-900,保温杯 900ml`，记产品 ID 为 T 与 M；用 `POST /api/v1/knowledge/qa` 建四条已发布问答：
+- QA1：问法「towel set 可以退货吗」，产品 T，阶段 `any`，站点全部
+- QA2：问法「towel set 可以退货吗」，产品 M，阶段 `any`，站点全部
+- QA3：问法「towel set 可以退货吗」，不选产品，阶段 `any`，站点 `["TH"]`
+- QA4：问法「towel set 可以退货吗」，不选产品，阶段 `aftersale`，站点全部
+
+浏览器 B 打开模拟器。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | B：选 Demo Shopee MY、新建买家，发「towel set 可以退货吗」 | 推送日志新增一条，HTTP 200 |
+| 2 | 20 秒内看「AI 替身」面板「最近一次请求」的 user 载荷 | `knowledge` 第一项标题为「问答：towel set 可以退货吗」，正文以「问：」开头；问答在资料「保修政策.md」之前 |
+| 3 | `q "select retrieval->'qa' from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = '<新建买家名>' order by d.created_at desc limit 1"` | `productIds` 只含 T；`merged` 的 `qaId` 只有 QA1（QA2 产品不符、QA3 站点不符、QA4 阶段不符：新会话本店无订单，阶段为售前） |
+| 4 | 以 Nur 打开该会话 | 草稿下方「依据：」里有一项「问答「towel set 可以退货吗」」 |
+
+后置：`qaclear`；`kbclear`。
+
+#### `TC-KB-054` 测试问答带问答命中，可选阶段与产品 — 对应 `REQ-KB-005`、`REQ-KB-010` · 级别: 回归 · 执行者: 皆可
+
+前置：与 `TC-KB-053` 相同的问答与产品（不需要资料）；`login owner@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa owner@demo.test -X POST "$B/api/v1/knowledge/test" -d '{"question":"towel set 可以退货吗","stage":"presale","productId":"M"}'` | HTTP 200；`qa.stage` 为 `presale`，`qa.productIds` 为 `["M"]`；`qa.merged` 含 QA2 与 QA3、不含 QA1 与 QA4；`qa.latencyMs` 为数字 |
+| 2 | 不带阶段与产品再问一次 | `qa.stage` 为 null；四条都可能出现在 `qa.hits`（不按阶段与产品过滤，没选店铺不看站点） |
+| 3 | 浏览器打开测试问答页签，同样提问 | 问答命中与资料命中分两块显示，问答命中显示问法与距离 |
+
+后置：`qaclear`。
+
+#### `TC-KB-055` 员工不能读写问答 — 对应 `REQ-KB-008` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login agent@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qa agent@demo.test "$B/api/v1/knowledge/qa"` | HTTP 403，`type` 为 `/errors/forbidden` |
+| 2 | `qa agent@demo.test -X POST "$B/api/v1/knowledge/qa" -d '{"questions":["a"],"answer":"b","stage":"any"}'` | HTTP 403 |
+
+后置：无（只读请求或被拒的写请求，不留数据）。
+
+#### `TC-KB-056` 线上真实向量化：手写问答可被测试问答检索到 — 对应 `REQ-KB-010` · 级别: 回归 · 执行者: 人工
+
+前置：线上 shopilot.live；管理员账号；`KNOWLEDGE_MODE=cloudflare`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 在知识库「问答」页签新建一条通用问答，问法「Tail 2 有没有内置麦克风」，回复按实际产品填写 | 保存后提示「已发布新问答」，且没有「检索向量稍后在后台补上，最多 5 分钟后 AI 才能检索到」的说明；列表里这条没有「检索向量生成中，最多 5 分钟后 AI 才能检索到」 |
+| 2 | 在测试问答里问「Does Tail 2 have a built-in mic」 | 问答命中里出现这条，距离小于 0.55，回答引用它 |
+| 3 | 下架这条问答后再问一次 | 问答命中里不再有它 |
+
+后置：删除这条问答。
+
+#### `TC-KB-057` 工作台草稿依据显示问答，下架后标「已下架」 — 对应 `REQ-KB-010` · 级别: 回归 · 执行者: 皆可
+
+前置：先执行 `TC-KB-053` 第 1–4 步（不做后置）；浏览器 A 以 Nur、浏览器 C 以 owner 打开同一会话。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | A：看草稿依据 | 「问答「towel set 可以退货吗」」是普通文字，点了不跳转 |
+| 2 | C：点同一项依据 | 新开标签，地址为 `/reception/knowledge?tab=qa&qa=<QA1 的 ID>`，问答页签打开这条问答的编辑弹窗 |
+| 3 | 下架 QA1，A、C 刷新会话 | 依据变为「问答「towel set 可以退货吗」（已下架）」，C 也不能点开 |
+
+后置：`qaclear`；`kbclear`。
 
 ### 看板
 
@@ -3754,6 +3964,80 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 4 | 在「管理类别」里删除「保修」 | 提示其中的会话段归入「其他」；列表不再有「保修」 |
 | 5 | 取「其他」的 ID，`api owner@demo.test -X PATCH $B/api/v1/issue-categories/<ID> -d '{"name":"杂项"}'`，再 `api owner@demo.test -X DELETE $B/api/v1/issue-categories/<ID>` | 两次都 `HTTP 409`，`code` 为 `builtin` |
 | 6 | 以 lead@demo.test 打开 `/dashboard`；`api lead@demo.test -X POST $B/api/v1/issue-categories -d '{"name":"x"}'` | 面板有类别，没有「管理类别」；接口 `HTTP 403` |
+
+后置：无。
+
+#### `TC-DASH-015` 影子回复对比：没有人工回复不比，人工回复后记一条，不足 10 份显示数据不足 — 对应 `REQ-DASH-003` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；执行「curl 会话」，`login owner@demo.test`；商户时区当天 00:30 之后执行（草稿生成时间往前改 20 分钟后仍在今天）。`D` 是本用例的草稿 ID。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `pnpm job draft.compare`（先比完种子里可比的草稿），再 `curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/dashboard?range=today" \| jq -c .draftReview.shadow`，记 `compared` 为 N0、`same` 为 S0 | 任务输出末行带 `"job":"draft.compare","ok":true`；N0 < 9 |
+| 2 | `curl -s -X POST $B/api/mock/sim/create_buyer -H 'Content-Type: application/json' -d '{"platform":"shopee","shopId":"220002","name":"Compare Shadow","language":"en"}'`，记 `conversationId` 为 X；`curl -s -X POST $B/api/mock/sim/buyer_message -H 'Content-Type: application/json' -d '{"conversationId":"<X>","text":"Does this webcam work with a Mac?"}'`；等 10 秒，`q "select d.id, d.conversation_id, d.text from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = 'Compare Shadow' and d.status = 'shadow'"`，记草稿 ID 为 D、会话 ID 为 C、正文为 T | 一行；T 为「您好！关于「Does this webcam work with a Mac?」，我们已经收到，会尽快为您处理。」 |
+| 3 | `pnpm job draft.compare`；`q "select count(*) from draft_review where draft_id = '<D>'"` | `0`：草稿不满 15 分钟 |
+| 4 | `q "update draft set created_at = created_at - interval '20 minutes' where id = '<D>'"`；`pnpm job draft.compare`；再查 `draft_review` | 仍是 `0`：还没有人工回复，不挑 |
+| 5 | `api owner@demo.test -X POST $B/api/v1/conversations/<C>/messages -d '{"clientRequestId":"tc-dash-015","type":"text","text":"<T>"}'` | `HTTP 201` |
+| 6 | `pnpm job draft.compare`；`q "select kind, draft_status, edit_class, consistency, model, cardinality(human_message_ids), human_text from draft_review where draft_id = '<D>'"` | `shadow\|shadow\|same\|same\|stub\|1\|<T>` |
+| 7 | 再请求一次第 1 步的看板接口 | `compared` 为 N0 + 1，`same` 为 S0 + 1；`consistency` 为 `null` |
+| 8 | 浏览器以 owner@demo.test 打开 `/dashboard?range=today`，找到「AI 草稿与人工回复」面板 | 「影子回复」处于选中；一致率位置显示「数据不足」，下方写「一致 / 已对比 = <S0 + 1> / <N0 + 1>，满 10 份才计算」；修改分类表 6 行依次为语义一致、仅语言润色、补充信息、事实更正、流程改变、弃用重写 |
+
+后置：无（`TC-DASH-018` 要用本用例的对比记录，本轮不重置）。
+
+#### `TC-DASH-016` 辅助草稿：原样发送记语义一致，修改后发送比发出的译文 — 对应 `REQ-DASH-003` · 级别: 回归 · 执行者: 皆可
+
+前置：同 `TC-DASH-015`（Demo Shopee MY 工作时间内外都是 assist，不用改排班）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/dashboard?range=today" \| jq -c .draftReview.assist`，记为 A0 | 返回 `compared`、`sent`、`editedSent`、`ignored` 四个数 |
+| 2 | 按 `TC-DASH-015` 第 2 步的接口给 Demo Shopee MY（`shopId` 为 `220001`）建买家「Compare Sent」与「Compare Edited」，各发「Is the camera in stock?」；等 10 秒，`q "select c.buyer_name, d.id, d.conversation_id, d.text from draft d join conversation c on c.id = d.conversation_id where c.buyer_name in ('Compare Sent', 'Compare Edited') and d.status = 'generated'"`，草稿 ID 记为 D1、D2，会话 ID 记为 C1、C2，正文记为 T | 两行，正文都是「您好！关于「Is the camera in stock?」，我们已经收到，会尽快为您处理。」 |
+| 3 | `api owner@demo.test -X POST $B/api/v1/conversations/<C1>/messages -d '{"clientRequestId":"tc-dash-016-a","type":"text","text":"<T>","draftId":"<D1>","disposition":"sent"}'` | `HTTP 201` |
+| 4 | `api owner@demo.test -X POST $B/api/v1/conversations/<C2>/messages -d '{"clientRequestId":"tc-dash-016-b","type":"text","text":"<T>今天下单明天发货。","translateTo":"en","translatedText":"Hi! We have received your question about the camera. Order today and it ships tomorrow.","draftId":"<D2>","disposition":"edited_sent"}'` | `HTTP 201` |
+| 5 | `q "update draft set created_at = created_at - interval '20 minutes' where id in ('<D1>', '<D2>')"`；`pnpm job draft.compare`；`q "select draft_status, edit_class, consistency, model, reason from draft_review where draft_id = '<D1>'"` | `sent\|same\|same\|rule\|原样发送` |
+| 6 | `q "select draft_status, edit_class, consistency, model, human_text from draft_review where draft_id = '<D2>'"` | `edited_sent\|rewrite\|different\|stub\|Hi! We have received your question about the camera. Order today and it ships tomorrow.`：存的是发出的译文；AI 替身按字面比，中文草稿对英文回复判为弃用重写 |
+| 7 | 再请求一次第 1 步的看板接口 | 与 A0 相比，`compared` + 2，`sent` + 1，`editedSent` + 1，`ignored` 不变 |
+
+后置：无（本轮不重置）。
+
+#### `TC-DASH-017` 配对边界：人工回复前买家又插话不比，弃用后另回最多取 3 条 — 对应 `REQ-DASH-003` · 级别: 回归 · 执行者: 皆可
+
+前置：同 `TC-DASH-016`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 给 Demo Shopee SG（`220002`）建买家「Compare Interject」，发「Do you ship to Penang?」；等 10 秒，按 `TC-DASH-015` 第 2 步的查询取影子回复，记为 D3、会话 C3 | 一行 |
+| 2 | 同一买家再发「Hello? Anyone there?」；等 10 秒，`q "select count(*) from draft where conversation_id = '<C3>'"` | `1`：本段已有影子回复，不再出 |
+| 3 | `api owner@demo.test -X POST $B/api/v1/conversations/<C3>/messages -d '{"clientRequestId":"tc-dash-017-a","type":"text","text":"Yes, we ship to Penang."}'`；把 D3 生成时间往前改 20 分钟，`pnpm job draft.compare`；`q "select count(*) from draft_review where draft_id = '<D3>'"` | 发送 `HTTP 201`；查询为 `0`：人工回复在买家插话之后，不比 |
+| 4 | 给 Demo Shopee MY（`220001`）建买家「Compare Ignored」，发「Is the camera in stock?」；等 10 秒，取 `generated` 的草稿，记为 D4、会话 C4、正文 T | 一行 |
+| 5 | `api owner@demo.test -X POST $B/api/v1/conversations/<C4>/drafts/<D4>/ignore`；再依次发 4 条文字：「<T>今天就能发货。」「还有别的问题吗？」「祝您购物愉快。」「再见。」（`clientRequestId` 依次 `tc-dash-017-b1` 至 `b4`） | 忽略 `HTTP 200`，4 次发送都 `HTTP 201` |
+| 6 | 把 D4 生成时间往前改 20 分钟，`pnpm job draft.compare`；`q "select draft_status, edit_class, consistency, cardinality(human_message_ids), human_text from draft_review where draft_id = '<D4>'"` | `ignored\|supplement\|partial\|3\|…`：`human_text` 是前 3 条以换行连起来，不含「再见。」 |
+
+后置：无（本轮不重置）。
+
+#### `TC-DASH-018` 看板草稿对比面板：切换、样例抽屉、组长范围与权限 — 对应 `REQ-DASH-003` · 级别: 回归 · 执行者: 皆可
+
+前置：本轮已执行 `TC-DASH-015` 至 `TC-DASH-017`、没有重置；执行「curl 会话」，`login owner@demo.test`、`login lead@demo.test`、`login agent@demo.test`。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 浏览器以 owner@demo.test 打开 `/dashboard?range=today`，在「AI 草稿与人工回复」面板点「语义一致」 | 地址带 `review=same`；右侧抽屉标题「语义一致 · 影子回复」，写「按草稿生成时间从新到旧，最多显示 50 份」；列表里有 Demo Shopee SG · Compare Shadow 一条，带「一致」标签、AI 草稿与人工回复两栏、「打开会话」链接指向 `/wb/<TC-DASH-015 的 C>` 且新标签打开 |
+| 2 | 关闭抽屉，点「辅助草稿」 | 地址去掉 `review`、带 `reviews=assist`；左侧标题「客服怎么处置草稿」，原样发送、修改后发送、弃用后人工另回都至少为 1 |
+| 3 | 点「补充信息」 | 抽屉标题「补充信息 · 辅助草稿」；有 Compare Ignored 一条，带「部分一致」与「弃用后人工另回」两个标签 |
+| 4 | `api owner@demo.test "$B/api/v1/dashboard/draft-reviews?range=today&kind=foo"` | `HTTP 422`，`type` 为 `/errors/validation` |
+| 5 | `curl -s -b "$SP_TMP/lead@demo.test" "$B/api/v1/dashboard/draft-reviews?range=today&kind=shadow" \| jq -r '.items[].shopName' \| sort -u` | 没有 Demo Shopee SG（组长不负责这家店） |
+| 6 | `api agent@demo.test "$B/api/v1/dashboard/draft-reviews?range=today"` | `HTTP 403` |
+
+后置：基线重置（`pnpm db:reset && pnpm db:seed`）后再跑后面的用例。
+
+#### `TC-DASH-019` 线上抽检草稿对比的修改分类 — 对应 `REQ-DASH-003` · 级别: 边缘 · 执行者: 人工
+
+前置：线上 shopilot.live；组长或管理员账号；草稿对比上线满 7 天。只读，不改任何数据。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/dashboard?range=7d`，看「AI 草稿与人工回复」面板的影子回复与辅助草稿 | 两边都有已对比份数；影子回复满 10 份时显示一致率百分数 |
+| 2 | 在补充信息、事实更正、流程改变、弃用重写四类里各打开抽屉，共抽 20 条，逐条按人的判断看分类与语义一致性 | 每条都有 AI 草稿、人工回复与一句中文理由；草稿与人工回复语言不同的样例按语义判，不因语言不同判为弃用重写；在执行记录里写下与人判断不一致的条数 |
 
 后置：无。
 
@@ -4556,6 +4840,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-054 | 2026-10-20 | 本地 | `c7deb15` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-056、TC-CONV-057、TC-CONV-058、TC-CONV-059、TC-CONV-060、TC-CONV-061、TC-CONV-062、TC-CONV-063、TC-CONV-064、TC-CONV-065、TC-CONV-066、TC-CONV-067、TC-CONV-068、TC-AI-035、TC-FEISHU-018、TC-TKT-021、TC-TKT-022、TC-TKT-023、TC-TKT-024、TC-DASH-006、TC-DASH-008、TC-DASH-010、TC-DASH-011、TC-DASH-012、TC-DASH-013、TC-DASH-014） | 通过 24/26 · 失败 1 · 待人工 1 |
 | RUN-055 | 2026-10-20 | 本地 | `d2660ca` | AI（Claude Code 主会话；Playwright + Edge） | 复测（RUN-054：TC-DASH-012） | 通过 1/1 |
 | RUN-056 | 2026-10-21 | 本地 | `e4ac880` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-069、TC-CONV-070、TC-CONV-071） | 通过 3/3 |
+| RUN-057 | 2026-10-21 | 本地 | `e6994cc` + 工作区改动（只改 `docs/`、`AGENTS.md`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-KB-043、TC-KB-044、TC-KB-045、TC-KB-046、TC-KB-047、TC-KB-048、TC-KB-049、TC-KB-050、TC-KB-051、TC-KB-052、TC-KB-053、TC-KB-054、TC-KB-055、TC-KB-056、TC-KB-057、TC-DASH-015、TC-DASH-016、TC-DASH-017、TC-DASH-018、TC-DASH-019、TC-KB-001、TC-KB-024、TC-AI-001、TC-PERM-001、TC-FEISHU-005） | 通过 19/25 · 失败 4 · 待人工 2 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -4668,6 +4953,12 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-053 | TC-DASH-011 | 失败 | 第 2 步 `kpis.firstReplySamples` 由 7 变为 8，预期仍为 7；Nur 的 `firstReplyMedianSec` 为 0；证据 `docs/test-runs/run-053-TC-DASH-011-2.json` | 实现修复，RUN-054 复测 |
 | RUN-054 | TC-DASH-012 | 失败 | 第 4 步先点 7 天前（10-13）再点昨天（10-19）、点「应用」后地址为 `from=2026-09-23&to=2026-10-19`，预期 `from=2026-10-13&to=2026-10-19`：日历里已有选中范围时，第一下点在范围内只改了结束日，不能用两下点出一个新范围；从默认「本月」打开同样得到 `from=2026-10-01&to=2026-10-19`；证据 `docs/test-runs/run-054-TC-DASH-012-4.png`、`docs/test-runs/run-054-TC-DASH-012-4b.png` | 待修复后复测 |
 | RUN-054 | TC-CONV-068 | 待人工 | 执行者为人工，要在已接真实 Shopee、TikTok 店的环境里对真实会话执行 | 交用户在 shopilot.live 执行 |
+| RUN-057 | TC-KB-045 | 失败 | 第 2 步未对应列表只有 Demo Shopee MY、Demo Shopee SG、Demo TikTok TH 三组，没有 Demo TikTok MY，也没有卖家 SKU `1729582718312480101`：种子里 Demo TikTok MY 没有商品读取权限（§3 写明 `productScope = false`），用例前置写成「授予了商品读取权限」；第 3 步导入后 `listingCount` 为 0（预期 1），第 4 步同店没有可比的其他 SKU。补充观察（不计入判定）：改导入种子里存在的 `1729582718312480201`（Demo TikTok TH，编码首尾带空格），20 秒后 `listingCount` 为 1、它从未对应列表里消失；证据 `run-057-TC-KB-045-1.json`、`run-057-TC-KB-045-2.json`、`run-057-TC-KB-045-3.json`、`run-057-TC-KB-045-4b.txt` | 用例前置与种子不符，待用例修正（改用 Demo TikTok TH 与 `1729582718312480201`）后复测 |
+| RUN-057 | TC-KB-049 | 失败 | 第 1 步 `qa.hits` 里 Q 的 `distance` 为 0.1659，用例写 0：问答向量按全部问法（「可以退货吗；怎么退货」）拼接计算，只用其中一个问法提问不会完全重合；第 6 步第二次 `DELETE` 返回 HTTP 404，用例写两次都 204；其余步骤符合（第 3 步下架后测试问答返回 `qa: null`，没有命中，按「不再命中」判符合）；证据 `run-057-TC-KB-049-1.json`、`run-057-TC-KB-049-3.json` | 待裁决：用例改预期（距离小于阈值、重复删除 404），还是实现改为重复删除返回 204 |
+| RUN-057 | TC-DASH-015 | 失败 | 第 7 步 `draftReview.shadow` 的 `consistency` 是对象 `{"num":1,"den":1,"rate":null}`，用例写「`consistency` 为 `null`」；为 null 的是 `consistency.rate`，`compared`、`same` 都是 N0 + 1；其余 7 步符合；证据 `run-057-TC-DASH-015.txt`、`run-057-TC-DASH-015-8.png` | 用例措辞待修正（改为 `consistency.rate` 为 `null`）后复测 |
+| RUN-057 | TC-KB-001 | 失败 | 第 1 步打开 `/reception/knowledge` 默认进「问答」页签，页面没有「资料 0 / 500」的左栏，也没有右栏「测试问答」面板：v1.25 知识库改成问答、待审核、资料、产品、测试问答五个页签，用例仍按旧的左右两栏写。补充观察（不计入判定）：在 `?tab=docs` 按第 2–8 步上传 `保修政策.pdf` 与 `型号对照.xlsx`，弹窗文案、上传进度、分类、状态变为可用、抽屉与 `documents` 接口返回都和原预期一致；证据 `run-057-TC-KB-001-1.png`、`run-057-TC-KB-001-5b.png` | 用例待按页签布局修正后复测 |
+| RUN-057 | TC-KB-056 | 待人工 | 执行者为人工，要在线上真实 Cloudflare 向量化环境执行 | 交用户在 shopilot.live 执行 |
+| RUN-057 | TC-DASH-019 | 待人工 | 执行者为人工，要在线上草稿对比上线满 7 天后抽检 | 交用户在 shopilot.live 执行 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -4734,6 +5025,8 @@ RUN-054 证据：局部轮，其中 `TC-CONV-057`、`TC-DASH-011` 是 RUN-053 �
 RUN-056 证据：局部轮，被测版本本地 main `e4ac880`（已合并预翻译 586c478、24e839d），工作区只改了 `docs/`。独立库 `shopilot_run_pt`（同一 PostgreSQL 实例），Web 起在 3373、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3373，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前迁移加种子。三个新买家都按 §3「模拟器发消息」在 Demo Shopee MY 建，会话落在「AI 接待中」，Nur 在该视图打开后认领；目标语言 L 为马来语。`TC-CONV-069`：输入后工具栏为「将发送 翻译中…」，输入框外框高度在输入后、译文出现后、打开浮层时、切到「不翻译」后都是 106 px；两次浮层译文分别为「[译文] 您好，今天会发货」「[译文] 您好，明天会发货」（AI 替身译文）；切「不翻译」后没有「将发送」。`TC-CONV-070`：带预译文那次请求体含 `"translateTo":"ms"` 与 `"translatedText":"[译文] 好的，马上为您处理"`，返回 201，时间线有译文与原文；不停顿那次请求体只有 `translateTo`，返回 201（`run-056-TC-CONV-069-070.json`，截图 `run-056-TC-CONV-069-1.png`、`-3.png`、`-5.png`、`run-056-TC-CONV-070-3.png`、`-4.png`）。`TC-CONV-071` 六步同预期：前四步 422，`fields.translatedText` 依次为「译文只能随文字消息和翻译目标语言一起提交」×2、「译文不能为空」「译文最多 2,000 字」；第 5 步 201；最后一条本方消息 `text` 为「Hello there」、`originalText` 为「你好」（`run-056-TC-CONV-071.txt`）。控制台无报错。轮次结束停掉 3373 的 Web 与 Worker，删除库与临时文件。
 
 本轮执行中发现用例本身写错、当轮原位修正的地方（都是这一轮新写的用例，修正前没有登记过结果）：`TC-CONV-059` 前置改按状态取拉到的那条（同一会话里还有 `TC-CONV-058` 造的取不到的记录）；`TC-TKT-021`、`TC-TKT-024` 前置改为先推进到 PROCESSED 再到 RETRY_SHIP（模拟平台不允许从 READY_TO_SHIP 直接到 RETRY_SHIP，`TC-TKT-004` 第 1 步同样受影响，本轮没跑）；`TC-DASH-012` 第 4 步按钮名为「应用」；`TC-DASH-013` 总结改为「以……开头」（AI 替身取买家第一句时带着平台译文）；`TC-FEISHU-018` 卡片里说话人是加粗的「Shopee AI」「买家」，不是「Shopee AI：」；`TC-DASH-006`、`TC-DASH-010` 的 12 小时内回复是 4 段不是 5 段，`dashboard-metrics` 场景里 AI 独立解决的段只打了标记、没有 AI 发出的消息。`TC-CONV-068` 要在真实平台执行，登记待人工。截图与数据放 `docs/test-runs/run-054-*`；本机库与进程在轮次结束后回收。
+
+RUN-057 证据：局部轮，被测版本本地 main `e6994cc`（含 c2d0919 合并的知识库第一批、0ad1ab6 的草稿对比；e6994cc 只把测试文件改成串行，不影响行为），工作区另有 `docs/` 与 `AGENTS.md` 的未提交改动，与被测代码无关。独立库 `shopilot_run057`（同一 PostgreSQL 实例），Web 起在 3377、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3377，`DATA_DIR` 用临时目录，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前 `pnpm db:reset && pnpm db:seed`；`TC-DASH-018` 之后按它的后置重置基线（先停 Worker，重置、写种子后再起），再跑 `TC-KB-001`、`TC-KB-024`、`TC-AI-001`、`TC-PERM-001`、`TC-FEISHU-005`。浏览器步骤用 Playwright + Edge 无头（1440×900）；买家发消息用 §3 登记的模拟器接口 `create_buyer`、`buyer_message`，没有操作模拟器页面，推送日志的 HTTP 状态从 `GET /api/mock/sim/state` 的 `pushLogs[].httpStatus` 读取。上一个执行会话中途卡死，它留下的 run-057 证据全部删除后重跑。执行中的两处说明：`TC-KB-050` 第 1 步第一次执行时替身入库在上传与发起整理之间就已完成，拿到 HTTP 202，打乱了后面步骤的状态；在发起前先读资料状态（`queued`）复现两次都是 409 `not_ready`，随后按顺序重跑第 1–5 步全部符合，记录见 `run-057-TC-KB-050.txt`、`run-057-TC-KB-050-1b.txt`。`TC-KB-047` 第 4 步的「已发布」由列表筛选「已发布 1」与卡片标题「已发布 1」表达，行里不单独标状态（`run-057-TC-KB-047-4.png`）。每个用例的接口返回与关键查询存为 `docs/test-runs/run-057-<TC ID>*.txt/json`，界面截图为同名 `.png`。
 
 ## 7. 遗留问题
 

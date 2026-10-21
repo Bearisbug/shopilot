@@ -1,0 +1,19 @@
+== 017.1
+01a15b8a-4795-7333-b391-24c22c7c4538|01a15b8a-2848-719d-8b14-ce4d0b1c0faa
+== 017.2
+1
+== 017.3
+HTTP 201
+{"job":"draft.compare","ok":true,"durationMs":26}
+0
+== 017.4
+01a15b8a-ad31-77fe-a6c3-4f1132c3f905|01a15b8a-8dff-7283-a570-6d5da577fbbf|您好！关于「Is the camera in stock?」，我们已经收到，会尽快为您处理。
+== 017.5
+HTTP 200
+HTTP 201
+HTTP 201
+HTTP 201
+HTTP 201
+== 017.6
+{"job":"draft.compare","ok":true,"durationMs":35}
+ignored|supplement|partial|3|您好！关于「Is the camera in stock?」，我们已经收到，会尽快为您处理。今天就能发货。 / 还有别的问题吗？ / 祝您购物愉快。

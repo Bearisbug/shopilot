@@ -1,0 +1,4 @@
+step1 HTTP 200
+step2 HTTP 200
+t1 {"stage":"presale","productIds":["M"],"merged":["QA2","QA3"],"hits":["QA2","QA3"],"latencyMs":"number"}
+t2 {"stage":null,"productIds":[],"merged":["QA1","QA2","QA3","QA4"],"hits":["QA1","QA2","QA3","QA4"],"latencyMs":"number"}

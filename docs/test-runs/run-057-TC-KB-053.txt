@@ -1,0 +1,16 @@
+doc ready D=01a15b86-1e59-713d-9ee0-b9c6328704eb
+{"created":2,"updated":0,"skipped":0,"errors":[]}
+T=01a15b86-22a4-76e7-864f-4854f8ad075f
+M=01a15b86-22a5-77e7-9638-e78161a1f864
+QA1=01a15b86-2302-7416-afdb-cbb0727051e9
+QA2=01a15b86-2319-7211-9fb5-b187115f145a
+QA3=01a15b86-232f-746b-ae6d-935c78230310
+QA4=01a15b86-2345-758d-96b0-ab22822f25dc
+D=01a15b86-1e59-713d-9ee0-b9c6328704eb
+== 053.1 X=8937539832789462677
+send 200
+[{"status":200,"url":null}]
+== 053.2
+[{"n":1,"title":"问答：towel set 可以退货吗","text":"问：towel set 可以退货吗\n答："},{"n":2,"title":"保修政策.md","text":"# 保修政策\n\n所有相机保修 12 个月"}]
+== 053.3
+{"productIds":["01a15b86-22a4-76e7-864f-4854f8ad075f"],"merged":["01a15b86-2302-7416-afdb-cbb0727051e9"],"hits":[{"route":"rewritten","qaId":"01a15b86-2302-7416-afdb-cbb0727051e9","distance":0},{"route":"original","qaId":"01a15b86-2302-7416-afdb-cbb0727051e9","distance":0}]}

@@ -1,0 +1,2 @@
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/products/import","requestId":"req_01a15b7df0e675009ff254a4798c3d96","code":"products.manage"}
+HTTP 403

@@ -1,0 +1,13 @@
+perm.1 owner@demo.test: 工作台 · 待认领 · AI 草稿 · 我处理中 · 他人处理中 · 已结束 · 工单 · 订单与开票 · 看板 · 接待设置 · 店铺与连接 · 团队与权限 · 用量与套餐 · 商户设置
+perm.1 topbar has 助手: false | sidebar usage card: false
+perm.1 collapsed buttons: [""] aria: ["展开侧栏"]
+perm.5 url: /reception | subnav: ["店铺模式","工作时间与转人工","语气与提示词","工单类型与时限","知识库"]
+errors 0
+perm.2 lead@demo.test: 工作台 · 待认领 · AI 草稿 · 我处理中 · 他人处理中 · 已结束 · 工单 · 订单与开票 · 看板 · 接待设置
+perm.6 url: /reception/knowledge | subnav: ["知识库"]
+errors 0
+perm.3 agent@demo.test: 工作台 · 待认领 · AI 草稿 · 我处理中 · 他人处理中 · 已结束 · 工单 · 订单与开票
+errors 0
+perm.4 owner@demo.test false HTTP 200 
+perm.4 lead@demo.test false HTTP 200 
+perm.4 agent@demo.test false HTTP 200 
