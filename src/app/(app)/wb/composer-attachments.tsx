@@ -45,9 +45,32 @@ function patch(conversationId: string, key: string, change: Partial<Attachment>)
   emit();
 }
 
-function upload(conversationId: string, a: Attachment) {
+/** 用浏览器读视频的显示宽高（已按旋转信息转正），时间线按它占位；读不出或 3 秒内没读到就返回 null，照常上传 */
+function videoSize(src: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    const done = (size: { width: number; height: number } | null) => {
+      clearTimeout(timer);
+      v.removeAttribute("src");
+      resolve(size);
+    };
+    const timer = setTimeout(() => done(null), 3000);
+    v.muted = true;
+    v.preload = "metadata";
+    v.onloadedmetadata = () => done(v.videoWidth && v.videoHeight ? { width: v.videoWidth, height: v.videoHeight } : null);
+    v.onerror = () => done(null);
+    v.src = src;
+  });
+}
+
+async function upload(conversationId: string, a: Attachment) {
   const form = new FormData();
   form.set("file", a.file);
+  const size = a.kind === "video" ? await videoSize(a.preview) : null;
+  if (size) {
+    form.set("width", String(size.width));
+    form.set("height", String(size.height));
+  }
   const req =
     a.kind === "video"
       ? api.uploadWithProgress<UploadedFile>("/api/v1/files", form, (r) => patch(conversationId, a.key, { progress: r }))

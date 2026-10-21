@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-21 | v1.30 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-010 | 上传视频时带上浏览器读出的宽高，时间线按真实比例显示横屏、竖屏与正方形视频；早先没有宽高的视频加载出尺寸后调整一次 | 功能 |
 | 2026-10-21 | v1.29 | REQ-CONV-015、FLOW-WB-MEDIA、API-CONV-007、API-CONV-010、API-MOCK-002 | TikTok 会话可发 MP4、MOV、WebM 视频（≤ 100 MB）：后台分块传到 TikTok，再发出 | 功能 |
 | 2026-10-21 | v1.28 | PAGE-WB | 悬停或按下会话行即预取，点下先显示会话头与骨架；悬停后再点到内容就绪从 0.5 秒降到 52 毫秒 | 功能 |
 | 2026-10-21 | v1.27 | PAGE-WB | 侧栏切换页面整页预取，各页加载骨架；首次进入点击到地址变化从 0.4–0.8 秒降到 30–57 毫秒（本机慢网） | 功能 |
@@ -991,6 +992,9 @@
 | --- | --- | --- | --- | --- |
 | 失败 | 图片超过 10 MB 或视频超过 100 MB | 413 `/errors/too-large`〔提示：视频不能超过 100 MB，图片不能超过 10 MB〕 | `/errors/too-large`；API-CONV-010 | TC-CONV-077 |
 | 失败 | 视频不是 MP4、MOV、WebM | 415 `/errors/unsupported-type`〔提示：只支持 JPG、PNG、WebP 图片和 MP4、MOV、WebM 视频〕 | `/errors/unsupported-type`；API-CONV-010 | 无用例 |
+| 边界 | 视频加入附件条 | 浏览器先读出视频的显示宽高，随文件一起上传 | API-CONV-010 | TC-CONV-078 |
+| 边界 | 浏览器 3 秒内读不出宽高 | 不带宽高照常上传，时间线按早先没有宽高的视频显示 | API-CONV-010 | 不测：要构造浏览器解不开的视频，见 S6 没有宽高的分支 |
+| 失败 | 带的宽高不是 1–8,192 的整数，或只带了一个 | 422 `/errors/validation`〔提示：视频宽高要是 1–8192 的整数，两个要一起给〕 | `/errors/validation`；API-CONV-010 | 不测：代码仓 image.test.ts 覆盖 |
 | 失败 | 上传没成功 | 缩略图标「上传失败」，点一下重新上传 | API-CONV-010；§15 输入框附件 | 无用例 |
 | 边界 | 还有没传完或上传失败的附件 | 发送按钮不可用，跳过它会打乱顺序 | §15 输入框附件 | 无用例 |
 
@@ -1030,6 +1034,9 @@
 | 边界 | Shopee 视频发出后 | 播放地址与封面换成 Shopee 返回的地址 | 字段 message.payload | TC-CONV-076 |
 | 边界 | TikTok 视频发出后 | 继续用 Shopilot 存的文件播放 | 字段 message.payload | TC-CONV-077 |
 | 边界 | 店铺站点认不出 | 继续用 Shopilot 存的文件播放 | 字段 message.payload | 无用例 |
+| 边界 | 视频带宽高 | 按宽高比先占好位置，横屏、竖屏、正方形都不变形 | 字段 message.payload；§15 时间线图片与视频 | TC-CONV-078 |
+| 边界 | Shopee 视频发出后平台给了宽高 | 用平台给的宽高；平台没给时留着上传时读出的宽高 | 字段 message.payload | TC-CONV-078 |
+| 边界 | 早先入库、没有宽高的视频 | 先按竖屏 9:16 占位，封面或视频读出尺寸后按真实比例调整一次 | 字段 message.payload；§15 时间线图片与视频 | TC-CONV-078 |
 
 #### 待决策
 
@@ -1046,11 +1053,11 @@
 
 | 步骤 | 位置 |
 | --- | --- |
-| S1–S2 | `src/app/(app)/wb/composer-attachments.tsx#useAttachments`；`src/app/(app)/wb/composer-attachments.tsx#AttachmentStrip`；`src/lib/attachments.ts#acceptFiles`；`src/app/api/v1/files/route.ts#POST`；`src/server/files/image.ts#videoInfo` |
+| S1–S2 | `src/app/(app)/wb/composer-attachments.tsx#useAttachments`；`src/app/(app)/wb/composer-attachments.tsx#AttachmentStrip`；`src/app/(app)/wb/composer-attachments.tsx#videoSize`；`src/lib/attachments.ts#acceptFiles`；`src/app/api/v1/files/route.ts#POST`；`src/server/files/image.ts#videoInfo`；`src/server/files/image.ts#videoDims` |
 | S3 | `src/app/(app)/wb/composer.tsx#Composer`；`src/lib/attachments.ts#runPlan` |
 | S3–S4 | `src/server/conversations/actions.ts#sendMessage`；`src/server/conversations/send.ts#queueVideo` |
 | S5 | `src/server/conversations/send.ts#deliverQueuedVideo`；`src/server/platforms/shopee.ts#shopeeSendVideo`；`src/server/conversations/send.ts#shopeeVideoMedia`；`src/server/platforms/tiktok.ts#tiktokSendVideo`；`src/server/conversations/ingest.ts#matchEcho` |
-| S6 | `src/app/(app)/wb/timeline.tsx#Timeline` |
+| S6 | `src/app/(app)/wb/timeline.tsx#Timeline`；`src/app/(app)/wb/timeline.tsx#ChatVideo` |
 
 ### FLOW-WB-PRETRANSLATE · 发送前预翻译
 
@@ -2615,7 +2622,7 @@ erDiagram
 | `API-CONV-007` | `POST /api/v1/conversations/{id}/messages` | REQ-CONV-005、REQ-AI-003、REQ-CONV-008 | `{ clientRequestId, type: text\|image\|video\|order_card\|logistics_card\|return_card\|coupon_card\|product_card, text?, fileId?, orderId?, packageId?, skuId?, couponId?, couponTitle?（只用于时间线显示）, productId?, translateTo?, translatedText?, draftId?, disposition?: sent\|edited_sent }`；`translatedText` 是输入框的预译文（1–2,000 字），只能随文字消息与 `translateTo` 一起提交，带了就直接发出、不再同步翻译，原文仍记在 `original_text`；待认领会话发送 = 先认领再发送；`video` 按店铺平台校验格式与大小（Shopee 只收 MP4 ≤ 30 MB，TikTok 收 MP4 / MOV / WebM ≤ 100 MB），先以 `sending` 返回，由内部任务 `message.video_send` 发出 | 201 `{ message{ id, sendStatus } }` | 422 `/errors/validation`（`translatedText` 没有 `translateTo`、不是文字消息、为空或超过 2,000 字、超过店铺字数上限）；409 `/errors/conflict`（会话已被他人认领或已结束）；413 `/errors/too-large`、415 `/errors/unsupported-type`（视频超过或不合店铺平台的上限与格式）；409 `/errors/not-allowed`（能力表不支持该类型、店铺没有商品读取权限时发商品卡、买家 7 天外不可发、店铺授权失效 `code: shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | `clientRequestId` 幂等：同键返回首次结果 |
 | `API-CONV-008` | `POST /api/v1/conversations/{id}/drafts/{draftId}/ignore` | REQ-AI-003 | — | 200 | 409 `/errors/conflict`（草稿已处置或过期） | 已忽略再忽略返回 200 |
 | `API-CONV-009` | `PATCH /api/v1/conversations/{id}/segment` | REQ-CONV-007 | `{ stage: presale\|insale\|aftersale\|unknown }` | 200 段 | — | 幂等 |
-| `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005、REQ-CONV-015 | multipart `file`（JPG / PNG / WebP ≤ 10 MB，或 MP4 / MOV / WebM ≤ 100 MB；按店铺平台的视频上限在发送时校验） | 201 `{ id, url, width, height, kind: image\|video }`；视频存 `file.kind = chat_video`，类型按文件头认 | 413 `/errors/too-large`；415 `/errors/unsupported-type` | — |
+| `API-CONV-010` | `POST /api/v1/files` | REQ-CONV-005、REQ-CONV-015 | multipart `file`（JPG / PNG / WebP ≤ 10 MB，或 MP4 / MOV / WebM ≤ 100 MB；按店铺平台的视频上限在发送时校验）；视频可带 `width`、`height`：浏览器读出的显示宽高，1–8,192 的整数，两个一起给，读不出就都不带；图片带了也不用，宽高从文件头读 | 201 `{ id, url, width, height, kind: image\|video }`；视频存 `file.kind = chat_video`，类型按文件头认，宽高存请求里给的值，没给为 null；发视频消息时宽高随文件写进消息 | 413 `/errors/too-large`；415 `/errors/unsupported-type`；422 `/errors/validation`（视频宽高不是 1–8,192 的整数，或只给了一个） | — |
 | `API-CONV-011` | `GET /api/v1/files/{id}` | REQ-CONV-005、REQ-ORD-006、REQ-SET-004、REQ-KB-002 | — | 文件流；按所属对象鉴权（知识库原文件要求 `knowledge.manage`）；PDF 与图片 `inline`，其余 `attachment` | — | `private, max-age=300` |
 | `API-CONV-012` | `POST /api/v1/translate` | REQ-CONV-008、REQ-CONV-016 | `{ text, target: ms\|en\|th\|vi\|id\|tl\|zh }` | 200 `{ text }` | 502 / 504 `/errors/ai-unavailable` | 可重试 |
 | `API-CONV-013` | `GET /api/v1/shops/{id}/coupons` | REQ-CONV-005 | — | `{ items[{ couponId, title, discount, endsAt }] }`（只返回可在聊天发送的券） | 409 `/errors/not-allowed`（Shopee 店） | no-store |
@@ -2916,7 +2923,7 @@ erDiagram
 | 译文 | `translation` | `message.translation` | text | 否 | — | — | 中 |
 | 译文来源 | `translationSource` | `message.translation_source` | enum | 否 | `platform`（Shopee 文字消息的 `content.translation.text`，推送 code 10 与 `get_message` 拉取都带，与原文相同时不存）/ `shopilot` | — | — |
 | 出站原文 | `originalText` | `message.original_text` | text | 否 | 发送前译成买家语言时保存客服写的原文 | — | 中 |
-| 卡片载荷 | `payload` | `message.payload` | jsonb | 否 | 订单卡 `{ orderId }`、物流卡 `{ orderId, packageId? }`、退货卡 `{ orderId, skuId }`、券 `{ couponId }`、商品卡 `{ productId }`、图片 `{ fileId?, url, width, height }`、视频 `{ fileId?, url, cover?, duration? }`；Shopee 常见问题记录 `{ platformType: bundle_message, bundle{ ids, status: pending\|ok\|failed, items?, error?, fetchedAt? } }`，`ids` 按原样数字串保存，`items[]` 每条带 `role: buyer\|bot`、`kind`、`text`、`translation`、`sentAt` | — | 中 |
+| 卡片载荷 | `payload` | `message.payload` | jsonb | 否 | 订单卡 `{ orderId }`、物流卡 `{ orderId, packageId? }`、退货卡 `{ orderId, skuId }`、券 `{ couponId }`、商品卡 `{ productId }`、图片 `{ fileId?, url, width, height }`、视频 `{ fileId?, url, cover?, width?, height?, duration? }`；Shopee 常见问题记录 `{ platformType: bundle_message, bundle{ ids, status: pending\|ok\|failed, items?, error?, fetchedAt? } }`，`ids` 按原样数字串保存，`items[]` 每条带 `role: buyer\|bot`、`kind`、`text`、`translation`、`sentAt` | — | 中 |
 | 客户端请求 ID | `clientRequestId` | `message.client_request_id` | text | 否 | 出站必填；`(conversation_id, client_request_id)` 唯一 | — | — |
 | 发送状态 | `sendStatus` | `message.send_status` | enum | 否 | 出站：`sending` / `sent` / `failed`；入站为 null | — | — |
 | 发送失败原因 | `sendError` | `message.send_error` | text | 否 | 平台错误码 + 中文说明 | — | — |
@@ -4235,8 +4242,8 @@ sequenceDiagram
   participant W as Worker（message.video_send）
   participant SP as Shopee 开放平台
   participant TT as TikTok Shop 开放平台
-  FE->>API: 上传视频 (API-CONV-010)
-  API->>DB: 存 chat_video 文件
+  FE->>API: 上传视频与浏览器读出的宽高 (API-CONV-010)
+  API->>DB: 存 chat_video 文件与宽高
   API-->>FE: 201 文件
   FE->>API: 发送 type = video (API-CONV-007)
   API->>DB: 按店铺平台校验格式与大小，写出站消息 sending，排 message.video_send
@@ -4700,6 +4707,7 @@ flowchart LR
 | 容错 | 常见问题记录拉取（`shopee.bundle`） | 超时与 5xx 退避重试 4 次；授权失效、无权限、参数错、查不到直接记取不到；拉取中超过 10 分钟按取不到显示 |
 | 延迟 | Shopee 发视频（`message.video_send`） | 视频传到 Shopee 后等平台处理 ≤ 120 秒，每 3 秒查一次；2026-10-20 生产实测 6.2 MB 视频约 15 秒处理完；任务不自动重试，失败后客服点重试 |
 | 延迟 | TikTok 发视频（`message.video_send`） | 分块上传：每块 20 MB，末块不足 5 MB 并进上一块（不足 5 MB 的视频一块），每块最长 60 秒；100 MB 最多 5 块；传完即发，不等平台处理；任务不自动重试 |
+| 容量 | 时间线图片与视频 | 缩略图按宽高等比缩进 240 × 256，对话栏更窄时按栏宽再缩；视频没有宽高时先按竖屏 9:16 占位，封面或视频读出尺寸后调整一次，之后不再变 |
 | 容量 | 输入框附件 | 一次最多放 9 个，按会话存在页面内存里（切会话保留、刷新清空）；发送时先文字后附件、上一条返回才发下一条，视频等发出或失败（前端最多等 150 秒）再发下一条；某条失败就停下 |
 | 容量 | 店铺商品目录（`API-CONV-017`） | 每店最多列 500 件在售商品，整店目录在 Web 进程内存缓存 10 分钟，同一店同时只取一次；逐个补规格或主图并发 6 |
 | 容量 | 问题提取（`issue.extract`） | 每 10 分钟一轮，只看 8 天内、买家停止发言满 30 分钟、非回补非达人的段；每轮 ≤ 50 段，并发 4，每段 15 秒，失败下轮再提取 |

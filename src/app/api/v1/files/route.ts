@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { UploadedFile } from "@/contracts/conversations";
 import { db, schema } from "@/server/db/client";
-import { imageInfo, videoInfo } from "@/server/files/image";
+import { imageInfo, VIDEO_SIDE_MAX, videoDims, videoInfo } from "@/server/files/image";
 import { writeDataFile } from "@/server/files/storage";
 import { Problem } from "@/server/http/problem";
 import { json, route } from "@/server/http/route";
@@ -10,7 +10,7 @@ const IMAGE_MAX = 10 * 1024 * 1024;
 /** 视频按两个平台里大的上限（TikTok 100 MB）收；按店铺平台的格式与上限在发送时校验（VIDEO_RULES） */
 const VIDEO_MAX = 100 * 1024 * 1024;
 
-// API-CONV-010：聊天图片（JPG / PNG / WebP，≤ 10 MB）与视频（MP4 / MOV / WebM，≤ 100 MB）上传
+// API-CONV-010：聊天图片（JPG / PNG / WebP，≤ 10 MB）与视频（MP4 / MOV / WebM，≤ 100 MB）上传；视频可带浏览器读出的 width、height，图片宽高从文件头读
 export const POST = route({
   auth: "member",
   perm: "wb.handle",
@@ -29,6 +29,11 @@ export const POST = route({
     const video = image ? null : videoInfo(buf);
     if (!image && !video) throw new Problem("unsupported-type", { detail: "只支持 JPG、PNG、WebP 图片和 MP4、MOV、WebM 视频。" });
     if (image && buf.length > IMAGE_MAX) throw new Problem("too-large", { detail: "图片不能超过 10 MB。" });
+    const dims = video ? videoDims(form.get("width"), form.get("height")) : null;
+    if (dims === "invalid") {
+      const hint = `要是 1–${VIDEO_SIDE_MAX} 的整数`;
+      throw new Problem("validation", { detail: `视频宽高${hint}，两个要一起给。`, extra: { fields: { width: hint, height: hint } } });
+    }
     const id = randomUUID();
     const path = `chat/${ctx.merchant.id}/${new Date().toISOString().slice(0, 7)}/${id}.${image ? image.ext : video!.ext}`;
     await writeDataFile(path, buf);
@@ -41,8 +46,8 @@ export const POST = route({
         path,
         mime: image ? image.mime : video!.mime,
         size: buf.length,
-        width: image?.width || null,
-        height: image?.height || null,
+        width: (image ?? dims)?.width || null,
+        height: (image ?? dims)?.height || null,
         createdBy: ctx.membership.id,
       })
       .returning();

@@ -150,4 +150,9 @@ describe.skipIf(!process.env.DATABASE_URL)("出站视频（Shopee）", async () 
     expect(shopeeVideoMedia(v, "MY")).toMatchObject({ url: "http://127.0.0.1:3361/mock/files/x" });
     expect(shopeeVideoMedia({ ...v, video: "api/v4/x.mp4" }, "XX").url).toBeUndefined();
   });
+
+  it("平台没给宽高：结果里不带宽高键，消息留着上传时浏览器读出的宽高", () => {
+    const media = shopeeVideoMedia({ video: "api/v4/x.mp4", thumbnail: "", durationMs: 0, width: 0, height: 0 }, "MY");
+    expect({ fileId: videoId, width: 1280, height: 720, ...media }).toMatchObject({ width: 1280, height: 720 });
+  });
 });

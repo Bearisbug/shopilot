@@ -1,0 +1,216 @@
+{
+  "conversations": {
+    "C1": "01a15daf-b4ac-73ba-93de-bb1d30a9b2af",
+    "C2": "01a15daf-b64c-717f-b7e3-0169fe0e2ad1"
+  },
+  "step1-2 TikTok wide": {
+    "form": {
+      "file": "file:wide.mp4",
+      "width": "1280",
+      "height": "720"
+    },
+    "status": 201,
+    "resp": {
+      "width": 1280,
+      "height": 720,
+      "kind": "video"
+    },
+    "box": {
+      "x": 797,
+      "y": 284,
+      "w": 240,
+      "h": 135
+    },
+    "sent": "sent"
+  },
+  "step2 letterbox": {
+    "boxRatio": 1.789,
+    "videoRatio": 1.778,
+    "videoWidth": 1280,
+    "videoHeight": 720
+  },
+  "step3 play": [
+    {
+      "src": "/api/v1/files/4493feb6-1557-453f-ab47-2205e03a0f6c",
+      "currentTime": 1.990962,
+      "videoWidth": 1280,
+      "videoHeight": 720
+    }
+  ],
+  "step4 TikTok tall": {
+    "form": {
+      "file": "file:tall.mp4",
+      "width": "720",
+      "height": "1280"
+    },
+    "status": 201,
+    "resp": {
+      "width": 720,
+      "height": 1280,
+      "kind": "video"
+    },
+    "box": {
+      "x": 893,
+      "y": 451,
+      "w": 144,
+      "h": 256
+    },
+    "sent": "sent"
+  },
+  "step4 letterbox": {
+    "boxRatio": 0.559,
+    "videoRatio": 0.563,
+    "videoWidth": 720,
+    "videoHeight": 1280
+  },
+  "step4 play": [
+    {
+      "src": "/api/v1/files/1e0f11f4-a7d0-42fa-9a4b-45770d6f1d33",
+      "currentTime": 1.996573,
+      "videoWidth": 720,
+      "videoHeight": 1280
+    }
+  ],
+  "step5 payload": [
+    "1280|720",
+    "720|1280"
+  ],
+  "step6 Shopee wide": {
+    "form": {
+      "file": "file:wide.mp4",
+      "width": "1280",
+      "height": "720"
+    },
+    "status": 201,
+    "resp": {
+      "width": 1280,
+      "height": 720,
+      "kind": "video"
+    },
+    "box": {
+      "x": 797,
+      "y": 303,
+      "w": 240,
+      "h": 135
+    },
+    "sent": "sent"
+  },
+  "step6 letterbox": {
+    "boxRatio": 1.789,
+    "videoRatio": 1.778,
+    "videoWidth": 1280,
+    "videoHeight": 720
+  },
+  "step6 payload": "http://127.0.0.1:3383/mock/files/c14716de3929d98da43ff80c|640|360",
+  "step6 play": [
+    {
+      "src": "http://127.0.0.1:3383/mock/files/c14716de3929d98da43ff80c",
+      "currentTime": 1.995364,
+      "videoWidth": 1280,
+      "videoHeight": 720
+    }
+  ],
+  "step7 buyer": {
+    "box": {
+      "x": 616,
+      "y": 455,
+      "w": 144,
+      "h": 256
+    },
+    "conversationSection": {
+      "x": 600,
+      "y": 72,
+      "w": 464,
+      "h": 804
+    },
+    "leftSide": true
+  },
+  "step8 legacy": {
+    "sizes": [
+      "144x256",
+      "240x135"
+    ],
+    "firstAt": {
+      "t": 0,
+      "x": 893,
+      "y": -121,
+      "w": 144,
+      "h": 256
+    },
+    "last": {
+      "t": 6893,
+      "x": 797,
+      "y": 0,
+      "w": 240,
+      "h": 135
+    },
+    "changeAt": 3056
+  },
+  "step9 390": {
+    "boxes": [
+      {
+        "x": 111,
+        "y": -101,
+        "w": 240,
+        "h": 135
+      },
+      {
+        "x": 207,
+        "y": 66,
+        "w": 144,
+        "h": 256
+      },
+      {
+        "x": 28,
+        "y": 354,
+        "w": 144,
+        "h": 256
+      }
+    ],
+    "ratios": [
+      1.778,
+      0.563,
+      0.563
+    ],
+    "section": {
+      "x": 12,
+      "y": 72,
+      "w": 366,
+      "h": 748
+    },
+    "inside": true,
+    "scroll": {
+      "scrollWidth": 390,
+      "innerWidth": 390
+    }
+  },
+  "step9 390 shopee": {
+    "x": 111,
+    "y": 303,
+    "w": 240,
+    "h": 135
+  },
+  "step10 zero": {
+    "status": 422,
+    "type": "/errors/validation",
+    "detail": "视频宽高要是 1–8192 的整数，两个要一起给。"
+  },
+  "step10 only width": {
+    "status": 422,
+    "type": "/errors/validation",
+    "detail": "视频宽高要是 1–8192 的整数，两个要一起给。"
+  },
+  "step11 both": {
+    "status": 201,
+    "width": 1280,
+    "height": 720,
+    "kind": "video"
+  },
+  "step11 none": {
+    "status": 201,
+    "width": null,
+    "height": null,
+    "kind": "video"
+  },
+  "console errors": []
+}

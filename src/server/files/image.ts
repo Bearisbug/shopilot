@@ -38,3 +38,18 @@ export function videoInfo(b: Buffer): VideoInfo | null {
   if (b.length >= 4 && b.readUInt32BE(0) === 0x1a45dfa3 && b.subarray(0, 64).includes("webm")) return { mime: "video/webm", ext: "webm" };
   return null;
 }
+
+/** 视频宽高的上限：8K（8192 × 4320）横竖都放得下 */
+export const VIDEO_SIDE_MAX = 8192;
+
+/**
+ * 上传视频时浏览器读出的宽高（API-CONV-010 的可选字段 width、height，服务端不解码视频）：
+ * 两个都没给返回 null；给了就要两个都是 1–8192 的整数，否则返回 "invalid"
+ */
+export function videoDims(width: FormDataEntryValue | null, height: FormDataEntryValue | null): { width: number; height: number } | null | "invalid" {
+  if (width === null && height === null) return null;
+  const side = (v: FormDataEntryValue | null) => (typeof v === "string" && /^[1-9]\d{0,4}$/.test(v) && Number(v) <= VIDEO_SIDE_MAX ? Number(v) : null);
+  const w = side(width);
+  const h = side(height);
+  return w && h ? { width: w, height: h } : "invalid";
+}
