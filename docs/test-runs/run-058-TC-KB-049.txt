@@ -1,0 +1,23 @@
+== 1
+{"merged":["01a15bf4-a5bf-7443-87db-7f907e4fb6dd"],"first":{"qaId":"01a15bf4-a5bf-7443-87db-7f907e4fb6dd","distance":0.1659}}
+HTTP 200
+== 2
+{"status":"archived","version":2}
+HTTP 200
+== 3
+{"qa":null}
+HTTP 200
+== 4
+{"type":"/errors/conflict","code":"invalid_state"}
+HTTP 409
+== 5
+{"status":"published"}
+HTTP 200
+{"merged":["01a15bf4-a5bf-7443-87db-7f907e4fb6dd"]}
+HTTP 200
+== 6
+HTTP 204
+{"type":"/errors/not-found"}
+HTTP 404
+{"type":"/errors/not-found"}
+HTTP 404

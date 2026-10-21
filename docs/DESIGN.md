@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-21 | v1.25 | API-KB-017 | 删除问答不幂等：已删除的再删返回 404，按实现改正 | 文档 |
 | 2026-10-21 | v1.25 | REQ-DASH-003、FLOW-DRAFT-COMPARE、ENT-DraftReview、API-DASH-001、API-DASH-007、PAGE-DASHBOARD | 新增 AI 草稿与人工回复对比：每 10 分钟比一轮，看板给影子回复一致率与修改分类 | 功能 |
 | 2026-10-21 | v1.25 | PAGE-RECEPTION-KB、FLOW-AI-DRAFT | 知识库页改成问答、待审核、资料、产品、测试问答五个页签，依据链到问答编辑 | 功能 |
 | 2026-10-21 | v1.25 | REQ-KB-007、FLOW-PRODUCT-DICT、INV-KB-005、ENT-Product、ENT-ProductListing、API-KB-020、API-KB-021、API-KB-022、API-KB-023、API-KB-024、API-KB-025 | 新增产品清单：物料编码对应官方名称，平台商品按卖家 SKU 自动对上产品 | 功能 |
@@ -2651,7 +2652,7 @@ erDiagram
 | `API-KB-014` | `POST /api/v1/knowledge/qa` | REQ-KB-008 | `{ questions[1..10], answer, productIds[], stage: presale\|insale\|aftersale\|any, markets?, tags? }`（字段上限见表下） | 201 `{ qa }`（已发布），同步向量化，向量化失败也照常发布；审计 `EVT:knowledge_qa_created` | 422 `/errors/validation`（产品不属于本商户） | 幂等键 |
 | `API-KB-015` | `GET /api/v1/knowledge/qa/{id}` | REQ-KB-008 | — | `{ qa }` | — | no-store |
 | `API-KB-016` | `PATCH /api/v1/knowledge/qa/{id}` | REQ-KB-008 | `API-KB-014` 的任意字段，加 `version` | 200 `{ qa }`，版本加 1，问法改了重算向量；审计 `EVT:knowledge_qa_updated` | 409 `/errors/conflict`（`code: version_conflict`） | 按版本号守卫 |
-| `API-KB-017` | `DELETE /api/v1/knowledge/qa/{id}` | REQ-KB-008 | — | 204；清掉其他候选指向它的疑似重复；审计 `EVT:knowledge_qa_deleted` | — | 幂等 |
+| `API-KB-017` | `DELETE /api/v1/knowledge/qa/{id}` | REQ-KB-008 | — | 204；清掉其他候选指向它的疑似重复；审计 `EVT:knowledge_qa_deleted` | — | 不幂等：已删除的再删返回 404 `/errors/not-found` |
 | `API-KB-018` | `POST /api/v1/knowledge/qa/{id}/approve` | REQ-KB-009 | `{ version }` 加任意可改字段 | 200 `{ qa }`，待审核转已发布并向量化；审计 `EVT:knowledge_qa_approved` | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`） | 按版本号守卫 |
 | `API-KB-019` | `POST /api/v1/knowledge/qa/{id}/reject` | REQ-KB-009 | `{ version, reason? }`（原因 ≤ 200 字） | 200 `{ qa }`，待审核转已驳回；审计 `EVT:knowledge_qa_rejected` | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`） | 按版本号守卫 |
 | `API-KB-026` | `POST /api/v1/knowledge/qa/{id}/archive` | REQ-KB-008 | `{ version }` | 200 `{ qa }`，已发布转已下架，不再参与检索；审计 `EVT:knowledge_qa_archived` | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`） | 按版本号守卫 |

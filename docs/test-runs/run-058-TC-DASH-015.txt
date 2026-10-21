@@ -1,0 +1,20 @@
+== 1
+{"job":"draft.compare","ok":true,"durationMs":25}
+{"compared":0,"same":0,"partial":0,"different":0,"consistency":{"num":0,"den":0,"rate":null}}
+== 2
+X=5533498979217583930
+{"ok":true}
+01a15bf5-5868-749b-a1bb-31af522d408d|01a15bf5-3fb7-7587-a155-ab5b05679c4b|您好！关于「Does this webcam work with a Mac?」，我们已经收到，会尽快为您处理。
+== 3
+{"job":"draft.compare","ok":true,"durationMs":29}
+0
+== 4
+{"job":"draft.compare","ok":true,"durationMs":33}
+0
+== 5
+HTTP 201
+== 6
+{"job":"draft.compare","ok":true,"durationMs":35}
+shadow|shadow|same|same|stub|1|您好！关于「Does this webcam work with a Mac?」，我们已经收到，会尽快为您处理。
+== 7
+{"compared":1,"same":1,"partial":0,"different":0,"consistency":{"num":1,"den":1,"rate":null}}

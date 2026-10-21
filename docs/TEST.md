@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-21 | 按 RUN-057 的失败明细原位修正四条用例的前置与预期（实现与设计不变）：`TC-KB-045` 改用种子里真实存在的卖家 SKU `1729582718312480201`（Demo TikTok TH），未对应列表按三家有商品权限的店写；`TC-KB-049` 第 1 步改为命中且排第一、距离小于 0.3，第 3 步改为下架后 `qa` 为 `null`（没有已发布问答时不做问答检索），第 6 步改为第二次删除返回 404；`TC-DASH-015` 第 7 步改为 `consistency.rate` 为 `null`；`TC-KB-001` 按五个页签改写第 1、5 步（第 5 步写明抽屉标题是文件名） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.25 新增草稿对比 `TC-DASH-015` 至 `TC-DASH-019`（影子回复对比与数据不足、辅助草稿原样与修改后发送、买家插话与弃用后另回、看板面板与样例抽屉、线上人工抽检分类）；§3 `q` 的说明改为可执行任意 SQL（草稿对比用例要把草稿生成时间往前改） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.25 新增知识库第一批 `TC-KB-043` 至 `TC-KB-057`（产品清单 4 条、问答维护 3 条、整理与审核 3 条、出稿与测试问答检索问答 2 条、问答接口权限、线上真实向量化 1 条人工、工作台问答依据）；§3 加 `qaclear` 与 `qa` 函数；知识库页改为五个页签后原位修改 `TC-KB-024` 第 5 步（资料依据链接带 `tab=docs`） | 实现会话 |
 | 2026-10-21 | 按 DESIGN v1.24 新增 `TC-CONV-069` 至 `TC-CONV-071`（发送前预翻译：预览与高度不变、带预译文发送、提交校验）；TikTok 读接口排队与限流重试只在代码仓 `pace.test.ts` 覆盖，模拟平台不产生限流，不新增用例 | 实现会话 |
@@ -3108,11 +3109,11 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | 打开 `/reception/knowledge` | 接待设置子导航选中「知识库」；左栏标题「资料 0 / 500」，空态写「还没有资料。把产品手册、保修与退换政策拖到这里」；右栏「测试问答」面板有问题框、店铺下拉与「提问」 |
+| 1 | 打开 `/reception/knowledge`，点「资料」页签 | 接待设置子导航选中「知识库」；页签依次为问答、待审核、资料、产品、测试问答，打开时选中「问答」；点「资料」后地址带 `tab=docs`，标题「资料 0 / 500」，空态写「还没有资料。把产品手册、保修与退换政策拖到这里」 |
 | 2 | 点「上传资料」，在弹窗里选择 `$KB/保修政策.pdf` 与 `$KB/型号对照.xlsx` | 弹窗列出两个文件与大小（3.0 MB、1.0 MB），都写「等待上传」；弹窗写明支持的格式，以及「单个文件不超过 20 MB，PDF 以外的文件不超过 4 MB；PPT 请先导出为 PDF 再上传」；按钮为「上传 2 个文件」 |
 | 3 | 分类选「售后政策」，适用站点保持「全部站点」，点「上传 2 个文件」 | 两个文件依次显示进度，最后都显示「已上传，排队解析」；弹窗底部写「已上传 2 个」，按钮变为「完成」 |
 | 4 | 点「完成」，看资料列表，最多等 30 秒 | 列表两行，分类「售后政策」、站点「全部站点」；状态从「排队中」或「解析中」变为「可用」，「AI 可用」开关为开；标题旁资料数为「2 / 500」 |
-| 5 | 点「保修政策.pdf」一行 | 地址带 `?doc=<ID>`；抽屉「资料详情」显示文件名、状态「可用」、「1 段分块」、分类、适用站点「全部站点」、上传人林晓；「原文件」标签内嵌 PDF 预览 |
+| 5 | 点「保修政策.pdf」一行 | 地址带 `tab=docs` 与 `doc=<ID>`；资料抽屉打开，标题是文件名「保修政策.pdf」（加载中与出错时标题为「资料详情」），显示状态「可用」、「1 段分块」、分类、适用站点「全部站点」、上传人林晓；「原文件」标签内嵌 PDF 预览 |
 | 6 | 点「解析内容（1 段）」标签，再刷新页面 | 地址多了 `docTab=parsed`；列出 #1「替身解析：保修政策.pdf」；刷新后抽屉仍打开并停在「解析内容」 |
 | 7 | 关掉抽屉，点「型号对照.xlsx」一行 | 「原文件」标签没有内嵌预览，写「这种格式不能在页面里预览，点上方「下载原文件」查看」；有「下载原文件」按钮 |
 | 8 | `api owner@demo.test "$B/api/v1/knowledge/documents"` | 200；`items` 2 条，`status` 都是 `ready`、`aiEnabled` 为 true、`markets` 为 `["ALL"]`、`partsCount` 与 `chunksCount` 都为 1（不超过 10 MB 的 PDF 不拆）；`counts` 为 `{"total":2,"limit":500}` |
@@ -3611,14 +3612,14 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 #### `TC-KB-045` 同步平台商品，按卖家 SKU 对应产品，列出未对应的商品 — 对应 `REQ-KB-007` · 级别: 回归 · 执行者: 皆可
 
-前置：基线（Demo TikTok MY 授予了商品读取权限，它的商品「Bamboo Fibre Bath Towel Set (3 pcs)」卖家 SKU 为 `1729582718312480101`）；`login owner@demo.test`；`qaclear`；Worker 在跑。
+前置：基线（授予了商品读取权限的店是 Demo Shopee MY、Demo Shopee SG、Demo TikTok TH；Demo TikTok TH 的商品「ชุดผ้าขนหนูใยไผ่ 3 ผืน」卖家 SKU 为 `1729582718312480201`，同店另有 `1729582718312480202`、`1729582718312480203`）；`login owner@demo.test`；`qaclear`；Worker 在跑。
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
 | 1 | `qa owner@demo.test -X POST "$B/api/v1/products/listings/sync"` | HTTP 202；`queuedShops` 大于 0 |
-| 2 | 等 20 秒，`qa owner@demo.test "$B/api/v1/products/unmapped"` | Demo TikTok MY 一组里列出 `1729582718312480101` 等卖家 SKU（还没有产品清单，全部未对应） |
-| 3 | 导入一行 ` 1729582718312480101 ,竹纤维浴巾三件套`（编码首尾带空格），等 20 秒 | 导入 `created` 为 1；产品列表里这个产品的 `listingCount` 为 1 |
-| 4 | 再请求未对应列表 | `1729582718312480101` 不在列表里，同店其他卖家 SKU 仍在 |
+| 2 | 等 20 秒，`qa owner@demo.test "$B/api/v1/products/unmapped"` | 按店分三组：Demo Shopee MY、Demo Shopee SG、Demo TikTok TH；Demo TikTok TH 一组里有 `1729582718312480201`、`1729582718312480202`、`1729582718312480203`（还没有产品清单，全部未对应） |
+| 3 | 导入一行 ` 1729582718312480201 ,竹纤维浴巾三件套`（编码首尾带空格），等 20 秒 | 导入 `created` 为 1；产品列表里这个产品的 `listingCount` 为 1 |
+| 4 | 再请求未对应列表 | `1729582718312480201` 不在列表里；Demo TikTok TH 一组仍有 `1729582718312480202`、`1729582718312480203` |
 
 后置：`qaclear`。
 
@@ -3666,12 +3667,12 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 | # | 操作 | 预期 |
 | --- | --- | --- |
-| 1 | `qa owner@demo.test -X POST "$B/api/v1/knowledge/test" -d '{"question":"可以退货吗"}'` | HTTP 200；`qa.merged` 有一条且 `qaId` 为 Q；`qa.hits` 里 Q 的 `distance` 为 0 |
+| 1 | `qa owner@demo.test -X POST "$B/api/v1/knowledge/test" -d '{"question":"可以退货吗"}'` | HTTP 200；`qa.merged` 有一条且 `qaId` 为 Q；`qa.hits` 里 Q 排第一，`distance` 小于 0.3（向量按全部问法拼接计算，只用其中一个问法提问不会完全重合） |
 | 2 | `qa owner@demo.test -X POST "$B/api/v1/knowledge/qa/Q/archive" -d '{"version":1}'` | HTTP 200；`status` 为 `archived` |
-| 3 | 重复第 1 步 | `qa.merged` 为空 |
+| 3 | 重复第 1 步 | HTTP 200；`qa` 为 `null`（商户没有已发布问答时不做问答检索），没有命中 Q |
 | 4 | 再下架一次（`"version":2`） | HTTP 409，`code` 为 `invalid_state` |
 | 5 | `/restore`（`"version":2`），再重复第 1 步 | 恢复后 `status` 为 `published`；测试问答再次命中 Q |
-| 6 | `qa owner@demo.test -X DELETE "$B/api/v1/knowledge/qa/Q"` 两次 | 两次都 HTTP 204；再查 Q 返回 404 |
+| 6 | `qa owner@demo.test -X DELETE "$B/api/v1/knowledge/qa/Q"` 两次 | 第一次 HTTP 204；第二次 HTTP 404 `/errors/not-found`；再查 Q 返回 404 |
 
 后置：`qaclear`。
 
@@ -3979,7 +3980,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 4 | `q "update draft set created_at = created_at - interval '20 minutes' where id = '<D>'"`；`pnpm job draft.compare`；再查 `draft_review` | 仍是 `0`：还没有人工回复，不挑 |
 | 5 | `api owner@demo.test -X POST $B/api/v1/conversations/<C>/messages -d '{"clientRequestId":"tc-dash-015","type":"text","text":"<T>"}'` | `HTTP 201` |
 | 6 | `pnpm job draft.compare`；`q "select kind, draft_status, edit_class, consistency, model, cardinality(human_message_ids), human_text from draft_review where draft_id = '<D>'"` | `shadow\|shadow\|same\|same\|stub\|1\|<T>` |
-| 7 | 再请求一次第 1 步的看板接口 | `compared` 为 N0 + 1，`same` 为 S0 + 1；`consistency` 为 `null` |
+| 7 | 再请求一次第 1 步的看板接口 | `compared` 为 N0 + 1，`same` 为 S0 + 1；`consistency` 是对象 `{ num, den, rate }`，`num` 为 S0 + 1、`den` 为 N0 + 1，`rate` 为 `null`（不足 10 份） |
 | 8 | 浏览器以 owner@demo.test 打开 `/dashboard?range=today`，找到「AI 草稿与人工回复」面板 | 「影子回复」处于选中；一致率位置显示「数据不足」，下方写「一致 / 已对比 = <S0 + 1> / <N0 + 1>，满 10 份才计算」；修改分类表 6 行依次为语义一致、仅语言润色、补充信息、事实更正、流程改变、弃用重写 |
 
 后置：无（`TC-DASH-018` 要用本用例的对比记录，本轮不重置）。
@@ -4841,6 +4842,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-055 | 2026-10-20 | 本地 | `d2660ca` | AI（Claude Code 主会话；Playwright + Edge） | 复测（RUN-054：TC-DASH-012） | 通过 1/1 |
 | RUN-056 | 2026-10-21 | 本地 | `e4ac880` + 工作区改动（只改 `docs/`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-CONV-069、TC-CONV-070、TC-CONV-071） | 通过 3/3 |
 | RUN-057 | 2026-10-21 | 本地 | `e6994cc` + 工作区改动（只改 `docs/`、`AGENTS.md`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-KB-043、TC-KB-044、TC-KB-045、TC-KB-046、TC-KB-047、TC-KB-048、TC-KB-049、TC-KB-050、TC-KB-051、TC-KB-052、TC-KB-053、TC-KB-054、TC-KB-055、TC-KB-056、TC-KB-057、TC-DASH-015、TC-DASH-016、TC-DASH-017、TC-DASH-018、TC-DASH-019、TC-KB-001、TC-KB-024、TC-AI-001、TC-PERM-001、TC-FEISHU-005） | 通过 19/25 · 失败 4 · 待人工 2 |
+| RUN-058 | 2026-10-21 | 本地 | `e6994cc` + 工作区改动（只改 `docs/`、`AGENTS.md`） | AI（Claude Code 子会话；Playwright + Edge、curl） | 复测（RUN-057：TC-KB-045、TC-KB-049、TC-DASH-015、TC-KB-001） | 通过 4/4 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5027,6 +5029,8 @@ RUN-056 证据：局部轮，被测版本本地 main `e4ac880`（已合并预翻
 本轮执行中发现用例本身写错、当轮原位修正的地方（都是这一轮新写的用例，修正前没有登记过结果）：`TC-CONV-059` 前置改按状态取拉到的那条（同一会话里还有 `TC-CONV-058` 造的取不到的记录）；`TC-TKT-021`、`TC-TKT-024` 前置改为先推进到 PROCESSED 再到 RETRY_SHIP（模拟平台不允许从 READY_TO_SHIP 直接到 RETRY_SHIP，`TC-TKT-004` 第 1 步同样受影响，本轮没跑）；`TC-DASH-012` 第 4 步按钮名为「应用」；`TC-DASH-013` 总结改为「以……开头」（AI 替身取买家第一句时带着平台译文）；`TC-FEISHU-018` 卡片里说话人是加粗的「Shopee AI」「买家」，不是「Shopee AI：」；`TC-DASH-006`、`TC-DASH-010` 的 12 小时内回复是 4 段不是 5 段，`dashboard-metrics` 场景里 AI 独立解决的段只打了标记、没有 AI 发出的消息。`TC-CONV-068` 要在真实平台执行，登记待人工。截图与数据放 `docs/test-runs/run-054-*`；本机库与进程在轮次结束后回收。
 
 RUN-057 证据：局部轮，被测版本本地 main `e6994cc`（含 c2d0919 合并的知识库第一批、0ad1ab6 的草稿对比；e6994cc 只把测试文件改成串行，不影响行为），工作区另有 `docs/` 与 `AGENTS.md` 的未提交改动，与被测代码无关。独立库 `shopilot_run057`（同一 PostgreSQL 实例），Web 起在 3377、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3377，`DATA_DIR` 用临时目录，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前 `pnpm db:reset && pnpm db:seed`；`TC-DASH-018` 之后按它的后置重置基线（先停 Worker，重置、写种子后再起），再跑 `TC-KB-001`、`TC-KB-024`、`TC-AI-001`、`TC-PERM-001`、`TC-FEISHU-005`。浏览器步骤用 Playwright + Edge 无头（1440×900）；买家发消息用 §3 登记的模拟器接口 `create_buyer`、`buyer_message`，没有操作模拟器页面，推送日志的 HTTP 状态从 `GET /api/mock/sim/state` 的 `pushLogs[].httpStatus` 读取。上一个执行会话中途卡死，它留下的 run-057 证据全部删除后重跑。执行中的两处说明：`TC-KB-050` 第 1 步第一次执行时替身入库在上传与发起整理之间就已完成，拿到 HTTP 202，打乱了后面步骤的状态；在发起前先读资料状态（`queued`）复现两次都是 409 `not_ready`，随后按顺序重跑第 1–5 步全部符合，记录见 `run-057-TC-KB-050.txt`、`run-057-TC-KB-050-1b.txt`。`TC-KB-047` 第 4 步的「已发布」由列表筛选「已发布 1」与卡片标题「已发布 1」表达，行里不单独标状态（`run-057-TC-KB-047-4.png`）。每个用例的接口返回与关键查询存为 `docs/test-runs/run-057-<TC ID>*.txt/json`，界面截图为同名 `.png`。
+
+RUN-058 证据：复测轮，被测版本同 RUN-057（本地 main `e6994cc`），四条用例按 RUN-057 明细原位修正写法后重跑（§1 变更记录 2026-10-21 一行），实现与设计未改，设计文档只把 `API-KB-017` 的「幂等」格改为重复删除返回 404。独立库 `shopilot_run058`（同一 PostgreSQL 实例），Web 起在 3378、Worker 同库，`APP_BASE_URL`、`SHOPEE_HOSTS`、`TIKTOK_*` 改成 3378，`DATA_DIR` 用临时目录，`AI_MODE`、`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，起跑前 `pnpm db:reset && pnpm db:seed`；`pnpm job` 默认读 `.env` 会连到别的库，本轮改为导出本轮环境后执行 `pnpm exec tsx scripts/job.ts <任务名>`。`TC-KB-045`：同步后未对应列表三组（Demo Shopee MY 4 个、Demo Shopee SG 3 个、Demo TikTok TH 3 个卖家 SKU），导入 ` 1729582718312480201 ,竹纤维浴巾三件套` 得 `created 1`，20 秒后 `listingCount` 为 1，未对应列表里 Demo TikTok TH 只剩 `…202`、`…203`（`run-058-TC-KB-045-1.json` 至 `-4.json`）。`TC-KB-049`：第 1 步 Q 排第一、`distance` 0.1659；第 3 步下架后 `qa` 为 `null`；第 4 步 409 `invalid_state`；第 5 步恢复后再次命中；第 6 步第一次 204、第二次 404 `/errors/not-found`，再查 404（`run-058-TC-KB-049.txt`；脚本第一次记状态码时读错行，按原步骤重跑一遍，文件里是第二遍的输出）。`TC-DASH-015`：N0 为 0、S0 为 0；第 3、4 步 `draft_review` 都是 0 行；第 6 步 `shadow|shadow|same|same|stub|1|<T>`；第 7 步 `consistency` 为 `{"num":1,"den":1,"rate":null}`；第 8 步面板「影子回复」选中，一致率处显示「数据不足」与「一致 / 已对比 = 1 / 1，满 10 份才计算」，修改分类 6 行按语义一致、仅语言润色、补充信息、事实更正、流程改变、弃用重写自上而下排列（`run-058-TC-DASH-015.txt`、`run-058-TC-DASH-015-8.png`）。`TC-KB-001`：页签依次为问答、待审核、资料、产品、测试问答，打开时选中「问答」，点「资料」后地址为 `?tab=docs`、标题「资料 0 / 500」与空态文案符合；上传弹窗、进度、分类与状态变为可用、「2 / 500」、两个「AI 可用」开关为开均符合；第 5 步抽屉标题为文件名，`tab=docs` 与 `doc` 都在地址里，原文件标签在加载后有内嵌 iframe 预览（截图时 PDF 尚在加载，单独复查 6 秒后 iframe 在位）；第 6 步 `docTab=parsed`、刷新后仍停在「解析内容」并显示「替身解析：保修政策.pdf」；第 7 步 xlsx 显示「这种格式不能在页面里预览…」与「下载原文件」；第 8 步接口 2 条 `ready`、`partsCount`/`chunksCount` 为 1、`counts` 为 `{"total":2,"limit":500}`（`run-058-TC-KB-001-1.png` 至 `-7.png`、`-8.json`）。控制台没有报错。
 
 ## 7. 遗留问题
 
