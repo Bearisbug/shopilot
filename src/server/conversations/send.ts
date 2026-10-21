@@ -192,8 +192,8 @@ export function shopeeVideoMedia(v: ShopeeChatVideo, market: string): Record<str
   return {
     ...(url ? { url } : {}),
     cover: abs(v.thumbnail, "cf"),
-    width: v.width || undefined,
-    height: v.height || undefined,
+    // 平台没给宽高时不带这两个键，留着上传时浏览器读出的宽高
+    ...(v.width && v.height ? { width: v.width, height: v.height } : {}),
     duration: v.durationMs ? Math.round(v.durationMs / 1000) : undefined,
   };
 }

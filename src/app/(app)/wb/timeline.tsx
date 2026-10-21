@@ -609,10 +609,16 @@ function durationText(sec: number): string {
 
 /**
  * 视频缩略图：封面 + 播放键 + 时长，点开在灯箱里播放（窄栏里就地播放的播放器太小）。
- * 没有封面或封面加载失败时取第 0.1 秒那一帧当封面；视频本身加载失败（链接过期，TikTok 带签名）时换成过期提示
+ * 没有封面或封面加载失败时取第 0.1 秒那一帧当封面；视频本身加载失败（链接过期，TikTok 带签名）时换成过期提示。
+ * payload 带宽高就按它等比占位；早先入库的视频没有尺寸，先按手机竖屏 9:16 摆，封面或视频读出尺寸后按真实比例调整一次
  */
-function ChatVideo({ id, url, cover, width, height, duration, ctx }: { id: string; url: string; cover: string | null; width: number; height: number; duration: number | null; ctx: Ctx }) {
+function ChatVideo({ id, url, cover, width, height, duration, ctx }: { id: string; url: string; cover: string | null; width: number | null; height: number | null; duration: number | null; ctx: Ctx }) {
   const [coverFailed, setCoverFailed] = useState(false);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  const box = width && height ? { w: width, h: height } : (natural ?? { w: 270, h: 480 });
+  const measured = (w: number, h: number) => {
+    if (!(width && height) && w && h) setNatural((n) => n ?? { w, h });
+  };
   if (ctx.failed.has(id)) return <CardBox icon={VideoIcon} title="视频" sub={[`视频${EXPIRED_HINT}`]} />;
   return (
     <button
@@ -621,12 +627,21 @@ function ChatVideo({ id, url, cover, width, height, duration, ctx }: { id: strin
       aria-haspopup="dialog"
       onClick={(e) => ctx.openMedia(id, e.currentTarget)}
       className="focus-ring relative block max-w-full overflow-hidden rounded-lg border border-border bg-(--semantic-color-surface-inverse)"
-      style={fitBox(width, height, THUMB_W, THUMB_H)}
+      style={fitBox(box.w, box.h, THUMB_W, THUMB_H)}
     >
       {cover && !coverFailed ? (
-        <Image src={cover} alt="" fill unoptimized sizes={`${THUMB_W}px`} onError={() => setCoverFailed(true)} className="object-contain" />
+        <Image src={cover} alt="" fill unoptimized sizes={`${THUMB_W}px`} onLoad={(e) => measured(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)} onError={() => setCoverFailed(true)} className="object-contain" />
       ) : (
-        <video src={`${url}#t=0.1`} preload="metadata" muted playsInline aria-hidden="true" onError={() => ctx.markFailed(id)} className="size-full object-contain" />
+        <video
+          src={`${url}#t=0.1`}
+          preload="metadata"
+          muted
+          playsInline
+          aria-hidden="true"
+          onLoadedMetadata={(e) => measured(e.currentTarget.videoWidth, e.currentTarget.videoHeight)}
+          onError={() => ctx.markFailed(id)}
+          className="size-full object-contain"
+        />
       )}
       <span className="absolute inset-0 grid place-items-center">
         <span className="grid size-10 place-items-center rounded-full bg-(--semantic-color-surface-inverse)/70 text-(--semantic-color-text-on-inverse)">
@@ -685,11 +700,8 @@ function Content({ m, ctx }: { m: MessageItem; ctx: Ctx }) {
     }
     case "video": {
       const url = typeof p.url === "string" ? p.url : null;
-      // 早先入库的视频没有尺寸，按手机竖屏 9:16 摆
-      const w = Number(p.width) || 270;
-      const h = Number(p.height) || 480;
       return url ? (
-        <ChatVideo id={m.id} url={url} ctx={ctx} cover={typeof p.cover === "string" ? p.cover : null} width={w} height={h} duration={Number(p.duration) || null} />
+        <ChatVideo id={m.id} url={url} ctx={ctx} cover={typeof p.cover === "string" ? p.cover : null} width={Number(p.width) || null} height={Number(p.height) || null} duration={Number(p.duration) || null} />
       ) : (
         <CardBox icon={VideoIcon} title="视频" sub={["请到平台后台查看"]} />
       );

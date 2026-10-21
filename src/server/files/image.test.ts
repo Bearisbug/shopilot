@@ -1,6 +1,6 @@
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { imageInfo, videoInfo } from "./image";
+import { imageInfo, videoDims, videoInfo } from "./image";
 
 function png(w: number, h: number): Buffer {
   const ihdr = Buffer.alloc(13);
@@ -36,5 +36,27 @@ describe("聊天视频格式识别", () => {
   it("MKV 与非视频不认", () => {
     expect(videoInfo(ebml("matroska"))).toBeNull();
     expect(videoInfo(Buffer.from("not a video at all"))).toBeNull();
+  });
+});
+
+describe("上传视频带的宽高（浏览器读出）", () => {
+  it("都没给：不记宽高", () => expect(videoDims(null, null)).toBeNull());
+  it("横屏、竖屏、正方形与上限 8192 都收", () => {
+    expect(videoDims("1280", "720")).toEqual({ width: 1280, height: 720 });
+    expect(videoDims("720", "1280")).toEqual({ width: 720, height: 1280 });
+    expect(videoDims("1", "1")).toEqual({ width: 1, height: 1 });
+    expect(videoDims("8192", "4320")).toEqual({ width: 8192, height: 4320 });
+  });
+  it("只给一个、0、负数、小数、超上限、非数字、文件都不收", () => {
+    expect(videoDims("1280", null)).toBe("invalid");
+    expect(videoDims(null, "720")).toBe("invalid");
+    expect(videoDims("0", "720")).toBe("invalid");
+    expect(videoDims("-1280", "720")).toBe("invalid");
+    expect(videoDims("1280.5", "720")).toBe("invalid");
+    expect(videoDims("8193", "720")).toBe("invalid");
+    expect(videoDims("1e3", "720")).toBe("invalid");
+    expect(videoDims("", "")).toBe("invalid");
+    expect(videoDims(" 1280", "720")).toBe("invalid");
+    expect(videoDims(new File(["1280"], "w"), "720")).toBe("invalid");
   });
 });
