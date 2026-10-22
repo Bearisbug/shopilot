@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-22 | 按 DESIGN v1.35 英文官网整页标英文：新增 `TC-SITE-006`（源自缺陷：英文官网整页语言仍标为中文） | 实现会话 |
 | 2026-10-22 | 按 DESIGN v1.34 按卡定时体检与 Agent 自动生效刹车：新增 `TC-KB-072` 至 `TC-KB-079`（体检改卡直接生效、挑卡条件、无需更新、暂停时进待审核与按目标卡发布、这张卡今天已被 Agent 改过、今天满 5 次、周指标暂停与恢复、复测没通过）、`TC-DASH-020`（AI 质量面板）、`TC-PERM-010`（状态与恢复的权限）；§3 加按卡体检与周指标函数（`merchantid`、`carddraft`、`dispose`、`cardold`、`crjob`、`cardreview`、`qweek`、`aq`）与体检替身规则；`q` 的写操作范围加上改卡版本时间、写与删 Agent 改卡审计、写周指标草稿、设暂停 | 实现会话 |
 | 2026-10-22 | RUN-073 发现用例错：原位改 `TC-KB-001` 第 1 步预期的知识库页签，按 DESIGN v1.32 PAGE-RECEPTION-KB 加上「经验卡」「学习」（问答、经验卡、待审核、学习、资料、产品、测试问答） | 实现会话 |
 | 2026-10-22 | 按 DESIGN v1.33 官网第二次改版（首屏演示跟着滚动演、系统字体粗标题、接入范围逐字点亮）：`TC-SITE-004` 废弃，被 `TC-SITE-005` 取代（首屏演示改由滚动驱动，暂停按钮从 9 个减到 6 个、只管自动循环）；原位改 `TC-SITE-003` 第 1、2 步的预期（演示面板不吸住、下方列出四步说明，入场元素加功能格，长句不变浅） | 实现会话 |
@@ -397,6 +398,19 @@ aq() { pnpm -s job ai.quality_weekly "{\"merchantId\":\"$(merchantid)\"}"; }
 | 6 | 暂停状态下滚回演示区块，演示进度停在 84%，停 1 秒截图 | 演示照样走到第 2 步的 ⑤：指针停在发送按钮上，字幕「你确认一眼，点发送」 |
 | 7 | 滚回「功能」区块，记下第一个功能格插图的动画时间，500 毫秒后再记一次，然后点「播放动画」，500 毫秒后再记一次 | 暂停期间两次动画时间相同；点播放后按钮都变回「暂停动画」，动画时间比停下时多出 400–700 毫秒，从停下处接着播 |
 | 8 | 看浏览器控制台 | 第 1–7 步期间没有报错与警告 |
+
+后置：无。
+
+#### `TC-SITE-006` 英文官网整页标为英文，中文页面不变 — 对应 `REQ-SITE-001` · 级别: 回归 · 执行者: 皆可 · 源自缺陷 2026-10-22 英文官网整页语言仍标为中文
+
+前置：浏览器没有 Shopilot 登录会话；库里有 `pnpm db:seed` 建的 agent@demo.test（不要求重建基线）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/en`，查页面 `<html>` 的 `lang` 属性 | `en` |
+| 2 | 打开 `/`，查 `<html>` 的 `lang` | `zh-CN` |
+| 3 | 打开 `/login`，查 `<html>` 的 `lang` | `zh-CN` |
+| 4 | 以 agent@demo.test 与 `Shopilot-Demo-2026` 登录，停在 `/wb` 后查 `<html>` 的 `lang` | `zh-CN` |
 
 后置：无。
 
@@ -5531,6 +5545,8 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-073 | 2026-10-22 | 本地 | `35b1ceb` + 工作区改动（官网、learning-analyze.ts） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-AUTH-001、TC-AUTH-004、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-SHOP-001、TC-AI-001、TC-AI-002、TC-ORD-015、TC-TKT-001、TC-KB-001、TC-KB-024、TC-KB-047、TC-KB-053、TC-KB-058、TC-KB-061、TC-KB-066、TC-KB-067、TC-KB-068、TC-FEISHU-005、TC-FEISHU-011） | 通过 20/21 · 失败 1 |
 | RUN-074 | 2026-10-22 | 本地 | `35b1ceb` + 工作区改动（官网、learning-analyze.ts；`TC-KB-001` 原位改第 1 步） | AI（Claude Code 子会话；Playwright + Edge、curl） | 复测（RUN-073：TC-KB-001） | 通过 1/1 |
 | RUN-075 | 2026-10-22 | 本地 | `ae52061`（wt/cardreview 分支，无未提交的代码改动） | AI（Claude Code 子会话；Playwright + Edge、curl） | 局部（TC-KB-072、TC-KB-073、TC-KB-074、TC-KB-075、TC-KB-076、TC-KB-077、TC-KB-078、TC-KB-079、TC-DASH-020、TC-PERM-010、TC-KB-058、TC-KB-068、TC-AI-001） | 通过 13/13 |
+| RUN-076 | 2026-10-22 | 本地 | `f006933`（官网修复前，只多了 `docs/` 改动） | AI（Claude Code 主会话；Playwright + Edge） | 局部（TC-SITE-006） | 通过 0/1 · 失败 1 |
+| RUN-077 | 2026-10-22 | 本地 | `f006933` + 工作区改动（`src/app/layout.tsx` 根布局按路径给 `<html lang>`；`docs/`） | AI（Claude Code 主会话与子会话；Playwright + Edge、curl） | 复测（RUN-076：TC-SITE-006、TC-AUTH-001、TC-AUTH-004、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-SHOP-001、TC-AI-001、TC-AI-002、TC-ORD-015、TC-TKT-001、TC-KB-001、TC-KB-024、TC-KB-047、TC-KB-053、TC-KB-058、TC-KB-061、TC-KB-066、TC-KB-067、TC-KB-068、TC-KB-072、TC-FEISHU-005、TC-FEISHU-011） | 通过 23/23 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5657,6 +5673,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-066 | TC-KB-067 | 失败 | 第 2 步没有相似卡时任务抽屉整节不显示「相似内容」（六样材料只出现五样）；第 9 步消息下方只写「已提交学习」，预期「已提交学习 · 新建了经验卡」；其余 7 步符合；证据 `docs/test-runs/run-066-TC-KB-067-2.png`、`docs/test-runs/run-066-TC-KB-067-9.png` | 实现缺陷：抽屉一直显示「相似内容」，没有相似卡时写「没有找到相似的已发布经验卡。」；时间线标记补结论；RUN-067 复测通过 |
 | RUN-068 | TC-KB-067 | 失败 | 第 4 步 `HTTP 409`、`code` `retest_required` 符合，`detail` 为「内容或要改的卡在复测后有变化，请先复测。」，预期「内容改过后还没复测通过，请先复测。」（DESIGN FLOW-KB-LEARN S8 同此提示）；其余 8 步符合；证据 `docs/test-runs/run-068-TC-KB-067-4.txt` | 实现修复，RUN-069 复测通过 |
 | RUN-073 | TC-KB-001 | 失败 | 第 1 步知识库页签依次为「问答、经验卡、待审核、学习、资料、产品、测试问答」，预期「问答、待审核、资料、产品、测试问答」：v1.32 新增「经验卡」「学习」两个页签，与 DESIGN §13 PAGE-RECEPTION-KB 的页签一致，属用例没随 v1.32 更新；同步的空态、标题「资料 0 / 500」与第 2–8 步都符合；证据 `docs/test-runs/run-073-TC-KB-001-1.png` | 用例待按 v1.32 页签原位修正后复测 |
+| RUN-076 | TC-SITE-006 | 失败 | 第 1 步 `/en` 的 `<html lang>` 为 `zh-CN`，预期 `en`（服务端返回的 HTML 同样是 `<html lang="zh-CN" …>`）；第 2–4 步 `/`、`/login`、`/wb` 都是 `zh-CN`，符合；证据 `docs/test-runs/run-076-results.json` | 实现缺陷：根布局按路径给英文官网写 `en`，RUN-077 复测通过 |
 
 RUN-001 备注：`TC-CONV-002`、`TC-CONV-003`、`TC-CONV-032` 在 convai 组因前置 `TC-SHOP-001` 未满足登「阻塞」，同轮由 shopset 组接入 Wizard 应用后补跑通过；`TC-AI-002`（真实 DeepSeek，`AI_MODE=deepseek`）与 `TC-MOCK-002`（`MOCK_PLATFORM=0`）要改 `.env` 并重启 dev server，由主会话在各组结束后单独执行，均通过（`run-001-TC-AI-002-2.json`）。证据文件都在 `docs/test-runs/`。
 
@@ -5759,6 +5776,10 @@ RUN-073 证据：发布前的冒烟轮，冒烟级 21 条全跑，被测为主�
 RUN-074 证据：复测轮，承接 RUN-073 的用例错：`TC-KB-001` 第 1 步预期按 v1.32 原位改为七个页签后复测。被测与 RUN-073 相同（`35b1ceb` + 工作区改动：官网、`learning-analyze.ts`），按 §3 本地行重建基线（`pnpm db:reset && pnpm db:seed`）、`pnpm dev`（3360，Web 与 Worker，`AI_MODE=stub`），知识库测试文件按 §3 配方只生成本用例用到的 `保修政策.pdf`（3.0 MB）与 `型号对照.xlsx`（1.0 MB），2026-10-22 16:55–17:00。8 步由一个 Playwright 脚本（Edge 无头，1440 × 900）执行；第 5 步脚本在「1 段分块」出现时就读抽屉，「原文件」标签还在确认文件存在的骨架阶段、没有读到内嵌预览，于是在同一状态下重新打开这份资料的抽屉，等到 `<iframe title="保修政策.pdf 预览">` 出现再观察并截图（浏览器自带的 PDF 阅读器已加载），登记的是这一遍；其余步骤一遍通过。截图 `docs/test-runs/run-074-TC-KB-001-1.png` 至 `-7.png`，第 8 步接口返回 `run-074-TC-KB-001-8.json`，逐步观察值 `run-074-TC-KB-001.json`。
 
 RUN-075 证据：局部轮，DESIGN v1.34 按卡定时体检与 Agent 自动生效刹车的首轮（`TC-KB-072` 至 `TC-KB-079`、`TC-DASH-020`、`TC-PERM-010`），加 `TC-KB-058`、`TC-KB-068`、`TC-AI-001` 作回归。被测为 wt/cardreview 分支的工作区 `ae52061`，按 §3 本地行起跑，但与主工作区隔开：独立库 `shopilot_wt_cardreview`（同一 PostgreSQL 实例），Web 用 `pnpm exec next dev --hostname 127.0.0.1 --port 3374` 起在 3374，Worker 用 `pnpm exec tsx --env-file=.env src/worker/main.ts` 连同一个库，`AI_MODE=stub`；§3 函数里的 `B` 换成 `http://127.0.0.1:3374`，`q` 改为 `docker exec -i shopilot-postgres-1 psql -U shopilot -d shopilot_wt_cardreview -Atc`（工作区不在 compose 项目目录下，`docker compose exec` 找不到容器），`crjob`、`aq` 在工作区目录下执行。2026-10-22 20:28–20:56 执行，浏览器步骤用 Playwright + Edge 无头（1440 × 900）。基线重建过三次，每次都先停 Web 与 Worker，`pnpm db:reset && pnpm db:seed` 后再起，并按 §3「固定为工作时间内」：第一套上执行 `TC-KB-058`、`TC-KB-068`、`TC-KB-072`、`TC-KB-076`；`TC-KB-073` 第 1 步要数全部体检任务，`TC-KB-072` 留下了一条，于是重建后依次执行 `TC-KB-073`、`TC-KB-074`、`TC-KB-075`、`TC-KB-077`、`TC-KB-079`、`TC-KB-078`、`TC-PERM-010`（`TC-KB-078` 排在 `TC-PERM-010` 前，因为后者的恢复会多写一条 `agent_autoapply_resumed` 审计）；`TC-DASH-020` 与 `TC-KB-078` 往同几周写周指标草稿，再重建一次后执行 `TC-DASH-020`、`TC-AI-001`。执行中按 test-doc 纪律处理过的情况：① `TC-KB-068` 前两遍脚本在第 3 步（开关的读屏名是「只看 Agent 改过、还没人看过的卡」）与第 6 步（任务抽屉是模态，按无障碍角色取页签超时）写错，按前置新建卡 K 与买家从第 1 步重跑，登记的是第三遍（买家「Learn B3」）；② `TC-KB-076` 的前置用 `TC-KB-072` 第 1–8 步跑完后的状态，072 第 4–8 步只读卡、看页面、筛选列表，不改卡与任务，卡 K 仍是今天被 Agent 改成的第 2 版；③ `TC-KB-075` 第 6 步点「发布」后，脚本读卡版本时 shell 引号写错中断，在同一状态下用接口确认卡仍是第 2 版、任务仍是 `pending_review`，再从第 7 步接着观察（重新打开任务），登记的是这一遍；④ `TC-AI-001` 第一遍脚本在第 4 步之后查消息时列名写错中断，这一遍点「认领并发送」后草稿仍是 `generated`、没有本方消息入库，脚本没记请求，无法确认点击是否落在按钮上；换新买家「AI001 Buyer2」重跑全部 7 步，登记的是第二遍，第 7 步的起点读数取第二遍开始前的 `/billing`（已用 1、辅助草稿 1），结束为已用 2、辅助草稿 2（`run-075-TC-AI-001-7.png`；`-0.png` 是第一遍开始前的已用 0）。随后在第一遍那个会话上再点一次「认领并发送」，`POST /api/v1/conversations/<ID>/messages` 返回 201 并发出，没有复现，未记遗留问题。买家发消息用 §3 登记的模拟器接口 `create_buyer`、`buyer_message`，没有操作模拟器页面；推送日志与买家视图从 `GET /api/mock/sim/state?shop=shopee:220001&conversation=<ID>` 读（第 1 步推送 `event` 10、HTTP 200，第 5 步买家视图 1 条卖家消息、正文同草稿）。查读数格式时在模拟器里建过一位没发消息的买家「probe x」，不进会话，不影响结果；⑤ `cardreview` 输出前多一行 pnpm 打到标准错误的命令回显，判定看最后一行。关键观察：`TC-KB-072` 第 4 步 `retest.regressions` 1、`reviews` 一项 `card_updated` / 第 2 版，第 6 步点「改成第 2 版」后焦点落在版本行 `card-v-2`，第 8 步列表一行「按卡体检 · 3 个用例 · 流程需要补充 · 改了经验卡」、已发布；`TC-KB-073` 五步的体检任务数依次 0、0、1、1，K2 草稿 3 份、任务 0；`TC-KB-075` 建议为「自动生效已暂停（10 月 22 日）：测试暂停。替身：补一步」，第 6 步提示「要改的经验卡在复测后被改过，请重新复测。」（带请求编号），第 8 步卡第 3 版、作者林晓；`TC-KB-076` 建议为「这张卡今天已被 Agent 改过一次。替身：按建议更新」；`TC-KB-077` 建议为「今天 Agent 直接生效的改动已满 5 次。替身：补一步」；`TC-KB-078` 三周为 2026-09-28、10-05、10-12，原因「辅助草稿采纳率连续两周下降：90% → 70% → 50%」，第二次 `aq` 后行数、通知与审计都不变；`TC-DASH-020` 读屏名三周依次 90%（样本 20）、70%（样本 20）、数据不足（样本 5），390 px 下页面宽 390、无横向滚动；`TC-PERM-010` 员工两次 403 的 `code` 分别为 `knowledge.manage`、`reception.manage`，组长恢复 403。接口返回、查询输出与截图存 `docs/test-runs/run-075-*`。
+
+RUN-076 证据：源自缺陷用例 `TC-SITE-006` 在未修复版本上的一轮。被测为本地 main `f006933`，工作区只多了本次的 `docs/DESIGN.md`（v1.35）与 `docs/TEST.md` 改动，代码未改。按 §3 本地行 `pnpm db:reset && pnpm db:seed` 后 `pnpm dev`（3360）。Playwright 逐步读 `document.documentElement.lang`，同时用同一上下文直接请求页面、取服务端返回 HTML 里的 `<html …>` 标签作旁证；失败落在第 1 步，与 RUN-073 证据段记下的现象一致，线上 `d016889` 发布后的 `/en` 也是 `zh-CN`。控制台无报错。
+
+RUN-077 证据：发布前的复测轮，承接 RUN-076，含源自缺陷用例 `TC-SITE-006` 与冒烟级 22 条（v1.34 起 `TC-KB-072` 也是冒烟级）。被测为本地 main `f006933` 加未提交的 `src/app/layout.tsx` 与 `docs/` 改动；按 §3 本地行 `pnpm db:reset && pnpm db:seed` 后 `pnpm dev`（3360，Web 与 Worker，`AI_MODE=stub`），2026-10-22 21:18–22:33。`TC-SITE-006` 由主会话执行：`/en` 为 `en`，`/`、`/login`、登录后的 `/wb` 为 `zh-CN`，服务端返回的 HTML 同样如此。冒烟 22 条由子会话执行，基线在起跑前与 `TC-KB-067` 前各重建一次（`TC-KB-066` 第 5 步多提交了 5 次学习）；`TC-AI-002` 把 `.env` 的 `AI_MODE` 改成 `deepseek` 重启后执行，真实 DeepSeek 调用 1 次（kind draft，成功），执行完改回 `stub`，与改前逐字节一致。`TC-AUTH-004`、`TC-PERM-005`、`TC-AI-001`、`TC-AI-002`、`TC-ORD-015`、`TC-TKT-001`、`TC-KB-061`、`TC-KB-066`、`TC-KB-068` 有脚本定位器、等待或字段名写错的情况，修脚本后从该用例前置或出错那一步重新观察，登记的是重跑那一遍。以下五处按实际呈现判为符合，判法与 RUN-073 相同：`TC-KB-066` 第 2 步标记为「已提交学习 · 分析中」（v1.32 起标记后接进度）；`TC-SHOP-001` 第 3 步区域 sg 显示在授权页的「区域主机 sg」；`TC-SHOP-001` 第 8 步回补状态在店铺抽屉里写「历史回补 已完成」，接口三家都是 done；`TC-KB-047` 第 4 步「已发布」由筛选项「已发布 1」表达；`TC-AUTH-001` 第 1 步时区写「Asia/Kuala_Lumpur（UTC+8）」。模拟平台里留下一个已下单、没有会话的模拟买家「DS Buyer 077」（`TC-AI-002` 第一遍中断时建的）。证据 `docs/test-runs/run-077-*`（`run-077-smoke-results.json` 是冒烟逐步观察值，`run-077-TC-SITE-006.json` 是 `TC-SITE-006` 的观察值）。
 
 ## 7. 遗留问题
 

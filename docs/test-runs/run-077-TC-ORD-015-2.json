@@ -1,0 +1,18 @@
+{
+  "invoice": {
+    "id": "01a163de-1927-7786-bd75-45eef1148715",
+    "number": "INV-2026-000002",
+    "kind": "invoice",
+    "buyerName": "Demo Buyer Sdn Bhd",
+    "amount": "50.80",
+    "currency": "MYR",
+    "chatStatus": "sent",
+    "chatError": null,
+    "emailStatus": "sent",
+    "emailError": null,
+    "emailTo": "invoice1@demo.test",
+    "pdfUrl": "/api/v1/invoices/01a163de-1927-7786-bd75-45eef1148715/pdf",
+    "imageUrl": "/api/v1/files/01a163de-1926-7130-9897-479ef6cb4201",
+    "createdAt": "2026-10-22T13:47:41.978Z"
+  }
+}

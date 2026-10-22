@@ -1,0 +1,21 @@
+login owner 200 agent2 200
+DELETE 2
+K=01a16403-587d-753e-b996-0b24c5e3e672
+UPDATE 1
+## 1
+Rev A: 01a16403-7278-708a-bbd8-e88d11bf7467
+Rev B: 01a16403-91b8-70f3-8407-30dc901889d6
+Rev C: 01a16403-b0f3-72af-9e66-3c1c5437d1c0
+3
+## 2
+HTTP 201
+HTTP 201
+HTTP 200
+edited_sent
+ignored
+sent
+## 3
+published|card_updated
+## 4
+HTTP 200
+{"version":2,"agentUnseen":true,"lastAuthor":"agent","lastStep":"替身补充的一步","v0":{"author":"agent","retestPassed":true,"regressions":1},"reviews":[{"result":"card_updated","version":2,"reason":"替身：客服改写过这张卡的草稿"}]}

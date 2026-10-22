@@ -1,0 +1,27 @@
+## 前置
+login other: 200
+OC=01a163cb-3442-7644-be7b-d57f2ce6fe68 OT=01a163cb-35fc-7045-8c4a-56a05e0dac8e OO=01a163cb-33e3-744f-b9b6-2a882f786704 OI=01a163cb-35f1-7189-85bd-ef619ba6bd24 OS=01a163cb-33b4-750c-afce-09d7be959aeb
+conv: {"status":null,"claimedBy":null,"state":null}
+ticket: {"status":"open","timeline":["created"]}
+order: {"status":null,"platformStatus":"AWAITING_SHIPMENT"}
+invoice: {"number":"INV-2026-000001","emailStatus":"sent","chatStatus":"skipped"}
+shop: {"status":"connected","connection":null}
+login owner: 200
+## 第 1 步
+GET conversations/01a163cb-3442-7644-be7b-d57f2ce6fe68 → 404 /errors/not-found
+GET tickets/01a163cb-35fc-7045-8c4a-56a05e0dac8e → 404 /errors/not-found
+GET orders/01a163cb-33e3-744f-b9b6-2a882f786704 → 404 /errors/not-found
+GET invoices/01a163cb-35f1-7189-85bd-ef619ba6bd24/pdf → 404 /errors/not-found
+GET shops/01a163cb-33b4-750c-afce-09d7be959aeb → 404 /errors/not-found
+## 第 2 步
+claim: {"type":"/errors/not-found","title":"找不到或已删除","status":404,"instance":"/api/v1/conversations/01a163cb-3442-7644-be7b-d57f2ce6fe68/claim","requestId":"req_01a163d1489a7306bac99ac241dcb8c6"} HTTP 404 
+notes: {"type":"/errors/not-found","title":"找不到或已删除","status":404,"detail":"找不到这张工单，或它不在你的可见范围内。","instance":"/api/v1/tickets/01a163cb-35fc-7045-8c4a-56a05e0dac8e/notes","requestId":"req_01a163d14b7f714c99a3a75fbdf88d80"} HTTP 404 
+cancel: {"type":"/errors/not-found","title":"找不到或已删除","status":404,"detail":"找不到这张订单，或它不在你负责的店铺里。","instance":"/api/v1/orders/01a163cb-33e3-744f-b9b6-2a882f786704/cancel","requestId":"req_01a163d14f52712da1dec90bd1496f1b"} HTTP 404 
+resend: {"type":"/errors/not-found","title":"找不到或已删除","status":404,"detail":"找不到这张发票，或它不在你负责的店铺里。","instance":"/api/v1/invoices/01a163cb-35f1-7189-85bd-ef619ba6bd24/resend-email","requestId":"req_01a163d1534e77b58f68be3edc9f1038"} HTTP 404 
+disconnect: {"type":"/errors/not-found","title":"找不到或已删除","status":404,"detail":"店铺不存在或已删除。","instance":"/api/v1/shops/01a163cb-33b4-750c-afce-09d7be959aeb/disconnect","requestId":"req_01a163d156c075d0ad0ef28aa316a86a"} HTTP 404 
+## 第 4 步（other 重新读取）
+conv: {"status":null,"claimedBy":null,"state":null}
+ticket: {"status":"open","timeline":["created"]}
+order: {"status":null,"platformStatus":"AWAITING_SHIPMENT"}
+invoice: {"number":"INV-2026-000001","emailStatus":"sent","chatStatus":"skipped"}
+shop: {"status":"connected","connection":null}

@@ -1,0 +1,53 @@
+- dialog "学习任务":
+  - heading "学习任务" [level=2]
+  - paragraph:
+    - text: 已发布 按卡体检 · 2026-10-22 22:28
+    - link "Rev C · Demo Shopee MY":
+      - /url: /wb/01a16403-953a-745c-a31c-042c6b52b1e4
+  - paragraph:
+    - text: 改的是：
+    - link "摄像头识别不到：帮买家恢复使用":
+      - /url: /reception/knowledge?tab=cards&card=01a16403-587d-753e-b996-0b24c5e3e672
+    - text: （第 2 版）
+  - status:
+    - text: Agent 复测通过后直接改了经验卡
+    - link "「摄像头识别不到：帮买家恢复使用」":
+      - /url: /reception/knowledge?tab=cards&card=01a16403-587d-753e-b996-0b24c5e3e672
+    - text: ，现在是第 2 版。改动标为「Agent 改过、还没人看过」，可在经验卡里查看改前改后或一键回退。
+  - heading "原始消息" [level=3]
+  - paragraph: 代表性用例：问题最明显的那份草稿出稿时的对话，高亮的是它回答的买家消息
+  - list:
+    - listitem: 买家 摄像头识别不到 10-22 22:28 （已勾选）
+  - heading "证据用例" [level=3]
+  - paragraph: 近 7 天用到这张卡的草稿；AI 判断时看了其中 3 份，有问题的优先
+  - term: 辅助草稿
+  - definition: 原样发送 1 · 改后发送 1 · 弃用 1
+  - term: 影子回复
+  - definition: 没有
+  - term: 按卡转人工
+  - definition: 0 次（含建工单）
+  - heading "背景" [level=3]
+  - term: 产品
+  - definition: 通用（沿用卡的适用范围）
+  - term: 服务阶段
+  - definition: 售前
+  - heading "判断依据与建议" [level=3]
+  - paragraph: 流程需要补充
+  - paragraph: 依据：替身：客服改写过这张卡的草稿
+  - paragraph: 建议：替身：补一步
+  - heading "测试结果" [level=3]
+  - paragraph: 用买家的「摄像头识别不到」按现在的出稿流程试跑，不发给买家
+  - paragraph: 复测通过10-22 22:28
+  - paragraph: 原问题（用拟发布的内容）
+  - paragraph: 您好！关于「摄像头识别不到」，我们已经收到，会尽快为您处理。
+  - paragraph: 经验卡：摄像头识别不到：帮买家恢复使用 · 第 1 步 · 继续处理
+  - list:
+    - listitem:
+      - paragraph: 客服原样发送过的「摄像头识别不到」：不比改前差 · 替身：改后不比改前差
+      - paragraph: 改前
+      - paragraph: 您好！关于「摄像头识别不到」，我们已经收到，会尽快为您处理。
+      - paragraph: 经验卡：摄像头识别不到：帮买家恢复使用 · 第 1 步 · 继续处理
+      - paragraph: 改后
+      - paragraph: 您好！关于「摄像头识别不到」，我们已经收到，会尽快为您处理。
+      - paragraph: 经验卡：摄像头识别不到：帮买家恢复使用 · 第 1 步 · 继续处理
+  - button "关闭"

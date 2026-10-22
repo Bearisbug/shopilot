@@ -1,0 +1,53 @@
+{
+  "user": {
+    "id": "EutyW4tnRY1Zboe2kuESJSciHwyLxUpW",
+    "name": "测试店主",
+    "email": "signup1@demo.test",
+    "twoFactorEnabled": false
+  },
+  "memberships": [
+    {
+      "merchantId": "01a163cc-e835-74bd-8177-8f275f1a2e37",
+      "merchantName": "Signup Store",
+      "role": "admin",
+      "status": "active",
+      "shopCount": 0
+    }
+  ],
+  "active": {
+    "merchantId": "01a163cc-e835-74bd-8177-8f275f1a2e37",
+    "merchantName": "Signup Store",
+    "timezone": "Asia/Kuala_Lumpur",
+    "membershipId": "01a163cc-e837-76b8-bb9a-2bb367a0dade",
+    "role": "admin",
+    "isOwner": true,
+    "shopIds": null,
+    "shops": [],
+    "disconnectedShops": [],
+    "permissions": [
+      "wb.handle",
+      "wb.transfer",
+      "wb.team",
+      "wb.allShops",
+      "orders.use",
+      "tickets.own",
+      "tickets.manage",
+      "dashboard.view",
+      "reception.manage",
+      "knowledge.manage",
+      "products.manage",
+      "shops.manage",
+      "team.manage",
+      "billing.manage",
+      "billing.owner",
+      "settings.manage",
+      "settings.owner"
+    ],
+    "merchantStatus": "active"
+  },
+  "preferences": {
+    "sound": true,
+    "desktopNotify": false
+  },
+  "twoFactorRequired": false
+}

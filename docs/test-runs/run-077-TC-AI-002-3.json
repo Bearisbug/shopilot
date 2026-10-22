@@ -1,0 +1,69 @@
+{
+  "order": "261022L57J1566",
+  "draft": {
+    "id": "01a163db-2233-75a7-8d47-3a4e63582808",
+    "text": "您的订单 261022L57J1566（Bamboo Fibre Bath Towel Set 3件套，鼠尾草绿）已经发出，由 SPX Express (MY) 承运，运单号 MY912571282199F。最新物流显示：2026-10-22 21:44 包裹已到达 Shah Alam Hub，接下来会继续转运并派送。\n\n您可以在 Shopee 的订单详情页查看实时物流更新，之后物流信息有更新也会陆续显示，请留意订单页的派送通知。",
+    "confidence": 0.85,
+    "reason": "none",
+    "mode": "assist",
+    "status": "generated",
+    "triggerMessageId": "01a163db-012d-7172-9523-f5b2710514b5",
+    "createdAt": "2026-10-22T13:44:27.949Z",
+    "insufficient": false,
+    "citations": [],
+    "translation": null,
+    "card": null
+  },
+  "simMessages": [
+    {
+      "id": "6870873920114647343",
+      "sender": "buyer",
+      "kind": "text",
+      "rawType": "text",
+      "text": "我的包裹到哪了",
+      "imageUrl": null,
+      "orderId": null,
+      "productName": null,
+      "couponTitle": null,
+      "createdAt": "2026-10-22T13:44:19.178Z"
+    },
+    {
+      "id": "4900263177053568975",
+      "sender": "seller",
+      "kind": "text",
+      "rawType": "text",
+      "text": "您的订单 261022L57J1566（Bamboo Fibre Bath Towel Set 3件套，鼠尾草绿）已经发出，由 SPX Express (MY) 承运，运单号 MY912571282199F。最新物流显示：2026-10-22 21:44 包裹已到达 Shah Alam Hub，接下来会继续转运并派送。\n\n您可以在 Shopee 的订单详情页查看实时物流更新，之后物流信息有更新也会陆续显示，请留意订单页的派送通知。",
+      "imageUrl": null,
+      "orderId": null,
+      "productName": null,
+      "couponTitle": null,
+      "createdAt": "2026-10-22T13:44:45.478Z"
+    }
+  ],
+  "simMessagesAfter": [
+    {
+      "id": "6870873920114647343",
+      "sender": "buyer",
+      "kind": "text",
+      "rawType": "text",
+      "text": "我的包裹到哪了",
+      "imageUrl": null,
+      "orderId": null,
+      "productName": null,
+      "couponTitle": null,
+      "createdAt": "2026-10-22T13:44:19.178Z"
+    },
+    {
+      "id": "4900263177053568975",
+      "sender": "seller",
+      "kind": "text",
+      "rawType": "text",
+      "text": "您的订单 261022L57J1566（Bamboo Fibre Bath Towel Set 3件套，鼠尾草绿）已经发出，由 SPX Express (MY) 承运，运单号 MY912571282199F。最新物流显示：2026-10-22 21:44 包裹已到达 Shah Alam Hub，接下来会继续转运并派送。\n\n您可以在 Shopee 的订单详情页查看实时物流更新，之后物流信息有更新也会陆续显示，请留意订单页的派送通知。",
+      "imageUrl": null,
+      "orderId": null,
+      "productName": null,
+      "couponTitle": null,
+      "createdAt": "2026-10-22T13:44:45.478Z"
+    }
+  ]
+}

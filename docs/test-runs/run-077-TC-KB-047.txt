@@ -1,0 +1,11 @@
+login lead: 200; login owner: 200
+## 1
+HTTP 201
+head: illegal line count -- -1
+## 2
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"提交的内容有误，请检查标红的字段。","instance":"/api/v1/knowledge/qa","requestId":"req_01a163e89ef2772d8554e2c76001a793","extra":{"fields":{"questions":"问法不能重复"}}}
+HTTP 422
+## 3
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"提交的内容有误，请检查标红的字段。","instance":"/api/v1/knowledge/qa","requestId":"req_01a163e89f5b74409befaf0396fa0af9","extra":{"fields":{"questions":"至少写一个问法"}}}
+HTTP 422
+{"status":"published","source":"manual","products":[],"markets":["ALL"],"embedded":true,"version":1,"questions":["可以退货吗","怎么退货"]}

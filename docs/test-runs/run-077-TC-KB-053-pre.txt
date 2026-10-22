@@ -1,0 +1,9 @@
+HTTP 201
+doc: ready
+{"created":2,"updated":0,"skipped":0,"errors":[]} HTTP 200 
+T=01a163e9-99ef-729a-96dd-58e2b9c04f56 M=01a163e9-99f9-7418-beb8-8e8d9173464c
+QA1=01a163e9-9b0a-7022-9fbb-761f92a18d14 published
+QA2=01a163e9-9b67-71dd-8c3e-e4dd2d9ce334 published
+QA3=01a163e9-9bc0-75b7-8832-1ee946023a4a published
+QA4=01a163e9-9c0a-71ed-8a03-15490fbd6a37 published
+[{"id":"01a163e9-9c0a-71ed-8a03-15490fbd6a37","status":"published","markets":["ALL"],"stage":"aftersale","products":[]},{"id":"01a163e9-9bc0-75b7-8832-1ee946023a4a","status":"published","markets":["TH"],"stage":"any","products":[]},{"id":"01a163e9-9b67-71dd-8c3e-e4dd2d9ce334","status":"published","markets":["ALL"],"stage":"any","products":["TMB-900"]},{"id":"01a163e9-9b0a-7022-9fbb-761f92a18d14","status":"published","markets":["ALL"],"stage":"any","products":["1729582718312480101"]}]

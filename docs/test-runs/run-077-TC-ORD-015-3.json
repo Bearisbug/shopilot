@@ -1,0 +1,38 @@
+[
+  {
+    "id": "8149168934555872792",
+    "sender": "buyer",
+    "kind": "text",
+    "rawType": "text",
+    "text": "请帮我开一张发票",
+    "imageUrl": null,
+    "orderId": null,
+    "productName": null,
+    "couponTitle": null,
+    "createdAt": "2026-10-22T13:47:34.381Z"
+  },
+  {
+    "id": "2471583088236289656",
+    "sender": "seller",
+    "kind": "text",
+    "rawType": "text",
+    "text": "好的，马上为您开票",
+    "imageUrl": null,
+    "orderId": null,
+    "productName": null,
+    "couponTitle": null,
+    "createdAt": "2026-10-22T13:47:37.791Z"
+  },
+  {
+    "id": "8381464315761949759",
+    "sender": "seller",
+    "kind": "image",
+    "rawType": "image",
+    "text": null,
+    "imageUrl": "http://127.0.0.1:3360/mock/files/e575ea64a7098b8317f2a92f",
+    "orderId": null,
+    "productName": null,
+    "couponTitle": null,
+    "createdAt": "2026-10-22T13:47:42.294Z"
+  }
+]

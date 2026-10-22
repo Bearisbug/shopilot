@@ -1,0 +1,17 @@
+# 第二遍（买家 Learn B2）
+login owner 200 agent2 200
+K=01a16402-5e27-757e-9d1d-c8bae7769325
+X=7775138214457392419
+say: true
+C=01a16402-6053-75d9-8b9c-da7706b0073a
+前置 认领: HTTP 200
+前置 回复: HTTP 201
+in|摄像头识别不到，换线也没用|
+out|请装最新的配套软件试试|sent
+## 1
+HTTP 201
+T=01a16402-7e83-7232-923f-dddcd2fcd5cd
+published
+## 2
+HTTP 200
+{"version":2,"agentUnseen":true,"lastAuthor":"agent","steps":4,"lastStep":"替身补充的一步","v0":{"author":"agent","learningTaskId":"01a16402-7e83-7232-923f-dddcd2fcd5cd","retest":{"passed":true}}}

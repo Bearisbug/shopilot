@@ -1,0 +1,73 @@
+- dialog "摄像头识别不到：帮买家恢复使用":
+  - heading "摄像头识别不到：帮买家恢复使用" [level=2]
+  - paragraph: 已发布 · 第 2 版 · 最近改动 Agent 10-22 22:27 Agent 改过，还没人看过
+  - button "编辑"
+  - button "标为已看"
+  - button "下架"
+  - button "删除"
+  - heading "调用条件（全部满足）" [level=3]
+  - list:
+    - listitem: · 买家说摄像头识别不到
+  - heading "处理步骤" [level=3]
+  - list:
+    - listitem:
+      - text: "1."
+      - paragraph: 问清电脑系统和连接方式
+      - paragraph: ↳ 如果急用：转人工
+    - listitem:
+      - text: "2."
+      - paragraph: 换线、换接口
+      - paragraph: ↳ 如果保修：建工单
+    - listitem:
+      - text: "3."
+      - paragraph: 安装或更新配套软件
+    - listitem:
+      - text: "4."
+      - paragraph: 替身补充的一步
+  - heading "沟通提示" [level=3]
+  - paragraph: 每次只让买家做一步
+  - heading "适用范围" [level=3]
+  - term: 产品
+  - definition: 通用
+  - term: 阶段
+  - definition: 全部阶段
+  - term: 站点
+  - definition: 全部站点
+  - term: 标签
+  - definition: —
+  - term: 关联问答
+  - definition: —
+  - heading "近 30 天效果" [level=3]
+  - term: 调用
+  - definition: 1 次
+  - term: 采纳率
+  - definition: —
+  - definition: 原样 0 · 改后 0 · 弃用 0
+  - term: 改写率
+  - definition: —
+  - term: 转人工率
+  - definition: 0%
+  - definition: 转人工或建工单 0 次
+  - heading "体检记录" [level=3]
+  - paragraph: 还没体检过。近 7 天用到这张卡的草稿有 3 份以上、其中有被改写或弃用的，Agent 每天会把它们汇总起来看要不要改这张卡。
+  - region "版本（2）":
+    - heading "版本（2）" [level=3]
+    - list:
+      - listitem:
+        - paragraph: 第 2 版 Agent 10-22 22:27 当前
+        - paragraph: 替身：按关键词判断
+        - paragraph: 复测通过 · 回归用例 0 个
+      - listitem:
+        - paragraph: 第 1 版 林晓 10-22 22:27
+        - button "回退到这一版"
+    - text: 对比
+    - combobox "对比的旧版本": 第 1 版 · 林晓
+    - text: →
+    - combobox "对比的新版本": 第 2 版 · Agent
+    - term: 处理步骤
+    - definition:
+      - text: 第 1 版
+      - paragraph: 1. 问清电脑系统和连接方式 如果急用 → 转人工 2. 换线、换接口 如果保修 → 建工单 3. 安装或更新配套软件
+      - text: 第 2 版
+      - paragraph: 1. 问清电脑系统和连接方式 如果急用 → 转人工 2. 换线、换接口 如果保修 → 建工单 3. 安装或更新配套软件 4. 替身补充的一步
+  - button "关闭"

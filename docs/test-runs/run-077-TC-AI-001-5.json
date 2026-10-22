@@ -1,0 +1,29 @@
+{
+  "simConversationId": "4211441067728314551",
+  "messages": [
+    {
+      "id": "8525714383996912661",
+      "sender": "buyer",
+      "kind": "text",
+      "rawType": "text",
+      "text": "我的包裹到哪了",
+      "imageUrl": null,
+      "orderId": null,
+      "productName": null,
+      "couponTitle": null,
+      "createdAt": "2026-10-22T13:41:04.502Z"
+    },
+    {
+      "id": "6184979240441995960",
+      "sender": "seller",
+      "kind": "text",
+      "rawType": "text",
+      "text": "您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。",
+      "imageUrl": null,
+      "orderId": null,
+      "productName": null,
+      "couponTitle": null,
+      "createdAt": "2026-10-22T13:41:33.029Z"
+    }
+  ]
+}

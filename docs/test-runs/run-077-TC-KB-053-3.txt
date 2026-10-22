@@ -1,0 +1,1 @@
+{"hits": [{"qaId": "01a163e9-9b0a-7022-9fbb-761f92a18d14", "route": "rewritten", "distance": 0}, {"qaId": "01a163e9-9b0a-7022-9fbb-761f92a18d14", "route": "original", "distance": 0}], "merged": [{"n": 1, "qaId": "01a163e9-9b0a-7022-9fbb-761f92a18d14"}], "latencyMs": 75, "productIds": ["01a163e9-99ef-729a-96dd-58e2b9c04f56"]}

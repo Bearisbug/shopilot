@@ -1,0 +1,38 @@
+{
+  "request": {
+    "version": 2,
+    "card": {
+      "tags": [],
+      "tips": null,
+      "qaIds": [],
+      "stage": "presale",
+      "steps": [
+        {
+          "text": "替身第一步：问清情况",
+          "branches": []
+        }
+      ],
+      "title": "替身：设备坏了想换货",
+      "markets": [
+        "ALL"
+      ],
+      "conditions": [
+        "买家提到「设备坏了想换货」"
+      ],
+      "productIds": [],
+      "conditionMode": "all"
+    }
+  },
+  "response": {
+    "type": "/errors/conflict",
+    "title": "状态已被他人改变",
+    "status": 409,
+    "detail": "内容改过后还没复测通过，请先复测。",
+    "instance": "/api/v1/knowledge/learning/01a163fe-764f-7400-b5c4-69d9951ea48f/publish",
+    "requestId": "req_01a163ffa58870e3a26cf963dbd554b9",
+    "code": "retest_required",
+    "extra": {
+      "retestPassed": false
+    }
+  }
+}

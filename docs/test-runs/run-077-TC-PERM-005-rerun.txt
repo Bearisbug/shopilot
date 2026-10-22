@@ -1,0 +1,28 @@
+conv keys: ["capabilities","cardOrders","conversation","draft","events","hasMore","history","messages","openTickets","permissions","products","readOnlyNotice","segment","shadowDrafts"]
+conv.conversation keys: ["buyerAvatarUrl","buyerExternalId","buyerKind","buyerLanguage","buyerName","canReply","claimedBy","handlingState","handoffReason","id","lastBuyerAt","overdue","pinned","replyBlockedReason","responseSlaMinutes","shop","version","waitingSinceSec"]
+## 前置（重跑）：会话 {"state":null,"handler":null}
+## 第 1 步（重跑）
+GET conversations/01a163cb-3442-7644-be7b-d57f2ce6fe68 → 404 /errors/not-found
+GET tickets/01a163cb-35fc-7045-8c4a-56a05e0dac8e → 404 /errors/not-found
+GET orders/01a163cb-33e3-744f-b9b6-2a882f786704 → 404 /errors/not-found
+GET invoices/01a163cb-35f1-7189-85bd-ef619ba6bd24/pdf → 404 /errors/not-found
+GET shops/01a163cb-33b4-750c-afce-09d7be959aeb → 404 /errors/not-found
+## 第 2 步（重跑）
+claim: 404 /errors/not-found
+notes: 404 /errors/not-found
+cancel: 404 /errors/not-found
+resend: 404 /errors/not-found
+disconnect: 404 /errors/not-found
+## 第 4 步：前后逐字节比较（other 读取的 5 个对象）
+conv: 相同
+ticket: 不同
+96c96
+<     "remainingSec": 73556,
+---
+>     "remainingSec": 73554,
+order: 相同
+invoice: 相同
+shop: 相同
+ticket timeline 含 cross: 0
+before: conv {"handlingState":"closed","claimedBy":null,"version":1} ticket {"status":"open","tl":[]} order {"status":null,"platformStatus":"AWAITING_SHIPMENT"} invoice {"emailStatus":"sent","chatStatus":"skipped"} shop {"status":null}
+after: conv {"handlingState":"closed","claimedBy":null,"version":1} ticket {"status":"open","tl":[]} order {"status":null,"platformStatus":"AWAITING_SHIPMENT"} invoice {"emailStatus":"sent","chatStatus":"skipped"} shop {"status":null}

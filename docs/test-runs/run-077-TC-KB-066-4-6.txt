@@ -1,0 +1,18 @@
+C=01a163f0-c308-7329-a1b6-857565bdf2a6
+## 4
+HTTP 200
+{"n":1,"items":[{"source":"member","status":"pending_review","messageIds":["01a163f0-c356-7468-9abe-ded502c787ae","01a163f9-c5cb-7037-928e-c9fe6a2e4ad9"],"submittedByName":"Mei Lin"}]}
+01a163f0-c356-7468-9abe-ded502c787ae|in|设备坏了想换货
+01a163f9-c5cb-7037-928e-c9fe6a2e4ad9|out|好的，给您安排换货
+buyer msg: 01a163f0-c356-7468-9abe-ded502c787ae
+## 5（等 60 秒）
+#1 HTTP 201 {"id":"01a163fc-235a-7752-8aed-120cba8e62d5","status":"analyzing"}
+#2 HTTP 201 {"id":"01a163fc-2397-7689-a44c-732359dff15a","status":"analyzing"}
+#3 HTTP 201 {"id":"01a163fc-23c1-73e5-9dae-7db83a566d62","status":"analyzing"}
+#4 HTTP 201 {"id":"01a163fc-23e5-779d-8dc2-27faad7fb28b","status":"analyzing"}
+#5 HTTP 201 {"id":"01a163fc-2419-72cd-8620-6811abf8d0e3","status":"analyzing"}
+#6 HTTP 429 {"type":"/errors/rate-limited","detail":"同一个会话每分钟最多提交 5 次学习，请稍后再试。"}
+## 6（等 60 秒）
+other msg: 01a163ed-d23a-76d4-999b-70432f06b978 (Card Draft A)
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"有消息不属于这个会话，请刷新后重新勾选。","instance":"/api/v1/conversations/01a163f0-c308-7329-a1b6-857565bdf2a6/learning","requestId":"req_01a163fd10497398a57c36f71896aca6","extra":{"fields":{"messageIds":"有消息不属于这个会话"}}}
+HTTP 422

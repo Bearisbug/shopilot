@@ -1,0 +1,1681 @@
+{
+  "run": "RUN-077",
+  "scope": "冒烟级 22 条",
+  "date": "2026-10-22",
+  "start": "2026-10-22 21:18",
+  "end": "2026-10-22 22:32",
+  "version": "本地 main f006933 + 未提交工作区改动（src/app/layout.tsx 按路径给 <html lang>、docs/DESIGN.md、docs/TEST.md）",
+  "env": "§3 本地行，127.0.0.1:3360，pnpm dev（Web + Worker），AI_MODE=stub、KNOWLEDGE_MODE=stub、FEISHU_MODE=stub；TC-AI-002 期间 AI_MODE=deepseek；浏览器 Playwright 无头 Microsoft Edge 1440×900",
+  "baselines": [
+    "21:27 起跑前：停服务 → pnpm db:reset && pnpm db:seed → 重起 → 固定为工作时间内（周四 00:00–23:59）",
+    "22:21 TC-KB-067 前：同上（TC-KB-066 第 5 步多提交了 5 次学习）"
+  ],
+  "restarts": [
+    "21:42 改 AI_MODE=deepseek 重启",
+    "21:45 改回 AI_MODE=stub 重启"
+  ],
+  "deepseekCalls": 1,
+  "envCmp": ".env 改回后与改前备份 cmp 逐字节一致",
+  "finalDevPid": 90082,
+  "results": {
+    "TC-AUTH-001": "通过",
+    "TC-AUTH-004": "通过",
+    "TC-PERM-001": "通过",
+    "TC-PERM-002": "通过",
+    "TC-PERM-005": "通过",
+    "TC-SHOP-001": "通过",
+    "TC-AI-001": "通过",
+    "TC-AI-002": "通过",
+    "TC-ORD-015": "通过",
+    "TC-TKT-001": "通过",
+    "TC-KB-001": "通过",
+    "TC-KB-024": "通过",
+    "TC-KB-047": "通过",
+    "TC-KB-053": "通过",
+    "TC-KB-058": "通过",
+    "TC-KB-061": "通过",
+    "TC-KB-066": "通过",
+    "TC-KB-067": "通过",
+    "TC-KB-068": "通过",
+    "TC-KB-072": "通过",
+    "TC-FEISHU-005": "通过",
+    "TC-FEISHU-011": "通过"
+  },
+  "passed": 22,
+  "failed": 0,
+  "cases": {
+    "TC-AUTH-001": {
+      "steps": {
+        "1": {
+          "fields": [
+            [
+              "工作邮箱",
+              1
+            ],
+            [
+              "密码",
+              1
+            ],
+            [
+              "你的姓名",
+              1
+            ],
+            [
+              "商户名",
+              1
+            ]
+          ],
+          "timezone": "Asia/Kuala_Lumpur（UTC+8）",
+          "button": 1,
+          "shot": "docs/test-runs/run-077-TC-AUTH-001-1.png"
+        },
+        "2": {
+          "signupStatus": 201,
+          "url": "http://127.0.0.1:3360/shops/connect",
+          "shopee": 0,
+          "tiktok": 0,
+          "mainText": "",
+          "shot": "docs/test-runs/run-077-TC-AUTH-001-2.png"
+        },
+        "3": {
+          "navLinks": [
+            "工作台",
+            "待认领",
+            "AI 草稿",
+            "我处理中",
+            "他人处理中",
+            "已结束",
+            "工单",
+            "订单与开票",
+            "看板",
+            "接待设置",
+            "店铺与连接",
+            "团队与权限",
+            "用量与套餐",
+            "商户设置"
+          ],
+          "allNavs": [
+            {
+              "label": "主导航",
+              "links": [
+                "工作台",
+                "待认领",
+                "AI 草稿",
+                "我处理中",
+                "他人处理中",
+                "已结束",
+                "工单",
+                "订单与开票",
+                "看板",
+                "接待设置",
+                "店铺与连接",
+                "团队与权限",
+                "用量与套餐",
+                "商户设置"
+              ]
+            }
+          ]
+        },
+        "4": {
+          "status": 200,
+          "merchantName": "Signup Store",
+          "role": "admin",
+          "isOwner": true
+        },
+        "5": {
+          "outboxApiStatus": 200,
+          "matches": [
+            {
+              "to": "signup1@demo.test",
+              "template": "verify_email",
+              "subject": "确认你的 Shopilot 邮箱"
+            }
+          ],
+          "pageHas": 1,
+          "pageVerify": 1,
+          "shot": "docs/test-runs/run-077-TC-AUTH-001-5.png"
+        },
+        "6": {
+          "rowCount": 1,
+          "rows": [
+            "测 测试店主 账号所有者 signup1@demo.test 本周处理 — 管理员 全部店铺 在线"
+          ],
+          "shot": "docs/test-runs/run-077-TC-AUTH-001-6.png"
+        }
+      },
+      "console": [],
+      "result": "通过",
+      "notes": [
+        "第 2 步脚本读文本时页面尚未渲染（读到空串），平台选项以截图 run-077-TC-AUTH-001-2.png 观察：Shopee 与 TikTok Shop 两张卡片",
+        "第 1 步时区默认显示为 Asia/Kuala_Lumpur（UTC+8）（全角括号）"
+      ]
+    },
+    "TC-AUTH-004": {
+      "steps": {
+        "1": {
+          "at": "2026-10-22T13:30:31.525Z",
+          "url": "http://127.0.0.1:3360/wb",
+          "accountCard": "N Nur Aisyah · Demo Store 员工 agent@demo.test",
+          "shot": "docs/test-runs/run-077-TC-AUTH-004-1.png"
+        },
+        "2": {
+          "dialog": "Nur Aisyah agent@demo.test 切换商户 … 退出登录 关闭",
+          "url": "http://127.0.0.1:3360/login",
+          "shot": "docs/test-runs/run-077-TC-AUTH-004-2.png"
+        },
+        "3": {
+          "url": "http://127.0.0.1:3360/login?next=%2Fwb",
+          "shot": "docs/test-runs/run-077-TC-AUTH-004-3.png"
+        },
+        "4": {
+          "login": 200,
+          "meStatus": 200,
+          "email": "agent@demo.test",
+          "evidence": "docs/test-runs/run-077-TC-AUTH-004-4-5.txt"
+        },
+        "5": {
+          "signOut": 200,
+          "meStatus": 401,
+          "type": "/errors/unauthenticated",
+          "signOutNoBody": 200,
+          "evidence": "docs/test-runs/run-077-TC-AUTH-004-4-5.txt"
+        },
+        "6": {
+          "url": "http://127.0.0.1:3360/team?dialog=logins",
+          "agentRows": [
+            "N Nur Aisyah agent@demo.test 本周处理 1 员工 Demo Shopee MY 在线",
+            "10-22 21:30 Nur Aisyah agent@demo.test 成功 127.0.0.1 curl/8.7.1",
+            "10-22 21:30 Nur Aisyah agent@demo.test 成功 127.0.0.1 curl/8.7.1",
+            "10-22 21:30 Nur Aisyah agent@demo.test 成功 127.0.0.1 Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+            "10-22 21:30 Nur Aisyah agent@demo.test 成功 127.0.0.1 Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+            "10-22 21:29 Nur Aisyah agent@demo.test 成功 127.0.0.1 Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0"
+          ],
+          "firstRows": [
+            "林 林晓 账号所有者 owner@demo.test 本周处理 — 管理员 全部店铺 在线",
+            "陈 陈卓 admin2@demo.test 本周处理 2 管理员 全部店铺 未登录过",
+            "A Arif Rahman lead@demo.test 本周处理 1 组长 Demo Shopee MY、Demo TikTok MY 未登录过",
+            "M Mei Lin agent2@demo.test 本周处理 2 员工 Demo Shopee MY、Demo TikTok TH 未登录过",
+            "N Nur Aisyah agent@demo.test 本周处理 1 员工 Demo Shopee MY 在线",
+            "10-22 21:31 林晓 owner@demo.test 成功 127.0.0.1 Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0"
+          ],
+          "shot": "docs/test-runs/run-077-TC-AUTH-004-6.png"
+        }
+      },
+      "result": "通过",
+      "steps45": "docs/test-runs/run-077-TC-AUTH-004-4-5.txt：login 200，/me 200 email agent@demo.test；sign-out 200，/me 401 /errors/unauthenticated；不带请求体与 Content-Type 的 sign-out 也是 200",
+      "notes": [
+        "第一遍脚本第 2 步把账号卡当成 button 定位（实为链接「账号与商户切换」），超时中断；修脚本后从第 1 步重跑，登记的是第二遍（第 1 步 21:30:31 登录，登录记录 10-22 21:30 Edge 成功）",
+        "探查页面结构时另以 agent 登录过一次（21:30 前后），登录记录里多出几条成功记录"
+      ]
+    },
+    "TC-PERM-001": {
+      "steps": {
+        "1": {
+          "links": [
+            "工作台",
+            "待认领",
+            "AI 草稿",
+            "我处理中",
+            "他人处理中",
+            "已结束",
+            "工单",
+            "订单与开票",
+            "看板",
+            "接待设置",
+            "店铺与连接",
+            "团队与权限",
+            "用量与套餐",
+            "商户设置"
+          ],
+          "sidebarText": "工作台 8 待认领 6 AI 草稿 2 我处理中 他人处理中 5 已结束 3 工单 订单与开票 看板 接待设置 店铺与连接 团队与权限 用量与套餐 商户设置 收起侧栏",
+          "bannerText": "⌘K 林 林晓 · Demo Store 管理员 owner@demo.test",
+          "bannerAssistant": 0,
+          "sidebarKnowledge": 0,
+          "shot": "docs/test-runs/run-077-TC-PERM-001-1.png",
+          "collapsedButtons": [
+            "展开侧栏"
+          ],
+          "collapsedSidebarText": "",
+          "shotCollapsed": "docs/test-runs/run-077-TC-PERM-001-1b.png"
+        },
+        "2": {
+          "links": [
+            "工作台",
+            "待认领",
+            "AI 草稿",
+            "我处理中",
+            "他人处理中",
+            "已结束",
+            "工单",
+            "订单与开票",
+            "看板",
+            "接待设置"
+          ],
+          "shot": "docs/test-runs/run-077-TC-PERM-001-2.png"
+        },
+        "3": {
+          "links": [
+            "工作台",
+            "待认领",
+            "AI 草稿",
+            "我处理中",
+            "他人处理中",
+            "已结束",
+            "工单",
+            "订单与开票"
+          ],
+          "shot": "docs/test-runs/run-077-TC-PERM-001-3.png"
+        },
+        "4": {
+          "owner": {
+            "status": 200,
+            "keys": [
+              "counts",
+              "ticketsBadge",
+              "shopsAttention",
+              "unreadNotifications"
+            ],
+            "hasUsage": false
+          },
+          "lead": {
+            "status": 200,
+            "keys": [
+              "counts",
+              "ticketsBadge",
+              "shopsAttention",
+              "unreadNotifications"
+            ],
+            "hasUsage": false
+          },
+          "agent": {
+            "status": 200,
+            "keys": [
+              "counts",
+              "ticketsBadge",
+              "shopsAttention",
+              "unreadNotifications"
+            ],
+            "hasUsage": false
+          }
+        },
+        "5": {
+          "url": "http://127.0.0.1:3360/reception",
+          "subnav": [
+            "店铺模式",
+            "工作时间与转人工",
+            "语气与提示词",
+            "工单类型与时限",
+            "知识库"
+          ],
+          "shot": "docs/test-runs/run-077-TC-PERM-001-5.png"
+        },
+        "6": {
+          "url": "http://127.0.0.1:3360/reception/knowledge",
+          "subnav": [
+            "知识库"
+          ],
+          "shot": "docs/test-runs/run-077-TC-PERM-001-6.png"
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "第 1 步侧栏文字只有导航与「收起侧栏」，没有出稿用量卡；收起后侧栏按钮只剩「展开侧栏」（run-077-TC-PERM-001-1b.png）"
+      ]
+    },
+    "TC-PERM-002": {
+      "steps": {
+        "1": {
+          "status": 403,
+          "type": "/errors/forbidden",
+          "code": "reception.manage"
+        },
+        "2": {
+          "status": 403,
+          "type": "/errors/forbidden",
+          "code": "team.manage"
+        },
+        "3": {
+          "status": 403,
+          "type": "/errors/forbidden",
+          "code": "dashboard.view"
+        },
+        "4": {
+          "url": "http://127.0.0.1:3360/reception",
+          "mainText": "这个页面只对管理员开放 你在「Demo Store」的角色是员工。需要时请联系管理员调整角色。 返回工作台",
+          "entry": "返回工作台",
+          "afterClick": "http://127.0.0.1:3360/wb",
+          "shot": "docs/test-runs/run-077-TC-PERM-002-4.png"
+        },
+        "5": {
+          "url": "http://127.0.0.1:3360/settings/audit?range=7d&actor=01a163cb-3354-74c7-89f7-4b3f9151a3e8",
+          "filters": {
+            "range": "近 7 天",
+            "who": "Nur Aisyah"
+          },
+          "rows": [
+            "10-22 21:32 Nur Aisyah 页面 账号与登录 被拒绝：GET /api/v1/dashboard",
+            "10-22 21:32 Nur Aisyah 页面 账号与登录 被拒绝：GET /api/v1/members",
+            "10-22 21:32 Nur Aisyah 页面 账号与登录 被拒绝：PUT /api/v1/reception/modes"
+          ],
+          "denied": 3,
+          "shot": "docs/test-runs/run-077-TC-PERM-002-5.png",
+          "apiStatus": 404
+        }
+      },
+      "result": "通过",
+      "steps13": "docs/test-runs/run-077-TC-PERM-002-1-3.txt：三次都 403 /errors/forbidden（code 依次 reception.manage、team.manage、dashboard.view）",
+      "notes": [
+        "第 4 步原位显示「这个页面只对管理员开放」与「返回工作台」，点后到 /wb",
+        "第 5 步近 7 天、操作人 Nur Aisyah 列出 3 行「被拒绝：…」；库内 audit_log 对应 action 为 permission_denied 共 3 条"
+      ]
+    },
+    "TC-PERM-005": {
+      "steps": {
+        "1": {
+          "all": "5 个 GET 都 404 /errors/not-found"
+        },
+        "2": {
+          "all": "5 个 POST 都 404 /errors/not-found"
+        },
+        "3": {
+          "url": "http://127.0.0.1:3360/wb/01a163cb-3442-7644-be7b-d57f2ce6fe68",
+          "notFound": 1,
+          "main": " 20:33 Shopee · SG Demo Shopee SG Hi, could you send me a tax invoice for this order? Company name is Lumen Studio Pte Ltd, UEN 201912345K. 等 1 小时 2 分 · 超过接待时限 找不到或已删除 会话可能已被删除，或不在你负责的店铺与可见范围内。 回到会话列表",
+          "shot": "docs/test-runs/run-077-TC-PERM-005-3.png"
+        },
+        "4": {
+          "same": "会话、订单、发票、店铺 JSON 逐字节相同；工单仅 remainingSec 随时间减少，时间线无 cross"
+        },
+        "pre": {
+          "OC": "01a163cb-3442-7644-be7b-d57f2ce6fe68",
+          "OT": "01a163cb-35fc-7045-8c4a-56a05e0dac8e",
+          "OO": "01a163cb-33e3-744f-b9b6-2a882f786704",
+          "OI": "01a163cb-35f1-7189-85bd-ef619ba6bd24",
+          "OS": "01a163cb-33b4-750c-afce-09d7be959aeb",
+          "conv": "closed · 无处理人 · version 1",
+          "ticket": "open",
+          "order": "AWAITING_SHIPMENT",
+          "invoice": "邮件 sent",
+          "shop": "connected"
+        }
+      },
+      "result": "通过",
+      "evidence": [
+        "docs/test-runs/run-077-TC-PERM-005.txt",
+        "docs/test-runs/run-077-TC-PERM-005-rerun.txt",
+        "docs/test-runs/run-077-TC-PERM-005-3.png"
+      ],
+      "notes": [
+        "第一遍前置快照的会话字段取错（读到 null），无法判第 4 步；改为前后各存 5 个对象的完整 JSON，重跑前置与第 1、2 步（10 个请求仍全是 404 /errors/not-found），再读一次比较：会话（closed、无处理人、version 1）、订单（AWAITING_SHIPMENT）、发票（邮件 sent）、店铺逐字节相同；工单只有剩余秒数 remainingSec 随时间减少，时间线没有 cross 备注",
+        "第 3 步 /wb/<OC> 显示「找不到或已删除」，在第 4 步重读之后执行"
+      ]
+    },
+    "TC-SHOP-001": {
+      "steps": {
+        "1": {
+          "url": "/shops/connect/shopee/guide",
+          "checklist": [
+            "注册开发者账号",
+            "创建应用",
+            "申请上线（Go Live）",
+            "确认聊天权限",
+            "可选：开 IP 白名单"
+          ],
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-1.png"
+        },
+        "2": {
+          "url": "/shops/connect/shopee",
+          "fields": [
+            "Live Partner ID",
+            "Live Partner Key",
+            "验证并保存"
+          ],
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-2.png"
+        },
+        "3": {
+          "checks": [
+            "通过：Partner ID 与 Key 匹配 已识别为全球控制台（open.shopee.com）",
+            "通过：已有 0 家店授权给这个应用 推送回调已改为 Shopilot，订阅 9 类推送"
+          ],
+          "next": "下一步：授权店铺",
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-3.png"
+        },
+        "4": {
+          "url": "/mock/shopee/sg/api/v2/shop/auth_partner?partner_id=2001001…",
+          "hostRegion": "sg",
+          "mainAccount": "900100",
+          "shops": [
+            "Wizard Shopee MY",
+            "Wizard Shopee SG",
+            "Wizard Shopee PH"
+          ],
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-4.png"
+        },
+        "5": {
+          "url": "http://127.0.0.1:3360/shops/connect/shopee/probe"
+        },
+        "6": {
+          "rows": [
+            "Wizard Shopee SG 能收发 能查 被平台隐藏",
+            "Wizard Shopee PH 不能收发 能查 被平台隐藏；聊天：Shopee 返回这家店没有聊天接口权限…（准备清单第 4 项）",
+            "Wizard Shopee MY 能收发 能查 被平台隐藏"
+          ],
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-6.png"
+        },
+        "7": {
+          "toast": "接入完成：3 家店开始接收买家消息，历史记录在后台拉取",
+          "url": "http://127.0.0.1:3360/shops/connect/shopee/probe",
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-7.png"
+        },
+        "8": {
+          "rows": [
+            "Wizard Shopee MY Shopee · MY 正常 授权至 2027-10-22 88% 目标 ≥ 70% · 当期值 总评 3 · 响应 0.4 天 · 未回复 2 shadow / shadow 工作时间内 / 外 从未",
+            "Wizard Shopee PH Shopee · PH 需处理 · 聊天不可用 授权至 2027-10-22 88% 目标 ≥ 70% · 当期值 总评 3 · 响应 0.4 天 · 未回复 2 shadow / shadow 工作时间内 / 外 从未",
+            "Wizard Shopee SG Shopee · SG 正常 授权至 2027-10-22 88% 目标 ≥ 70% · 当期值 总评 3 · 响应 0.4 天 · 未回复 2 shadow / shadow 工作时间内 / 外 从未"
+          ],
+          "headers": [
+            "店铺",
+            "连接",
+            "平台回复率",
+            "平台指标",
+            "接待模式",
+            "最近入站"
+          ],
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-8.png"
+        },
+        "9": {
+          "simConversationId": "3551123062528255871",
+          "push": [
+            {
+              "httpStatus": 200
+            }
+          ],
+          "seenAfterSec": 1.745,
+          "row": "W Wizard Buyer 077 21:37 Shopee · MY Wizard Shopee MY 接入后第一条 待认领 · 等待不到 1 分钟",
+          "shot": "docs/test-runs/run-077-TC-SHOP-001-9.png"
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "第 3 步凭证检查 2 / 2 通过：「已识别为全球控制台（open.shopee.com）」「推送回调已改为 Shopilot，订阅 9 类推送」，出现「下一步：授权店铺」；区域 sg 显示在第 4 步模拟授权页的「区域主机 sg」，与 RUN-073 判定一致",
+        "第 4 步模拟授权页在同一标签打开（主账号 900100，三家店）；授权链接 5 分钟有效，所以第 5 步前在同一状态下重新点了一次「打开授权页」再勾选授权",
+        "第 8 步列表行没有回补列；回补状态在点行打开的店铺抽屉里：「历史回补 已完成 · 会话 1 · 订单 1」（run-077-TC-SHOP-001-8b.png），GET /api/v1/shops 三家 backfill.state 都是 done",
+        "第 9 步买家发出后 1.7 秒出现在 signup1 的待认领，推送 HTTP 200"
+      ]
+    },
+    "TC-AI-001": {
+      "steps": {
+        "1": {
+          "simConversationId": "4211441067728314551",
+          "pushes": [
+            {
+              "id": "1b98c242-8141-4602-bdb9-b17b854bee35",
+              "httpStatus": 200,
+              "error": null
+            }
+          ]
+        },
+        "2": {
+          "seenAfterSec": 0.878,
+          "row": "A AI001 Buyer2 21:41 Shopee · MY Demo Shopee MY 我的包裹到哪了 AI 草稿待审 · 售前",
+          "aiLinkAfter20s": "AI 草稿 3",
+          "shot": "docs/test-runs/run-077-TC-AI-001-2.png"
+        },
+        "3": {
+          "convId": "01a163d8-09c4-74c3-b3e6-20bebce6bede",
+          "X": "您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。",
+          "apiConfidence": 0.85,
+          "buyerMsgInTimeline": true,
+          "draftShown": true,
+          "confidenceText": "置信度 0.85",
+          "buttons": {
+            "send": 1,
+            "edit": 1,
+            "ignore": 1
+          },
+          "shot": "docs/test-runs/run-077-TC-AI-001-3.png"
+        },
+        "4": {
+          "postStatus": 201,
+          "draftButtonsLeft": 0,
+          "ownMsgCountWithX": 1,
+          "afterX": " Nur Aisyah 21:41 · 已发送 回复 AI001 Buyer2 ",
+          "header": "Demo Shopee MY · 我处理中",
+          "inMine": 1,
+          "shot": "docs/test-runs/run-077-TC-AI-001-4.png"
+        },
+        "5": {
+          "sellerMessages": [
+            {
+              "from": "seller",
+              "text": "您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。"
+            }
+          ],
+          "equalsX": true
+        },
+        "6": {
+          "ownMsgCountWithX": 1,
+          "apiMessagesWithX": [
+            {
+              "direction": "out"
+            }
+          ],
+          "shot": "docs/test-runs/run-077-TC-AI-001-6.png"
+        },
+        "7": {
+          "billing": {
+            "used": "2",
+            "assist": "2 / 2",
+            "top": "2"
+          },
+          "shot": "docs/test-runs/run-077-TC-AI-001-7.png"
+        },
+        "pre": {
+          "billing": {
+            "used": "1",
+            "assist": "1 / 1",
+            "top": "1"
+          },
+          "shot": "docs/test-runs/run-077-TC-AI-001-0.png",
+          "aiLink": "AI 草稿 2"
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "第一遍（买家 AI001 Buyer）脚本在第 2 步停在 /wb 默认的待认领视图找行，没点「AI 草稿」分组，超时中断；这一遍已生成一份草稿（计 1 次出稿）。修脚本后换买家 AI001 Buyer2 从前置重跑，登记第二遍：起点读数取第二遍开始时（已用 1、辅助草稿 1 / 1），结束为已用 2、辅助草稿 2 / 2",
+        "第 1 步推送日志 event 10、HTTP 200（模拟器 state 接口 pushLogs）；第 2 步 0.9 秒出现在 AI 草稿分组，侧栏 AI 草稿 2 → 3",
+        "第 4 步 POST messages 201，草稿按钮消失，本方消息「Nur Aisyah 21:41 · 已发送」，会话头「我处理中」，我处理中列表有该会话"
+      ]
+    },
+    "TC-AI-002": {
+      "steps": {
+        "1": {
+          "pushes": [
+            {
+              "id": "e000913a-6da8-43c3-b91e-5d84b7be6708",
+              "httpStatus": 200,
+              "error": null
+            }
+          ]
+        },
+        "2": {
+          "seenInAiDraftsAfterSec": 0.826,
+          "convId": "01a163db-0105-776a-ab6c-5a9f3c37136a",
+          "X": "您的订单 261022L57J1566（Bamboo Fibre Bath Towel Set 3件套，鼠尾草绿）已经发出，由 SPX Express (MY) 承运，运单号 MY912571282199F。最新物流显示：2026-10-22 21:44 包裹已到达 Shah Alam Hub，接下来会继续转运并派送。\n\n您可以在 Shopee 的订单详情页查看实时物流更新，之后物流信息有更新也会陆续显示，请留意订单页的派送通知。",
+          "confidence": 0.85,
+          "confidenceText": "置信度 0.85",
+          "draftShown": false,
+          "mentionsOrder": true,
+          "rightPanelOrder": "订单 商品 历史会话 本段阶段 售中 认领后可改判 开段时自动判定：订单 261022L57J1566 SHIPPED D DS Buyer 077b Shopee 用户名 · 买家 ID 6917047897 收件人姓名、电话、地址由平台打码返回，Shopilot 只显示打码后的值。 近 180 天 1 单 · MYR 50.80 工单 全部工单 这个会话没有未结工单。 订单 镜像 · 10-22 21:43 同步 开 Invoice / Receipt 261022L57J1566 ，查看订单详情 运输中 Bamboo Fibre Bath Towel Set (3 pcs) Sage Green · ×1 · MYR 45.90 合计 MYR 50.80 · SHIPPED · 10-22 21:43 下单 · 最晚 10-24 发货 SPX Express (MY) · MY912",
+          "shot": "docs/test-runs/run-077-TC-AI-002-2.png"
+        },
+        "3": {
+          "postStatus": 201,
+          "sellerMessages": [],
+          "equalsDraft": false,
+          "shot": "docs/test-runs/run-077-TC-AI-002-3.png"
+        },
+        "pre": {
+          "order": "261022L57J1566",
+          "advance": [
+            "订单 261022L57J1566：READY_TO_SHIP → PROCESSED",
+            "订单 261022L57J1566：PROCESSED → SHIPPED"
+          ],
+          "finalStatus": "SHIPPED"
+        }
+      },
+      "result": "通过",
+      "deepseekCalls": 1,
+      "deepseekLog": "docs/test-runs/run-077-TC-AI-002-deepseek-calls.txt（kind draft、model deepseek-flash、1528 ms、ok）",
+      "notes": [
+        "前置脚本第一遍读模拟器订单时没带会话参数（state 只按会话返回订单），在下单后、买家发消息前中断，没有出稿、没有 DeepSeek 调用；留下一个已下单未发消息的模拟买家 DS Buyer 077，Shopilot 里没有它的会话。换买家 DS Buyer 077b 从前置重跑，登记第二遍",
+        "第 2 步草稿正文写出订单号 261022L57J1566、承运商 SPX Express (MY)、运单号 MY912571282199F 与轨迹「已到达 Shah Alam Hub」，右栏同为 SPX Express (MY) · MY912571282199F；置信度 0.85",
+        "第 3 步脚本按 from 字段筛卖家消息（模拟器字段名是 sender），当场读到 0 条；随后按 sender 重读同一状态：买家视图 1 条卖家消息，正文与草稿逐字相同（run-077-TC-AI-002-3.json 的 simMessagesAfter）",
+        ".env 改回 AI_MODE=stub 后 cmp 与改前备份逐字节一致，重启 pnpm dev"
+      ]
+    },
+    "TC-ORD-015": {
+      "steps": {
+        "1": {
+          "invoiceChecked": true,
+          "orderLine": "订单 26102278TRU5VD · Demo Shopee MY",
+          "items": [
+            "Bamboo Fibre Bath Towel Set (3 pcs) ×1 MYR 45.90"
+          ],
+          "chatChecked": true,
+          "mailChecked": true,
+          "shot": "docs/test-runs/run-077-TC-ORD-015-1.png"
+        },
+        "2": {
+          "postStatus": 201,
+          "dialogOpen": 0,
+          "toast": "已生成 INV-2026-000002 图片已发到聊天，邮件已发到 invoice1@demo.test",
+          "invoiceNumber": "INV-2026-000002",
+          "shot": "docs/test-runs/run-077-TC-ORD-015-2.png"
+        },
+        "3": {
+          "sellerMessages": [
+            "text 好的，马上为您开票",
+            "image http://127.0.0.1:3360/mock/files/e575ea64a7098b8317f2a92f"
+          ],
+          "evidence": "docs/test-runs/run-077-TC-ORD-015-3.json"
+        },
+        "4": {
+          "to": "invoice1@demo.test",
+          "template": "invoice",
+          "subject": "Invoice INV-2026-000002 from Demo Store",
+          "attachments": [
+            "INV-2026-000002.pdf"
+          ],
+          "shot": "docs/test-runs/run-077-TC-ORD-015-4.png"
+        },
+        "5": {
+          "row": "INV-2026-000002 Invoice Demo Buyer Sdn Bhd 26102278TRU5VD Demo Shopee MY MYR 50.80 聊天已发送 邮件已发送 10-22 21:47 预览 PDF",
+          "shot": "docs/test-runs/run-077-TC-ORD-015-5.png"
+        },
+        "6": {
+          "download": "INV-2026-000002.pdf",
+          "contentType": "application/pdf",
+          "pdfHasNo": true,
+          "pdfHasTitle": true,
+          "evidence": "docs/test-runs/run-077-TC-ORD-015-6.txt"
+        },
+        "pre": {
+          "order": "26102278TRU5VD",
+          "claim": 200,
+          "reply": 201
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "前置的下单、买家发消息、Nur 认领（200）并回复「好的，马上为您开票」（201）用接口构造",
+        "第 2 步弹层关闭，提示「已生成 INV-2026-000002 图片已发到聊天，邮件已发到 invoice1@demo.test」；第 3 步买家视图新增一条卖家图片消息；第 4 步邮件模板 invoice、主题「Invoice INV-2026-000002 from Demo Store」、附件 INV-2026-000002.pdf；第 5 步行内「聊天已发送 邮件已发送」",
+        "第 6 步脚本第一遍按 /PDF/ 匹配点到了同一格里的「预览」按钮（发出 ?inline=1 请求）；改为点链接「PDF」（读屏名「下载 INV-2026-000002 的 PDF」）重做这一步：触发下载 INV-2026-000002.pdf，同一链接 content-type application/pdf，pdftotext 读出发票号与抬头（run-077-TC-ORD-015-6.txt）"
+      ]
+    },
+    "TC-TKT-001": {
+      "steps": {
+        "1": {
+          "pushEvent": 12,
+          "httpStatus": 200,
+          "evidence": "docs/test-runs/run-077-TC-TKT-001-1.json"
+        },
+        "2": {
+          "ticket": "T-1006",
+          "cells": [
+            "T-1006 退货退款",
+            "订单 576440518049098712",
+            "待处理 · 待审核",
+            "剩 47 小时 58 分 平台截止",
+            "Arif Rahman"
+          ],
+          "D1": "2026-10-24 21:49",
+          "shot": "docs/test-runs/run-077-TC-TKT-001-2.png"
+        },
+        "3": {
+          "dialogOpen": 0,
+          "stage": "等待中 · 等买家",
+          "simReturn": "AWAITING_BUYER_SHIP",
+          "shot": "docs/test-runs/run-077-TC-TKT-001-3.png"
+        },
+        "4": {
+          "stage": "处理中 · 待验货",
+          "D2": "2026-10-24 21:51",
+          "dueDiffers": true,
+          "shot": "docs/test-runs/run-077-TC-TKT-001-4.png"
+        },
+        "5": {
+          "simReturn": "RETURN_OR_REFUND_REQUEST_COMPLETE",
+          "stage": "已解决",
+          "shot": "docs/test-runs/run-077-TC-TKT-001-5.png"
+        },
+        "6": {
+          "timeline": [
+            "平台事件建单 T-1006 · 退货退款待处理｜平台",
+            "Arif Rahman 同意退货｜页面",
+            "平台事件 · 等买家寄回｜平台",
+            "平台事件 · 待验货｜平台",
+            "Arif Rahman 收货后同意退款｜页面",
+            "平台事件 · 退款完成｜平台"
+          ],
+          "shot": "docs/test-runs/run-077-TC-TKT-001-6.png"
+        },
+        "pre": {
+          "order": "576440518049098712",
+          "status": "DELIVERED"
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "前置的下单与推进到 DELIVERED 用模拟器接口；买家名被平台打码（R****n B***r 0*7），按订单号定位到工单 T-1006",
+        "第 2 步：退货退款、待处理 · 待审核、剩 47 小时 58 分、平台截止、Arif Rahman；D1 = 2026-10-24 21:49；第 4 步截止变为 2026-10-24 21:51",
+        "脚本两处定位器写错后重跑：第一遍「处理申请」按钮名不精确匹配到两个按钮，第 3 步前中断（第 2 步只读，未改状态），加 exact 后从第 2 步重跑；第 6 步第一次读到了「关联」列表，改按时间线列表重读同一状态"
+      ]
+    },
+    "TC-KB-001": {
+      "steps": {
+        "1": {
+          "subnavSelected": "page",
+          "tabs": [
+            "问答",
+            "经验卡",
+            "待审核",
+            "学习",
+            "资料",
+            "产品",
+            "测试问答"
+          ],
+          "selectedOnOpen": "问答",
+          "url": "http://127.0.0.1:3360/reception/knowledge?tab=docs",
+          "heading": "资料 0 / 500",
+          "empty": "还没有资料。把产品手册、保修与退换政策拖到这里",
+          "shot": "docs/test-runs/run-077-TC-KB-001-1.png"
+        },
+        "2": {
+          "dialogText": "上传资料 这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。 把文件拖到这里，或选择文件（可多选） 支持 PDF、Word（docx）、Excel（xlsx、xls）、CSV、图片（JPG、PNG、WebP、GIF、BMP、TIFF、HEIC）、Markdown、TXT、HTML、ODT、ODS。单个文件不超过 20 MB，PDF 以外的文件不超过 4 MB；PPT 请先导出为 PDF 再上传。 保修政策.pdf 3.0 MB 等待上传 型号对照.xlsx 1.0 MB 等待上传 分类 未分类 适用站点 全部站点 MY TH VN PH SG ID 2 个可上传 取消 上传 2 个文件 关闭",
+          "uploadButton": [
+            "上传 2 个文件"
+          ],
+          "shot": "docs/test-runs/run-077-TC-KB-001-2.png"
+        },
+        "3": {
+          "allMarketsPressed": "true",
+          "progressSamples": [
+            "保修政策.pdf 3.0 MB 0% 型号对照.xlsx 1.0 MB 等待上传 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID 正在上传 1 / 2 取消 上传中，请不要关闭",
+            "保修政策.pdf 3.0 MB 已上传，排队解析 型号对照.xlsx 1.0 MB 已上传，排队解析 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID 已上传 2 个 继续上传 完成 关闭"
+          ],
+          "dialogText": "上传资料 这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。 保修政策.pdf 3.0 MB 已上传，排队解析 型号对照.xlsx 1.0 MB 已上传，排队解析 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID 已上传 2 个 继续上传 完成 关闭",
+          "buttons": [
+            "全部站点",
+            "MY",
+            "TH",
+            "VN",
+            "PH",
+            "SG",
+            "ID",
+            "继续上传",
+            "完成",
+            "关闭"
+          ],
+          "shot": "docs/test-runs/run-077-TC-KB-001-3.png"
+        },
+        "4": {
+          "elapsedSec": 5.102,
+          "stateSamples": [
+            "型号对照.xlsx 售后政策 全部站点 排队中 10-22 21:54 || 保修政策.pdf 售后政策 全部站点 排队中 10-22 21:54",
+            "型号对照.xlsx 整理成问答 售后政策 全部站点 可用 10-22 21:54 || 保修政策.pdf 整理成问答 售后政策 全部站点 可用 10-22 21:54"
+          ],
+          "heading": "资料 2 / 500",
+          "switches": [
+            "型号对照.xlsx AI 可用=true",
+            "保修政策.pdf AI 可用=true"
+          ],
+          "shot": "docs/test-runs/run-077-TC-KB-001-4.png"
+        },
+        "5": {
+          "url": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a163e4-8728-774a-af4e-1c75c0dae663",
+          "drawerTitle": "保修政策.pdf",
+          "drawerText": "保修政策.pdf 可用 3.0 MB 1 段分块 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID AI 可用 解析完成后出稿与测试问答会引用 上传 2026-10-22 21:54 · 林晓 解析完成 2026-10-22 21:54 重新解析 下载原文件 删除 原文件 解析内容（1 段） 关闭",
+          "iframe": [
+            {
+              "title": "保修政策.pdf 预览",
+              "src": "/api/v1/files/c198608e-3fb2-4b8f-a151-ed0080ad16a3"
+            }
+          ],
+          "tabs": [
+            "原文件",
+            "解析内容（1 段）"
+          ],
+          "shot": "docs/test-runs/run-077-TC-KB-001-5.png"
+        },
+        "6": {
+          "url": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a163e4-8728-774a-af4e-1c75c0dae663&docTab=parsed",
+          "parsed": "保修政策.pdf 可用 3.0 MB 1 段分块 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID AI 可用 解析完成后出稿与测试问答会引用 上传 2026-10-22 21:54 · 林晓 解析完成 2026-10-22 21:54 重新解析 下载原文件 删除 原文件 解析内容（1 段） 关闭",
+          "afterReload": {
+            "url": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a163e4-8728-774a-af4e-1c75c0dae663&docTab=parsed",
+            "open": 1,
+            "selectedTab": "解析内容（1 段）",
+            "text": "保修政策.pdf 可用 3.0 MB 1 段分块 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID AI 可用 解析完成后出稿与测试问答会引用 上传 2026-10-22 21:54 · 林晓 解析完成 2026-10-22 21:54 重新解析 下载原文件 删除 原文件 解析内容（1 段） #1 替身解析：保修政策.pdf 已显示 1 / 1 段 关闭"
+          },
+          "shot": "docs/test-runs/run-077-TC-KB-001-6.png"
+        },
+        "7": {
+          "title": "型号对照.xlsx",
+          "text": "型号对照.xlsx 可用 1.0 MB 1 段分块 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID AI 可用 解析完成后出稿与测试问答会引用 上传 2026-10-22 21:54 · 林晓 解析完成 2026-10-22 21:54 重新解析 下载原文件 删除 原文件 解析内容（1 段） 型号对照.xlsx 这种格式不能在页面里预览，点上方「下载原文件」查看；AI 用的是「解析内容」里的文字。 关闭",
+          "downloadButton": 1,
+          "iframes": 0,
+          "shot": "docs/test-runs/run-077-TC-KB-001-7.png"
+        },
+        "8": {
+          "status": 200,
+          "items": [
+            {
+              "status": "ready",
+              "aiEnabled": true,
+              "markets": [
+                "ALL"
+              ],
+              "partsCount": 1,
+              "chunksCount": 1
+            },
+            {
+              "status": "ready",
+              "aiEnabled": true,
+              "markets": [
+                "ALL"
+              ],
+              "partsCount": 1,
+              "chunksCount": 1
+            }
+          ],
+          "counts": {
+            "total": 2,
+            "limit": 500
+          }
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "按 RUN-073 的坑，第 5 步等资料抽屉里 iframe「保修政策.pdf 预览」出现后再读（PDF 阅读器已加载，2 页）",
+        "第 6 步点「解析内容」后 1 秒读文字时分块列表还在加载，刷新后抽屉仍开、停在「解析内容（1 段）」，列出「#1 替身解析：保修政策.pdf」（run-077-TC-KB-001-6.png）",
+        "第 2 步文件选择用 filechooser 交给弹窗的「选择文件」按钮"
+      ]
+    },
+    "TC-KB-024": {
+      "steps": {
+        "1": {
+          "pushes": [
+            {
+              "id": "11be0e4f-3359-4194-9177-327880e7d325",
+              "httpStatus": 200,
+              "error": null
+            }
+          ]
+        },
+        "2": {
+          "seenAfterSec": 0.679,
+          "convId": "01a163e5-f99b-7267-bc01-1f58ff05686b",
+          "basisText": "依据：《保修政策.md》",
+          "basisLinksForAgent": 0,
+          "pagesAfterClick": 1,
+          "urlUnchanged": true,
+          "shot": "docs/test-runs/run-077-TC-KB-024-2.png"
+        },
+        "3": {
+          "kind": "draft",
+          "at": "2026-10-22T13:56:25.559Z",
+          "knowledge0": {
+            "n": 1,
+            "title": "保修政策.md",
+            "text": "# 保修政策\n\n所有相机保修 12 个月，自签收之日起计算。\n退货需在签收后 7 天内申请。"
+          },
+          "knowledgeLen": 2,
+          "systemTail": "回复事实正确且解决了问题的把握；缺少依据时 confidence 不高于 0.5。\ninsufficient：order_facts 与 knowledge 都不足以回答买家的问题时为 true。used_sources 只列回复里真正用到的片段编号，没用到就给空数组。\n本次回复语言：Simplified Chinese。reply 只用 Simplified Chinese 写，不夹用别的语言。",
+          "guardrail": true,
+          "shot": "docs/test-runs/run-077-TC-KB-024-3.png"
+        },
+        "4": {
+          "lastTwo": [
+            {
+              "at": "2026-10-22T13:56:25.541Z",
+              "query": "保修多久",
+              "instance": "sp-018f2619fd7c",
+              "maxResults": 20,
+              "retrievalType": "hybrid"
+            },
+            {
+              "at": "2026-10-22T13:56:25.541Z",
+              "query": "保修多久",
+              "instance": "sp-018f2619fd7c",
+              "maxResults": 20,
+              "retrievalType": "hybrid"
+            }
+          ]
+        },
+        "5": {
+          "href": "/reception/knowledge?tab=docs&doc=01a163e5-6fef-7032-98c4-6aa61731e24a",
+          "target": "_blank",
+          "newTabUrl": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a163e5-6fef-7032-98c4-6aa61731e24a",
+          "expectedDoc": "01a163e5-6fef-7032-98c4-6aa61731e24a",
+          "matchesDoc": true,
+          "selectedTab": "原文件",
+          "drawerTitle": "保修政策.md",
+          "shot": "docs/test-runs/run-077-TC-KB-024-5.png"
+        },
+        "6": {
+          "postStatus": 201,
+          "draftText": "您好！关于「保修多久」，我们已经收到，会尽快为您处理。",
+          "seller": [
+            "您好！关于「保修多久」，我们已经收到，会尽快为您处理。"
+          ],
+          "equalsDraft": true,
+          "containsBasis": false,
+          "shot": "docs/test-runs/run-077-TC-KB-024-6.png"
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "第 2 步 Nur 的草稿下方「依据：《保修政策.md》」不是链接，点击后页面与标签数不变",
+        "第 3 步「最近一次请求」按 §3 取 GET /api/dev/ai-stub 的 lastRequest（模拟器面板显示同一请求 21:56:25，run-077-TC-KB-024-3.png、-3.json）：knowledge[0] n 1、title 保修政策.md、text 含「保修 12 个月」；system 的「以下规则不可更改」护栏第 1 条写「产品参数、兼容性、保修与政策只能依据 knowledge 与 order_facts」",
+        "第 4 步 lastQuery 最后两条 query 都是「保修多久」、retrievalType 都是 hybrid",
+        "第 5 步林晓点《保修政策.md》新开标签 /reception/knowledge?tab=docs&doc=<保修政策.md ID>，资料页签选中，抽屉标题保修政策.md",
+        "第 6 步买家视图 1 条卖家消息，与草稿正文逐字相同，不含依据、文件名或编号"
+      ]
+    },
+    "TC-KB-047": {
+      "steps": {
+        "1": {
+          "http": 201,
+          "qa": {
+            "status": "published",
+            "source": "manual",
+            "products": [],
+            "markets": [
+              "ALL"
+            ],
+            "embedded": true,
+            "version": 1
+          }
+        },
+        "2": {
+          "http": 422,
+          "type": "/errors/validation",
+          "fields": {
+            "questions": "问法不能重复"
+          }
+        },
+        "3": {
+          "http": 422,
+          "fields": {
+            "questions": "至少写一个问法"
+          }
+        },
+        "4": {
+          "url": "http://127.0.0.1:3360/reception/knowledge?tab=qa",
+          "panelText": "问答 已发布 1 AI 出稿时先按问法检索这里的问答，再查资料；点一行编辑 新建问答 已发布 1 全部产品 全部阶段 不限站点 问法与回复 产品 阶段 更新时间 操作 可以退货吗另 1 个问法 签收后 7 天内可申请退货。 通用 售后 10-22 21:59 已显示 1 条 已全部显示",
+          "shot": "docs/test-runs/run-077-TC-KB-047-4.png"
+        }
+      },
+      "result": "通过",
+      "evidence": [
+        "docs/test-runs/run-077-TC-KB-047.txt",
+        "docs/test-runs/run-077-TC-KB-047-1.json",
+        "docs/test-runs/run-077-TC-KB-047-4.png"
+      ],
+      "notes": [
+        "第 4 步第一行「可以退货吗」（另 1 个问法），产品「通用」、阶段「售后」；「已发布」由状态筛选「已发布 1」与标题「问答 已发布 1」表达，行内有「下架」操作，行里不单独标状态（与 RUN-057 记录一致）"
+      ]
+    },
+    "TC-KB-053": {
+      "steps": {
+        "1": {
+          "pushes": [
+            {
+              "id": "e06af83f-f685-44df-93b3-d3ba84792c3c",
+              "httpStatus": 200,
+              "error": null
+            }
+          ]
+        },
+        "2": {
+          "afterSec": 6.886,
+          "knowledge": [
+            {
+              "n": 1,
+              "title": "问答：towel set 可以退货吗",
+              "textHead": "问：towel set 可以退货吗\n答：QA1 回答"
+            },
+            {
+              "n": 2,
+              "title": "保修政策.md",
+              "textHead": "# 保修政策\n\n所有相机保修 12 个月，自签收之日起计算。\n退货需在签收后 7"
+            }
+          ]
+        },
+        "3": {
+          "productIds": [
+            "01a163e9-99ef-729a-96dd-58e2b9c04f56"
+          ],
+          "mergedQaIds": [
+            "01a163e9-9b0a-7022-9fbb-761f92a18d14"
+          ],
+          "evidence": "docs/test-runs/run-077-TC-KB-053-3.txt"
+        },
+        "4": {
+          "basis": "依据：问答「towel set 可以退货吗」",
+          "shot": "docs/test-runs/run-077-TC-KB-053-4.png"
+        },
+        "pre": {
+          "T": "01a163e9-99ef-729a-96dd-58e2b9c04f56",
+          "M": "01a163e9-99f9-7418-beb8-8e8d9173464c",
+          "QA1": "01a163e9-9b0a-7022-9fbb-761f92a18d14",
+          "QA2": "01a163e9-9b67-71dd-8c3e-e4dd2d9ce334",
+          "QA3": "01a163e9-9bc0-75b7-8832-1ee946023a4a",
+          "QA4": "01a163e9-9c0a-71ed-8a03-15490fbd6a37"
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "第 2 步「最近一次请求」取 GET /api/dev/ai-stub（出稿后 6.9 秒读到）：knowledge[0] 标题「问答：towel set 可以退货吗」、正文以「问：」开头，[1] 为保修政策.md",
+        "第 3 步 productIds 只含 T，merged 只有 QA1"
+      ]
+    },
+    "TC-KB-058": {
+      "steps": {
+        "1": {
+          "selectedTab": "经验卡",
+          "emptyTitle": 1,
+          "newButton": 2,
+          "shot": "docs/test-runs/run-077-TC-KB-058-1.png"
+        },
+        "2": {
+          "title": "新建经验卡",
+          "labelsPresent": {
+            "标题与目标": true,
+            "调用条件": true,
+            "处理步骤": true,
+            "沟通提示（选填）": true,
+            "产品": true,
+            "服务阶段": true,
+            "适用站点": true,
+            "关联问答（选填）": true,
+            "标签（选填）": true
+          },
+          "primary": 1,
+          "shot": "docs/test-runs/run-077-TC-KB-058-2.png"
+        },
+        "3": {
+          "stepNumbers": [
+            "1.问",
+            "2.换",
+            "3.安"
+          ],
+          "branches": [
+            "急用",
+            "转人工",
+            "保修",
+            "建工单"
+          ],
+          "stage": "全部阶段",
+          "summary": "发布后 AI 出稿立即可用：通用（全部产品） · 全部阶段 · 全部站点 调用条件 1 条（全部满足）· 3 步 · 2 个分支，其中 2 个转人工或建工单",
+          "stepsSnapshot": "- group:\n  - text: 处理步骤 3 / 15\n  - list:\n    - listitem:\n      - text: \"1.\"\n      - textbox \"第 1 步\":\n        - /placeholder: 例如 问清电脑系统和连接方式\n        - text: 问清电脑系统和连接方式\n      - button \"第 1 步上移\" [disabled]\n      - button \"第 1 步下移\"\n      - button \"删除第 1 步\"\n      - list:\n        - listitem:\n          - text: 如果\n          - textbox \"第 1 步的分支 1：条件\":\n            - /placeholder: 买家说急用\n            - text: 急用\n          - combobox \"第 1 步的分支 1：怎么办\": 转人工\n          - button \"删除第 1 步的分支 1\"\n      - button \"加分支\"\n    - listitem:\n      - text: \"2.\"\n      - textbox \"第 2 步\":\n        - /placeholder: 这一步做什么\n        - text: 换线、换接口\n      - button \"第 2 步上移\"\n      - button \"第 2 步下移\"\n      - button \"删除第 2 步\"\n      - list:\n        - listitem:\n          - text: 如果\n          - textbox \"第 2 步的分支 1：条件\":\n            - /placeholder: 买家说急用\n            - text: 保修\n          - combobox \"第 2 步的分支 1：怎么办\": 建工单\n          - button \"删除第 2 步的分支 1\"\n      - button \"加分支\"\n    - listitem:\n      - text: \"3.\"\n      - textbox \"第 3 步\":\n        - /placeholder: 这一步做什么\n        - text: 安装或更新配套软件\n      - button \"第 3 步上移\"\n      - button \"第 3 步下移\" [disabled]\n      - button \"删除第 3 步\"\n      - button \"加分支\"\n  - paragraph: AI 每次回复只推进一步，下一条消息从这一步接着走。调整顺序后，记得核对分支里「跳到第几步」。\n  - button \"加一步\"",
+          "shot": "docs/test-runs/run-077-TC-KB-058-3.png"
+        },
+        "4": {
+          "afterSec": 9.584,
+          "result": "测试这张卡 测试 只在这次测试里生效，不保存、不计出稿用量；每分钟最多 20 次。 用到了这张卡：第 1 步 · 转人工 判断：替身：调用条件成立 您好！关于「摄像头识别不到，我急用」，我们已经收到，会尽快为您处理。 按当前设置这条会转人工。",
+          "shot": "docs/test-runs/run-077-TC-KB-058-4.png"
+        },
+        "5": {
+          "toast": "已发布新经验卡",
+          "rows": [
+            "摄像头识别不到：帮买家恢复使用 全部满足：买家说摄像头识别不到 3 步 · 第 1 版 · 全部站点 通用 全部阶段 林晓 10-22 22:03 调用 0 次 采纳 — · 转人工 —"
+          ],
+          "header": "经验卡\n已发布 1",
+          "shot": "docs/test-runs/run-077-TC-KB-058-5.png"
+        },
+        "6": {
+          "status": 200,
+          "countsPublished": 1,
+          "n": 1,
+          "item": {
+            "version": 1,
+            "status": "published",
+            "source": "member",
+            "embedded": true,
+            "steps": 3,
+            "agentUnseen": false
+          }
+        },
+        "7": {
+          "status": 422,
+          "type": "/errors/validation",
+          "fields": {
+            "steps.0.branches.0.goto": "跳到的步骤要是本卡里的另一步"
+          }
+        },
+        "8": {
+          "status": 422,
+          "type": "/errors/validation",
+          "fields": {
+            "conditions": "至少写一条调用条件",
+            "steps": "至少写一个步骤"
+          }
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "第 4 步 9.6 秒出结果「用到了这张卡：第 1 步 · 转人工」，下方「按当前设置这条会转人工。」",
+        "第 5 步列表行「摄像头识别不到：帮买家恢复使用 / 全部满足：买家说摄像头识别不到 / 3 步 · 第 1 版 · 全部站点…」，页头「经验卡 已发布 1」"
+      ]
+    },
+    "TC-KB-061": {
+      "steps": {
+        "1": {
+          "draftId": "01a163ed-ef59-71a0-a253-55d826fb1169"
+        },
+        "2": {
+          "row": "<K>|1|continue",
+          "K": "01a163ed-c8c0-7131-93a8-90c4089c3493"
+        },
+        "3": {
+          "line": "经验卡：「摄像头识别不到：帮买家恢复使用」 （在新标签打开） · 第 1 步看理由",
+          "titleIsLink": 1,
+          "reason": "用卡理由：替身：调用条件成立",
+          "shot": "docs/test-runs/run-077-TC-KB-061-3.png"
+        },
+        "4": {
+          "newTabUrl": "http://127.0.0.1:3360/reception/knowledge?tab=cards&card=01a163ed-c8c0-7131-93a8-90c4089c3493",
+          "expected": "/reception/knowledge?tab=cards&card=01a163ed-c8c0-7131-93a8-90c4089c3493",
+          "match": true,
+          "drawerTitle": "摄像头识别不到：帮买家恢复使用",
+          "shot": "docs/test-runs/run-077-TC-KB-061-4.png"
+        },
+        "5": {
+          "draftsBefore": "1",
+          "dbStep": "2",
+          "allDrafts": [
+            "superseded|1",
+            "generated|2"
+          ],
+          "line": "经验卡：「摄像头识别不到：帮买家恢复使用」 （在新标签打开） · 第 2 步看理由",
+          "shot": "docs/test-runs/run-077-TC-KB-061-5.png"
+        },
+        "6": {
+          "line": "经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 2 步看理由",
+          "titleLinks": 0,
+          "shot": "docs/test-runs/run-077-TC-KB-061-6.png"
+        }
+      },
+      "result": "通过",
+      "evidence": [
+        "docs/test-runs/run-077-TC-KB-061.txt"
+      ],
+      "notes": [
+        "第 3 步可见文字「经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 1 步」，标题是链接（读屏文字多一段「（在新标签打开）」，页面上不显示）；展开后「用卡理由：替身：调用条件成立」",
+        "第 5 步旧草稿变 superseded，新草稿 card.step 为 2，页面那行为「· 第 2 步」；第 6 步 Nur 看到同一行文字，卡标题不是链接",
+        "执行环境说明：本轮 shell 里 q 用 docker compose exec -T，从 heredoc 执行时会吞掉后续脚本行，第 2 步的查询第一次没有执行；给 q 补上 </dev/null 后单独执行第 2 步查询（只读），其余步骤未受影响"
+      ]
+    },
+    "TC-KB-066": {
+      "steps": {
+        "1": {
+          "pressed": "true",
+          "checkboxes": [
+            "选择消息：买家 22:08「设备坏了想换货」",
+            "选择消息：Mei Lin 22:17「好的，给您安排换货」"
+          ],
+          "composerGone": true,
+          "bar": "提交学习 已选 0 / 20 条 勾选能说明这次怎么处理的消息，买家和客服的都可以；AI 会连同前后几条对话一起分析。 备注（选填） 0 / 200 取消 提交",
+          "shot": "docs/test-runs/run-077-TC-KB-066-1.png"
+        },
+        "2": {
+          "postStatus": 201,
+          "toast": "已提交学习 AI 分析后，组长或管理员会在知识库「学习」页签审核。",
+          "checkboxesLeft": 0,
+          "formLeft": 0,
+          "pressed": "false",
+          "labels": [
+            "已提交学习 · 分析中",
+            "已提交学习 · 分析中"
+          ],
+          "timeline": "10 月 22 日 设备坏了想换货 译 · Shopee[Shopee 机翻] 设备坏了想换货 22:08 已提交学习 · 分析中 好的，给您安排换货 Mei Lin 22:17 · 已发送 已提交学习 · 分析中 回复 Learn A 译成马来语 0 / 2,000",
+          "shot": "docs/test-runs/run-077-TC-KB-066-2.png"
+        },
+        "3": {
+          "labels": [
+            "已提交学习 · 待审核",
+            "已提交学习 · 待审核"
+          ],
+          "timeline": "10 月 22 日 设备坏了想换货 译 · Shopee[Shopee 机翻] 设备坏了想换货 22:08 已提交学习 · 待审核 好的，给您安排换货 Mei Lin 22:17 · 已发送 已提交学习 · 待审核 回复 Learn A 译成马来语 0 / 2,000",
+          "shot": "docs/test-runs/run-077-TC-KB-066-3.png"
+        },
+        "4": {
+          "http": 200,
+          "items": 1,
+          "source": "member",
+          "status": "pending_review",
+          "messageIds": [
+            "买家那条",
+            "本方那条"
+          ],
+          "submittedByName": "Mei Lin"
+        },
+        "5": {
+          "first5": "HTTP 201 ×5",
+          "sixth": "HTTP 429 /errors/rate-limited「同一个会话每分钟最多提交 5 次学习，请稍后再试。」"
+        },
+        "6": {
+          "http": 422,
+          "type": "/errors/validation",
+          "detail": "有消息不属于这个会话，请刷新后重新勾选。"
+        },
+        "pre": {
+          "reusedBuyer": "5464612286139842011",
+          "inAiDrafts": 0,
+          "inMine": 1,
+          "claimAndReply": {
+            "replyPost": 201,
+            "header": "L Learn A Shopee · MY Demo Shopee MY · 我处理中 10 月 22 日 设备坏了想换货 译 · Shopee[Shopee 机翻] 设备坏了想换货 22:08 好的，给您安排换货 Mei Lin 22:1",
+            "hasReply": 1,
+            "composer": ""
+          }
+        }
+      },
+      "result": "通过",
+      "evidence": [
+        "docs/test-runs/run-077-TC-KB-066-4-6.txt"
+      ],
+      "notes": [
+        "前置有三处脚本问题，修后在同一个买家 Learn A 上接着做，没有新建买家：① 浏览器登录等 load 事件超时（换成等地址变化后重进）；② 第一次回复用回车，没有发出（输入框默认「译成马来语」，回车不发送），点「发送」前把「发送前翻译」改成「不翻译」；③ 已认领的会话不在 AI 草稿分组，改到「我处理中」打开。最终 Mei 认领、回复「好的，给您安排换货」201，库里一条 out 消息 sent",
+        "第 2 步提交 201，提示「已提交学习 / AI 分析后，组长或管理员会在知识库「学习」页签审核。」，复选框与底部条消失，「提交学习」按钮不再按下；两条消息下方标「已提交学习 · 分析中」（标签带进度后缀）；第 3 步 10 秒后刷新为「已提交学习 · 待审核」"
+      ]
+    },
+    "TC-KB-067": {
+      "steps": {
+        "1": {
+          "tab": "学习\n1",
+          "rows": 1,
+          "row": "Learn A · Demo Shopee MY 10-22 22:23 「设备坏了想换货」 客服提交（Mei Lin） · 流程需要补充 待审核",
+          "shot": "docs/test-runs/run-077-TC-KB-067-1.png"
+        },
+        "2": {
+          "url": "http://127.0.0.1:3360/reception/knowledge?tab=learning&task=01a163fe-764f-7400-b5c4-69d9951ea48f",
+          "headings": [
+            "学习任务",
+            "原始消息",
+            "背景",
+            "判断依据与建议",
+            "相似内容",
+            "测试结果",
+            "建议更新内容"
+          ],
+          "text": "学习任务 待审核 客服提交（Mei Lin） · 2026-10-22 22:23 Learn A · Demo Shopee MY 原始消息 高亮的是客服勾选的消息，其余是前后对话 买家 设备坏了想换货 10-22 22:22 （已勾选） 客服 好的，给您安排换货 10-22 22:22 （已勾选） 客服备注：换货流程要记下来 背景 产品 没识别到待确认产品：在下方的建议内容里选定 服务阶段 售前 判断依据与建议 流程需要补充 依据：替身：按关键词判断 建议：替身：按建议更新 相似内容 AI 分析时参考的已发布经验卡 没有找到相似的已发布经验卡。 测试结果 用买家的「设备坏了想换货」按现在的出稿流程试跑，不发给买家 改前（现有知识） 您好！关于「设备坏了想换货」，我们已经收到，会尽快为您处理。 没有用经验卡 改后（加上这张卡） 您好！关于「设备坏了想换货」，我们已经收到，会尽快为您处理。 经验卡：替身：设备坏了想换货 · 第 1 步 · 继续处理 建议更新内容 AI 写的新经验卡，改好后复测、发布 标题与目标 10 / 100 写清这张卡解决什么情况、要达到什么结果。 调用条件 全部满足 满足任一 AI 逐条判断这些条件对眼前的买家成不成立；标签相似不会触发这张卡。 加一条 处理步骤 1 / 15 1. 加分支 AI 每次回复只推进一步，下一条消息从这一步接着走。调整顺序后，记得核对分支里「跳到第几步」。 加一步 沟通提示（选填） 0 / 500 产品 通用（适用全部产品） 不选 = 通用，所有产品都可能用上。 服务阶段 售前 全部阶段 售前 售中 售后 适用站点 全部站点 MY TH VN PH SG ID 关联问答（选填） 不关联问答 出稿时作为这张卡的回答依据一起给 AI，最多 10 条。 标签（选填） 只用于查询和描述，不决定用不用这张卡。 保存草稿 发布后：新建一张经验卡，AI 出稿时就会按它处理 产品：通用 · 阶段：售前 · 站点：全部站点 调用条件 1 条（全部满足）· 步骤 1 步 · 分支 0 个 复测：当前内容还没复测，复测通过才能发布 复测 发布 无需更新 驳回 当前内容复测通过后才能发布。 关闭",
+          "shot": "docs/test-runs/run-077-TC-KB-067-2.png"
+        },
+        "3": {
+          "retestLine": "复测：当前内容还没复测，复测通过才能",
+          "publishDisabled": true,
+          "shot": "docs/test-runs/run-077-TC-KB-067-3.png"
+        },
+        "4": {
+          "taskId": "01a163fe-764f-7400-b5c4-69d9951ea48f",
+          "version": 2,
+          "status": 409,
+          "code": "retest_required",
+          "detail": "内容改过后还没复测通过，请先复测。",
+          "type": "/errors/conflict"
+        },
+        "5": {
+          "afterSec": 2.166,
+          "toast": "复测通过，可以发布",
+          "line": "复测：当前内容已复测通过",
+          "publishDisabled": false,
+          "retestRegion": "原问题（用拟发布的内容） 您好！关于「设备坏了想换货」，我们已经收到，会尽快为您处理。 经验卡：换货流程：设备故障时安排换货 · 第 1 步 · 继续处理 新卡没有以前测过的问题。 建议更新内容 AI 写的新经验卡，改好后复测、发布 标题与目标 14 / 100 写清这张卡解决什么情况、要达到什么结果。 调用条件 全部满足 满足任一 AI 逐条判断这些条件对眼前的买家成不成立；标签相似不会触发这张卡。 加一条 处理步骤 1 / 15 1",
+          "shot": "docs/test-runs/run-077-TC-KB-067-5.png"
+        },
+        "6": {
+          "line": "复测：当前内容还没复测，复测通过才能发布",
+          "publishDisabled": true,
+          "shot": "docs/test-runs/run-077-TC-KB-067-6.png"
+        },
+        "7": {
+          "retest": {
+            "afterSec": 0.857,
+            "toast": "复测通过，可以发布",
+            "line": "复测：当前内容已复测通过",
+            "publishDisabled": false
+          },
+          "toast": "已发布经验卡「换货流程：设备故障时安排换货」 下一次出稿起 AI 就会按这张卡处理。",
+          "dialogHead": "学习任务 已发布 客服提交（Mei Lin） · 2026-10-22 22:23 Learn A · Demo Shopee MY 林晓 审核后新建了经验卡「换货流程：设备故障时安排换货」，现在是第 1 版 · 10-22 22:24 原",
+          "conclusion": "学习任务 已发布 客服提交（Mei Lin） · 2026-10-22 22:23 Learn A · Demo Shopee MY 林晓 审核后新建了经验卡「换货流程：设备故障时安排换货」，现在是第 1 版 · 10-22 22:24 原始消息 高亮的是客服勾选的消息，其余是前后对话 买家 设备坏了想换货 10-22 22:22 （已勾选） 客服 好的，给您安排换货 10-22 22:22 （已勾选） 客服备注：换货流程要记下来 背景 产品 没识别到 服务阶段 售前 判断依据与建议 流程需要补充 依据：替身：按关键词判断 建议：替身：按建议更新 相似内容 AI 分析时参考的已发布经验卡 没有找到相似的已发布经验卡",
+          "shot": "docs/test-runs/run-077-TC-KB-067-7.png"
+        },
+        "8": {
+          "status": 200,
+          "n": 1,
+          "items": [
+            {
+              "title": "换货流程：设备故障时安排换货",
+              "version": 1,
+              "source": "member",
+              "tips": "先确认订单号"
+            }
+          ]
+        },
+        "9": {
+          "labels": [
+            "已提交学习 · 新建了经验卡",
+            "已提交学习 · 新建了经验卡"
+          ],
+          "shot": "docs/test-runs/run-077-TC-KB-067-9.png"
+        },
+        "pre": {
+          "tc066pre": {
+            "say": true,
+            "inAiDrafts": 1,
+            "claimAndReply": {
+              "replyPost": 201,
+              "header": "L Learn A Shopee · MY Demo Shopee MY · 我处理中 10 月 22 日 设备坏了想换货 译 · Shopee[Shopee 机翻] 设备坏了想换货 22:22 好的，给您安排换货 Mei Lin 22:2",
+              "hasReply": 1,
+              "composer": ""
+            }
+          },
+          "tc066step1": {
+            "pressed": "true",
+            "checkboxes": [
+              "选择消息：买家 22:22「设备坏了想换货」",
+              "选择消息：Mei Lin 22:22「好的，给您安排换货」"
+            ],
+            "composerGone": true,
+            "bar": "提交学习 已选 0 / 20 条 勾选能说明这次怎么处理的消息，买家和客服的都可以；AI 会连同前后几条对话一起分析。 备注（选填） 0 / 200 取消 提交",
+            "shot": "docs/test-runs/run-077-TC-KB-067-pre-1.png"
+          },
+          "tc066step2": {
+            "postStatus": 201,
+            "toast": "已提交学习 AI 分析后，组长或管理员会在知识库「学习」页签审核。",
+            "checkboxesLeft": 0,
+            "formLeft": 0,
+            "pressed": "false",
+            "labels": [
+              "已提交学习 · 分析中",
+              "已提交学习 · 分析中"
+            ],
+            "timeline": "10 月 22 日 设备坏了想换货 译 · Shopee[Shopee 机翻] 设备坏了想换货 22:22 已提交学习 · 分析中 好的，给您安排换货 Mei Lin 22:22 · 已发送 已提交学习 · 分析中 回复 Learn A 译成马来语 0 / 2,000",
+            "shot": "docs/test-runs/run-077-TC-KB-067-pre-2.png"
+          },
+          "tc066step3": {
+            "labels": [
+              "已提交学习 · 待审核",
+              "已提交学习 · 待审核"
+            ],
+            "timeline": "10 月 22 日 设备坏了想换货 译 · Shopee[Shopee 机翻] 设备坏了想换货 22:22 已提交学习 · 待审核 好的，给您安排换货 Mei Lin 22:22 · 已发送 已提交学习 · 待审核 回复 Learn A 译成马来语 0 / 2,000",
+            "shot": "docs/test-runs/run-077-TC-KB-067-pre-3.png"
+          }
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "执行前按 §3 重建基线（停服务、pnpm db:reset && pnpm db:seed、重起、固定为工作时间内），再做 TC-KB-066 前置与第 1–3 步作为本用例前置（买家 Learn A，提交学习 201，10 秒后两条消息「已提交学习 · 待审核」）",
+        "第 1 步页签「学习」带 1，列表一行「Learn A · Demo Shopee MY / 「设备坏了想换货」 / 客服提交（Mei Lin） · 流程需要补充 / 待审核」",
+        "第 4 步 409 /errors/conflict，code retest_required",
+        "第 5 步 2.2 秒提示「复测通过，可以发布」，复测区「原问题（用拟发布的内容）」用到「经验卡：换货流程：设备故障时安排换货 · 第 1 步」",
+        "第 7 步任务头「已发布」，结论「林晓 审核后新建了经验卡「换货流程：设备故障时安排换货」，现在是第 1 版」"
+      ]
+    },
+    "TC-KB-068": {
+      "steps": {
+        "1": {
+          "http": 201,
+          "T": "01a16402-7e83-7232-923f-dddcd2fcd5cd",
+          "status": "published"
+        },
+        "2": {
+          "version": 2,
+          "agentUnseen": true,
+          "lastAuthor": "agent",
+          "steps": 4,
+          "lastStep": "替身补充的一步",
+          "versions0": {
+            "author": "agent",
+            "learningTaskId": "=T",
+            "retestPassed": true
+          },
+          "evidence": "docs/test-runs/run-077-TC-KB-068-2.json"
+        },
+        "3": {
+          "tab": "经验卡 1",
+          "rows": [
+            "摄像头识别不到：帮买家恢复使用 Agent 改过，未看 全部满足：买家说摄像头识别不到 4 步 · 第 2 版 · 全部站点 通用 全部阶段 Agent 10-22 22:27 调用 1 次 采纳 — · 转人工 0%"
+          ],
+          "afterSwitch": {
+            "checked": "true",
+            "rows": [
+              "摄像头识别不到：帮买家恢复使用 Agent 改过，未看 全部满足：买家说摄像头识别不到 4 步 · 第 2 版 · 全部站点 通用 全部阶段 Agent 10-22 22:27 调用 1 次 采纳 — · 转人工 0%"
+            ]
+          },
+          "shot": "docs/test-runs/run-077-TC-KB-068-3.png"
+        },
+        "4": {
+          "versionList": "第 2 版 Agent 10-22 22:27 当前 / 复测通过 · 回归用例 0 个",
+          "evidence": "docs/test-runs/run-077-TC-KB-068-4-drawer.txt"
+        },
+        "5": {
+          "toast": "已标为看过",
+          "drawerHasUnseenTag": false,
+          "markSeenButton": 0,
+          "tab": "经验卡",
+          "rows": [
+            "摄像头识别不到：帮买家恢复使用 全部满足：买家说摄像头识别不到 4 步 · 第 2 版 · 全部站点 通用 全部阶段 Agent 10-22 22:27 调用 1 次 采纳 — · 转人工 0%"
+          ],
+          "seenByName": "林晓",
+          "agentUnseen": false,
+          "shot": "docs/test-runs/run-077-TC-KB-068-5.png"
+        },
+        "6": {
+          "url": "http://127.0.0.1:3360/reception/knowledge?task=01a16402-7e83-7232-923f-dddcd2fcd5cd",
+          "selectedTab": "学习",
+          "dialogTitle": "学习任务",
+          "head": "学习任务 已发布 客服提交（Mei Lin） · 2026-10-22 22:27 Learn B2 · Demo Shopee MY 改的是：摄像头识别不到：帮买家恢复使用（第 2 版） Agent 复测通过后直接改了经验卡「摄像头识别不到：帮买家恢复使用」，现在是第 2 版。改动标为「Agent 改过、还没人看过」，可在经验卡里查看改前改后或一键回退。 原始消息 高亮的是客服勾选的消息，其余是前后对话 买家 摄像头识别不到，换线也没用 10-22 22:27 （已勾选） 客服 请装最新的配套软件试试 10-22",
+          "shot": "docs/test-runs/run-077-TC-KB-068-6.png"
+        },
+        "pre": {
+          "buyer": "Learn B2",
+          "K": "01a16402-5e27-757e-9d1d-c8bae7769325",
+          "claim": 200,
+          "reply": 201
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "前置的 Mei 认领（200）与回复（201）用接口构造",
+        "第一遍（买家 Learn B，卡 01a16400-…）第 1–5 步都执行了，脚本在第 6 步按无障碍角色取页签时超时（任务抽屉是模态，页签对无障碍树隐藏），且第 3–5 步观察值没有落盘；改为按 aria-selected 读页签并逐步落盘后，cardclear、新建卡 K、换买家 Learn B2 从前置重跑全部 6 步，登记第二遍",
+        "第 3 步页签「经验卡 1」，卡 K 行带「Agent 改过，未看」、最近改动「Agent」，打开开关后只有卡 K；第 5 步提示「已标为看过」，标记与页签数字消失，接口 versions[0].seenByName 林晓",
+        "第 6 步停在「学习」页签并打开任务：「已发布」，「Agent 复测通过后直接改了经验卡「摄像头识别不到：帮买家恢复使用」，现在是第 2 版。…可在经验卡里查看改前改后或一键回退。」"
+      ]
+    },
+    "TC-KB-072": {
+      "steps": {
+        "1": {
+          "drafts": [
+            "01a16403-7278-708a-bbd8-e88d11bf7467",
+            "01a16403-91b8-70f3-8407-30dc901889d6",
+            "01a16403-b0f3-72af-9e66-3c1c5437d1c0"
+          ],
+          "count": 3
+        },
+        "2": {
+          "dispose": [
+            "HTTP 201",
+            "HTTP 201",
+            "HTTP 200"
+          ],
+          "statuses": [
+            "edited_sent",
+            "ignored",
+            "sent"
+          ]
+        },
+        "3": {
+          "cardreview": "published|card_updated"
+        },
+        "4": {
+          "version": 2,
+          "agentUnseen": true,
+          "lastAuthor": "agent",
+          "lastStep": "替身补充的一步",
+          "versions0": {
+            "author": "agent",
+            "retestPassed": true,
+            "regressions": 1
+          },
+          "reviews": [
+            {
+              "result": "card_updated",
+              "version": 2,
+              "reason": "替身：客服改写过这张卡的草稿"
+            }
+          ],
+          "evidence": "docs/test-runs/run-077-TC-KB-072-4.json"
+        },
+        "5": {
+          "quotaLine": "今天 Agent 已直接改卡 1 / 5 次",
+          "rowsAfterSwitch": [
+            "摄像头识别不到：帮买家恢复使用 Agent 改过，未看 全部满足：买家说摄像头识别不到 4 步 · 第 2 版 · 全部站点 通用 全部阶段 Agent 10-22 22:28 调用 3 次 采纳 67% · 转人工 0%"
+          ],
+          "shot": "docs/test-runs/run-077-TC-KB-072-5.png"
+        },
+        "6": {
+          "reviewRows": [
+            "2026-10-22 改了经验卡 改成第 2 版 查看任务 替身：客服改写过这张卡的草稿"
+          ],
+          "focused": {
+            "tag": "LI",
+            "id": "card-v-2",
+            "text": "第 2 版Agent10-22 22:28当前替身：客服改写过这张卡的草稿复测通过 · 回归用例 1 个"
+          },
+          "shot": "docs/test-runs/run-077-TC-KB-072-6.png"
+        },
+        "7": {
+          "url": "http://127.0.0.1:3360/reception/knowledge?tab=learning&task=01a16403-c2b1-702e-a8ad-f427ccd3145a",
+          "selectedTab": "学习",
+          "target": "改的是：摄像头识别不到：帮买家恢复使用（第 2 版）",
+          "rawMsgNote": "代表性用例：问题最明显的那份草稿出稿时的对话，高亮的是它回答的",
+          "product": "产品 通用（沿用卡的适用范围）",
+          "evidence": "证据用例 近 7 天用到这张卡的草稿；AI 判断时看了其中 3 份，有问题的优先 辅助草稿 原样发送 1 · 改后发送 1 · 弃用 1 影子回复 没有 按卡转人工 0 次（含建工单） 背景 产品 通用（沿用卡的适用范围） 服务阶段 售前 判断依据与建议 流程需要补充 依据：替身：客服改写过这张卡的草稿 建议：替身：补一步 测",
+          "retest": "客服原样发送过的「摄像头识别不到」：不比改前差",
+          "shot": "docs/test-runs/run-077-TC-KB-072-7.png"
+        },
+        "8": {
+          "filter": "按卡体检",
+          "rows": [
+            "经验卡「摄像头识别不到：帮买家恢复使用」 10-22 22:28 「摄像头识别不到」 按卡体检 · 3 个用例 · 流程需要补充 · 改了经验卡 已发布"
+          ],
+          "shot": "docs/test-runs/run-077-TC-KB-072-8.png"
+        },
+        "pre": {
+          "K": "01a16403-587d-753e-b996-0b24c5e3e672",
+          "agentreset": "DELETE 2（前面 TC-KB-068 两遍留下的 Agent 改卡审计）",
+          "cardold": "UPDATE 1"
+        }
+      },
+      "result": "通过",
+      "evidence": [
+        "docs/test-runs/run-077-TC-KB-072-1-4.txt",
+        "docs/test-runs/run-077-TC-KB-072-7-task.txt"
+      ],
+      "notes": [
+        "第 6 步点「改成第 2 版」后焦点落在版本行 card-v-2",
+        "第 7 步「原始消息」说明全文「代表性用例：问题最明显的那份草稿出稿时的对话，高亮的是它回答的买家消息」（任务抽屉快照第 18 行）"
+      ]
+    },
+    "TC-FEISHU-005": {
+      "steps": {
+        "1": {
+          "pushes": [
+            {
+              "id": "b8b29bb2-9e86-4613-a35d-2f2c744543e3",
+              "httpStatus": 200,
+              "error": null
+            },
+            {
+              "id": "305ee61b-9822-4392-938d-e215423c8355",
+              "httpStatus": 200,
+              "error": null
+            }
+          ]
+        },
+        "2": {
+          "firstItem": "Shopilot 客服群（替身） 2026/10/22 22:30:29 待认领 · Demo TikTok TH 待认领卡 · 已发出（替身）",
+          "color": "发件箱写「标题颜色 橙色」，卡片 JSON header.template = orange"
+        },
+        "3": {
+          "text": "待认领 · Demo TikTok TH\n\n发往 Shopilot 客服群（替身） · 待认领卡 · 标题颜色 橙色 · 已发出（替身，未真的发到飞书） · 尝试 1 次 · om_stub_6fd27a7807154ead90ec7fff84588b43\n\nAI 总结　AI 替身总结：买家发来新消息，正在等待客服认领。\n\n平台 TikTok Shop · 泰国　买家 Feishu Buyer 005　已等 不到 1 分钟\n\n最近对话\n\n买家 22:30　Halo, kamera ini bisa dipakai di Mac?\n译文：[译文] Halo, kamera ini bisa dipakai di Mac?\n\n按钮「认领」→ http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?claim=1&m=01a163fd-6f2f-7163-878b-957e047c976f\n\n按钮「打开会话」→ http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?m=01a163fd-6f2f-7163-878b-957e047c976f\n\nShopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推\n\n卡片 JSON",
+          "hasHandoffReason": false,
+          "shot": "docs/test-runs/run-077-TC-FEISHU-005-3.png"
+        },
+        "4": {
+          "links": [
+            {
+              "text": "http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?claim=1&m=01a163fd-6f2f-7163-878b-957e047c976f",
+              "href": "http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?claim=1&m=01a163fd-6f2f-7163-878b-957e047c976f"
+            },
+            {
+              "text": "http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?m=01a163fd-6f2f-7163-878b-957e047c976f",
+              "href": "http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?m=01a163fd-6f2f-7163-878b-957e047c976f"
+            }
+          ],
+          "activeMerchantId": "01a163fd-6f2f-7163-878b-957e047c976f"
+        },
+        "5": {
+          "count": 1,
+          "href": "/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?view=queue",
+          "shot": "docs/test-runs/run-077-TC-FEISHU-005-5.png"
+        },
+        "pre": {
+          "feishuPut": "HTTP 200",
+          "targetPost": "HTTP 200"
+        }
+      },
+      "result": "通过",
+      "evidence": [
+        "docs/test-runs/run-077-TC-FEISHU-005-api.json"
+      ],
+      "notes": [
+        "第 2 步买家发出后 2.8 秒发件箱出现这张卡，是列表第一张",
+        "第 3 步正文逐行与预期一致，没有「转人工原因」",
+        "第 4 步两个链接里的会话 ID 相同，m 参数与 /api/v1/me 的 active.merchantId 相同",
+        "第 5 步待认领列表这位买家的链接 /wb/<同一会话 ID>"
+      ]
+    },
+    "TC-FEISHU-011": {
+      "steps": {
+        "1": {
+          "url": "http://127.0.0.1:3360/wb/01a16406-6cba-7647-8d07-fa4ce00f18f0",
+          "toasts": [
+            "已认领"
+          ],
+          "header": "Feishu X 011 TikTok · TH Demo TikTok TH · 我处理中 买家等待不到 1 分钟 接待时限 15 分钟（商户设置） 10 月 22 日 claim me 译 · Shopilot[译文] claim me 22:31 回复 Feishu X 011 译成泰语 0 / 2,000",
+          "inputEnabled": true,
+          "shot": "docs/test-runs/run-077-TC-FEISHU-011-1.png"
+        },
+        "2": {
+          "url": "http://127.0.0.1:3360/wb/01a16406-6cba-7647-8d07-fa4ce00f18f0",
+          "toasts": [],
+          "audit": "1",
+          "shot": "docs/test-runs/run-077-TC-FEISHU-011-2.png"
+        },
+        "3": {
+          "url": "http://127.0.0.1:3360/wb/01a16406-6cba-7647-8d07-fa4ce00f18f0",
+          "toasts": [],
+          "audit": "1",
+          "shot": "docs/test-runs/run-077-TC-FEISHU-011-3.png"
+        },
+        "4": {
+          "url": "http://127.0.0.1:3360/wb/01a16406-70bd-70fd-bfc4-41ee85638fc7",
+          "toasts": [],
+          "header": "Feishu Y 011 TikTok · TH Demo TikTok TH · 待认领 · 店铺未开 AI 认领 买家等待不到 1 分钟 接待时限 15 分钟（商户设置） 10 月 22 日 just open 译 · Shopilot",
+          "claimButton": 1,
+          "state": "awaiting_human",
+          "shot": "docs/test-runs/run-077-TC-FEISHU-011-4.png"
+        },
+        "pre": {
+          "L1": "http://127.0.0.1:3360/wb/01a16406-6cba-7647-8d07-fa4ce00f18f0?claim=1&m=01a163fd-6f2f-7163-878b-957e047c976f",
+          "L2": "http://127.0.0.1:3360/wb/01a16406-70bd-70fd-bfc4-41ee85638fc7?m=01a163fd-6f2f-7163-878b-957e047c976f",
+          "C": "01a16406-6cba-7647-8d07-fa4ce00f18f0",
+          "D": "01a16406-70bd-70fd-bfc4-41ee85638fc7",
+          "apiL1": "http://127.0.0.1:3360/wb/01a16406-6cba-7647-8d07-fa4ce00f18f0?claim=1&m=01a163fd-6f2f-7163-878b-957e047c976f",
+          "apiL2": "http://127.0.0.1:3360/wb/01a16406-70bd-70fd-bfc4-41ee85638fc7?m=01a163fd-6f2f-7163-878b-957e047c976f",
+          "currentMerchant": "Demo Store"
+        }
+      },
+      "result": "通过",
+      "notes": [
+        "前置的两位买家用模拟器接口新建并发消息；L1、L2 从发件箱分别点开两张卡读出，与投递记录卡片 JSON 里的按钮链接一致；当前商户 Demo Store",
+        "第 1 步打开 L1 后地址变为 /wb/<C>（无 claim、m），提示「已认领」，会话头「我处理中」，输入框可用",
+        "第 2、3 步 audit_log conversation_claimed 计数都是 1，刷新与再次打开 L1 都没有「已认领」提示",
+        "第 4 步 D 仍是待认领（handling_state awaiting_human），头部有「认领」按钮"
+      ]
+    }
+  }
+}

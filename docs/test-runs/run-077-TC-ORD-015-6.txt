@@ -1,0 +1,78 @@
+GET http://127.0.0.1:3360/api/v1/invoices/01a163de-1927-7786-bd75-45eef1148715/pdf
+status 200
+content-type application/pdf
+content-disposition attachment; filename*=UTF-8''INV-2026-000002.pdf
+
+pdftotext:
+Invoice
+Invoice number
+Order number
+Date
+
+INV-2026-000002
+26102278TRU5VD
+October 22, 2026
+
+Demo Store
+
+Bill to
+Demo Buyer Sdn Bhd
+1 Jalan Demo, Kuala Lumpur
+invoice1@demo.test
+
+Total MYR 50.80
+Description
+
+Bamboo Fibre Bath Towel Set (3 pcs)
+Sage Green
+
+Qty
+
+Unit price
+
+Amount
+
+1
+
+MYR 45.90
+
+MYR 45.90
+
+Subtotal
+
+MYR 45.90
+
+Shipping & fees
+
+MYR 4.90
+
+Total
+
+MYR 50.80
+
+Amount paid
+
+MYR 50.80
+
+Payment history
+Payment method
+
+Date
+
+ShopeePay
+
+October 22, 2026
+
+INV-2026-000002 · Total MYR 50.80
+
+Amount paid
+
+MYR 50.80
+
+Order number
+
+26102278TRU5VD
+
+Page 1 of 1
+
+下载事件文件 INV-2026-000002.pdf：PDF document, version 1.3, 1 pages；pdftotext 含 INV-2026-000002 与 Demo Buyer Sdn Bhd

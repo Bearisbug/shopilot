@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { IBM_Plex_Sans_Thai_Looped, Nunito } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
@@ -12,9 +13,12 @@ export const metadata: Metadata = {
   icons: { icon: "/brand/app-icon.svg" },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+// 英文官网 /en 整页标 en（PAGE-SITE），其余页面是中文；路径由 proxy.ts 写进 x-shopilot-path
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const path = (await headers()).get("x-shopilot-path") ?? "";
+  const lang = /^\/en(\/|\?|$)/.test(path) ? "en" : "zh-CN";
   return (
-    <html lang="zh-CN" className={`${nunito.variable} ${thai.variable}`}>
+    <html lang={lang} className={`${nunito.variable} ${thai.variable}`}>
       <body className="font-sans">
         <AppProviders>{children}</AppProviders>
       </body>

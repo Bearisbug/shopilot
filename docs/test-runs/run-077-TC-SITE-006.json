@@ -1,0 +1,25 @@
+{
+  "TC-SITE-006": {
+    "1": {
+      "path": "/en",
+      "lang": "en",
+      "rawHtmlTag": "<html lang=\"en\" class=\"nunito_f31530a6-module__tW5Wrq__variable ibm_plex_sans_thai_looped_e4aa57f-module__ppzZrG__variable\">"
+    },
+    "2": {
+      "path": "/",
+      "lang": "zh-CN",
+      "rawHtmlTag": "<html lang=\"zh-CN\" class=\"nunito_f31530a6-module__tW5Wrq__variable ibm_plex_sans_thai_looped_e4aa57f-module__ppzZrG__variable\">"
+    },
+    "3": {
+      "path": "/login",
+      "lang": "zh-CN",
+      "rawHtmlTag": "<html lang=\"zh-CN\" class=\"nunito_f31530a6-module__tW5Wrq__variable ibm_plex_sans_thai_looped_e4aa57f-module__ppzZrG__variable\">"
+    },
+    "4": {
+      "path": "/wb",
+      "lang": "zh-CN",
+      "rawHtmlTag": "<html lang=\"zh-CN\" class=\"nunito_f31530a6-module__tW5Wrq__variable ibm_plex_sans_thai_looped_e4aa57f-module__ppzZrG__variable\">"
+    },
+    "console": []
+  }
+}

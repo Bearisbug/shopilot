@@ -1,0 +1,12 @@
+login: 200
+## 1
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/reception/modes","requestId":"req_01a163cff177745d87798d35e0783ff6","code":"reception.manage"}
+HTTP 403
+## 2
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/members","requestId":"req_01a163cff19c761aba2547a53174f8d6","code":"team.manage"}
+HTTP 403
+## 3
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/dashboard","requestId":"req_01a163cff288747f8c5486bd21311bb5","code":"dashboard.view"}
+HTTP 403
+## 5 库内核对（只读）
+permission_denied|3

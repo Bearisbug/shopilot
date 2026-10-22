@@ -1,0 +1,35 @@
+{
+  "r7": {
+    "status": 422,
+    "body": {
+      "type": "/errors/validation",
+      "title": "提交的内容有误",
+      "status": 422,
+      "detail": "提交的内容有误，请检查标红的字段。",
+      "instance": "/api/v1/knowledge/cards",
+      "requestId": "req_01a163ec7dff76ababf5ab2c3a039bd1",
+      "extra": {
+        "fields": {
+          "steps.0.branches.0.goto": "跳到的步骤要是本卡里的另一步"
+        }
+      }
+    }
+  },
+  "r8": {
+    "status": 422,
+    "body": {
+      "type": "/errors/validation",
+      "title": "提交的内容有误",
+      "status": 422,
+      "detail": "提交的内容有误，请检查标红的字段。",
+      "instance": "/api/v1/knowledge/cards",
+      "requestId": "req_01a163ec7f027405a265cf0bc2c1759b",
+      "extra": {
+        "fields": {
+          "conditions": "至少写一条调用条件",
+          "steps": "至少写一个步骤"
+        }
+      }
+    }
+  }
+}

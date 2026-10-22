@@ -1,0 +1,60 @@
+{
+  "rr": {
+    "ok": true,
+    "message": "退货申请 4035941460427127615 已提交，卖家 48 小时内处理",
+    "pushes": [
+      {
+        "id": "0d05bcfe-8b87-4795-947f-0c11eed38c8b",
+        "httpStatus": 200,
+        "error": null
+      }
+    ]
+  },
+  "order": {
+    "orderId": "576440518049098712",
+    "status": "DELIVERED",
+    "currency": "MYR",
+    "total": "47.80",
+    "items": [
+      {
+        "name": "Bamboo Fibre Bath Towel Set (3 pcs)",
+        "skuName": "Sage Green",
+        "qty": 1,
+        "price": "42.90"
+      }
+    ],
+    "trackingNumber": "TT987409732602BX",
+    "carrier": "J&T Express",
+    "shipByAt": "2026-10-24T13:49:45.000Z",
+    "createdAt": "2026-10-22T13:49:45.630Z",
+    "next": "COMPLETED",
+    "actions": [
+      "advance"
+    ],
+    "afterSales": [
+      {
+        "id": "4035941460427127615",
+        "orderId": "576440518049098712",
+        "kind": "return",
+        "status": "RETURN_OR_REFUND_REQUEST_PENDING",
+        "subtype": "RETURN_AND_REFUND",
+        "reasonText": "Wrong product was sent",
+        "arbitrationStatus": null,
+        "dueAt": "2026-10-24T13:49:46.000Z",
+        "dueField": "seller_next_action_response.deadline",
+        "returnTrackingNumber": null,
+        "createdAt": "2026-10-22T13:49:46.833Z",
+        "actions": [
+          "approve_return"
+        ]
+      }
+    ]
+  },
+  "pushLogs": [
+    {
+      "event": 12,
+      "httpStatus": 200,
+      "summary": "退货 4035941460427127615 → RETURN_OR_REFUND_REQUEST_PENDING"
+    }
+  ]
+}

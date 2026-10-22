@@ -1,0 +1,14 @@
+## 第 4 步
+login: 200
+{"email":"agent@demo.test"}
+HTTP 200
+## 第 5 步
+{"success":true}
+HTTP 200
+{"type":"/errors/unauthenticated","title":"请先登录","status":401,"instance":"/api/v1/me","requestId":"req_01a163cebfb47269948e688e3e1a5fe9"}
+HTTP 401
+## 第 5 步括号：不带请求体与 Content-Type 退出
+login: 200
+{"success":true}
+HTTP 200
+HTTP 401

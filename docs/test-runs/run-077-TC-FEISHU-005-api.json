@@ -1,0 +1,108 @@
+{
+  "id": "01a16405-43a1-71c9-aa14-b94e71307fb9",
+  "merchantId": "01a163fd-6f2f-7163-878b-957e047c976f",
+  "conversationId": "01a16405-4386-778e-b00b-3a0a3318f3b7",
+  "ticketId": null,
+  "kind": "unclaimed",
+  "status": "sent",
+  "targetName": "Shopilot 客服群（替身）",
+  "attempts": 1,
+  "messageId": "om_stub_6fd27a7807154ead90ec7fff84588b43",
+  "stub": true,
+  "error": null,
+  "card": {
+    "body": {
+      "elements": [
+        {
+          "tag": "markdown",
+          "content": "**AI 总结**　AI 替身总结：买家发来新消息，正在等待客服认领。"
+        },
+        {
+          "tag": "markdown",
+          "content": "**平台** TikTok Shop · 泰国　**买家** Feishu Buyer 005　**已等** 不到 1 分钟"
+        },
+        {
+          "tag": "hr"
+        },
+        {
+          "tag": "markdown",
+          "content": "**最近对话**"
+        },
+        {
+          "tag": "markdown",
+          "content": "**买家** <font color='grey'>22:30</font>　Halo, kamera ini bisa dipakai di Mac?\n<font color='grey'>译文：&#91;译文&#93; Halo, kamera ini bisa dipakai di Mac?</font>"
+        },
+        {
+          "tag": "hr"
+        },
+        {
+          "tag": "column_set",
+          "columns": [
+            {
+              "tag": "column",
+              "width": "auto",
+              "elements": [
+                {
+                  "tag": "button",
+                  "text": {
+                    "tag": "plain_text",
+                    "content": "认领"
+                  },
+                  "type": "primary",
+                  "behaviors": [
+                    {
+                      "type": "open_url",
+                      "default_url": "http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?claim=1&m=01a163fd-6f2f-7163-878b-957e047c976f"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "column",
+              "width": "auto",
+              "elements": [
+                {
+                  "tag": "button",
+                  "text": {
+                    "tag": "plain_text",
+                    "content": "打开会话"
+                  },
+                  "type": "default",
+                  "behaviors": [
+                    {
+                      "type": "open_url",
+                      "default_url": "http://127.0.0.1:3360/wb/01a16405-4386-778e-b00b-3a0a3318f3b7?m=01a163fd-6f2f-7163-878b-957e047c976f"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "flex_mode": "none",
+          "horizontal_spacing": "8px"
+        },
+        {
+          "tag": "markdown",
+          "content": "<font color='grey'>Shopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推</font>"
+        }
+      ]
+    },
+    "config": {
+      "summary": {
+        "content": "待认领 · Demo TikTok TH · Feishu Buyer 005"
+      },
+      "update_multi": true
+    },
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "待认领 · Demo TikTok TH"
+      },
+      "template": "orange"
+    },
+    "schema": "2.0"
+  },
+  "createdAt": "2026-10-22T14:30:29.024Z",
+  "sentAt": "2026-10-22T14:30:29.968Z"
+}
