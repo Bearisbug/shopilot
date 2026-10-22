@@ -34,6 +34,7 @@ export const NOTIFICATION_EVENTS = [
   { event: "ticket_overdue", label: "工单已超时", inApp: true, email: true },
   { event: "ticket_assigned", label: "工单指派或改派给我", inApp: true, email: false },
   { event: "usage_threshold", label: "出稿用量跨过提醒阈值", inApp: true, email: true },
+  { event: "agent_autoapply_paused", label: "Agent 自动改卡暂停", inApp: true, email: false },
 ] as const;
 
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number]["event"];

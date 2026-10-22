@@ -4,7 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useState } from "react";
-import { BRANCH_ACTION_LABEL, CONDITION_MODE_LABEL, type CardBranch, type CardList, type CardStats } from "@/contracts/cards";
+import { BRANCH_ACTION_LABEL, CONDITION_MODE_LABEL, type AgentStatus, type CardBranch, type CardList, type CardStats } from "@/contracts/cards";
 import type { KnowledgeQaList } from "@/contracts/knowledge";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -15,6 +15,12 @@ import { useUrlParams } from "./knowledge-ui";
 
 export const cardsKey = ["knowledge-cards"] as const;
 export const cardItemKey = (id: string) => ["knowledge-card", id] as const;
+export const agentStatusKey = ["knowledge-agent-status"] as const;
+
+/** API-KB-045：Agent 自动改卡是否暂停、今天直接改了几次、最近 12 周 AI 质量（经验卡页签与看板共用） */
+export function useAgentStatus() {
+  return useQuery({ queryKey: agentStatusKey, queryFn: () => api.get<AgentStatus>("/api/v1/knowledge/agent-status") });
+}
 
 /** ?card=<id> 卡抽屉；?dialog=card 新建，?dialog=card&card=<id> 编辑（编辑时抽屉先收起，关掉弹窗回到抽屉） */
 export function useCardParams() {

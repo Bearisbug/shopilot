@@ -25,6 +25,8 @@ import { embedMissing } from "@/server/knowledge/qa";
 import { extractQa, failStaleExtracts } from "@/server/knowledge/qa-extract";
 import { syncListings } from "@/server/products/dictionary";
 import { analyzeLearning, failStaleLearning, pickLearning } from "@/server/knowledge/learning-analyze";
+import { reviewCards } from "@/server/knowledge/card-review";
+import { qualityWeekly } from "@/server/analysis/quality";
 
 type Handler = (data: Record<string, unknown>) => Promise<void>;
 
@@ -82,6 +84,14 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   },
   "product.listing_sync": syncListings,
   "learning.analyze": analyzeLearning,
+  "card.review": async (data) => {
+    const r = await reviewCards(data ?? {});
+    console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "card review", ...r }));
+  },
+  "ai.quality_weekly": async (data) => {
+    const r = await qualityWeekly(data ?? {});
+    console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "ai quality weekly", ...r }));
+  },
   "learning.pick": async (data) => {
     const r = await pickLearning(data ?? {});
     console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "learning pick", ...r }));

@@ -1,9 +1,11 @@
 "use client";
 
-// 「经验卡」页签（PAGE-RECEPTION-KB，API-KB-029）：已发布与已下架的卡，筛选存地址；点一行打开卡抽屉
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArchiveIcon, BotIcon, PlusIcon, SearchIcon, WaypointsIcon } from "lucide-react";
+// 「经验卡」页签（PAGE-RECEPTION-KB，API-KB-029）：已发布与已下架的卡，筛选存地址；点一行打开卡抽屉。
+// 顶部写 Agent 自动改卡的状态（API-KB-045）：暂停时横幅写原因与日期，管理员可恢复（API-KB-044）
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArchiveIcon, BotIcon, PlusIcon, SearchIcon, TriangleAlertIcon, WaypointsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { Me } from "@/contracts/auth";
 import { CARD_STATUSES, CARD_STATUS_LABEL, type CardList, type CardStatus, type ExperienceCard } from "@/contracts/cards";
 import { KNOWLEDGE_MARKETS, QA_STAGES, type KnowledgeMarket, type QaStage } from "@/contracts/knowledge";
@@ -14,9 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, errorText, newKey } from "@/lib/api";
 import { inTz } from "@/lib/format";
-import { adoptionRate, cardsKey, handoffRate } from "./cards-ui";
+import { adoptionRate, agentStatusKey, cardsKey, handoffRate, useAgentStatus } from "./cards-ui";
 import { MARKET_LABEL, marketsText, useUrlParams } from "./knowledge-ui";
 import { ProductFilter, productsText, STAGE_OPTIONS, stageText, useProducts } from "./qa-ui";
 
@@ -87,12 +89,14 @@ export function CardsTab({ me, onNew, onOpen }: { me: Me; onNew: () => void; onO
             {first && <span className="text-sm font-normal text-muted-foreground tabular-nums">已发布 {first.counts.published}</span>}
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">写遇到什么情况、按什么步骤处理；买家情况满足调用条件时，AI 按卡上的步骤出稿。点一行查看</p>
+          <AgentTodayLine />
         </div>
         <Button onClick={onNew}>
           <PlusIcon />
           新建经验卡
         </Button>
       </div>
+      <AgentPausedBanner me={me} />
       <div className="flex flex-wrap items-center gap-2">
         <Select value={status} onValueChange={(v) => update({ cStatus: v === "published" ? null : v })}>
           <SelectTrigger size="sm" aria-label="按状态筛选">
@@ -264,5 +268,55 @@ function CardsTable({ me, items, onOpen }: { me: Me; items: ExperienceCard[]; on
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+/** 没暂停时：今天 Agent 已直接改卡几次（RULE-KB-007 上限） */
+function AgentTodayLine() {
+  const q = useAgentStatus();
+  if (!q.data || q.data.paused) return null;
+  return (
+    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+      <BotIcon className="size-3.5" aria-hidden />
+      今天 Agent 已直接改卡 {q.data.todayApplied} / {q.data.dailyLimit} 次
+    </p>
+  );
+}
+
+/** 暂停时的横幅：原因与日期；恢复只给管理员（reception.manage） */
+function AgentPausedBanner({ me }: { me: Me }) {
+  const qc = useQueryClient();
+  const q = useAgentStatus();
+  const [key, setKey] = useState(newKey);
+  const resume = useMutation({
+    mutationFn: () => api.post("/api/v1/knowledge/agent-autoapply/resume", {}, key),
+    onSuccess: () => {
+      setKey(newKey());
+      qc.invalidateQueries({ queryKey: agentStatusKey });
+      toast.success("已恢复自动生效", { description: "之后 Agent 改卡复测通过就直接生效。" });
+    },
+    onError: (e) => toast.error(errorText(e)),
+  });
+  const paused = q.data?.paused;
+  if (!paused) return null;
+  return (
+    <div role="status" className="flex items-start gap-3 rounded-md bg-(--semantic-color-surface-warm) px-4 py-3">
+      <TriangleAlertIcon className="mt-0.5 size-5 shrink-0 text-(--semantic-color-feedback-warning)" aria-hidden />
+      {/* 窄屏时按钮换到文字下面，不挤压文字 */}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-60">
+          <p className="text-sm font-medium [overflow-wrap:anywhere]">
+            Agent 自动改卡已暂停：{paused.reason ?? "AI 质量周指标连续回落"}（{inTz(paused.at, me.active.timezone, "M 月 d 日")}）
+          </p>
+          <p className="text-xs text-muted-foreground">暂停期间 Agent 照常体检、照常学习，改卡一律进「学习」页签待审核。</p>
+        </div>
+        {me.active.permissions.includes("reception.manage") && (
+          <Button variant="outline" size="sm" disabled={resume.isPending} onClick={() => resume.mutate()}>
+            {resume.isPending && <Spinner />}
+            恢复自动生效
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }

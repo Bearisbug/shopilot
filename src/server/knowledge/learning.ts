@@ -7,7 +7,6 @@ import {
   type LearningCloseBody,
   type LearningList,
   type LearningListQuery,
-  type LearningMessage,
   type LearningProposalBody,
   type LearningStatus,
   type LearningSubmitBody,
@@ -23,7 +22,9 @@ import { enqueue } from "@/server/jobs/boss";
 import { Problem, conflict, notFound, validation } from "@/server/http/problem";
 import { identifyProductsWithBasis, type ProductBasis } from "@/server/products/dictionary";
 import { checkCardRefs, insertCard, needsEmbed, tryEmbedCard, writeCardVersion } from "./card-store";
+import { sentCases } from "./card-review";
 import { proposalHash, retestProposal, type TaskRow } from "./retest";
+import { snapshotOf } from "./snapshot";
 
 const T = schema.learningTask;
 const M = schema.message;
@@ -60,20 +61,6 @@ export const takeSubmitQuota = (conversationId: string, now = Date.now()) =>
 export const takeRetestQuota = (merchantId: string, now = Date.now()) => takeQuota(`retest:${merchantId}`, LEARNING_RETEST_PER_MINUTE, `每分钟最多复测 ${LEARNING_RETEST_PER_MINUTE} 次，请稍后再试。`, now);
 
 type MessageRow = typeof M.$inferSelect;
-
-export function senderOf(role: MessageRow["senderRole"]): LearningMessage["from"] {
-  if (role === "buyer") return "buyer";
-  if (role === "agent" || role === "platform_human") return "seller";
-  if (role === "system") return "system";
-  return "ai";
-}
-
-const LOCAL = (d: Date) => d.toISOString();
-
-/** 消息快照：文字原样，非文字写「[类型]」 */
-export function snapshotOf(m: MessageRow, selected: boolean): LearningMessage {
-  return { id: m.id, from: senderOf(m.senderRole), type: m.type, text: m.text?.trim() ? m.text : `[${m.type}]`, at: LOCAL(m.sentAt), selected };
-}
 
 /** 勾选的消息全部保留，再由近到远补前后各 5 条，整份最多 40 条，按时间排 */
 export function snapshotWindow<Row extends { id: string }>(all: Row[], selectedIds: Set<string>): Row[] {
@@ -132,6 +119,8 @@ export async function taskViews(rows: TaskRow[], ex: Executor = db()): Promise<L
     return {
       id: r.id,
       source: r.source,
+      kind: r.kind,
+      evidence: r.evidence,
       submittedByName: r.submittedBy ? (names.get(r.submittedBy) ?? null) : null,
       note: r.note,
       conversation: conv ? { id: conv.id, buyerName: conv.buyerName, shopName: conv.shopName, platform: conv.platform } : null,
@@ -255,7 +244,8 @@ export async function conversationLearning(ctx: MemberContext, conversationId: s
       source: r.source,
       status: r.status,
       result: r.result,
-      messageIds: r.messages.filter((m) => m.selected).map((m) => m.id),
+      // 按卡体检高亮的是草稿回答的那条买家消息，不是有人提交学习，工作台不标
+      messageIds: r.kind === "card_review" ? [] : r.messages.filter((m) => m.selected).map((m) => m.id),
       submittedByName: r.submittedBy ? (names.get(r.submittedBy) ?? null) : null,
       createdAt: r.createdAt.toISOString(),
     })),
@@ -279,6 +269,7 @@ export async function listLearning(ctx: MemberContext, query: LearningListQuery)
   const where: SQL[] = [eq(T.merchantId, ctx.merchant.id), ...scopeWhere(ctx)];
   if (query.status) where.push(eq(T.status, query.status));
   if (query.source) where.push(eq(T.source, query.source));
+  if (query.kind) where.push(eq(T.kind, query.kind));
   if (query.result) where.push(eq(T.result, query.result));
   if (query.cursor) {
     const c = decodeCursor(query.cursor);
@@ -342,7 +333,9 @@ export async function retestLearning(ctx: MemberContext, id: string, body: Learn
   const target = await checkTarget(ctx.merchant.id, body.targetCardId);
   let retest;
   try {
-    retest = await retestProposal(row, body.card, target ? { id: target.id, version: target.version } : null);
+    // 按卡体检的任务复测时同样带上证据里原样发送的用例
+    const extra = row.kind === "card_review" ? await sentCases(row.evidence?.draftIds ?? []) : [];
+    retest = await retestProposal(row, body.card, target ? { id: target.id, version: target.version } : null, extra);
   } catch (e) {
     if (e instanceof AiError) throw aiProblem(e);
     throw e;

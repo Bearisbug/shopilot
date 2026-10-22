@@ -58,6 +58,10 @@ export const QUEUES = {
   "learning.analyze": { policy: "standard" as const, expireInSeconds: 600, retryLimit: 0 },
   // Agent 每天挑已结束的会话段建学习任务（每商户最多 20 段）
   "learning.pick": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
+  // 按卡体检：每商户最多 10 张卡，建任务后交给 learning.analyze；不重试，第二天再体检
+  "card.review": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
+  // AI 质量周指标：逐商户算上一周并判断是否暂停 Agent 自动改卡；不重试，重跑覆盖同一周
+  "ai.quality_weekly": { policy: "stately" as const, expireInSeconds: 600, retryLimit: 0 },
 } as const;
 
 export type QueueName = keyof typeof QUEUES;
@@ -84,6 +88,8 @@ export const SCHEDULES: Partial<Record<QueueName, string>> = {
   "draft.compare": "3-59/10 * * * *",
   "knowledge.qa_embed": "*/5 * * * *",
   "learning.pick": "20 19 * * *",
+  "card.review": "40 19 * * *",
+  "ai.quality_weekly": "30 0 * * 1",
 };
 
 /** pg-boss 定时投递用的内部队列名（pg-boss 未导出该常量） */

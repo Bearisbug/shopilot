@@ -18,7 +18,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import { v7 as uuidv7 } from "uuid";
-import type { CardContent, CardStep, DraftCardInfo, LearningMessage, LearningRetest, LearningSimilar, LearningTest } from "../../contracts/cards";
+import type { CardContent, CardReviewEvidence, CardStep, DraftCardInfo, LearningMessage, LearningRetest, LearningSimilar, LearningTest } from "../../contracts/cards";
 import type { KnowledgeMarket } from "../../contracts/knowledge";
 import type { QuickReplyVariant } from "../../contracts/reception";
 
@@ -116,6 +116,9 @@ export const merchant = pgTable("merchant", {
   ticketAutoCloseDays: integer("ticket_auto_close_days").default(7),
   invoiceInfo: jsonb("invoice_info").$type<{ companyName: string; taxId?: string; address: string; email: string } | null>(),
   lastPurgeAt: ts("last_purge_at"),
+  /** Agent 改卡直接生效被暂停的时间与原因（11.20）：周指标连续回落时写入，只由管理员恢复时清空 */
+  agentAutoapplyPausedAt: ts("agent_autoapply_paused_at"),
+  agentAutoapplyPauseReason: text("agent_autoapply_pause_reason"),
   /** 推送地址里的商户专属码：`/api/webhooks/{platform}/<webhook_key>`，接入一开始就能把地址填进平台后台 */
   webhookKey: text("webhook_key")
     .notNull()
@@ -1256,6 +1259,8 @@ export const learningTask = pgTable(
       .references(() => conversation.id, { onDelete: "cascade" }),
     segmentId: uuid("segment_id").references(() => segment.id, { onDelete: "cascade" }),
     source: text("source", { enum: ["member", "agent"] }).notNull(),
+    /** 会话学习，或按卡体检（来源必为 agent，target_card_id 是体检的卡，messages 是代表性用例的对话） */
+    kind: text("kind", { enum: ["conversation", "card_review"] }).notNull().default("conversation"),
     submittedBy: uuid("submitted_by").references(() => membership.id, { onDelete: "set null" }),
     note: text("note"),
     messages: jsonb("messages").$type<LearningMessage[]>().notNull(),
@@ -1274,6 +1279,8 @@ export const learningTask = pgTable(
     test: jsonb("test").$type<LearningTest | null>(),
     retest: jsonb("retest").$type<LearningRetest | null>(),
     testQuestion: text("test_question"),
+    /** 按卡体检的证据：用到这张卡的草稿（≤ 12 份）与处置统计 */
+    evidence: jsonb("evidence").$type<CardReviewEvidence | null>(),
     error: text("error"),
     reviewedBy: uuid("reviewed_by").references(() => membership.id, { onDelete: "set null" }),
     reviewedAt: ts("reviewed_at"),
@@ -1289,8 +1296,29 @@ export const learningTask = pgTable(
     index("learning_task_merchant_status_idx").on(t.merchantId, t.status),
     index("learning_task_conversation_idx").on(t.conversationId),
     index("learning_task_published_card_idx").on(t.publishedCardId),
-    uniqueIndex("learning_task_agent_segment_uq").on(t.segmentId).where(sql`${t.source} = 'agent'`),
+    uniqueIndex("learning_task_agent_segment_uq").on(t.segmentId).where(sql`${t.source} = 'agent' and ${t.kind} = 'conversation'`),
+    // 同一张卡一天只体检一次（按 UTC 日期）
+    uniqueIndex("learning_task_card_review_day_uq").on(t.targetCardId, sql`((${t.createdAt} at time zone 'UTC')::date)`).where(sql`${t.kind} = 'card_review'`),
   ],
+);
+
+/** AI 质量周指标（ENT-AiQualityWeek，§12.19）：商户 × 周（周一起，UTC），重算覆盖 */
+export const aiQualityWeek = pgTable(
+  "ai_quality_week",
+  {
+    merchantId: merchantRef(),
+    weekStart: date("week_start", { mode: "string" }).notNull(),
+    assistSent: integer("assist_sent").notNull().default(0),
+    assistEdited: integer("assist_edited").notNull().default(0),
+    assistIgnored: integer("assist_ignored").notNull().default(0),
+    shadowSame: integer("shadow_same").notNull().default(0),
+    shadowPartial: integer("shadow_partial").notNull().default(0),
+    shadowDifferent: integer("shadow_different").notNull().default(0),
+    aiSegments: integer("ai_segments").notNull().default(0),
+    aiHandoffs: integer("ai_handoffs").notNull().default(0),
+    computedAt: ts("computed_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.merchantId, t.weekStart] })],
 );
 
 // ---------- 飞书推送 ----------

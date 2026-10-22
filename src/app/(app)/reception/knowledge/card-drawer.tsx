@@ -1,12 +1,12 @@
 "use client";
 
-// 卡抽屉（API-KB-031、API-KB-033 至 API-KB-037）：?card=<id> 打开；当前内容、近 30 天效果、版本与逐字段对比、回退、标为已看、下架恢复、删除
+// 卡抽屉（API-KB-031、API-KB-033 至 API-KB-037）：?card=<id> 打开；当前内容、近 30 天效果、体检记录、版本与逐字段对比、回退、标为已看、下架恢复、删除
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArchiveIcon, ArchiveRestoreIcon, BotIcon, EyeIcon, PencilIcon, RotateCcwIcon, SearchXIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Me } from "@/contracts/auth";
-import { CARD_STATUS_LABEL, type CardDetail, type CardResult, type CardVersionView, type ExperienceCard } from "@/contracts/cards";
+import { CARD_STATUS_LABEL, LEARNING_RESULT_LABEL, LEARNING_STATUS_LABEL, type CardDetail, type CardResult, type CardReviewItem, type CardVersionView, type ExperienceCard } from "@/contracts/cards";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
@@ -239,6 +239,7 @@ function DrawerContent({ me, detail, onClose, onEdit }: { me: Me; detail: CardDe
             </dl>
           )}
         </Section>
+        <Reviews me={me} reviews={detail.reviews} />
         {/* key：版本变了（编辑、回退、Agent 改卡）时对比重新默认为「上一版 → 当前版」 */}
         <Versions key={c.version} me={me} card={c} versions={detail.versions} />
       </div>
@@ -275,6 +276,44 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
   );
 }
 
+/** 体检记录：最近 10 次按卡体检的日期、结论与理由；改了卡的跳到版本列表里那一版 */
+function Reviews({ me, reviews }: { me: Me; reviews: CardReviewItem[] }) {
+  const { update } = useUrlParams();
+  const toVersion = (n: number) => {
+    const el = document.getElementById(`card-v-${n}`);
+    el?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    el?.focus({ preventScroll: true });
+  };
+  const verdict = (r: CardReviewItem) => (r.status === "closed" || r.status === "published") && r.result ? LEARNING_RESULT_LABEL[r.result] : LEARNING_STATUS_LABEL[r.status];
+  return (
+    <Section title="体检记录">
+      {reviews.length === 0 ? (
+        <p className="text-sm text-muted-foreground">还没体检过。近 7 天用到这张卡的草稿有 3 份以上、其中有被改写或弃用的，Agent 每天会把它们汇总起来看要不要改这张卡。</p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-border rounded-md border border-border">
+          {reviews.map((r) => (
+            <li key={r.taskId} className="flex flex-col gap-0.5 px-3 py-2 text-sm">
+              <p className="flex flex-wrap items-baseline gap-x-2">
+                <span className="text-xs text-muted-foreground tabular-nums">{inTz(r.createdAt, me.active.timezone, "yyyy-MM-dd")}</span>
+                <span className={cn("font-medium", r.status === "failed" || r.result === "retest_failed" ? "text-destructive" : r.status === "pending_review" ? "text-(--semantic-color-feedback-warning)" : undefined)}>{verdict(r)}</span>
+                {r.version !== null && (
+                  <button type="button" className="focus-ring rounded-sm text-xs text-(--semantic-color-text-link) hover:underline" onClick={() => toVersion(r.version!)}>
+                    改成第 {r.version} 版
+                  </button>
+                )}
+                <button type="button" className="focus-ring ml-auto rounded-sm text-xs text-(--semantic-color-text-link) hover:underline" onClick={() => update({ tab: "learning", task: r.taskId, card: null }, "push")}>
+                  查看任务
+                </button>
+              </p>
+              {r.reason && <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{r.reason}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </Section>
+  );
+}
+
 /** 版本列表与逐字段对比：默认比较当前版与上一版；可选任意两版；非当前版可回退（写一个新版本） */
 function Versions({ me, card, versions }: { me: Me; card: ExperienceCard; versions: CardVersionView[] }) {
   const tz = me.active.timezone;
@@ -298,7 +337,7 @@ function Versions({ me, card, versions }: { me: Me; card: ExperienceCard; versio
       </h3>
       <ol className="flex flex-col divide-y divide-border rounded-md border border-border">
         {versions.map((v) => (
-          <li key={v.version} className="flex flex-wrap items-start justify-between gap-2 px-3 py-2 text-sm">
+          <li key={v.version} id={`card-v-${v.version}`} tabIndex={-1} className="flex scroll-mt-2 flex-wrap items-start justify-between gap-2 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-baseline gap-x-2">
                 <span className="font-medium tabular-nums">第 {v.version} 版</span>

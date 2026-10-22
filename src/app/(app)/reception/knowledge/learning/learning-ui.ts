@@ -2,13 +2,20 @@
 
 // 「学习」页签共用：查询键、待审核数、审核时的本机草稿（PAGE-RECEPTION-KB）
 import { useQuery } from "@tanstack/react-query";
-import type { LearningList } from "@/contracts/cards";
+import { LEARNING_SOURCE_LABEL, type LearningList, type LearningTask } from "@/contracts/cards";
 import type { CardFormValues } from "@/lib/card-form";
 import { api } from "@/lib/api";
 
 export const learningKey = ["knowledge-learning"] as const;
 export const learningItemKey = (id: string) => ["knowledge-learning-item", id] as const;
 export const POLL_MS = 5_000;
+
+/** 列表上的来源：客服提交、Agent 挑的会话、按卡体检；筛选值存在 ?lsource= 里，换成接口的 source 与 kind */
+export const LEARNING_ORIGINS = ["member", "agent", "card_review"] as const;
+export type LearningOrigin = (typeof LEARNING_ORIGINS)[number];
+export const LEARNING_ORIGIN_LABEL: Record<LearningOrigin, string> = { member: "客服提交", agent: "Agent 挑选", card_review: "按卡体检" };
+export const LEARNING_ORIGIN_QS: Record<LearningOrigin, string> = { member: "source=member", agent: "source=agent&kind=conversation", card_review: "kind=card_review" };
+export const originLabel = (t: Pick<LearningTask, "source" | "kind">) => (t.kind === "card_review" ? LEARNING_ORIGIN_LABEL.card_review : LEARNING_SOURCE_LABEL[t.source]);
 
 /** 待审核数：页签标题用；counts 不受筛选影响，取一条就够 */
 export function useLearningPendingCount() {

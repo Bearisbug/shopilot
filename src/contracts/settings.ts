@@ -38,6 +38,7 @@ export const NOTIFICATION_EVENT_IDS = [
   "ticket_overdue",
   "ticket_assigned",
   "usage_threshold",
+  "agent_autoapply_paused",
 ] as const;
 export const zNotificationEvent = z.enum(NOTIFICATION_EVENT_IDS);
 export type NotificationRuleRow = { event: (typeof NOTIFICATION_EVENT_IDS)[number]; inApp: boolean; email: boolean };

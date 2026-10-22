@@ -27,6 +27,7 @@ const EVENT_TEXT: Record<NotificationRuleRow["event"], { label: string; desc: st
   ticket_overdue: { label: "工单已超时", desc: "通知负责人与该店组长" },
   ticket_assigned: { label: "工单指派或改派给我", desc: "通知新的负责人" },
   usage_threshold: { label: "出稿用量跨过提醒阈值", desc: "阈值与接收人在用量与套餐里设置" },
+  agent_autoapply_paused: { label: "Agent 自动改卡暂停", desc: "AI 质量周指标连续两周回落时，Agent 改卡改为先审；管理员在知识库「经验卡」页签恢复" },
 };
 
 export function NotifyClient({ me }: { me: Me }) {

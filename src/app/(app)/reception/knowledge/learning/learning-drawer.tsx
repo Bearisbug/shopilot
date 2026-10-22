@@ -1,7 +1,7 @@
 "use client";
 
 // 学习任务抽屉（?task=<id>，API-KB-039 至 API-KB-043）：原始消息、背景、相似内容、测试结果、判断依据与建议、建议更新内容；
-// 待审核的可改内容 → 复测 → 发布，或无需更新、驳回；分析失败的可重新分析。
+// 待审核的可改内容 → 复测 → 发布，或无需更新、驳回；分析失败的可重新分析。带要改的卡时顶部写改哪张卡第几版，按卡体检另列证据用例的处置统计。
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLinkIcon, FlaskConicalIcon, RotateCcwIcon, SearchXIcon, SendIcon, XIcon } from "lucide-react";
 import Link from "next/link";
@@ -16,9 +16,9 @@ import {
   DIAGNOSIS_LABEL,
   LEARNING_REASON_MAX,
   LEARNING_RESULT_LABEL,
-  LEARNING_SOURCE_LABEL,
   zCardContent,
   type CardContent,
+  type CardReviewEvidence,
   type LearningTask,
   type LearningTaskResult,
   type SimResult,
@@ -42,7 +42,7 @@ import { marketsText, useUrlParams } from "../knowledge-ui";
 import { stageText, useProducts } from "../qa-ui";
 import { CardFields } from "../card-fields";
 import { TaskStatus } from "./learning-tab";
-import { learningDraftKey, learningItemKey, learningKey, POLL_MS, readLearningDraft, type LearningDraft } from "./learning-ui";
+import { learningDraftKey, learningItemKey, learningKey, originLabel, POLL_MS, readLearningDraft, type LearningDraft } from "./learning-ui";
 
 const isUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
 const sortKeys = (v: unknown): unknown =>
@@ -126,7 +126,7 @@ function TaskDetail({ me, t }: { me: Me; t: LearningTask }) {
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <TaskStatus status={t.status} />
           <span>
-            {LEARNING_SOURCE_LABEL[t.source]}
+            {originLabel(t)}
             {t.submittedByName ? `（${t.submittedByName}）` : ""} · {inTz(t.createdAt, tz, "yyyy-MM-dd HH:mm")}
           </span>
           {t.conversation && (
@@ -136,20 +136,40 @@ function TaskDetail({ me, t }: { me: Me; t: LearningTask }) {
             </Link>
           )}
         </p>
+        {t.targetCard && (
+          <p className="text-sm [overflow-wrap:anywhere]">
+            {t.kind === "card_review" && !t.proposal ? "体检的是：" : "改的是："}
+            <Link href={cardHref(t.targetCard.id)} className="focus-ring rounded-sm font-medium text-(--semantic-color-text-link) underline-offset-2 hover:underline">
+              {t.targetCard.title}
+            </Link>
+            <span className="tabular-nums">（第 {t.targetCard.version} 版）</span>
+            {t.targetCard.status === "archived" && <span className="ml-1 text-xs text-muted-foreground">已下架</span>}
+          </p>
+        )}
       </SheetHeader>
       <div className="scroll-y min-h-0 flex-1 overscroll-contain px-4 py-4">
         <div className="flex flex-col gap-6">
           <Outcome t={t} tz={tz} />
-          <Section title="原始消息" hint={t.source === "agent" ? "Agent 挑的整段会话" : "高亮的是客服勾选的消息，其余是前后对话"}>
+          <Section
+            title="原始消息"
+            hint={
+              t.kind === "card_review"
+                ? "代表性用例：问题最明显的那份草稿出稿时的对话，高亮的是它回答的买家消息"
+                : t.source === "agent"
+                  ? "Agent 挑的整段会话"
+                  : "高亮的是客服勾选的消息，其余是前后对话"
+            }
+          >
             <Transcript t={t} tz={tz} />
             {t.note && <p className="text-sm">客服备注：{t.note}</p>}
           </Section>
+          {t.evidence && <EvidenceBlock evidence={t.evidence} />}
           <Section title="背景">
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-muted-foreground">产品</dt>
               <dd className="[overflow-wrap:anywhere]">
-                {t.products.length ? t.products.map((p) => `${p.name}（${p.code}）`).join("、") : "没识别到"}
-                {t.productStatus !== "identified" && t.status === "pending_review" && <span className="ml-2 text-xs text-(--semantic-color-feedback-warning)">待确认产品：在下方的建议内容里选定</span>}
+                {t.products.length ? t.products.map((p) => `${p.name}（${p.code}）`).join("、") : t.kind === "card_review" ? "通用（沿用卡的适用范围）" : "没识别到"}
+                {t.kind === "conversation" && t.productStatus !== "identified" && t.status === "pending_review" && <span className="ml-2 text-xs text-(--semantic-color-feedback-warning)">待确认产品：在下方的建议内容里选定</span>}
                 {t.productBasis && <span className="block text-xs text-muted-foreground">{t.productBasis}</span>}
               </dd>
               <dt className="text-muted-foreground">服务阶段</dt>
@@ -165,24 +185,26 @@ function TaskDetail({ me, t }: { me: Me; t: LearningTask }) {
               {t.suggestion && <p className="text-sm leading-relaxed [overflow-wrap:anywhere]">建议：{t.suggestion}</p>}
             </Section>
           )}
-          <Section title="相似内容" hint="AI 分析时参考的已发布经验卡">
-            {t.similar.length === 0 ? (
-              <p className="text-xs text-muted-foreground">没有找到相似的已发布经验卡。</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {t.similar.map((s) => (
-                  <li key={s.cardId} className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                    <Link href={cardHref(s.cardId)} className="focus-ring min-w-0 rounded-sm text-(--semantic-color-text-link) underline-offset-2 [overflow-wrap:anywhere] hover:underline">
-                      {s.title}
-                    </Link>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      相似度 {Math.round(Math.max(0, 1 - s.distance) * 100)}% · {s.productMatch ? "产品对得上" : "产品不同"} · {s.stageMatch ? "阶段对得上" : "阶段不同"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
+          {t.kind === "conversation" && (
+            <Section title="相似内容" hint="AI 分析时参考的已发布经验卡">
+              {t.similar.length === 0 ? (
+                <p className="text-xs text-muted-foreground">没有找到相似的已发布经验卡。</p>
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {t.similar.map((s) => (
+                    <li key={s.cardId} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                      <Link href={cardHref(s.cardId)} className="focus-ring min-w-0 rounded-sm text-(--semantic-color-text-link) underline-offset-2 [overflow-wrap:anywhere] hover:underline">
+                        {s.title}
+                      </Link>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        相似度 {Math.round(Math.max(0, 1 - s.distance) * 100)}% · {s.productMatch ? "产品对得上" : "产品不同"} · {s.stageMatch ? "阶段对得上" : "阶段不同"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+          )}
           {(t.test || t.retest) && (
             <Section title="测试结果" hint={t.testQuestion ? `用买家的「${t.testQuestion}」按现在的出稿流程试跑，不发给买家` : undefined}>
               {t.test && (
@@ -259,9 +281,9 @@ function RetestBlock({ t, tz }: { t: LearningTask; tz: string }) {
       {r.regressions.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {r.regressions.map((g) => (
-            <li key={g.taskId} className="flex flex-col gap-2 rounded-md bg-muted px-3 py-2">
+            <li key={g.taskId ?? g.draftId} className="flex flex-col gap-2 rounded-md bg-muted px-3 py-2">
               <p className="text-sm [overflow-wrap:anywhere]">
-                以前测过的「{g.question}」：<span className={g.notWorse ? "text-(--semantic-color-feedback-success)" : "text-destructive"}>{g.notWorse ? "不比改前差" : "改后变差"}</span>
+                {g.taskId ? "以前测过的" : "客服原样发送过的"}「{g.question}」：<span className={g.notWorse ? "text-(--semantic-color-feedback-success)" : "text-destructive"}>{g.notWorse ? "不比改前差" : "改后变差"}</span>
                 {g.reason && <span className="text-muted-foreground"> · {g.reason}</span>}
               </p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -278,6 +300,25 @@ function RetestBlock({ t, tz }: { t: LearningTask; tz: string }) {
   );
 }
 
+/** 按卡体检的证据：近 7 天用到这张卡的全部草稿怎么处置的；用例取其中 12 份，有问题的优先 */
+function EvidenceBlock({ evidence }: { evidence: CardReviewEvidence }) {
+  const c = evidence.counts;
+  const assist = c.sent + c.edited + c.ignored;
+  const shadow = c.shadowSame + c.shadowPartial + c.shadowDifferent;
+  return (
+    <Section title="证据用例" hint={`近 7 天用到这张卡的草稿；AI 判断时看了其中 ${evidence.draftIds.length} 份，有问题的优先`}>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+        <dt className="text-muted-foreground">辅助草稿</dt>
+        <dd className="tabular-nums">{assist ? `原样发送 ${c.sent} · 改后发送 ${c.edited} · 弃用 ${c.ignored}` : "没有"}</dd>
+        <dt className="text-muted-foreground">影子回复</dt>
+        <dd className="tabular-nums">{shadow ? `一致 ${c.shadowSame} · 部分一致 ${c.shadowPartial} · 不一致 ${c.shadowDifferent}` : "没有"}</dd>
+        <dt className="text-muted-foreground">按卡转人工</dt>
+        <dd className="tabular-nums">{c.handoffs} 次（含建工单）</dd>
+      </dl>
+    </Section>
+  );
+}
+
 /** 已有结论的任务：Agent 改了卡、审核人发布、无需更新、驳回、复测没通过、分析失败 */
 function Outcome({ t, tz }: { t: LearningTask; tz: string }) {
   if (t.status === "analyzing")
@@ -285,7 +326,7 @@ function Outcome({ t, tz }: { t: LearningTask; tz: string }) {
       <Notice tone="info">
         <span className="inline-flex items-center gap-2">
           <Spinner className="size-4" />
-          AI 正在分析这段会话，通常 1 分钟内出结果；这里会自动刷新。
+          {t.kind === "card_review" ? "AI 正在汇总这张卡近 7 天的用例" : "AI 正在分析这段会话"}，通常 1 分钟内出结果；这里会自动刷新。
         </span>
       </Notice>
     );

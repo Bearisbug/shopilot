@@ -127,6 +127,13 @@
       "when": 1792594524101,
       "tag": "0017_slow_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792666195957,
+      "tag": "0018_fancy_jazinda",
+      "breakpoints": true
     }
   ]
 }

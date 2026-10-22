@@ -15,6 +15,7 @@ const TYPE_OF: Record<NotificationEvent, "conversation" | "ticket" | "shop" | "u
   ticket_overdue: "ticket",
   ticket_assigned: "ticket",
   usage_threshold: "usage",
+  agent_autoapply_paused: "usage",
 };
 
 export async function notify(

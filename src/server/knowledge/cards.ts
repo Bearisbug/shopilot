@@ -9,6 +9,7 @@ import type { MemberContext } from "@/server/auth/context";
 import { audit } from "@/server/core/audit";
 import { db, schema, type Executor } from "@/server/db/client";
 import { conflict, notFound, Problem, validation } from "@/server/http/problem";
+import { reviewHistory } from "./card-review";
 import { cardContentOf, cardEmbedText, checkCardRefs, insertCard, needsEmbed, tryEmbedCard, writeCardVersion, type CardRow } from "./card-store";
 import { EMBED_MODEL, embedTexts } from "./embed";
 
@@ -221,7 +222,7 @@ export async function getCard(ctx: MemberContext, id: string): Promise<CardDetai
     seenAt: x.seenAt?.toISOString() ?? null,
     createdAt: x.createdAt.toISOString(),
   }));
-  return { card: (await cardViews([row]))[0], versions: items };
+  return { card: (await cardViews([row]))[0], versions: items, reviews: await reviewHistory(ctx.merchant.id, row.id) };
 }
 
 /** API-KB-030：保存即发布，写第 1 版 */

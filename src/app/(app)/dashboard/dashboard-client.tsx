@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import { inTz } from "@/lib/format";
 import { DashRangePicker } from "./range-picker";
 import { DraftsPanel, PeoplePanel, PlatformPanel, TicketStats, TicketTypesPanel, TrendPanel } from "./dashboard-panels";
+import { AiQualityPanel } from "./ai-quality-panel";
 import { DraftReviewPanel } from "./draft-review-panel";
 import { IssuesPanel } from "./issues-panel";
 
@@ -96,6 +97,7 @@ export function DashboardClient({ me }: { me: Me }) {
           <Section title="处理质量" description="只统计经 Shopilot 处理的会话段；回补的历史会话与达人会话不计。" />
           <IssuesPanel d={d} tz={tz} rangeQs={qs} canManage={me.active.permissions.includes("reception.manage")} />
           <DraftReviewPanel d={d} tz={tz} rangeQs={qs} />
+          {me.active.permissions.includes("knowledge.manage") && <AiQualityPanel tz={tz} />}
           <PeoplePanel d={d} canSeeTeam={me.active.permissions.includes("team.manage")} />
           <Section title="工单" description="时限来源分平台截止与商户时限，超时是标记、不是状态。" />
           <TicketStats d={d} />

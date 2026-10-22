@@ -1,5 +1,6 @@
-// 复测（§12.17「会话学习」）：拟发布的卡内容只在模拟出稿里生效。通过 = 原问题的新回答用到了这张卡，
-// 且这张卡以前发布过的学习任务（最近 3 个，回归用例）改后都不比改前差（DeepSeek judge 判定）。新卡没有回归用例。
+// 复测（§12.17「会话学习」、§12.18「按卡体检」）：拟发布的卡内容只在模拟出稿里生效。通过 = 原问题的新回答用到了这张卡，
+// 且回归用例改后都不比改前差（DeepSeek judge 判定）：这张卡以前发布过的学习任务（最近 3 个），按卡体检另加证据里原样发送的用例（最多 3 个）。
+// 新卡没有回归用例。
 import { createHash } from "node:crypto";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import type { CardContent, LearningRegression, LearningRetest, SimResult } from "@/contracts/cards";
@@ -52,8 +53,20 @@ async function judge(question: string, conversation: SimTurn[], before: SimResul
   return { notWorse: j.not_worse === true, reason: String(j.reason ?? "").trim().slice(0, 120) };
 }
 
-/** 复测；模拟出稿或判定出错时抛 AiError，由调用方处理 */
-export async function retestProposal(task: TaskRow, content: CardContent, target: RetestTarget): Promise<LearningRetest> {
+/** 额外的回归用例：按卡体检证据里原样发送的草稿，按出稿时的对话复原 */
+export type RegressionCase = {
+  draftId: string;
+  conversationId: string;
+  segmentId: string | null;
+  shopId: string;
+  stage: string;
+  productIds: string[];
+  question: string;
+  conversation: SimTurn[];
+};
+
+/** 复测；模拟出稿或判定出错时抛 AiError，由调用方处理。extra 是按卡体检加的原样发送用例（最多 3 个） */
+export async function retestProposal(task: TaskRow, content: CardContent, target: RetestTarget, extra: RegressionCase[] = []): Promise<LearningRetest> {
   const targetCardId = target?.id ?? null;
   const base = { merchantId: task.merchantId, shopId: task.shopId, stage: task.stage, productIds: task.productIds };
   const override = { cardId: targetCardId, content };
@@ -66,20 +79,28 @@ export async function retestProposal(task: TaskRow, content: CardContent, target
         .orderBy(desc(sql`coalesce(${T.reviewedAt}, ${T.updatedAt}, ${T.createdAt})`))
         .limit(REGRESSIONS_MAX)
     : [];
+  const regress = async (ref: Pick<LearningRegression, "taskId" | "draftId" | "conversationId" | "segmentId">, caseBase: Parameters<typeof simulateDraft>[0]): Promise<LearningRegression> => {
+    const [before, after] = await Promise.all([simulateDraft(caseBase), simulateDraft({ ...caseBase, override })]);
+    const v = await judge(caseBase.question, caseBase.conversation, before, after);
+    return { ...ref, question: caseBase.question, before, after, notWorse: v.notWorse, reason: v.reason };
+  };
   const [original, regressions] = await Promise.all([
     simulateDraft({ ...base, ...own, override }),
-    Promise.all(
-      cases.map(async (c): Promise<LearningRegression> => {
-        const input = simInputOf(c);
-        const caseBase = { merchantId: c.merchantId, shopId: c.shopId, stage: c.stage, productIds: c.productIds, ...input };
-        const [before, after] = await Promise.all([simulateDraft(caseBase), simulateDraft({ ...caseBase, override })]);
-        const v = await judge(input.question, input.conversation, before, after);
-        return { taskId: c.id, question: input.question, before, after, notWorse: v.notWorse, reason: v.reason };
-      }),
-    ),
+    Promise.all([
+      ...cases.map((c) =>
+        regress({ taskId: c.id, conversationId: c.conversationId, segmentId: c.segmentId }, { merchantId: c.merchantId, shopId: c.shopId, stage: c.stage, productIds: c.productIds, ...simInputOf(c) }),
+      ),
+      ...extra.map((x) =>
+        regress(
+          { taskId: null, draftId: x.draftId, conversationId: x.conversationId, segmentId: x.segmentId },
+          { merchantId: task.merchantId, shopId: x.shopId, stage: x.stage, productIds: x.productIds, conversation: x.conversation, question: x.question },
+        ),
+      ),
+    ]),
   ]);
   const usedCard = original.card?.cardId === (targetCardId ?? PROPOSAL_CARD_ID);
   const worse = regressions.find((r) => !r.notWorse);
-  const failReason = !usedCard ? "原问题的新回答没有用到这张卡" : worse ? `以前测过的问题「${[...worse.question].slice(0, 30).join("")}」改后变差：${worse.reason}` : null;
+  const what = worse?.draftId ? "原样发送过的问题" : "以前测过的问题";
+  const failReason = !usedCard ? "原问题的新回答没有用到这张卡" : worse ? `${what}「${[...worse.question].slice(0, 30).join("")}」改后变差：${worse.reason}` : null;
   return { at: new Date().toISOString(), proposalHash: proposalHash(content, target), passed: failReason === null, failReason, original, regressions };
 }

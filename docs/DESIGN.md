@@ -16,7 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
-| 2026-10-22 | v1.34 | REQ-KB-014、REQ-KB-015、FLOW-KB-CARD-REVIEW、FLOW-KB-LEARN、FLOW-KB-CARD、FLOW-AI-CARD、FLOW-DRAFT-COMPARE、RULE-KB-006、RULE-KB-007、INV-KB-010、ENT-LearningTask、ENT-AiQualityWeek、ENT-Merchant、API-KB-031、API-KB-038、API-KB-044、API-KB-045、ADR-018 | 新增按卡定时体检与 AI 质量周指标：指标连续回落时 Agent 改卡改为先审 | 功能 |
+| 2026-10-22 | v1.34 | REQ-KB-014、REQ-KB-015、FLOW-KB-CARD-REVIEW、FLOW-KB-LEARN、FLOW-KB-CARD、FLOW-AI-CARD、FLOW-DRAFT-COMPARE、RULE-KB-006、RULE-KB-007、INV-KB-010、ENT-LearningTask、ENT-AiQualityWeek、ENT-Merchant、API-KB-031、API-KB-038、API-KB-044、API-KB-045、API-CONV-019、PAGE-RECEPTION-KB、ADR-018 | 新增按卡定时体检与 AI 质量周指标：指标连续回落时 Agent 改卡改为先审 | 功能 |
 | 2026-10-22 | v1.33 | REQ-SITE-001、FLOW-SITE、PAGE-SITE | 新增官网：没登录的访客打开首页看到产品介绍，有中文和英文两版，已登录的成员打开首页直接进工作台 | 功能 |
 | 2026-10-22 | v1.32 | FLOW-KB-LEARN、FLOW-KB-CARD、FLOW-AI-CARD、ENT-LearningTask、API-KB-040、API-KB-041 | 评审修正：Agent 改卡不改适用范围且防覆盖，组长只看负责店铺的学习任务 | 功能 |
 | 2026-10-21 | v1.32 | FLOW-KB-CARD、FLOW-KB-LEARN、FLOW-AI-CARD、ENT-LearningTask、API-KB-041、API-KB-043 | 三条经验卡链路按实现对齐：学习任务记审核原因，发布前须复测通过 | 功能 |
@@ -123,7 +123,7 @@
 | FLOW-KB-QA-REVIEW | 整理与审核问答 | 知识库 | 已实现 | REQ-KB-009 |
 | FLOW-KB-CARD | 维护经验卡 | 知识库 | 已实现 | REQ-KB-011 |
 | FLOW-KB-LEARN | 会话学习 | 知识库 | 已实现 | REQ-KB-013 |
-| FLOW-KB-CARD-REVIEW | 按卡定时体检 | 知识库 | 设计中 | REQ-KB-014、REQ-KB-015 |
+| FLOW-KB-CARD-REVIEW | 按卡定时体检 | 知识库 | 已实现 | REQ-KB-014、REQ-KB-015 |
 | FLOW-BILLING | 用量与套餐 | 运营 | 已实现 | REQ-BILL-001、REQ-BILL-002、REQ-BILL-003、REQ-BILL-004、REQ-BILL-005 |
 | FLOW-SETTINGS | 商户设置 | 运营 | 已实现 | REQ-SET-001、REQ-SET-002、REQ-SET-003、REQ-SET-004、REQ-SET-005、REQ-SET-006 |
 | FLOW-FEISHU-SETUP | 配置飞书推送 | 运营 | 已实现 | REQ-FEISHU-001、REQ-FEISHU-002 |
@@ -918,7 +918,7 @@
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 边界 | 用例超过 12 个 | 取最近的 12 个，有问题的优先 | 字段 learning_task.evidence | 无用例 |
-| 边界 | AI 判断不用改 | 任务结束，结论「无需更新」 | 迁移 ENT-LearningTask analyzing→closed「keep」 | 无用例 |
+| 边界 | AI 判断不用改，或卡在体检前后被下架、删除 | 任务结束，结论「无需更新」，不改成新卡 | 迁移 ENT-LearningTask analyzing→closed「keep」 | 无用例 |
 | 边界 | AI 改卡时动了适用范围 | 产品、阶段与站点沿用原卡 | RULE-KB-006；字段 learning_task.proposal | 无用例 |
 | 失败 | AI 出错或超时 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 60 秒超时，出错标分析失败 | 无用例 |
 
@@ -994,10 +994,10 @@
 | 步骤 | 位置 |
 | --- | --- |
 | S1 | `src/server/knowledge/card-review.ts#pickCardsForReview`；`src/server/knowledge/card-review.ts#reviewCards` |
-| S2–S4 | `src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/knowledge/card-review.ts#analyzeCardReview`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/card-review.ts#agentApplyAllowed` |
+| S2–S4 | `src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/knowledge/learning-analyze.ts#analyzeCardReview`；`src/server/knowledge/card-review.ts#loadReviewCases`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/card-review.ts#sentCases`；`src/server/knowledge/agent-apply.ts#agentApplyAllowed` |
 | S5 | `src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/server/knowledge/learning.ts#publishLearning` |
 | S6 | `src/app/(app)/reception/knowledge/card-drawer.tsx#CardDrawer`；`src/server/knowledge/cards.ts#getCard` |
-| S7 | `src/server/analysis/quality.ts#computeQualityWeek`；`src/server/analysis/quality.ts#checkBrake` |
+| S7 | `src/server/analysis/quality.ts#qualityWeekly`；`src/server/analysis/quality.ts#computeQualityWeek`；`src/server/analysis/quality.ts#checkBrake` |
 | S8 | `src/app/(app)/reception/knowledge/cards-tab.tsx#CardsTab`；`src/server/analysis/quality.ts#resumeAutoapply` |
 | S9 | `src/app/(app)/dashboard/ai-quality-panel.tsx#AiQualityPanel`；`src/server/analysis/quality.ts#agentStatus` |
 
@@ -3313,7 +3313,7 @@ erDiagram
 | `API-CONV-016` | `POST /api/v1/conversations/{id}/unclaim` | REQ-CONV-012、REQ-FEISHU-003 | `{ version }` | 200 `{ id, handlingState, claimedBy, version }`：会话回到待认领、处理人为空，草稿与关联工单不变；提交后推飞书待认领卡 | 409 `/errors/conflict`（会话不是本人处理中，或版本不一致；附 `claimedBy`、`handlingState`、`version`） | 无幂等键；重复提交第二次 409 |
 | `API-CONV-017` | `GET /api/v1/shops/{id}/products` | REQ-CONV-014 | `?refresh=1`（不用缓存） | `{ items[{ productId, name, imageUrl, priceMin, priceMax, currency, stock, skus[], url }], truncated, fetchedAt }`：在售商品，每店最多 500 件，进程内缓存 10 分钟 | 409 `/errors/not-allowed`（`code: product_scope_missing` 没有商品读取权限；`shop_auth_expired`）；502 `/errors/platform`；504 `/errors/platform-timeout` | no-store |
 | `API-CONV-018` | `POST /api/v1/conversations/{id}/learning` | REQ-KB-013 | `{ messageIds[1..20], note? }`（消息须属于本会话，备注 ≤ 200 字） | 201 `{ task }`（分析中），快照选中消息与前后各 5 条、识别产品，排 `learning.analyze`；审计 `EVT:learning_submitted` | 404 `/errors/not-found`（会话不在可见范围）；422 `/errors/validation`（消息不属于本会话）；429 `/errors/rate-limited`（同一会话每分钟 5 次） | 幂等键 |
-| `API-CONV-019` | `GET /api/v1/conversations/{id}/learning` | REQ-KB-013 | — | `{ items[{ id, source, status, result, messageIds[], submittedByName, createdAt }] }`，时间线据 `messageIds` 标「已提交学习」 | 404 `/errors/not-found` | no-store |
+| `API-CONV-019` | `GET /api/v1/conversations/{id}/learning` | REQ-KB-013 | — | `{ items[{ id, source, status, result, messageIds[], submittedByName, createdAt }] }`，时间线据 `messageIds` 标「已提交学习」；按卡体检的任务 `messageIds` 为空（它高亮的是草稿回答的买家消息，不是有人提交学习） | 404 `/errors/not-found` | no-store |
 
 ### 8.6 订单、售后、发票
 
@@ -3756,7 +3756,7 @@ erDiagram
 | 账单类别 | `kind` | `billing_statement.kind` | enum | 是 | `subscription` / `topup` / `overage` | — | — |
 | 账单状态 | `status` | `billing_statement.status` | enum | 是 | `paid` / `failed`（模拟支付，创建即终态） | — | — |
 | 账单开票资料 | `invoiceInfo` | `billing_statement.invoice_info` | jsonb | 否 | 生成账单时商户开票资料的快照；之后改资料不影响已生成账单 | — | 高 |
-| 通知事件 | `event` | `notification_rule.event` | enum | 是 | `unclaimed_timeout` / `handoff` / `auth_expiring` / `shop_disconnected` / `platform_metric_low` / `ticket_due_soon` / `ticket_overdue` / `ticket_assigned` / `usage_threshold` | — | — |
+| 通知事件 | `event` | `notification_rule.event` | enum | 是 | `unclaimed_timeout` / `handoff` / `auth_expiring` / `shop_disconnected` / `platform_metric_low` / `ticket_due_soon` / `ticket_overdue` / `ticket_assigned` / `usage_threshold` / `agent_autoapply_paused`（迁移 0018 起） | — | — |
 | 通知类型 | `type` | `notification.type` | enum | 是 | `conversation` / `ticket` / `shop` / `usage` / `team` | — | — |
 | 通知去重键 | — | `notification.dedupe_key` | text | 是 | `<event>:<对象 ID>:<阈值>`；同成员同键 10 分钟内只建一条 | — | — |
 | 审计操作人来源 | `actorSource` | `audit_log.actor_source` | enum | 是 | `page` / `system` / `webhook` | — | — |
@@ -3849,7 +3849,7 @@ erDiagram
 | 看过的人 | `seenByName`、`seenAt` | `experience_card_version.seen_by`、`seen_at` | uuid、timestamptz | 否 | Agent 写的版本被标为已看时写入 | — | — |
 | 学习来源 | `source` | `learning_task.source` | enum | 是 | `member`（客服提交）/ `agent`（Agent 挑选或按卡体检） | — | — |
 | 学习类型 | `kind` | `learning_task.kind` | enum | 是 | `conversation`（会话学习，默认）/ `card_review`（按卡体检，来源必为 `agent`）；建任务时写定（迁移 0018） | — | — |
-| 体检证据 | `evidence` | `learning_task.evidence` | jsonb | 否 | 按卡体检才有：`{ draftIds[], counts{ sent, edited, ignored, shadowSame, shadowPartial, shadowDifferent, handoffs } }`，草稿 ≤ 12 份 | — | — |
+| 体检证据 | `evidence` | `learning_task.evidence` | jsonb | 否 | 按卡体检才有：`{ draftIds[], counts{ sent, edited, ignored, shadowSame, shadowPartial, shadowDifferent, handoffs } }`，草稿 ≤ 12 份、有问题的在前；处置统计按近 7 天用到这张卡的全部草稿 | — | — |
 | 提交人 | `submittedByName` | `learning_task.submitted_by` | uuid | 否 | 客服提交的必有 | — | — |
 | 提交备注 | `note` | `learning_task.note` | text | 否 | ≤ 200 字 | — | 中 |
 | 消息快照 | `messages` | `learning_task.messages` | jsonb | 是 | `[{ id, from: buyer\|seller\|ai\|system, type, text, at, selected }]`，≤ 40 条 | — | 中 |
@@ -4604,12 +4604,12 @@ stateDiagram-v2
 | [*] → analyzing | submit | 会话在提交人可见范围 且 消息都属于本会话 且 本会话一分钟内提交不到 5 次 | 快照选中消息与前后各 5 条，识别产品，排 `learning.analyze`；审计 `EVT:learning_submitted` | 成员 | `API-CONV-018` |
 | [*] → analyzing | pick | 段已结束 且 在最近 7 天内 且 有人工回复 且 还没有会话学习任务 且 得分 ≥ 2 | 快照整段消息（≤ 40 条），排 `learning.analyze` | Worker | 内部任务 `learning.pick` |
 | [*] → analyzing | review | 卡已发布 且 近 7 天用到它的草稿 ≥ 3 且 其中有问题信号 且 最近 24 小时没有新版本 且 今天还没体检过 且 在本商户问题比例前 10 | 类型记「按卡体检」，快照代表性用例的对话，记证据与处置统计，排 `learning.analyze` | Worker | 内部任务 `card.review` |
-| analyzing → pending_review | propose | AI 建议新建卡，或要改的卡已下架、删除 | 写诊断、拟发布内容与相似卡；内部测试改前改后各试答一次 | Worker | 内部任务 `learning.analyze` |
+| analyzing → pending_review | propose | AI 建议新建卡，或会话学习要改的卡已下架、删除 | 写诊断、拟发布内容与相似卡；内部测试改前改后各试答一次 | Worker | 内部任务 `learning.analyze` |
 | analyzing → pending_review | conflict | 诊断为内容冲突 | 写诊断与说法相反的两条内容，不带拟发布内容 | Worker | 内部任务 `learning.analyze` |
 | analyzing → pending_review | held | AI 建议改已有卡（会话学习或按卡体检）且 复测通过 且 RULE-KB-007 不允许直接生效 | 写拟发布内容、要改的卡与复测结果，建议栏写明不能直接生效的原因 | Worker | 内部任务 `learning.analyze` |
 | analyzing → published | agent_update | AI 建议改已有卡 且 卡仍已发布 且 版本没变 且 复测通过 且 RULE-KB-007 允许直接生效 | 写新版本：Agent 写、标还没人看过、带复测摘要；结论「改了经验卡」；审计 `EVT:knowledge_card_agent_updated` | Worker | 内部任务 `learning.analyze` |
 | analyzing → closed | covered | 诊断为已有内容覆盖 | 结论「无需更新」 | Worker | 内部任务 `learning.analyze` |
-| analyzing → closed | keep | 按卡体检 且 AI 判断不用改 | 结论「无需更新」，写判断依据；审计 `EVT:card_reviewed` | Worker | 内部任务 `learning.analyze` |
+| analyzing → closed | keep | 按卡体检 且（AI 判断不用改 或 卡已下架、删除） | 结论「无需更新」，写判断依据或下架原因；审计 `EVT:card_reviewed` | Worker | 内部任务 `learning.analyze` |
 | analyzing → closed | need_qa | 诊断为知识缺失 | 结论「建议补问答」 | Worker | 内部任务 `learning.analyze` |
 | analyzing → closed | insufficient | 诊断为证据不足 | 结论「证据不足」，写明缺什么 | Worker | 内部任务 `learning.analyze` |
 | analyzing → closed | retest_failed | AI 建议改已有卡（含按卡体检）且 复测没通过 | 结论「复测没通过」，记原因与复测结果，卡不变 | Worker | 内部任务 `learning.analyze` |
@@ -5540,9 +5540,9 @@ sequenceDiagram
 - 写卡弹窗（续）：停止输入 3 秒自动把草稿存在本机，保存成功后清掉
 - 卡抽屉：内容、版本列表、任意两版的改前改后对比、「回退到这一版」、近 30 天效果
 - 卡抽屉（续）：版本列表写谁改的、改动说明与复测摘要；Agent 改的版本有「标为已看」
-- 卡抽屉（续）：「体检记录」列最近 10 次按卡体检的日期、结论与理由，改了卡的链到对应版本
+- 卡抽屉（续）：「体检记录」列最近 10 次按卡体检的日期、结论与理由，改了卡的链到对应版本，每条可打开对应的学习任务
 - 经验卡页签（续）：Agent 自动改卡暂停时，顶部横幅写「Agent 自动改卡已暂停」、原因与日期，管理员有「恢复自动生效」；没暂停时写「今天 Agent 已直接改卡 n / 5 次」
-- 学习页签：标题「学习」，按状态、来源与类型筛选，待审核数显示在页签上；每行来源（客服提交、Agent 挑选、按卡体检）、买家、诊断、结论与时间
+- 学习页签：标题「学习」，按状态、来源（客服提交、Agent 挑选、按卡体检）与结论筛选，待审核数显示在页签上；每行来源、买家（按卡体检写卡名）、诊断、结论与时间
 - 学习任务抽屉：原始消息并高亮选中的几条，背景写产品与依据、阶段；待审核且没识别到产品时提示「待确认产品」，在建议内容里选定
 - 学习任务抽屉（续）：相似卡、改前改后并排的测试回答、判断依据、可编辑的拟发布卡
 - 学习任务抽屉（续）：底部「复测」「发布」「无需更新」「驳回」；复测通过且内容没再改时才能发布

@@ -182,8 +182,10 @@ export type CardVersionView = {
 
 /** API-KB-029：counts 是商户全部卡按状态的数量；unseenCount 是 Agent 改过、还没人看过的已发布卡数（都不受筛选影响） */
 export type CardList = { items: ExperienceCard[]; counts: Record<CardStatus, number>; unseenCount: number; nextCursor: string | null };
-/** API-KB-031：卡与版本（倒序，最多 50 个） */
-export type CardDetail = { card: ExperienceCard; versions: CardVersionView[] };
+/** 卡的体检记录（按卡体检的学习任务）；version 是这次体检改出的版本，没改为 null */
+export type CardReviewItem = { taskId: string; createdAt: string; status: LearningStatus; result: LearningResult | null; reason: string | null; version: number | null };
+/** API-KB-031：卡与版本（倒序，最多 50 个）、体检记录（倒序，最多 10 次） */
+export type CardDetail = { card: ExperienceCard; versions: CardVersionView[]; reviews: CardReviewItem[] };
 /** API-KB-030（201）、API-KB-032、API-KB-034 至 API-KB-037 */
 export type CardResult = { card: ExperienceCard };
 
@@ -219,6 +221,17 @@ export const LEARNING_STATUS_LABEL: Record<LearningStatus, string> = { analyzing
 export const LEARNING_SOURCES = ["member", "agent"] as const;
 export type LearningSource = (typeof LEARNING_SOURCES)[number];
 export const LEARNING_SOURCE_LABEL: Record<LearningSource, string> = { member: "客服提交", agent: "Agent 挑选" };
+/** 会话学习，或按卡体检（Agent 每天把一张卡近 7 天的用例汇总起来判断要不要改） */
+export const LEARNING_KINDS = ["conversation", "card_review"] as const;
+export type LearningKind = (typeof LEARNING_KINDS)[number];
+export const LEARNING_KIND_LABEL: Record<LearningKind, string> = { conversation: "会话学习", card_review: "按卡体检" };
+/** 按卡体检的证据：用到这张卡的草稿（≤ 12 份）与处置统计 */
+export type CardReviewEvidence = {
+  draftIds: string[];
+  counts: { sent: number; edited: number; ignored: number; shadowSame: number; shadowPartial: number; shadowDifferent: number; handoffs: number };
+};
+/** Agent 改卡直接生效：每商户每天最多几次（每张卡每天最多 1 次，RULE-KB-007） */
+export const AGENT_DAILY_LIMIT = 5;
 /** 预审诊断（确认稿第五节的诊断方向） */
 export const DIAGNOSES = ["covered", "not_triggered", "missing_knowledge", "process", "tone", "conflict", "insufficient"] as const;
 export type Diagnosis = (typeof DIAGNOSES)[number];
@@ -264,6 +277,7 @@ export type LearningSubmitBody = z.infer<typeof learningSubmitBody>;
 export const learningListQuery = z.object({
   status: z.enum(LEARNING_STATUSES).optional(),
   source: z.enum(LEARNING_SOURCES).optional(),
+  kind: z.enum(LEARNING_KINDS).optional(),
   result: z.enum(LEARNING_RESULTS).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
@@ -289,7 +303,21 @@ export const learningVersionBody = z.object({ version: z.number().int().min(1) }
 
 export type LearningMessage = { id: string; from: "buyer" | "seller" | "ai" | "system"; type: string; text: string; at: string; selected: boolean };
 export type LearningTest = { question: string; before: SimResult; after: SimResult };
-export type LearningRegression = { taskId: string; question: string; before: SimResult; after: SimResult; notWorse: boolean; reason: string };
+/**
+ * 回归用例：以前发布过的学习任务（taskId），或按卡体检证据里原样发送的草稿（draftId，taskId 为 null）。
+ * conversationId、segmentId 是用例所在的会话与段，买家删除数据、保留期清理时据此去掉这条用例。
+ */
+export type LearningRegression = {
+  taskId: string | null;
+  draftId?: string;
+  conversationId?: string;
+  segmentId?: string | null;
+  question: string;
+  before: SimResult;
+  after: SimResult;
+  notWorse: boolean;
+  reason: string;
+};
 /** 复测：original 是原问题用拟发布内容的结果，必须用到这张卡；回归用例改后都不比改前差才算通过 */
 export type LearningRetest = { at: string; proposalHash: string; passed: boolean; failReason: string | null; original: SimResult; regressions: LearningRegression[] };
 export type LearningSimilar = { cardId: string; title: string; distance: number; productMatch: boolean; stageMatch: boolean };
@@ -297,6 +325,9 @@ export type LearningSimilar = { cardId: string; title: string; distance: number;
 export type LearningTask = {
   id: string;
   source: LearningSource;
+  kind: LearningKind;
+  /** 按卡体检才有 */
+  evidence: CardReviewEvidence | null;
   submittedByName: string | null;
   note: string | null;
   conversation: { id: string; buyerName: string; shopName: string; platform: "shopee" | "tiktok" } | null;
@@ -334,4 +365,12 @@ export type LearningTaskResult = { task: LearningTask };
 /** API-CONV-019：本会话的学习任务（时间线据 messageIds 标「已提交学习」） */
 export type ConversationLearning = {
   items: Array<{ id: string; source: LearningSource; status: LearningStatus; result: LearningResult | null; messageIds: string[]; submittedByName: string | null; createdAt: string }>;
+};
+
+/** API-KB-045：自动生效状态与最近 12 周的 AI 质量（旧的在前）；todayApplied 是按商户时区今天 Agent 直接生效的改卡次数 */
+export type AgentStatus = {
+  paused: { at: string; reason: string | null } | null;
+  todayApplied: number;
+  dailyLimit: number;
+  weeks: Array<{ weekStart: string; adoption: { num: number; den: number }; consistency: { num: number; den: number }; handoff: { num: number; den: number } }>;
 };

@@ -1,21 +1,40 @@
-// 会话学习的后台任务（§12.17、§17）：
-// - learning.analyze：相似卡前 5（带产品、阶段是否对得上与近 30 天调用次数）、相关问答前 5 → DeepSeek（learn）给诊断与卡；
+// 会话学习与按卡体检的后台任务（§12.17、§12.18、§17）：
+// - learning.analyze（会话学习）：相似卡前 5（带产品、阶段是否对得上与近 30 天调用次数）、相关问答前 5 → DeepSeek（learn）给诊断与卡；
 //   已有内容覆盖 / 证据不足 / 知识缺失 → 结束；冲突 → 待审核（不带拟发布内容）；新卡 → 内部测试后待审核；
-//   改已有卡 → 复测，通过即写 Agent 版本（标还没人看过），不通过结束并记原因；AI 出错 → 分析失败，可重新分析。
+//   改已有卡 → 复测，通过后按 RULE-KB-007 直接写 Agent 版本（标还没人看过）或进待审核，不通过结束并记原因；AI 出错 → 分析失败，可重新分析。
+// - learning.analyze（按卡体检）：卡、近 7 天处置统计与最多 12 个用例 → DeepSeek（review）判断改不改；改就复测（加原样发送的用例），后面同上。
 // - learning.pick：每天挑最近 7 天已结束、有人工回复、还没有学习任务的会话段，按信号打分，每商户最多 20 段。
 // 分析、内部测试与复测都不计商户的出稿用量。
 import { and, count, desc, eq, gte, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
-import { BRANCH_ACTIONS, CARD_BRANCHES_MAX, CARD_CONDITION_MAX, CARD_CONDITIONS_MAX, CARD_STEP_MAX, CARD_STEPS_MAX, CARD_TIPS_MAX, CARD_TITLE_MAX, DIAGNOSES, zCardContent, type CardContent, type Diagnosis, type LearningSimilar } from "@/contracts/cards";
+import {
+  BRANCH_ACTIONS,
+  CARD_BRANCHES_MAX,
+  CARD_CONDITION_MAX,
+  CARD_CONDITIONS_MAX,
+  CARD_STEP_MAX,
+  CARD_STEPS_MAX,
+  CARD_TIPS_MAX,
+  CARD_TITLE_MAX,
+  DIAGNOSES,
+  zCardContent,
+  type CardContent,
+  type Diagnosis,
+  type LearningRetest,
+  type LearningSimilar,
+} from "@/contracts/cards";
 import { AiError, chat, parseJson } from "@/server/ai/client";
-import { LEARN_PROMPT } from "@/server/ai/prompts";
+import { LEARN_PROMPT, REVIEW_PROMPT } from "@/server/ai/prompts";
 import { simulateDraft } from "@/server/ai/simulate";
 import { audit, systemActor } from "@/server/core/audit";
 import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
 import { identifyProductsWithBasis } from "@/server/products/dictionary";
+import { agentApplyAllowed } from "./agent-apply";
+import { loadReviewCases, sentCases } from "./card-review";
 import { cardContentOf, needsEmbed, tryEmbedCard, writeCardVersion, type CardRow } from "./card-store";
 import { embedTexts } from "./embed";
-import { basisText, buyerTextsOf, productCardIdsOf, productStatusOf, snapshotOf, SNAPSHOT_MAX } from "./learning";
+import { basisText, buyerTextsOf, productCardIdsOf, productStatusOf, SNAPSHOT_MAX } from "./learning";
+import { snapshotOf } from "./snapshot";
 import { retestProposal, simInputOf, type TaskRow } from "./retest";
 
 const T = schema.learningTask;
@@ -167,7 +186,11 @@ export async function analyzeLearning(data: Record<string, unknown>): Promise<vo
   }
 }
 
-async function analyze(task: TaskRow, finish: (set: Partial<typeof T.$inferInsert>) => Promise<void>) {
+type Finish = (set: Partial<typeof T.$inferInsert>) => Promise<void>;
+type Common = Partial<typeof T.$inferInsert>;
+
+async function analyze(task: TaskRow, finish: Finish) {
+  if (task.kind === "card_review") return analyzeCardReview(task, finish);
   const [shop] = await db().select({ market: schema.shop.market }).from(schema.shop).where(eq(schema.shop.id, task.shopId)).limit(1);
   const products = await db().select({ id: schema.product.id, code: schema.product.code, name: schema.product.name }).from(schema.product).where(eq(schema.product.merchantId, task.merchantId));
   const near = await neighbors(task, shop?.market ?? null);
@@ -216,23 +239,37 @@ async function analyze(task: TaskRow, finish: (set: Partial<typeof T.$inferInser
   // 改已有卡：直接复测，通过即生效（Agent 版本，标还没人看过）
   const retest = await retestProposal(t, content, { id: target.row.id, version: target.row.version });
   if (!retest.passed) return finish({ ...common, status: "closed", result: "retest_failed", proposal: content, targetCardId: target.row.id, retest, error: retest.failReason });
-  const vec = needsEmbed(target.row, content) ? await tryEmbedCard(content) : undefined;
-  await db().transaction(async (tx) => {
-    const [fresh] = await tx.select().from(C).where(eq(C.id, target.row.id)).for("update");
-    const settle = (set: Partial<typeof T.$inferInsert>) =>
+  await applyAgentEdit(task, common, content, target.row, retest, out.reason || out.suggestion || null);
+}
+
+/**
+ * Agent 改已有卡、复测已通过：在同一事务里锁卡再判断——卡被下架或删除、分析期间被改过、RULE-KB-007 不允许直接生效时
+ * 分别落待审核（体检的结束）、分析失败、待审核（建议栏写原因）；都满足才写 Agent 版本、标还没人看过。
+ */
+async function applyAgentEdit(task: TaskRow, common: Common, content: CardContent, targetRow: CardRow, retest: LearningRetest, note: string | null): Promise<"applied" | "held" | "changed" | "gone"> {
+  const vec = needsEmbed(targetRow, content) ? await tryEmbedCard(content) : undefined;
+  return db().transaction(async (tx) => {
+    const [fresh] = await tx.select().from(C).where(eq(C.id, targetRow.id)).for("update");
+    const settle = (set: Common) =>
       tx
         .update(T)
         .set({ ...common, ...set, version: task.version + 1, updatedAt: new Date() })
         .where(and(eq(T.id, task.id), eq(T.version, task.version)));
-    // 原卡在分析期间被下架或删除：这次的内容当作新卡交给审核人（§11.19），审核人要重新复测
+    // 原卡在分析期间被下架或删除：会话学习的内容当作新卡交给审核人（§11.19），审核人要重新复测；体检就此结束
     if (!fresh || fresh.status !== "published") {
-      await settle({ status: "pending_review", proposal: content, targetCardId: null, retest, suggestion: ["原卡在分析期间被下架或删除，改为新卡待审核。", common.suggestion].filter(Boolean).join("") });
-      return;
+      if (task.kind === "card_review") await settle({ status: "closed", result: "none_needed", proposal: content, retest, reason: "卡在体检期间被下架或删除，不再改。" });
+      else await settle({ status: "pending_review", proposal: content, targetCardId: null, retest, suggestion: ["原卡在分析期间被下架或删除，改为新卡待审核。", common.suggestion].filter(Boolean).join("") });
+      return "gone";
     }
     // 分析与复测期间卡被人或另一个 Agent 任务改过：不覆盖那次改动，这次作废，可以重新分析
-    if (fresh.version !== target.row.version) {
+    if (fresh.version !== targetRow.version) {
       await settle({ status: "failed", proposal: content, targetCardId: fresh.id, retest, error: `分析期间这张卡被改成了第 ${fresh.version} 版，这次改动没有写入，可以重新分析。` });
-      return;
+      return "changed";
+    }
+    const gate = await agentApplyAllowed(tx, task.merchantId, fresh.id);
+    if (!gate.ok) {
+      await settle({ status: "pending_review", proposal: content, targetCardId: fresh.id, retest, suggestion: [gate.reason, common.suggestion].filter(Boolean).join("") });
+      return "held";
     }
     const card = await writeCardVersion(tx, {
       row: fresh,
@@ -240,15 +277,79 @@ async function analyze(task: TaskRow, finish: (set: Partial<typeof T.$inferInser
       author: { kind: "agent" },
       vec,
       learningTaskId: task.id,
-      note: out.reason || out.suggestion || null,
+      note,
       retest: { passed: true, regressions: retest.regressions.length, failReason: null },
     });
-    await tx
-      .update(T)
-      .set({ ...common, status: "published", result: "card_updated", proposal: content, targetCardId: card.id, retest, publishedCardId: card.id, publishedVersion: card.version, version: task.version + 1, updatedAt: new Date() })
-      .where(and(eq(T.id, task.id), eq(T.version, task.version)));
+    await settle({ status: "published", result: "card_updated", proposal: content, targetCardId: card.id, retest, publishedCardId: card.id, publishedVersion: card.version });
     await audit(systemActor(task.merchantId), { module: "reception", action: "knowledge_card_agent_updated", summary: `Agent 改了经验卡「${card.title}」（第 ${card.version} 版）`, targetType: "experience_card", targetId: card.id, data: { learningTaskId: task.id, version: card.version, regressions: retest.regressions.length } }, tx);
+    return "applied";
   });
+}
+
+const REVIEW_OUTCOME_TEXT = { keep: "无需更新", applied: "改了经验卡", held: "改动进待审核", retest_failed: "复测没通过", changed: "卡在体检期间被改过", gone: "卡已下架或删除", failed: "AI 给的内容不完整" } as const;
+
+/** 按卡体检：卡与近 7 天的用例交给模型，keep 结束；revise 复测（加原样发送的用例）后按 RULE-KB-007 生效或进待审核 */
+async function analyzeCardReview(task: TaskRow, finish: Finish) {
+  const [card] = task.targetCardId
+    ? await db()
+        .select()
+        .from(C)
+        .where(and(eq(C.id, task.targetCardId), eq(C.merchantId, task.merchantId)))
+        .limit(1)
+    : [];
+  if (!card || card.status !== "published") return finish({ status: "closed", result: "none_needed", reason: "卡已下架或删除，不再体检。" });
+  const draftIds = task.evidence?.draftIds ?? [];
+  const cases = await loadReviewCases(draftIds);
+  const payload = {
+    card: cardForModel(cardContentOf(card)),
+    counts: task.evidence?.counts ?? null,
+    cases: cases.map((c, i) => ({
+      n: i + 1,
+      question: c.question,
+      ai_reply: c.aiReply,
+      step: c.step,
+      action: c.action,
+      disposition: c.mode === "shadow" ? "shadow" : c.disposition,
+      human_reply: c.humanReply,
+      compare: c.compare ? { edit_class: c.compare.editClass, consistency: c.compare.consistency, reason: c.compare.reason } : null,
+    })),
+  };
+  const res = await chat(
+    "review",
+    [
+      { role: "system", content: REVIEW_PROMPT },
+      { role: "user", content: JSON.stringify(payload) },
+    ],
+    { json: true, maxTokens: 2000 },
+  );
+  const j = parseJson(res.content);
+  const verdict = j.verdict === "revise" ? "revise" : "keep";
+  const common: Common = { diagnosis: verdict === "keep" ? "covered" : "process", reason: clipText(j.reason, 300) || null, suggestion: clipText(j.suggestion, 300) || null, similar: [] };
+  // §20 EVT:card_reviewed
+  const reviewed = (outcome: keyof typeof REVIEW_OUTCOME_TEXT) =>
+    audit(systemActor(task.merchantId), {
+      module: "reception",
+      action: "card_reviewed",
+      summary: `按卡体检「${card.title}」：${REVIEW_OUTCOME_TEXT[outcome]}`,
+      targetType: "experience_card",
+      targetId: card.id,
+      data: { card_id: card.id, verdict, result: outcome, cases: cases.length, learningTaskId: task.id },
+    });
+  if (verdict === "keep") {
+    await finish({ ...common, status: "closed", result: "none_needed" });
+    return reviewed("keep");
+  }
+  const content = cardFromModel(j.card, cardContentOf(card), new Map(), task.stage);
+  if (!content) {
+    await finish({ ...common, status: "failed", error: "AI 给的经验卡内容不完整，可以重新分析。" });
+    return reviewed("failed");
+  }
+  const retest = await retestProposal(task, content, { id: card.id, version: card.version }, await sentCases(draftIds));
+  if (!retest.passed) {
+    await finish({ ...common, status: "closed", result: "retest_failed", proposal: content, targetCardId: card.id, retest, error: retest.failReason });
+    return reviewed("retest_failed");
+  }
+  return reviewed(await applyAgentEdit(task, common, content, card, retest, common.reason ?? common.suggestion ?? null));
 }
 
 /** 分析中超过 15 分钟没有动静（任务被杀、排队失败）就标分析失败，可以重新分析；learning.analyze 本身 10 分钟过期、不重试 */
@@ -293,7 +394,8 @@ export async function pickCandidates(merchantId: string, limit = PICK_PER_MERCHA
         eq(S.backfilled, false),
         eq(S.humanReplied, true),
         eq(CONV.buyerKind, "buyer"),
-        sql`not exists (select 1 from learning_task t where t.segment_id = ${S.id})`,
+        // 按卡体检的任务也挂在会话段上，不挡会话学习挑这一段
+        sql`not exists (select 1 from learning_task t where t.segment_id = ${S.id} and t.kind = 'conversation')`,
         sql`${score} >= ${PICK_MIN_SCORE}`,
       ),
     )

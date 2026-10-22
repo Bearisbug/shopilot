@@ -1,19 +1,16 @@
 "use client";
 
-// 「学习」页签（PAGE-RECEPTION-KB，API-KB-038）：客服提交的与 Agent 挑的学习任务；点一条在右侧抽屉里审核（?task=<id>）
+// 「学习」页签（PAGE-RECEPTION-KB，API-KB-038）：客服提交的、Agent 挑的与按卡体检的学习任务；点一条在右侧抽屉里审核（?task=<id>）
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { BotIcon, GraduationCapIcon, UserIcon } from "lucide-react";
+import { BotIcon, ClipboardCheckIcon, GraduationCapIcon, UserIcon } from "lucide-react";
 import {
   DIAGNOSIS_LABEL,
   LEARNING_RESULT_LABEL,
   LEARNING_RESULTS,
-  LEARNING_SOURCE_LABEL,
-  LEARNING_SOURCES,
   LEARNING_STATUS_LABEL,
   LEARNING_STATUSES,
   type LearningList,
   type LearningResult,
-  type LearningSource,
   type LearningStatus,
   type LearningTask,
 } from "@/contracts/cards";
@@ -27,16 +24,16 @@ import { api } from "@/lib/api";
 import { inTz } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useUrlParams } from "../knowledge-ui";
-import { learningKey, POLL_MS } from "./learning-ui";
+import { LEARNING_ORIGIN_LABEL, LEARNING_ORIGIN_QS, LEARNING_ORIGINS, learningKey, originLabel, POLL_MS, type LearningOrigin } from "./learning-ui";
 
 const pick = <T extends string>(v: string | null, all: readonly T[]): T | null => ((all as readonly string[]).includes(v ?? "") ? (v as T) : null);
 
 export function LearningTab({ me }: { me: Me }) {
   const { params, update } = useUrlParams();
   const status = pick<LearningStatus>(params.get("lstatus"), LEARNING_STATUSES);
-  const source = pick<LearningSource>(params.get("lsource"), LEARNING_SOURCES);
+  const source = pick<LearningOrigin>(params.get("lsource"), LEARNING_ORIGINS);
   const result = pick<LearningResult>(params.get("lresult"), LEARNING_RESULTS);
-  const qs = [status && `status=${status}`, source && `source=${source}`, result && `result=${result}`].filter(Boolean).join("&");
+  const qs = [status && `status=${status}`, source && LEARNING_ORIGIN_QS[source], result && `result=${result}`].filter(Boolean).join("&");
   const list = useInfiniteQuery({
     queryKey: [...learningKey, "list", status, source, result],
     queryFn: ({ pageParam }) => api.get<LearningList>(`/api/v1/knowledge/learning?${qs}${pageParam ? `${qs ? "&" : ""}cursor=${encodeURIComponent(pageParam)}` : ""}`),
@@ -57,7 +54,7 @@ export function LearningTab({ me }: { me: Me }) {
         <h2 id="kb-learning-title" tabIndex={-1} className="text-lg font-semibold focus-visible:outline-none">
           学习
         </h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">客服在工作台勾选消息提交的，和 Agent 每天从已结束会话里挑的。新经验卡审核、复测通过才发布；Agent 改已有卡复测通过就生效。</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">客服勾选消息提交的、Agent 从已结束会话里挑的，和 Agent 按卡做的体检。新经验卡审核、复测通过才发布；Agent 改已有卡复测通过就生效，超出每天上限或暂停时进待审核。</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="scroll-nav max-w-full overflow-x-auto">
@@ -79,9 +76,9 @@ export function LearningTab({ me }: { me: Me }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部来源</SelectItem>
-            {LEARNING_SOURCES.map((s) => (
+            {LEARNING_ORIGINS.map((s) => (
               <SelectItem key={s} value={s}>
-                {LEARNING_SOURCE_LABEL[s]}
+                {LEARNING_ORIGIN_LABEL[s]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -154,21 +151,23 @@ export function TaskStatus({ status, className }: { status: LearningStatus; clas
 }
 
 function TaskRow({ t, tz, active, onOpen }: { t: LearningTask; tz: string; active: boolean; onOpen: () => void }) {
-  const Icon = t.source === "agent" ? BotIcon : UserIcon;
+  const Icon = t.kind === "card_review" ? ClipboardCheckIcon : t.source === "agent" ? BotIcon : UserIcon;
   const picked = t.messages.filter((m) => m.selected && m.from === "buyer");
   const quote = (picked.at(-1) ?? t.messages.filter((m) => m.from === "buyer").at(-1))?.text ?? "";
+  const who = t.conversation ? `${t.conversation.buyerName} · ${t.conversation.shopName}` : "会话已删除";
   return (
     <li className="border-b border-border last:border-0">
       <button type="button" onClick={onOpen} aria-current={active || undefined} className={cn("state-layer focus-ring flex w-full items-start gap-3 rounded-md px-2 py-3 text-left", active && "bg-(--semantic-color-surface-selected)")}>
-        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label={LEARNING_SOURCE_LABEL[t.source]} />
+        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label={originLabel(t)} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-baseline gap-2">
-            <span className="min-w-0 truncate font-medium">{t.conversation ? `${t.conversation.buyerName} · ${t.conversation.shopName}` : "会话已删除"}</span>
+            <span className="min-w-0 truncate font-medium">{t.kind === "card_review" && t.targetCard ? `经验卡「${t.targetCard.title}」` : who}</span>
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{inTz(t.createdAt, tz, "MM-dd HH:mm")}</span>
           </span>
           {quote && <span className="line-clamp-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">「{quote}」</span>}
           <span className="text-xs text-muted-foreground">
-            {LEARNING_SOURCE_LABEL[t.source]}
+            {originLabel(t)}
+            {t.kind === "card_review" && t.evidence ? ` · ${t.evidence.draftIds.length} 个用例` : ""}
             {t.submittedByName ? `（${t.submittedByName}）` : ""}
             {t.diagnosis ? ` · ${DIAGNOSIS_LABEL[t.diagnosis]}` : ""}
             {t.result ? ` · ${LEARNING_RESULT_LABEL[t.result]}` : ""}
