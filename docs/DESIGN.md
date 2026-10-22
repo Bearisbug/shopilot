@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-22 | v1.34 | FLOW-KB-CARD-REVIEW、FLOW-KB-CARD、FLOW-KB-LEARN、RULE-KB-007 | 评审修正：名额按审计计数，快照只取一段，超时从开始执行算 | 功能 |
 | 2026-10-22 | v1.34 | REQ-KB-014、REQ-KB-015、FLOW-KB-CARD-REVIEW、FLOW-KB-LEARN、FLOW-KB-CARD、FLOW-AI-CARD、FLOW-DRAFT-COMPARE、RULE-KB-006、RULE-KB-007、INV-KB-010、ENT-LearningTask、ENT-AiQualityWeek、ENT-Merchant、API-KB-031、API-KB-038、API-KB-044、API-KB-045、API-CONV-019、PAGE-RECEPTION-KB、ADR-018 | 新增按卡定时体检与 AI 质量周指标：指标连续回落时 Agent 改卡改为先审 | 功能 |
 | 2026-10-22 | v1.33 | REQ-SITE-001、FLOW-SITE、PAGE-SITE | 新增官网：没登录的访客打开首页看到产品介绍，有中文和英文两版，已登录的成员打开首页直接进工作台 | 功能 |
 | 2026-10-22 | v1.32 | FLOW-KB-LEARN、FLOW-KB-CARD、FLOW-AI-CARD、ENT-LearningTask、API-KB-040、API-KB-041 | 评审修正：Agent 改卡不改适用范围且防覆盖，组长只看负责店铺的学习任务 | 功能 |
@@ -682,6 +683,7 @@
 | --- | --- | --- | --- | --- |
 | 边界 | 店铺在影子模式 | 效果另列影子回复与人工回复一致、部分一致、不一致的份数 | 字段 draft_review.consistency；API-KB-031 | 无用例 |
 | 边界 | 卡做过体检 | 抽屉列最近 10 次体检记录 | API-KB-031；字段 learning_task.kind | TC-KB-072、TC-KB-074 |
+| 边界 | 组长看体检记录 | 只列负责店铺的体检（理由里有买家对话的内容） | §10 行级可见性 | 不测：代码仓 card-review.test.ts 覆盖 |
 
 ##### S6 改卡
 
@@ -1872,7 +1874,7 @@
 | 没暂停 | 改过 | 不限 | 进待审核，建议栏写「这张卡今天已被 Agent 改过一次」 |
 | 没暂停 | 没改过 | 已满 5 次 | 进待审核，建议栏写「今天 Agent 直接生效的改动已满 5 次」 |
 
-「今天」按商户时区的自然日。暂停由每周的 AI 质量指标触发：辅助草稿采纳率或影子一致率中，样本不少于 20 的一项连续两周各比前一周下降 5 个百分点以上；只能由管理员手动恢复。表外组合一律进待审核。
+「今天」按商户时区的自然日。次数按「Agent 改卡」审计（EVT:knowledge_card_agent_updated）算，删卡不会把当天名额放回来；模型给的改动整理后和原卡一样时算无需更新，不写版本、不占名额。暂停由每周的 AI 质量指标触发：辅助草稿采纳率或影子一致率中，样本不少于 20 的一项连续两周各比前一周下降 5 个百分点以上；只能由管理员手动恢复。表外组合一律进待审核。
 
 出处：字段 merchant.agent_autoapply_paused_at；迁移 ENT-Merchant running→paused「brake」；迁移 ENT-LearningTask analyzing→pending_review「held」；ADR-018
 
@@ -3853,7 +3855,7 @@ erDiagram
 | 提交人 | `submittedByName` | `learning_task.submitted_by` | uuid | 否 | 客服提交的必有 | — | — |
 | 提交备注 | `note` | `learning_task.note` | text | 否 | ≤ 200 字 | — | 中 |
 | 消息快照 | `messages` | `learning_task.messages` | jsonb | 是 | `[{ id, from: buyer\|seller\|ai\|system, type, text, at, selected }]`，≤ 40 条 | — | 中 |
-| 学习会话段 | — | `learning_task.segment_id` | uuid | 否 | 所属会话段：客服提交的取快照里最早一条消息的段（前后文跨段时随最早的段一起清理）；Agent 挑的是被挑的段，每段只建一个会话学习任务；按卡体检取代表性用例所在的段 | — | — |
+| 学习会话段 | — | `learning_task.segment_id` | uuid | 否 | 所属会话段：客服提交的取快照里最早一条消息的段（前后文跨段时随最早的段一起清理）；Agent 挑的是被挑的段，每段只建一个会话学习任务；按卡体检取代表性用例所在的段，快照只取这一段 | — | — |
 | 识别出的产品 | `products` | `learning_task.product_ids` | uuid[] | 是 | 按商品卡、订单卖家 SKU、文字识别 | — | — |
 | 产品依据 | `productBasis` | `learning_task.product_basis` | text | 否 | 如「订单商品的物料编码」 | — | — |
 | 产品识别结果 | `productStatus` | `learning_task.product_status` | enum | 是 | `identified` / `none` / `multiple`；后两种显示「待确认产品」 | — | — |
@@ -4615,7 +4617,7 @@ stateDiagram-v2
 | analyzing → closed | retest_failed | AI 建议改已有卡（含按卡体检）且 复测没通过 | 结论「复测没通过」，记原因与复测结果，卡不变 | Worker | 内部任务 `learning.analyze` |
 | analyzing → failed | fail | AI 出错、超时或其他异常 | 写失败原因 | Worker | 内部任务 `learning.analyze` |
 | analyzing → failed | changed | AI 建议改已有卡 且 复测通过 且 要改的卡在分析期间被改过（版本变了） | 不写入，写明卡已是第几版，可重新分析 | Worker | 内部任务 `learning.analyze` |
-| analyzing → failed | stale | 分析中超过 15 分钟没有动静 | 失败原因「分析任务中断，可以重新分析」 | Worker | 内部任务 `knowledge.qa_embed` 的每 5 分钟补扫 |
+| analyzing → failed | stale | 分析中超过 15 分钟没有动静（从开始执行算，排队不算） | 失败原因「分析任务中断，可以重新分析」；正在执行的分析写结果时发现已不在分析中就整笔回滚，不改卡 | Worker | 内部任务 `knowledge.qa_embed` 的每 5 分钟补扫 |
 | failed → analyzing | reanalyze | 版本一致 | 清失败原因，重新排 `learning.analyze` | 管理员、组长 | `API-KB-042` |
 | failed → closed | close | 版本一致 | 结论「无需更新」或「已驳回」 | 管理员、组长 | `API-KB-043` |
 | pending_review → pending_review | retest | 版本一致 | 用审核人编辑的内容同步复测，写复测结果与内容指纹 | 管理员、组长 | `API-KB-040` |
@@ -5377,10 +5379,10 @@ sequenceDiagram
   participant RV as 管理员或组长浏览器
   participant API as Shopilot API
   Note over W: 每天 19:40 UTC，card.review 每商户挑问题比例最高的 10 张卡
-  W->>DB: 每张卡取近 7 天用到它的草稿、处置与草稿对比结论（≤ 12 个用例）
-  W->>DB: 建按卡体检任务，快照代表性用例的对话（11.19 review）
+  W->>DB: 每张卡取近 7 天用到它的草稿、处置与草稿对比结论（≤ 12 个用例），按问题挑出代表性用例
+  W->>DB: 建按卡体检任务，快照代表性用例所在会话段里的对话（11.19 review）
   W-->>W: 排 learning.analyze（async）
-  W->>DS: 卡内容、近 30 天效果与用例交给模型判断（review，60 秒）
+  W->>DS: 卡内容、近 7 天处置统计与用例交给模型判断（review，60 秒）
   alt 不用改
     W->>DB: 任务结束，结论「无需更新」（11.19 keep）
   else 要改
@@ -5398,9 +5400,9 @@ sequenceDiagram
   RV->>API: 发布，给要改的卡写新版本 (API-KB-041)
 ```
 
-- 问题信号：辅助草稿被改后发送或弃用、影子回复对比为部分一致或不一致、按卡转人工或建工单
-- 用例内容：买家问题、AI 草稿与第几步、客服最终发出的内容、处置、草稿对比结论与理由
-- 模型输出：`{ verdict: keep\|revise, reason, suggestion, card, representative }`；改卡时适用范围沿用原卡（RULE-KB-006）
+- 问题信号：辅助草稿被改后发送或弃用、影子回复对比为部分一致或不一致、按卡转人工或建工单后客服（含卖家后台）又回复
+- 用例内容：买家问题、AI 草稿与第几步、客服最终发出的内容（含卖家后台直接回复的）、处置、草稿对比结论与理由；对话只取草稿所在会话段
+- 模型输出：`{ verdict: keep\|revise, reason, suggestion, card }`；代表性用例在调模型前按问题挑好；改卡时适用范围沿用原卡（RULE-KB-006）
 - 回归用例：这张卡以前发布过的学习任务最近 3 个，加证据里原样发送的用例最多 3 个（按草稿生成时的对话复原）
 - 不计商户出稿用量；DeepSeek 用途记 review、simulate、judge
 
