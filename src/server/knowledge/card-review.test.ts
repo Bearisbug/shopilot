@@ -27,7 +27,8 @@ const card = (title: string, condition: string, over: Partial<CardContent> = {})
   ...over,
 });
 
-describe.skipIf(!process.env.DATABASE_URL)("按卡定时体检（需要数据库）", async () => {
+// 分析经 Agent 服务：每次起一个 CLI 子进程（替身下约 1–3 秒）
+describe.skipIf(!process.env.DATABASE_URL)("按卡定时体检（需要数据库）", { timeout: 120_000 }, async () => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "shopilot-card-review-test-"));
   process.env.DATA_DIR = dataDir;
   process.env.KNOWLEDGE_MODE = "stub";

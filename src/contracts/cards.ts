@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AgentRunView } from "./agent";
 import { zUuid } from "./common";
 import { knowledgeTestBody, QA_STAGES, zKnowledgeMarket, zMarkets, type KnowledgeMarket, type QaStage } from "./knowledge";
 import { charCount } from "./reception";
@@ -362,6 +363,8 @@ export type LearningTask = {
 export type LearningList = { items: LearningTask[]; counts: Record<LearningStatus, number>; nextCursor: string | null };
 /** API-CONV-018（201）、API-KB-039 至 API-KB-043 */
 export type LearningTaskResult = { task: LearningTask };
+/** API-KB-039：另带这个任务最近 5 次 Agent 运行，新的在前 */
+export type LearningTaskDetail = LearningTaskResult & { agentRuns: AgentRunView[] };
 /** API-CONV-019：本会话的学习任务（时间线据 messageIds 标「已提交学习」） */
 export type ConversationLearning = {
   items: Array<{ id: string; source: LearningSource; status: LearningStatus; result: LearningResult | null; messageIds: string[]; submittedByName: string | null; createdAt: string }>;

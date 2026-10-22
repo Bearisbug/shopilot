@@ -1,6 +1,7 @@
 // 会话学习（API-CONV-018、API-CONV-019、API-KB-038 至 API-KB-043，§12.17）：客服勾选消息「提交学习」→ learning.analyze 分析；
 // 新卡与有冲突的进待审核，审核人改内容 → 复测 → 发布（要求最近一次复测通过、内容没再改）；也可无需更新或驳回。都带乐观锁 version。
 import { and, asc, count, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import type { AgentRunView } from "@/contracts/agent";
 import {
   LEARNING_STATUSES,
   type ConversationLearning,
@@ -11,6 +12,7 @@ import {
   type LearningStatus,
   type LearningSubmitBody,
   type LearningTask,
+  type LearningTaskDetail,
   type LearningTaskResult,
 } from "@/contracts/cards";
 import { AiError } from "@/server/ai/client";
@@ -294,8 +296,28 @@ export async function listLearning(ctx: MemberContext, query: LearningListQuery)
 }
 
 /** API-KB-039 */
-export async function getLearning(ctx: MemberContext, id: string): Promise<LearningTaskResult> {
-  return view(await loadTask(ctx, id));
+export async function getLearning(ctx: MemberContext, id: string): Promise<LearningTaskDetail> {
+  const row = await loadTask(ctx, id);
+  return { ...(await view(row)), agentRuns: await agentRunViews(row.id) };
+}
+
+/** 这个任务最近 5 次 Agent 运行，新的在前（API-KB-039） */
+export async function agentRunViews(taskId: string): Promise<AgentRunView[]> {
+  const R = schema.agentRun;
+  const rows = await db().select().from(R).where(eq(R.learningTaskId, taskId)).orderBy(desc(R.startedAt)).limit(5);
+  return rows.map((r) => ({
+    id: r.id,
+    purpose: r.purpose,
+    status: r.status,
+    model: r.model,
+    error: r.error,
+    startedAt: r.startedAt.toISOString(),
+    durationMs: r.finishedAt ? r.finishedAt.getTime() - r.startedAt.getTime() : null,
+    turns: r.turns,
+    toolCalls: r.toolCalls,
+    tokens: r.inputTokens === null ? null : { input: r.inputTokens, cacheRead: r.cacheReadTokens ?? 0, output: r.outputTokens ?? 0 },
+    steps: r.steps,
+  }));
 }
 
 // ── 审核 ──

@@ -2,6 +2,7 @@
 
 // 学习任务抽屉（?task=<id>，API-KB-039 至 API-KB-043）：原始消息、背景、相似内容、测试结果、判断依据与建议、建议更新内容；
 // 待审核的可改内容 → 复测 → 发布，或无需更新、驳回；分析失败的可重新分析。带要改的卡时顶部写改哪张卡第几版，按卡体检另列证据用例的处置统计。
+// 「Agent 过程」列最近几次分析运行的状态、用时、轮数、token 与工具步骤（ADR-019）。
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLinkIcon, FlaskConicalIcon, RotateCcwIcon, SearchXIcon, SendIcon, XIcon } from "lucide-react";
 import Link from "next/link";
@@ -9,6 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { AGENT_RUN_STATUS_LABEL, type AgentRunView } from "@/contracts/agent";
 import type { Me } from "@/contracts/auth";
 import {
   CARD_ACTION_LABEL,
@@ -20,6 +22,7 @@ import {
   type CardContent,
   type CardReviewEvidence,
   type LearningTask,
+  type LearningTaskDetail,
   type LearningTaskResult,
   type SimResult,
 } from "@/contracts/cards";
@@ -75,7 +78,7 @@ function DrawerBody({ me, taskId, onClose }: { me: Me; taskId: string; onClose: 
   const valid = isUuid(taskId);
   const q = useQuery({
     queryKey: learningItemKey(taskId),
-    queryFn: () => api.get<LearningTaskResult>(`/api/v1/knowledge/learning/${taskId}`),
+    queryFn: () => api.get<LearningTaskDetail>(`/api/v1/knowledge/learning/${taskId}`),
     enabled: valid,
     refetchInterval: (query) => (query.state.data?.task.status === "analyzing" ? POLL_MS : false),
   });
@@ -114,10 +117,10 @@ function DrawerBody({ me, taskId, onClose }: { me: Me; taskId: string; onClose: 
         </div>
       </>
     );
-  return <TaskDetail me={me} t={q.data.task} />;
+  return <TaskDetail me={me} t={q.data.task} runs={q.data.agentRuns} />;
 }
 
-function TaskDetail({ me, t }: { me: Me; t: LearningTask }) {
+function TaskDetail({ me, t, runs }: { me: Me; t: LearningTask; runs: AgentRunView[] }) {
   const tz = me.active.timezone;
   return (
     <>
@@ -205,6 +208,7 @@ function TaskDetail({ me, t }: { me: Me; t: LearningTask }) {
               )}
             </Section>
           )}
+          {runs.length > 0 && <AgentRuns runs={runs} tz={tz} />}
           {(t.test || t.retest) && (
             <Section title="测试结果" hint={t.testQuestion ? `用买家的「${t.testQuestion}」按现在的出稿流程试跑，不发给买家` : undefined}>
               {t.test && (
@@ -300,6 +304,54 @@ function RetestBlock({ t, tz }: { t: LearningTask; tz: string }) {
   );
 }
 
+const TOOL_LABEL: Record<string, string> = { get_conversation: "读会话", get_card: "读卡", list_cases: "列用例", search_knowledge: "查知识", simulate: "自测", submit: "提交" };
+const seconds = (ms: number) => (ms < 100 ? "<0.1 秒" : ms < 60_000 ? `${(ms / 1000).toFixed(1)} 秒` : `${Math.floor(ms / 60_000)} 分 ${Math.round((ms % 60_000) / 1000)} 秒`);
+const kTokens = (n: number) => (n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}k`);
+
+/** Agent 过程：最近的一次列出全部工具步骤，更早的只列回执 */
+function AgentRuns({ runs, tz }: { runs: AgentRunView[]; tz: string }) {
+  return (
+    <Section title="Agent 过程" hint="分析时 Agent 调了哪些工具、各用多久；步骤只记结果摘要">
+      <ol className="flex flex-col divide-y divide-border rounded-md border border-border">
+        {runs.map((r, i) => (
+          <li key={r.id} className="flex flex-col gap-2 px-3 py-2.5">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className={cn("inline-flex items-center gap-1.5 font-medium", r.status === "failed" ? "text-destructive" : r.status === "succeeded" ? "text-(--semantic-color-feedback-success)" : undefined)}>
+                {r.status === "running" && <Spinner className="size-3.5" />}
+                {AGENT_RUN_STATUS_LABEL[r.status]}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {inTz(r.startedAt, tz, "MM-dd HH:mm")}
+                {r.durationMs !== null && ` · ${seconds(r.durationMs)}`}
+                {r.turns !== null && ` · ${r.turns} 轮`}
+                {` · 工具 ${r.toolCalls} 次`}
+                {r.tokens && ` · token 输入 ${kTokens(r.tokens.input)}、缓存命中 ${kTokens(r.tokens.cacheRead)}、输出 ${kTokens(r.tokens.output)}`}
+                {r.model !== "stub" && ` · ${r.model}`}
+              </span>
+            </p>
+            {r.error && <p className="text-sm text-destructive [overflow-wrap:anywhere]">{r.error}</p>}
+            {r.status === "running" && <p className="text-xs text-muted-foreground">结束后在这里列出每一步。</p>}
+            {i === 0 && r.steps.length > 0 && (
+              <ol className="flex flex-col gap-1">
+                {r.steps.map((s, n) => (
+                  <li key={n} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-baseline gap-x-2 text-sm">
+                    <span className="text-xs text-muted-foreground tabular-nums">{n + 1}.</span>
+                    <span className="[overflow-wrap:anywhere]">
+                      <span className={cn("mr-2 font-medium", !s.ok && "text-(--semantic-color-feedback-warning)")}>{TOOL_LABEL[s.tool] ?? s.tool}</span>
+                      <span className={s.ok ? "text-muted-foreground" : "text-(--semantic-color-feedback-warning)"}>{s.note}</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{s.ms > 0 ? seconds(s.ms) : ""}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </li>
+        ))}
+      </ol>
+    </Section>
+  );
+}
+
 /** 按卡体检的证据：近 7 天用到这张卡的全部草稿怎么处置的；用例取其中 12 份，有问题的优先 */
 function EvidenceBlock({ evidence }: { evidence: CardReviewEvidence }) {
   const c = evidence.counts;
@@ -326,7 +378,7 @@ function Outcome({ t, tz }: { t: LearningTask; tz: string }) {
       <Notice tone="info">
         <span className="inline-flex items-center gap-2">
           <Spinner className="size-4" />
-          {t.kind === "card_review" ? "AI 正在汇总这张卡近 7 天的用例" : "AI 正在分析这段会话"}，通常 1 分钟内出结果；这里会自动刷新。
+          {t.kind === "card_review" ? "Agent 正在查看这张卡近 7 天的用例" : "Agent 正在分析这段会话"}，通常 1 分钟内出结果，最长约 3 分钟；这里会自动刷新。
         </span>
       </Notice>
     );
@@ -361,8 +413,9 @@ function useTaskMutation<B>(t: LearningTask, path: string, timeoutMs?: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: B) => api.post<LearningTaskResult>(`/api/v1/knowledge/learning/${t.id}/${path}`, body, undefined, timeoutMs),
+    // 写接口只返回任务，Agent 过程沿用已取到的
     onSuccess: (r) => {
-      qc.setQueryData(learningItemKey(t.id), r);
+      qc.setQueryData<LearningTaskDetail>(learningItemKey(t.id), (old) => ({ ...r, agentRuns: old?.agentRuns ?? [] }));
       qc.invalidateQueries({ queryKey: learningKey });
     },
     onError: (e) => {

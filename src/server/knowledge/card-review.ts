@@ -155,6 +155,31 @@ export async function loadReviewCases(draftIds: string[]): Promise<ReviewCase[]>
   return out;
 }
 
+/** 把一份草稿复原成可模拟的用例：按草稿出稿时的对话；没有买家问题或会话已删时为 null */
+async function caseOf(d: DraftRow): Promise<RegressionCase | null> {
+  const { rows, question } = await turnsAt(d);
+  if (!question) return null;
+  const [conv] = await db().select({ shopId: schema.conversation.shopId }).from(schema.conversation).where(eq(schema.conversation.id, d.conversationId)).limit(1);
+  const [seg] = d.segmentId ? await db().select({ stage: schema.segment.stage }).from(schema.segment).where(eq(schema.segment.id, d.segmentId)).limit(1) : [];
+  if (!conv) return null;
+  return {
+    draftId: d.id,
+    conversationId: d.conversationId,
+    segmentId: d.segmentId,
+    shopId: conv.shopId,
+    stage: seg?.stage ?? "unknown",
+    productIds: [],
+    question,
+    conversation: rows.map((m) => ({ from: snapshotOf(m, false).from, type: m.type, text: m.text ?? `[${m.type}]`, at: m.sentAt.toISOString() })),
+  };
+}
+
+/** 体检 Agent 自测用：证据里的一份草稿复原成用例 */
+export async function draftCase(draftId: string): Promise<RegressionCase | null> {
+  const [d] = await db().select().from(D).where(eq(D.id, draftId)).limit(1);
+  return d ? caseOf(d) : null;
+}
+
 /** 证据里原样发送的草稿（最多 3 个）复原成回归用例：按草稿出稿时的对话模拟改前改后 */
 export async function sentCases(draftIds: string[]): Promise<RegressionCase[]> {
   if (draftIds.length === 0) return [];
@@ -166,21 +191,8 @@ export async function sentCases(draftIds: string[]): Promise<RegressionCase[]> {
   for (const id of draftIds) {
     const d = drafts.find((x) => x.id === id);
     if (!d || out.length >= SENT_REGRESSIONS_MAX) continue;
-    const { rows, question } = await turnsAt(d);
-    if (!question) continue;
-    const [conv] = await db().select({ shopId: schema.conversation.shopId }).from(schema.conversation).where(eq(schema.conversation.id, d.conversationId)).limit(1);
-    const [seg] = d.segmentId ? await db().select({ stage: schema.segment.stage }).from(schema.segment).where(eq(schema.segment.id, d.segmentId)).limit(1) : [];
-    if (!conv) continue;
-    out.push({
-      draftId: d.id,
-      conversationId: d.conversationId,
-      segmentId: d.segmentId,
-      shopId: conv.shopId,
-      stage: seg?.stage ?? "unknown",
-      productIds: [],
-      question,
-      conversation: rows.map((m) => ({ from: snapshotOf(m, false).from, type: m.type, text: m.text ?? `[${m.type}]`, at: m.sentAt.toISOString() })),
-    });
+    const c = await caseOf(d);
+    if (c) out.push(c);
   }
   return out;
 }

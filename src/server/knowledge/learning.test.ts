@@ -120,7 +120,8 @@ describe("复测指纹与对话", () => {
   });
 });
 
-describe.skipIf(!process.env.DATABASE_URL)("会话学习（需要数据库）", async () => {
+// 分析经 Agent 服务：每次起一个 CLI 子进程（替身下约 1–3 秒）
+describe.skipIf(!process.env.DATABASE_URL)("会话学习（需要数据库）", { timeout: 120_000 }, async () => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "shopilot-learning-test-"));
   process.env.DATA_DIR = dataDir;
   process.env.KNOWLEDGE_MODE = "stub";

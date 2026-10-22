@@ -18,6 +18,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import { v7 as uuidv7 } from "uuid";
+import type { AgentRunStep } from "../../contracts/agent";
 import type { CardContent, CardReviewEvidence, CardStep, DraftCardInfo, LearningMessage, LearningRetest, LearningSimilar, LearningTest } from "../../contracts/cards";
 import type { KnowledgeMarket } from "../../contracts/knowledge";
 import type { QuickReplyVariant } from "../../contracts/reception";
@@ -1300,6 +1301,29 @@ export const learningTask = pgTable(
     // 同一张卡一天只体检一次（按 UTC 日期）
     uniqueIndex("learning_task_card_review_day_uq").on(t.targetCardId, sql`((${t.createdAt} at time zone 'UTC')::date)`).where(sql`${t.kind} = 'card_review'`),
   ],
+);
+
+/** Agent 运行（ENT-AgentRun，ADR-019）：一次运行的用途、状态、轮数、工具步骤与 token；随学习任务、商户删除。步骤只有结果摘要，不含买家原话 */
+export const agentRun = pgTable(
+  "agent_run",
+  {
+    id: id(),
+    merchantId: merchantRef(),
+    learningTaskId: uuid("learning_task_id").references(() => learningTask.id, { onDelete: "cascade" }),
+    purpose: text("purpose", { enum: ["learn", "card_review"] }).notNull(),
+    model: text("model").notNull(),
+    status: text("status", { enum: ["running", "succeeded", "failed"] }).notNull().default("running"),
+    error: text("error"),
+    turns: integer("turns"),
+    toolCalls: integer("tool_calls").notNull().default(0),
+    inputTokens: integer("input_tokens"),
+    cacheReadTokens: integer("cache_read_tokens"),
+    outputTokens: integer("output_tokens"),
+    steps: jsonb("steps").$type<AgentRunStep[]>().notNull().default([]),
+    startedAt: ts("started_at").notNull().defaultNow(),
+    finishedAt: ts("finished_at"),
+  },
+  (t) => [index("agent_run_task_idx").on(t.learningTaskId, t.startedAt), index("agent_run_running_idx").on(t.startedAt).where(sql`${t.status} = 'running'`)],
 );
 
 /** AI 质量周指标（ENT-AiQualityWeek，§12.19）：商户 × 周（周一起，UTC），重算覆盖 */

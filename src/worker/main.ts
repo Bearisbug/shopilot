@@ -1,8 +1,10 @@
 // Worker 进程：注册后台任务处理器与定时（DESIGN §17 内部后台任务表）。
+import { cleanAgentDirs } from "@/server/agent/runtime";
 import { boss, QUEUES, SCHEDULES, type QueueName } from "@/server/jobs/boss";
 import { handlers } from "./handlers";
 
 async function main() {
+  await cleanAgentDirs();
   const b = await boss("worker");
   for (const name of Object.keys(QUEUES) as QueueName[]) {
     const handler = handlers[name];
