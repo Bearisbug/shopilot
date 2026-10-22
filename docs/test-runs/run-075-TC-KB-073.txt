@@ -1,0 +1,14 @@
+RUN-075 TC-KB-073 执行输出（2026-10-22 20:40–20:42）
+s1: crjob {"job":"card.review","ok":true}; card_review 任务数 0
+s2: 版本时间改到 1 小时前后 crjob ok；任务数 0
+s3: cardold 后 crjob；K 的任务数 1
+s4: 再 crjob；K 的任务数 1
+s5: K2 草稿数 3（三份 sent）；K2 任务数 0
+--- 当前库
+摄像头识别不到：帮买家恢复使用|sent
+摄像头识别不到：帮买家恢复使用|edited_sent
+摄像头识别不到：帮买家恢复使用|sent
+云台转不动：帮买家排查|sent
+云台转不动：帮买家排查|sent
+云台转不动：帮买家排查|sent
+card_review|published|card_updated

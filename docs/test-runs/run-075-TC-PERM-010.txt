@@ -1,0 +1,9 @@
+--s1
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/knowledge/agent-status","requestId":"req_01a163a6906b7145862fa46f7cc3a852","code":"knowledge.manage"} HTTP 403 
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/knowledge/agent-autoapply/resume","requestId":"req_01a163a691557294baeca631920bede5","code":"reception.manage"} HTTP 403 
+--s2
+HTTP 200
+{"at":"2026-10-22T12:47:02.424Z","reason":"测试暂停"}
+--s3
+{"type":"/errors/forbidden","title":"没有权限","status":403,"detail":"当前角色没有这个操作的权限。","instance":"/api/v1/knowledge/agent-autoapply/resume","requestId":"req_01a163a691e17462afdfe1b19c3edd01","code":"reception.manage"} HTTP 403 
+测试暂停

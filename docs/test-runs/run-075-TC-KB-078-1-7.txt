@@ -1,0 +1,28 @@
+--s1
+INSERT 0 20
+INSERT 0 20
+INSERT 0 20
+--s2
+{"job":"ai.quality_weekly","ok":true,"durationMs":109}
+--s3
+2026-09-28|18|2
+2026-10-05|14|6
+2026-10-12|10|10
+本周一往前 7 天: 2026-10-12
+--s4
+辅助草稿采纳率连续两周下降：90% → 70% → 50%
+--s5
+{"u":"owner@demo.test","n":1,"items":[{"event":"agent_autoapply_paused","title":"Agent 自动改卡已暂停","link":"/reception/knowledge?tab=cards"}]}
+{"u":"admin2@demo.test","n":1,"items":[{"event":"agent_autoapply_paused","title":"Agent 自动改卡已暂停","link":"/reception/knowledge?tab=cards"}]}
+1
+--s6
+{"job":"ai.quality_weekly","ok":true,"durationMs":62}
+2026-09-28|18|2
+2026-10-05|14|6
+2026-10-12|10|10
+{"u":"owner@demo.test","n":1}
+{"u":"admin2@demo.test","n":1}
+1
+--s7
+HTTP 200
+{"reason":"辅助草稿采纳率连续两周下降：90% → 70% → 50%","todayApplied":0,"dailyLimit":5,"nweeks":3,"last":{"num":10,"den":20}}
