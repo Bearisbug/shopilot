@@ -91,6 +91,7 @@ async function runOnce<Out>(input: RunAgentInput<Out>): Promise<{ output: Out; r
   const limits = { ...AGENT_LIMITS, ...input.limits };
   const stub = e.AI_MODE === "stub";
   const model = stub ? "stub" : AGENT_MODEL;
+  const home = await mkdtemp(path.join(tmpdir(), DIR_PREFIX));
   const [run] = await db().insert(R).values({ merchantId: input.merchantId, learningTaskId: input.learningTaskId, purpose: input.purpose, model }).returning({ id: R.id });
   const started = Date.now();
   const steps: AgentRunStep[] = [];
@@ -102,6 +103,7 @@ async function runOnce<Out>(input: RunAgentInput<Out>): Promise<{ output: Out; r
   let submitted: { output: Out } | null = null;
   let failure: AgentError | null = null;
   const abort = new AbortController();
+  // 中止后 SDK 先关子进程的输入、约 2 秒后才结束它，这段时间里已发出的那次模型请求不计入 token
   const stop = (err: AgentError) => {
     failure ??= err;
     abort.abort();
@@ -165,7 +167,6 @@ async function runOnce<Out>(input: RunAgentInput<Out>): Promise<{ output: Out; r
     if (t.input + t.cacheRead + t.output > limits.tokens) stop(new AgentError("budget", `token 超过 ${limits.tokens}`));
   };
 
-  const home = await mkdtemp(path.join(tmpdir(), DIR_PREFIX));
   let result: SDKResultMessage | null = null;
   let stderr = "";
   try {
@@ -275,7 +276,7 @@ export async function failStaleAgentRuns(staleMs: number): Promise<number> {
   return rows.length;
 }
 
-/** Worker 启动时清理异常退出留下的临时目录（正常结束的运行已在 finally 里删掉）；只删 15 分钟前的，不碰同机别的进程正在用的 */
+/** 清理异常退出留下的临时目录（正常结束的运行已在 finally 里删掉）：Worker 启动时与 knowledge.qa_embed 补扫时调用；只删 15 分钟前的，不碰同机别的进程正在用的 */
 export async function cleanAgentDirs(): Promise<void> {
   const base = tmpdir();
   const before = Date.now() - 15 * 60_000;

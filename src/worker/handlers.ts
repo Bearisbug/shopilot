@@ -27,6 +27,7 @@ import { syncListings } from "@/server/products/dictionary";
 import { analyzeLearning, failStaleLearning, pickLearning } from "@/server/knowledge/learning-analyze";
 import { reviewCards } from "@/server/knowledge/card-review";
 import { qualityWeekly } from "@/server/analysis/quality";
+import { cleanAgentDirs } from "@/server/agent/runtime";
 
 type Handler = (data: Record<string, unknown>) => Promise<void>;
 
@@ -78,6 +79,7 @@ export const handlers: Partial<Record<QueueName, Handler>> = {
   "knowledge.qa_embed": async () => {
     const stale = await failStaleExtracts();
     const staleLearning = await failStaleLearning();
+    await cleanAgentDirs();
     const r = await embedMissing();
     const cards = await embedMissingCards();
     if (r.picked || stale || staleLearning || cards.picked) console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "qa embed sweep", ...r, staleExtracts: stale, staleLearning, cardsPicked: cards.picked, cardsEmbedded: cards.embedded }));

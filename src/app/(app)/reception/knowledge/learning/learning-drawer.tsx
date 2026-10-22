@@ -305,7 +305,12 @@ function RetestBlock({ t, tz }: { t: LearningTask; tz: string }) {
 }
 
 const TOOL_LABEL: Record<string, string> = { get_conversation: "读会话", get_card: "读卡", list_cases: "列用例", search_knowledge: "查知识", simulate: "自测", submit: "提交" };
-const seconds = (ms: number) => (ms < 100 ? "<0.1 秒" : ms < 60_000 ? `${(ms / 1000).toFixed(1)} 秒` : `${Math.floor(ms / 60_000)} 分 ${Math.round((ms % 60_000) / 1000)} 秒`);
+const seconds = (ms: number) => {
+  if (ms < 100) return "<0.1 秒";
+  if (ms < 59_950) return `${(ms / 1000).toFixed(1)} 秒`;
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)} 分 ${s % 60} 秒`;
+};
 const kTokens = (n: number) => (n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}k`);
 
 /** Agent 过程：最近的一次列出全部工具步骤，更早的只列回执 */
