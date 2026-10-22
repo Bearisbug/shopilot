@@ -14,6 +14,7 @@
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-22 | 按 DESIGN v1.34 按卡定时体检与 Agent 自动生效刹车：新增 `TC-KB-072` 至 `TC-KB-079`（体检改卡直接生效、挑卡条件、无需更新、暂停时进待审核与按目标卡发布、这张卡今天已被 Agent 改过、今天满 5 次、周指标暂停与恢复、复测没通过）、`TC-DASH-020`（AI 质量面板）、`TC-PERM-010`（状态与恢复的权限）；§3 加按卡体检与周指标函数（`merchantid`、`carddraft`、`dispose`、`cardold`、`crjob`、`cardreview`、`qweek`、`aq`）与体检替身规则；`q` 的写操作范围加上改卡版本时间、写与删 Agent 改卡审计、写周指标草稿、设暂停 | 实现会话 |
 | 2026-10-22 | RUN-073 发现用例错：原位改 `TC-KB-001` 第 1 步预期的知识库页签，按 DESIGN v1.32 PAGE-RECEPTION-KB 加上「经验卡」「学习」（问答、经验卡、待审核、学习、资料、产品、测试问答） | 实现会话 |
 | 2026-10-22 | 按 DESIGN v1.33 官网第二次改版（首屏演示跟着滚动演、系统字体粗标题、接入范围逐字点亮）：`TC-SITE-004` 废弃，被 `TC-SITE-005` 取代（首屏演示改由滚动驱动，暂停按钮从 9 个减到 6 个、只管自动循环）；原位改 `TC-SITE-003` 第 1、2 步的预期（演示面板不吸住、下方列出四步说明，入场元素加功能格，长句不变浅） | 实现会话 |
 | 2026-10-22 | 按 DESIGN v1.33 官网改版（插图改成示意动画、玻璃顶栏）：原位改 `TC-SITE-003` 第 1–4 步的预期（首屏静止画面、平台列表、窄屏插图）；新增 `TC-SITE-004`（示意动画循环与全页暂停）；`TC-SITE-002` 第 1 步登录账号写成邮箱 | 实现会话 |
@@ -250,7 +251,7 @@ printf 'not really a ppt' > "$KB/产品介绍.pptx"; printf 'plain text, not a p
 ```
 
   得到：保修政策.pdf 约 3 MB（2 页）、大文件.pdf 约 25 MB、拆分.pdf 约 18 MB（30 页，每页约 0.6 MB）、单页超限.pdf 约 14 MB（15 页，第 12 页 11 MB）、型号对照.xlsx 约 1 MB、说明书.docx 约 5 MB、保修政策.md、运费说明.txt、产品介绍.pptx、伪装.pdf（扩展名是 pdf、内容是文本）、工具.exe。
-- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类（先 `login owner@demo.test` 一次；登录每 IP 每分钟限 30 次，函数里不重复登录）；`q` 在本机库执行一条 SQL，库名默认 `shopilot`；除草稿对比用例把草稿生成时间往前改之外，用例里都只读）：
+- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类（先 `login owner@demo.test` 一次；登录每 IP 每分钟限 30 次，函数里不重复登录）；`q` 在本机库执行一条 SQL，库名默认 `shopilot`；除草稿对比用例把草稿生成时间往前改、按卡体检与周指标用例改卡版本时间、写与删 Agent 改卡审计、写周指标草稿、设与清自动生效暂停之外，用例里都只读）：
 
 ```bash
 kbup() { who=$1; f=$2; shift 2; curl -s -b "$SP_TMP/$who" -H "Origin: $B" -F "file=@$f" "$@" -w '\nHTTP %{http_code}\n' "$B/api/v1/knowledge/documents"; }
@@ -288,6 +289,30 @@ cardclear() { for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowle
   - 出稿替身用卡（`AI_MODE=stub`，出稿、测试问答、模拟出稿共用）：请求带候选卡时，本段有正在用的卡就接着用它、步骤加 1（不超过最后一步），否则用第 1 张候选卡（拟发布的卡、正在用的卡排在最前）的第 1 步；这一步某个分支的条件原文出现在买家最新一条消息里时按这个分支走（转人工、建工单、跳到第 n 步）。用卡理由一律「替身：调用条件成立」，建工单的说明是「替身：<分支条件>」；按卡转人工时替身同时给出 `handoff = true`、`reason = card`。
   - 会话学习替身（`learn`）：备注或消息里有「无需」→ 诊断「已有内容覆盖」，任务结束、结论「无需更新」；有「新卡」，或相似卡里没有一张的标题与某条买家消息有两个相连的相同字 → 诊断「流程需要补充」，写一张新卡（标题「替身：<最后一条勾选的买家文字前 20 字>」，一条调用条件「买家提到「<同前>」」，一步「替身第一步：问清情况」），进待审核；否则改那张相似卡，在最后加一步「替身补充的一步」，直接复测。判断依据「替身：按关键词判断」，建议「替身：按建议更新」。复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」，否则「不比改前差」。替身不会给出「知识缺失」「证据不足」「内容冲突」，也不会分析失败。
   - Agent 挑会话：`pnpm job learning.pick '{"merchantId":"<Demo Store 的商户 ID>"}'` 只挑这一家（商户 ID 用 `q "select id from merchant where name = 'Demo Store'"` 取）；挑出的段由 Worker 的 `learning.analyze` 分析，几秒内出结论。
+- 按卡体检与周指标函数（先执行上面的经验卡函数与知识库 curl 函数，并 `login agent2@demo.test`）：`merchantid` 输出 Demo Store 的商户 ID；`carddraft <买家名> [文字]` 在 Demo Shopee MY 新建这位买家、发一句（缺省「摄像头识别不到」），等到用了经验卡的待处理草稿并输出草稿 ID，超时输出 `TIMEOUT`（需先按 §3「固定为工作时间内」，Demo Shopee MY 在辅助模式）；`dispose <买家名> <sent|edited_sent|ignored>` 以 Mei 处置这位买家最新的待处理草稿——原样发送、末尾加「（已改）」后发送、弃用，输出末行 `HTTP <状态码>`；`cardold <卡 ID>` 把这张卡全部版本的时间挪到两天前，让它满足「24 小时内没有新版本」；`agentreset` 删掉 Demo Store 的「Agent 改卡」审计，当天直接生效次数从 0 算（次数按这条审计数，删卡不会让它清零）；`crjob` 只对 Demo Store 跑一次 `card.review`（体检任务当场建好，分析由 Worker 接着做）；`cardreview <卡 ID>` 先 `crjob`，再等这张卡最近一个体检任务分析完，输出「状态|结论」，没挑上时输出 `TIMEOUT`；`qweek <几周前> <原样发送数> [总数]` 在本周一（UTC）往前第 N 周的周二写入处置过的辅助草稿，总数缺省 20，其余为弃用；`aq` 只对 Demo Store 跑一次 `ai.quality_weekly`（重算上一周与再往前两周，并判断要不要暂停）。
+
+```bash
+merchantid() { q "select id from merchant where name = 'Demo Store'"; }
+carddraft() { X=$(newbuyer shopee 220001 "$1"); say "$X" "${2:-摄像头识别不到}" >/dev/null; waitq "select d.id from draft d join conversation c on c.id = d.conversation_id where c.buyer_name = '$1' and d.status = 'generated' and d.card_id is not null"; }
+dispose() { C=$(conv "$1"); D=$(q "select id from draft where conversation_id = '$C' and status = 'generated' order by created_at desc limit 1")
+  if [ "$2" = ignored ]; then api agent2@demo.test -X POST "$B/api/v1/conversations/$C/drafts/$D/ignore" | tail -1
+  else T=$(q "select text from draft where id = '$D'"); [ "$2" = edited_sent ] && T="$T（已改）"
+    api agent2@demo.test -X POST "$B/api/v1/conversations/$C/messages" -d "$(jq -nc --arg t "$T" --arg d "$D" --arg k "dispose-$1-$2" --arg s "$2" '{clientRequestId:$k,type:"text",text:$t,draftId:$d,disposition:$s}')" | tail -1; fi; }
+cardold() { q "update experience_card_version set created_at = now() - interval '2 days' where card_id = '$1'"; }
+agentreset() { q "delete from audit_log where action = 'knowledge_card_agent_updated' and merchant_id = '$(merchantid)'"; }
+crjob() { pnpm -s job card.review "{\"merchantId\":\"$(merchantid)\"}"; }
+cardreview() { crjob >/dev/null; waitq "select status || '|' || coalesce(result, '-') from learning_task where kind = 'card_review' and target_card_id = '$1' and status <> 'analyzing' order by created_at desc limit 1"; }
+qweek() { q "insert into draft (id, merchant_id, conversation_id, mode, text, confidence, status, model, latency_ms, created_at, disposed_at)
+  select gen_random_uuid(), m.id, c.id, 'assist', '周指标测试', 0.9, case when g <= $2 then 'sent' else 'ignored' end, 'stub', 1, t.w, t.w
+  from merchant m join lateral (select id from conversation where merchant_id = m.id order by created_at limit 1) c on true
+  cross join generate_series(1, ${3:-20}) g
+  cross join (select (date_trunc('week', now() at time zone 'UTC') - interval '$1 weeks' + interval '1 day') at time zone 'UTC' as w) t
+  where m.name = 'Demo Store'"; }
+aq() { pnpm -s job ai.quality_weekly "{\"merchantId\":\"$(merchantid)\"}"; }
+```
+
+  - 按卡体检替身（`review`）：交给模型的用例里有「改后发送」，或影子对比为「不一致」→ 改卡：沿用原卡内容，在最后加一步「替身补充的一步」，理由「替身：客服改写过这张卡的草稿」，建议「替身：补一步」；否则无需更新，理由「替身：用例没有明显问题」。复测时「原样发送」的用例同样交给复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」。替身不会给出不合规的卡，也不会分析失败。
+  - 造暂停状态：`q "update merchant set agent_autoapply_paused_at = now(), agent_autoapply_pause_reason = '测试暂停' where name = 'Demo Store'"`；清掉：同一条把两列设为 `null`。
 
 - 工具：浏览器自动化用 Playwright + 本机 Microsoft Edge（`channel: 'msedge'`），人工执行同样用 Edge；接口用 curl（见「curl 会话」）与 jq；两步验证码用验证器 App，或 `oathtool --totp -b <密钥>`（密钥取自开启时显示的 `totpURI` 里的 `secret`）；定时任务用 `pnpm job`，时间敏感数据用 `pnpm scenario`；邮件看 `/dev/outbox`。
 - 证据目录：`docs/test-runs/`。截图与响应体按 `run-NNN-<TC ID>-<步骤号>.png` / `.json` 命名，文中引用一律写以项目根为基准的相对路径。cookie 文件不放证据目录。
@@ -991,6 +1016,20 @@ cardclear() { for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowle
 | 6 | `Y=$(newbuyer tiktok "$(q "select external_shop_id from shop where name = 'Demo TikTok TH'")" "Perm TH")`；`say $Y "你好"`；以 Mei Lin 对这个会话的买家那条消息提交学习（同第 3 步），记任务 ID 为 T2；`api lead@demo.test $B/api/v1/knowledge/learning/<T2>`；`api lead@demo.test "$B/api/v1/knowledge/learning?limit=100"`；`api owner@demo.test "$B/api/v1/knowledge/learning?limit=100"` | 提交 `HTTP 201`；组长取 T2 是 `HTTP 404`；组长的列表里没有 T2、有第 3 步的任务（Arif 负责 Demo Shopee MY，不负责 Demo TikTok TH）；林晓的列表里有 T2 |
 
 后置：`cardclear`。
+
+#### `TC-PERM-010` Agent 自动改卡的状态与恢复：员工无权，组长只能看，管理员能恢复 — 对应 `REQ-KB-015`、`REQ-PERM-001` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login lead@demo.test`、`login agent2@demo.test`；按 §3「造暂停状态」设暂停，原因「测试暂停」。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api agent2@demo.test $B/api/v1/knowledge/agent-status`；`api agent2@demo.test -X POST $B/api/v1/knowledge/agent-autoapply/resume -d '{}'` | 两次都 `HTTP 403` `/errors/forbidden` |
+| 2 | `api lead@demo.test $B/api/v1/knowledge/agent-status` | `HTTP 200`，`paused.reason`「测试暂停」 |
+| 3 | `api lead@demo.test -X POST $B/api/v1/knowledge/agent-autoapply/resume -d '{}'` | `HTTP 403` `/errors/forbidden`；`q "select agent_autoapply_pause_reason from merchant where name = 'Demo Store'"` 仍为「测试暂停」 |
+| 4 | 浏览器以 Arif 打开 `/reception/knowledge?tab=cards` | 有暂停横幅「Agent 自动改卡已暂停：测试暂停（…）」，没有「恢复自动生效」按钮 |
+| 5 | `api owner@demo.test -X POST $B/api/v1/knowledge/agent-autoapply/resume -d '{}'` | `HTTP 200`；`q "select agent_autoapply_paused_at is null from merchant where name = 'Demo Store'"` 为 `t` |
+
+后置：无。
 
 ### 店铺接入与授权
 
@@ -4284,6 +4323,124 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 后置：无。
 
+#### `TC-KB-072` 按卡体检：用卡草稿被改写，Agent 改卡复测通过直接生效 — 对应 `REQ-KB-014` · 级别: 冒烟 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`agentreset`；`cardk` 记为 K；`cardold <K>`；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `carddraft "Rev A"`、`carddraft "Rev B"`、`carddraft "Rev C"` | 三次各输出一个草稿 ID，没有 `TIMEOUT`；`q "select count(*) from draft where card_id = '<K>'"` 为 `3` |
+| 2 | `dispose "Rev A" sent`、`dispose "Rev B" edited_sent`、`dispose "Rev C" ignored` | 依次输出 `HTTP 201`、`HTTP 201`、`HTTP 200`；`q "select status from draft where card_id = '<K>' order by status"` 三行依次 `edited_sent`、`ignored`、`sent` |
+| 3 | `cardreview <K>` | 输出 `published\|card_updated` |
+| 4 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `HTTP 200`；`card.version` 2、`card.agentUnseen` true、`card.lastAuthor` `agent`，`card.steps` 最后一步的 `text` 为「替身补充的一步」；`versions[0]` 的 `author` `agent`、`retest.passed` true、`retest.regressions` 1；`reviews` 1 项：`result` `card_updated`、`version` 2、`reason`「替身：客服改写过这张卡的草稿」 |
+| 5 | 打开 `/reception/knowledge?tab=cards` | 页签标题下方写「今天 Agent 已直接改卡 1 / 5 次」；打开「Agent 改过未看」开关后列表只有卡 K |
+| 6 | 点卡 K 那一行，看卡抽屉的「体检记录」 | 一行：今天的日期、「改了经验卡」、「改成第 2 版」、「查看任务」，下方理由「替身：客服改写过这张卡的草稿」；点「改成第 2 版」后版本列表的第 2 版获得焦点 |
+| 7 | 点「查看任务」 | 切到「学习」页签并打开任务抽屉：顶部「改的是：摄像头识别不到：帮买家恢复使用（第 2 版）」；「原始消息」说明「代表性用例：问题最明显的那份草稿出稿时的对话，高亮的是它回答的买家消息」；「背景」的产品为「通用（沿用卡的适用范围）」；「证据用例」写辅助草稿「原样发送 1 · 改后发送 1 · 弃用 1」、影子回复「没有」、按卡转人工「0 次（含建工单）」；复测结果里有「客服原样发送过的「摄像头识别不到」：不比改前差」 |
+| 8 | 关掉抽屉，「按来源筛选」选「按卡体检」 | 列表只有一行：「经验卡「摄像头识别不到：帮买家恢复使用」」，带「· 3 个用例」，状态「已发布」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-073` 按卡体检挑卡：不到 3 份、24 小时内有新版本、没有问题信号都不体检，同一天不重复 — 对应 `REQ-KB-014` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`api owner@demo.test -X POST $B/api/v1/knowledge/cards -d "$(jq -c '.title="云台转不动：帮买家排查" | .conditions=["买家说云台转不动"]' $SP_TMP/card-k.json)"` 记卡 ID 为 K2。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `carddraft "Pick A"`、`carddraft "Pick B"`；`dispose "Pick A" sent`、`dispose "Pick B" edited_sent`；`cardold <K>`；`crjob` | `crjob` 输出含 `"ok":true`；`q "select count(*) from learning_task where kind = 'card_review'"` 为 `0`（近 7 天用到 K 的草稿只有 2 份） |
+| 2 | `carddraft "Pick C"`、`dispose "Pick C" sent`；`q "update experience_card_version set created_at = now() - interval '1 hour' where card_id = '<K>'"`；`crjob` | 体检任务数仍为 `0`（K 在 24 小时内有新版本） |
+| 3 | `cardold <K>`；`crjob` | `q "select count(*) from learning_task where kind = 'card_review' and target_card_id = '<K>'"` 为 `1` |
+| 4 | 再执行一次 `crjob` | 第 3 步的计数仍为 `1`（同一张卡同一天只体检一次） |
+| 5 | `carddraft "Gimbal A" "云台转不动"`、`carddraft "Gimbal B" "云台转不动"`、`carddraft "Gimbal C" "云台转不动"`，三位都 `dispose <买家名> sent`；`cardold <K2>`；`crjob` | `q "select count(*) from draft where card_id = '<K2>'"` 为 `3`；`q "select count(*) from learning_task where kind = 'card_review' and target_card_id = '<K2>'"` 为 `0`（三份都原样发送，没有问题信号） |
+
+后置：`cardclear`。
+
+#### `TC-KB-074` 按卡体检结论无需更新：卡不动，体检记录写理由 — 对应 `REQ-KB-014` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`cardold <K>`；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `carddraft "Keep A"`、`carddraft "Keep B"`、`carddraft "Keep C"`；`dispose "Keep A" sent`、`dispose "Keep B" sent`、`dispose "Keep C" ignored` | 三次 `carddraft` 都输出草稿 ID；`dispose` 依次 `HTTP 201`、`HTTP 201`、`HTTP 200` |
+| 2 | `cardreview <K>` | 输出 `closed\|none_needed` |
+| 3 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `card.version` 1、`card.agentUnseen` false；`reviews` 1 项：`result` `none_needed`、`version` null、`reason`「替身：用例没有明显问题」 |
+| 4 | 打开 `/reception/knowledge?tab=cards&card=<K>`，看「体检记录」 | 一行：今天的日期、「无需更新」、「查看任务」，没有「改成第 n 版」，下方理由「替身：用例没有明显问题」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-075` 自动生效暂停时体检改卡进待审核，审核人按目标卡复测发布；复测后卡又被改要重新复测 — 对应 `REQ-KB-014`、`REQ-KB-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`cardold <K>`；按 §3「造暂停状态」设暂停，原因「测试暂停」；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `carddraft "Hold A"`、`carddraft "Hold B"`、`carddraft "Hold C"`；`dispose "Hold A" sent`、`dispose "Hold B" edited_sent`、`dispose "Hold C" ignored`；`cardreview <K>` | `cardreview` 输出 `pending_review\|-` |
+| 2 | `q "select suggestion from learning_task where kind = 'card_review' and target_card_id = '<K>'"`；`api owner@demo.test $B/api/v1/knowledge/cards/<K>` | 建议以「自动生效已暂停（<今天，如 10 月 22 日>）：测试暂停。」开头；卡的 `version` 仍为 1 |
+| 3 | 打开 `/reception/knowledge?tab=cards` | 顶部横幅「Agent 自动改卡已暂停：测试暂停（<今天，如 10 月 22 日>）」，下一行「暂停期间 Agent 照常体检、照常学习，改卡一律进「学习」页签待审核。」，旁边有「恢复自动生效」按钮；没有「今天 Agent 已直接改卡」那一行 |
+| 4 | 点「学习」页签，打开这条「按卡体检」任务 | 顶部「改的是：摄像头识别不到：帮买家恢复使用（第 1 版）」；「建议更新内容」说明「改的是已有经验卡「摄像头识别不到：帮买家恢复使用」（第 1 版）」；底部「发布后：「摄像头识别不到：帮买家恢复使用」写成第 2 版，AI 出稿时就会按它处理」与「复测：当前内容已复测通过」，「发布」可点 |
+| 5 | `api owner@demo.test -X PATCH $B/api/v1/knowledge/cards/<K> -d "{\"version\":1,\"card\":$(jq -c '.tips="先问订单号"' $SP_TMP/card-k.json)}"` | `HTTP 200`，`card.version` 2 |
+| 6 | 回到抽屉点「发布」 | 没有发布，提示「要改的经验卡在复测后被改过，请重新复测。」；卡仍是第 2 版 |
+| 7 | 刷新页面重新打开这条任务，点「复测」，提示「复测通过，可以发布」后点「发布」 | 刷新后顶部为「（第 2 版）」；发布后提示「已发布经验卡「摄像头识别不到：帮买家恢复使用」」，任务状态「已发布」 |
+| 8 | `api owner@demo.test $B/api/v1/knowledge/cards/<K>` | `card.version` 3；`versions[0]` 的 `author` `member`、`memberName` 为林晓、`learningTaskId` 为这条任务的 ID |
+
+后置：按 §3「造暂停状态」清掉暂停；`cardclear`。
+
+#### `TC-KB-076` 这张卡今天已被 Agent 改过：会话学习再改同一张卡进待审核 — 对应 `REQ-KB-013`、`REQ-KB-015` · 级别: 回归 · 执行者: 皆可
+
+前置：先执行 `TC-KB-072` 第 1–3 步（卡 K 今天已被 Agent 改成第 2 版，不做后续步骤与后置）。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `carddraft "Learn K" "摄像头识别不到，换了线也不行"`；取买家那条消息 ID 为 MSG：`q "select m.id from message m join conversation c on c.id = m.conversation_id where c.buyer_name = 'Learn K' and m.sender_role = 'buyer'"` | 两条命令各输出一个 ID |
+| 2 | `api agent2@demo.test -X POST $B/api/v1/conversations/$(conv "Learn K")/learning -d '{"messageIds":["<MSG>"]}'` | `HTTP 201`，`task.status` `analyzing` |
+| 3 | `waitq "select status from learning_task where kind = 'conversation' and conversation_id = '$(conv "Learn K")' and status <> 'analyzing'"` | 输出 `pending_review` |
+| 4 | `q "select suggestion from learning_task where kind = 'conversation' and conversation_id = '$(conv "Learn K")'"`；`api owner@demo.test $B/api/v1/knowledge/cards/<K>` | 建议以「这张卡今天已被 Agent 改过一次。」开头；卡的 `version` 仍为 2 |
+| 5 | 浏览器以林晓打开 `/reception/knowledge?tab=learning`，打开这条「客服提交」的任务 | 顶部「改的是：摄像头识别不到：帮买家恢复使用（第 2 版）」；「判断依据与建议」里有「这张卡今天已被 Agent 改过一次。」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-077` 今天 Agent 直接生效已满 5 次：体检改卡进待审核 — 对应 `REQ-KB-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`agentreset`；`cardk` 记为 K；`cardold <K>`；`api owner@demo.test -X POST $B/api/v1/knowledge/cards -d "$(jq -c '.title="云台转不动：帮买家排查" | .conditions=["买家说云台转不动"]' $SP_TMP/card-k.json)"` 记卡 ID 为 K2；模拟今天 Agent 已直接改了 K2 五次：`q "insert into audit_log (id, merchant_id, actor_source, module, action, target_type, target_id, summary) select gen_random_uuid(), merchant_id, 'system', 'reception', 'knowledge_card_agent_updated', 'experience_card', id::text, '测试：Agent 改卡' from experience_card cross join generate_series(1, 5) g where id = '<K2>'"`；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 打开 `/reception/knowledge?tab=cards` | 页签标题下方写「今天 Agent 已直接改卡 5 / 5 次」 |
+| 2 | `carddraft "Full A"`、`carddraft "Full B"`、`carddraft "Full C"`；`dispose "Full A" sent`、`dispose "Full B" edited_sent`、`dispose "Full C" ignored`；`cardreview <K>` | `cardreview` 输出 `pending_review\|-` |
+| 3 | `q "select suggestion from learning_task where kind = 'card_review' and target_card_id = '<K>'"`；`api owner@demo.test $B/api/v1/knowledge/cards/<K>` | 建议以「今天 Agent 直接生效的改动已满 5 次。」开头；卡的 `version` 仍为 1 |
+
+后置：`cardclear`；`agentreset`。
+
+#### `TC-KB-078` AI 质量周指标：采纳率连续两周回落就暂停并通知管理员，重算不重复通知，管理员恢复 — 对应 `REQ-KB-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login admin2@demo.test`；`agentreset`；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `qweek 3 18`、`qweek 2 14`、`qweek 1 10` | 各输出 `INSERT 0 20` |
+| 2 | `aq` | 输出含 `"job":"ai.quality_weekly"` 与 `"ok":true` |
+| 3 | `q "select week_start, assist_sent, assist_ignored from ai_quality_week w join merchant m on m.id = w.merchant_id where m.name = 'Demo Store' order by week_start"` | 三行，`week_start` 是连续的三个周一，最后一个是本周一往前 7 天；后两列依次 `18\|2`、`14\|6`、`10\|10` |
+| 4 | `q "select agent_autoapply_pause_reason from merchant where name = 'Demo Store'"` | 「辅助草稿采纳率连续两周下降：90% → 70% → 50%」 |
+| 5 | `api owner@demo.test "$B/api/v1/notifications?type=usage"`、`api admin2@demo.test "$B/api/v1/notifications?type=usage"`；`q "select count(*) from audit_log where action = 'agent_autoapply_paused'"` | 两人各有一条 `event` `agent_autoapply_paused`、`title`「Agent 自动改卡已暂停」、`link` `/reception/knowledge?tab=cards` 的通知；审计计数 `1` |
+| 6 | 再执行一次 `aq`，重复第 3、5 步的查询 | `ai_quality_week` 仍是同样的三行；两人的 `agent_autoapply_paused` 通知仍各 1 条；审计计数仍为 `1` |
+| 7 | `api owner@demo.test $B/api/v1/knowledge/agent-status` | `HTTP 200`；`paused.reason` 同第 4 步，`todayApplied` 0、`dailyLimit` 5；`weeks` 3 项，最后一项 `adoption` 为 `{"num":10,"den":20}` |
+| 8 | 打开 `/reception/knowledge?tab=cards`，点横幅上的「恢复自动生效」 | 提示「已恢复自动生效」；横幅消失，改为「今天 Agent 已直接改卡 0 / 5 次」；`q "select agent_autoapply_paused_at is null from merchant where name = 'Demo Store'"` 为 `t`；`q "select count(*) from audit_log where action = 'agent_autoapply_resumed'"` 为 `1` |
+| 9 | `api owner@demo.test -X POST $B/api/v1/knowledge/agent-autoapply/resume -d '{}'` | `HTTP 200`，响应 `{"paused":null}`；`agent_autoapply_resumed` 审计计数仍为 `1` |
+
+后置：无。
+
+#### `TC-KB-079` 按卡体检复测没通过：原样发送过的问题改后变差，卡不动 — 对应 `REQ-KB-014` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3「固定为工作时间内」；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`cardold <K>`；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `carddraft "Worse A" "摄像头识别不到，会变差吗"`、`carddraft "Worse B"`、`carddraft "Worse C"`；`dispose "Worse A" sent`、`dispose "Worse B" edited_sent`、`dispose "Worse C" ignored` | 三次 `carddraft` 都输出草稿 ID；`dispose` 依次 `HTTP 201`、`HTTP 201`、`HTTP 200` |
+| 2 | `cardreview <K>` | 输出 `closed\|retest_failed` |
+| 3 | `q "select error from learning_task where kind = 'card_review' and target_card_id = '<K>'"`；`api owner@demo.test $B/api/v1/knowledge/cards/<K>` | 「原样发送过的问题「摄像头识别不到，会变差吗」改后变差：替身：改后变差」；卡的 `version` 仍为 1 |
+| 4 | 打开 `/reception/knowledge?tab=cards&card=<K>`，在「体检记录」点「查看任务」 | 体检记录一行「复测没通过」，理由「替身：客服改写过这张卡的草稿」；任务抽屉复测结果里有「客服原样发送过的「摄像头识别不到，会变差吗」：改后变差」 |
+
+后置：`cardclear`。
+
 ### 看板
 
 #### `TC-DASH-001` 组长的看板只含负责店铺 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
@@ -4539,6 +4696,20 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | --- | --- | --- |
 | 1 | 打开 `/dashboard?range=7d`，看「AI 草稿与人工回复」面板的影子回复与辅助草稿 | 两边都有已对比份数；影子回复满 10 份时显示一致率百分数 |
 | 2 | 在补充信息、事实更正、流程改变、弃用重写四类里各打开抽屉，共抽 20 条，逐条按人的判断看分类与语义一致性 | 每条都有 AI 草稿、人工回复与一句中文理由；草稿与人工回复语言不同的样例按语义判，不因语言不同判为弃用重写；在执行记录里写下与人判断不一致的条数 |
+
+后置：无。
+
+#### `TC-DASH-020` 看板「AI 质量」：近 12 周曲线、样本不足标注、样本不到 20 不暂停、组长看全商户 — 对应 `REQ-KB-015` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；按 §3 定义按卡体检与周指标函数；`qweek 3 18`、`qweek 2 14`、`qweek 1 3 5`；`aq`；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `q "select agent_autoapply_paused_at is null from merchant where name = 'Demo Store'"` | `t`（上一周采纳率只有 5 个样本，不参与暂停判断） |
+| 2 | 打开 `/dashboard`，看「AI 质量」面板 | 说明「最近 12 周，按 UTC 自然周（周一到周日）、全商户口径，不随上方的时间范围变；每周一算上一周，样本不到 10 的周不画点」；三张指标卡「辅助草稿采纳率」「影子回复一致率」「转人工率」都写「数据不足」，采纳率那张下方写「<上周起止> · 样本 5」；面板里写「Agent 改卡复测通过即生效 · 今天已直接改卡 0 / 5 次。」 |
+| 3 | 读周曲线图的读屏名（图的 `aria-label`） | 以「AI 质量周曲线：」开头，三周依次含「辅助草稿采纳率 90%（样本 20）」「辅助草稿采纳率 70%（样本 20）」「辅助草稿采纳率 数据不足（样本 5）」；横轴最后一周标「数据不足」 |
+| 4 | 以 Arif（lead@demo.test）登录打开 `/dashboard` | 同样有「AI 质量」面板，第 3 步三周的数字与林晓看到的相同 |
+| 5 | 窗口宽 390 px 打开 `/dashboard` | 「AI 质量」面板在页面内，页面没有横向滚动 |
 
 后置：无。
 

@@ -650,8 +650,8 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | Agent 自动生效已暂停 | 页签顶部显示暂停原因与日期 | RULE-KB-007；API-KB-045 | 无用例 |
-| 边界 | 没有暂停 | 页签顶部写今天 Agent 已直接改卡几次 | RULE-KB-007；API-KB-045 | 无用例 |
+| 边界 | Agent 自动生效已暂停 | 页签顶部显示暂停原因与日期 | RULE-KB-007；API-KB-045 | TC-KB-075、TC-KB-078 |
+| 边界 | 没有暂停 | 页签顶部写今天 Agent 已直接改卡几次 | RULE-KB-007；API-KB-045 | TC-KB-072、TC-KB-077 |
 
 ##### S2 写卡
 
@@ -681,7 +681,7 @@
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 边界 | 店铺在影子模式 | 效果另列影子回复与人工回复一致、部分一致、不一致的份数 | 字段 draft_review.consistency；API-KB-031 | 无用例 |
-| 边界 | 卡做过体检 | 抽屉列最近 10 次体检记录 | API-KB-031；字段 learning_task.kind | 无用例 |
+| 边界 | 卡做过体检 | 抽屉列最近 10 次体检记录 | API-KB-031；字段 learning_task.kind | TC-KB-072、TC-KB-074 |
 
 ##### S6 改卡
 
@@ -805,7 +805,7 @@
 | 边界 | 证据不足 | 任务结束，不出候选，写明缺什么 | 迁移 ENT-LearningTask analyzing→closed「insufficient」 | 不测：替身不产出这个诊断，代码仓 learning.test.ts 覆盖 |
 | 边界 | 两条内容说法相反 | 进待审核，不带拟发布内容，审核人定 | 迁移 ENT-LearningTask analyzing→pending_review「conflict」 | 不测：替身不产出这个诊断，代码仓 learning.test.ts 覆盖 |
 | 边界 | AI 建议改已有卡 | 直接复测，通过即写新版本并标还没人看过 | RULE-KB-006；迁移 ENT-LearningTask analyzing→published「agent_update」 | TC-KB-068 |
-| 边界 | 改卡复测通过但不允许自动生效 | 进待审核，建议栏写明原因 | RULE-KB-007；迁移 ENT-LearningTask analyzing→pending_review「held」 | 无用例 |
+| 边界 | 改卡复测通过但不允许自动生效 | 进待审核，建议栏写明原因 | RULE-KB-007；迁移 ENT-LearningTask analyzing→pending_review「held」 | TC-KB-076 |
 | 失败 | Agent 改卡复测没通过 | 任务结束，记「复测没通过」与原因 | 迁移 ENT-LearningTask analyzing→closed「retest_failed」；§15 复测最多 3 个回归用例 | TC-KB-069 |
 | 失败 | AI 出错或超时 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 分析 DeepSeek 60 秒 | 不测：替身不会分析失败，代码仓 learning.test.ts 覆盖 |
 | 边界 | AI 改已有卡时动了适用范围 | 产品、阶段、站点、标签、关联问答一律沿用原卡，只改标题、条件、步骤与沟通提示 | RULE-KB-006 | 不测：代码仓 learning.test.ts 覆盖 |
@@ -842,8 +842,8 @@
 | 失败 | 还没复测通过，或复测后又改了内容 | 409 `/errors/conflict`〔提示：内容改过后还没复测通过，请先复测〕 | `/errors/conflict`；API-KB-041 | TC-KB-067 |
 | 边界 | 复测没通过，或复测后又改了内容 | 界面上「发布」不可点 | API-KB-041 | TC-KB-067 |
 | 边界 | 待审核的任务 | AI 写的新卡、内容冲突与没能自动生效的改卡 | RULE-KB-006；RULE-KB-007；迁移 ENT-LearningTask analyzing→published「agent_update」 | TC-KB-068 |
-| 失败 | 发布时要改的卡在复测后被别人或 Agent 改过 | 409 `retest_required`〔提示：要改的经验卡在复测后被改过，请重新复测〕 | `/errors/conflict`；API-KB-041 | 无用例 |
-| 边界 | 发布时带要改的卡 | 写明改哪张卡第几版，给它写新版本 | 字段 experience_card_version.learning_task_id；API-KB-041 | 无用例 |
+| 失败 | 发布时要改的卡在复测后被别人或 Agent 改过 | 409 `retest_required`〔提示：要改的经验卡在复测后被改过，请重新复测〕 | `/errors/conflict`；API-KB-041 | TC-KB-075 |
+| 边界 | 发布时带要改的卡 | 写明改哪张卡第几版，给它写新版本 | 字段 experience_card_version.learning_task_id；API-KB-041 | TC-KB-075 |
 | 边界 | 审核人发布 AI 写的新卡 | 新卡来源记为成员（审核人） | 字段 experience_card.source | TC-KB-067 |
 | 边界 | 无需更新或驳回 | 任务结束，材料与结论一直保留 | 迁移 ENT-LearningTask pending_review→closed「close」；API-KB-043 | TC-KB-070 |
 
@@ -907,76 +907,76 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 近 7 天用到它的草稿不到 3 份 | 不体检 | 迁移 ENT-LearningTask [*]→analyzing「review」 | 无用例 |
-| 边界 | 用例里没有问题信号 | 不体检 | 迁移 ENT-LearningTask [*]→analyzing「review」 | 无用例 |
-| 边界 | 卡在最近 24 小时内有新版本 | 不体检，等下一天 | 迁移 ENT-LearningTask [*]→analyzing「review」 | 无用例 |
+| 边界 | 近 7 天用到它的草稿不到 3 份 | 不体检 | 迁移 ENT-LearningTask [*]→analyzing「review」 | TC-KB-073 |
+| 边界 | 用例里没有问题信号 | 不体检 | 迁移 ENT-LearningTask [*]→analyzing「review」 | TC-KB-073 |
+| 边界 | 卡在最近 24 小时内有新版本 | 不体检，等下一天 | 迁移 ENT-LearningTask [*]→analyzing「review」 | TC-KB-073 |
 | 边界 | 一个商户可体检的卡超过 10 张 | 按问题比例取前 10 张 | §15 每商户最多 10 张卡 | 无用例 |
-| 并发 | 同一天重跑体检 | 每张卡每天只建一个体检任务 | 竞态「同一张卡一天体检两次」 | 无用例 |
+| 并发 | 同一天重跑体检 | 每张卡每天只建一个体检任务 | 竞态「同一张卡一天体检两次」 | TC-KB-073 |
 
 ##### S2 判断
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 边界 | 用例超过 12 个 | 取最近的 12 个，有问题的优先 | 字段 learning_task.evidence | 无用例 |
-| 边界 | AI 判断不用改，或卡在体检前后被下架、删除 | 任务结束，结论「无需更新」，不改成新卡 | 迁移 ENT-LearningTask analyzing→closed「keep」 | 无用例 |
-| 边界 | AI 改卡时动了适用范围 | 产品、阶段与站点沿用原卡 | RULE-KB-006；字段 learning_task.proposal | 无用例 |
-| 失败 | AI 出错或超时 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 60 秒超时，出错标分析失败 | 无用例 |
+| 边界 | AI 判断不用改，或卡在体检前后被下架、删除 | 任务结束，结论「无需更新」，不改成新卡 | 迁移 ENT-LearningTask analyzing→closed「keep」 | TC-KB-074 |
+| 边界 | AI 改卡时动了适用范围 | 产品、阶段与站点沿用原卡 | RULE-KB-006；字段 learning_task.proposal | 不测：替身改卡不动范围；代码仓 card-review.test.ts 覆盖 |
+| 失败 | AI 出错或超时 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 60 秒超时，出错标分析失败 | 不测：替身不会分析失败 |
 
 ##### S3 复测
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 失败 | 代表性用例改后没用到这张卡 | 复测不通过，任务结束，卡不动 | 迁移 ENT-LearningTask analyzing→closed「retest_failed」；§15 回归用例最多 6 个 | 无用例 |
-| 失败 | 原样发送的用例或回归用例变差 | 复测不通过，列出变差的用例 | 迁移 ENT-LearningTask analyzing→closed「retest_failed」；§15 回归用例最多 6 个 | 无用例 |
-| 并发 | 复测期间卡被人改过 | 这次不写入，标分析失败 | 迁移 ENT-LearningTask analyzing→failed「changed」；竞态「两人同时改同一张经验卡」 | 无用例 |
+| 失败 | 代表性用例改后没用到这张卡 | 复测不通过，任务结束，卡不动 | 迁移 ENT-LearningTask analyzing→closed「retest_failed」；§15 回归用例最多 6 个 | 不测：替身总用拟发布的卡，造不出没用到的情形 |
+| 失败 | 原样发送的用例或回归用例变差 | 复测不通过，列出变差的用例 | 迁移 ENT-LearningTask analyzing→closed「retest_failed」；§15 回归用例最多 6 个 | TC-KB-079 |
+| 并发 | 复测期间卡被人改过 | 这次不写入，标分析失败 | 迁移 ENT-LearningTask analyzing→failed「changed」；竞态「两人同时改同一张经验卡」 | 不测：要在复测几秒内改卡；代码仓 learning.test.ts 覆盖 |
 
 ##### S4 生效
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 允许自动生效 | 写 Agent 版本，标还没人看过 | RULE-KB-007；迁移 ENT-LearningTask analyzing→published「agent_update」 | 无用例 |
-| 边界 | 自动生效已暂停 | 进待审核，建议栏写明暂停原因 | RULE-KB-007；迁移 ENT-LearningTask analyzing→pending_review「held」 | 无用例 |
-| 边界 | 这张卡今天已被 Agent 改过 | 进待审核 | RULE-KB-007；迁移 ENT-LearningTask analyzing→pending_review「held」 | 无用例 |
-| 边界 | 今天 Agent 直接生效已满 5 次 | 进待审核 | RULE-KB-007；§15 Agent 直接生效每商户每天 ≤ 5 次 | 无用例 |
-| 并发 | 两个任务同时要直接生效 | 合计不超过当天上限 | 竞态「同一商户 Agent 改卡越过当天上限」 | 无用例 |
+| 边界 | 允许自动生效 | 写 Agent 版本，标还没人看过 | RULE-KB-007；迁移 ENT-LearningTask analyzing→published「agent_update」 | TC-KB-072 |
+| 边界 | 自动生效已暂停 | 进待审核，建议栏写明暂停原因 | RULE-KB-007；迁移 ENT-LearningTask analyzing→pending_review「held」 | TC-KB-075 |
+| 边界 | 这张卡今天已被 Agent 改过 | 进待审核 | RULE-KB-007；迁移 ENT-LearningTask analyzing→pending_review「held」 | TC-KB-076 |
+| 边界 | 今天 Agent 直接生效已满 5 次 | 进待审核 | RULE-KB-007；§15 Agent 直接生效每商户每天 ≤ 5 次 | TC-KB-077 |
+| 并发 | 两个任务同时要直接生效 | 合计不超过当天上限 | 竞态「同一商户 Agent 改卡越过当天上限」 | 不测：并发；代码仓 card-review.test.ts 覆盖 |
 
 ##### S5 审核
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 任务带要改的卡 | 写明改哪张卡第几版，发布写新版本 | API-KB-041；字段 learning_task.target_card_id | 无用例 |
-| 失败 | 复测后卡又被改过 | 409 `retest_required`，重新复测后才能发布 | `/errors/conflict`；API-KB-041 | 无用例 |
-| 边界 | 体检任务 | 标「按卡体检」，原始消息是代表性用例 | 字段 learning_task.kind | 无用例 |
+| 边界 | 任务带要改的卡 | 写明改哪张卡第几版，发布写新版本 | API-KB-041；字段 learning_task.target_card_id | TC-KB-075 |
+| 失败 | 复测后卡又被改过 | 409 `retest_required`，重新复测后才能发布 | `/errors/conflict`；API-KB-041 | TC-KB-075 |
+| 边界 | 体检任务 | 标「按卡体检」，原始消息是代表性用例 | 字段 learning_task.kind | TC-KB-072 |
 
 ##### S6 体检记录
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 卡体检过 | 列最近 10 次的结论与理由，改了卡的链到版本 | API-KB-031；字段 experience_card_version.learning_task_id | 无用例 |
+| 边界 | 卡体检过 | 列最近 10 次的结论与理由，改了卡的链到版本 | API-KB-031；字段 experience_card_version.learning_task_id | TC-KB-072、TC-KB-074、TC-KB-079 |
 
 ##### S7 周指标
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 某项一周样本不到 20 | 这一项不参与暂停判断 | RULE-KB-007；字段 ai_quality_week.assist_sent | 无用例 |
-| 边界 | 某项连续两周各降 5 个百分点以上 | 暂停自动生效，通知管理员 | 迁移 ENT-Merchant running→paused「brake」 | 无用例 |
-| 边界 | 已经暂停 | 只记周指标，不重复通知 | 迁移 ENT-Merchant running→paused「brake」 | 无用例 |
-| 边界 | 同一周重算 | 覆盖这一周的数字 | 字段 ai_quality_week.week_start | 无用例 |
+| 边界 | 某项一周样本不到 20 | 这一项不参与暂停判断 | RULE-KB-007；字段 ai_quality_week.assist_sent | TC-DASH-020 |
+| 边界 | 某项连续两周各降 5 个百分点以上 | 暂停自动生效，通知管理员 | 迁移 ENT-Merchant running→paused「brake」 | TC-KB-078 |
+| 边界 | 已经暂停 | 只记周指标，不重复通知 | 迁移 ENT-Merchant running→paused「brake」 | TC-KB-078 |
+| 边界 | 同一周重算 | 覆盖这一周的数字 | 字段 ai_quality_week.week_start | TC-KB-078 |
 
 ##### S8 恢复
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 管理员恢复 | 清掉暂停，改卡复测通过即生效 | 迁移 ENT-Merchant paused→running「resume」 | 无用例 |
-| 边界 | 没有暂停时恢复 | 照常返回，不写审计 | API-KB-044 | 无用例 |
-| 失败 | 组长调恢复接口 | 403 `/errors/forbidden` | `/errors/forbidden`；API-KB-044 | 无用例 |
+| 边界 | 管理员恢复 | 清掉暂停，改卡复测通过即生效 | 迁移 ENT-Merchant paused→running「resume」 | TC-KB-078 |
+| 边界 | 没有暂停时恢复 | 照常返回，不写审计 | API-KB-044 | TC-KB-078 |
+| 失败 | 组长调恢复接口 | 403 `/errors/forbidden` | `/errors/forbidden`；API-KB-044 | TC-PERM-010 |
 
 ##### S9 看板
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 某周样本不到 10 | 那一周的点显示「数据不足」 | API-KB-045 | 无用例 |
-| 边界 | 组长看 | 看全商户的比率与样本数 | §10 行级可见性 | 无用例 |
+| 边界 | 某周样本不到 10 | 那一周的点显示「数据不足」 | API-KB-045 | TC-DASH-020 |
+| 边界 | 组长看 | 看全商户的比率与样本数 | §10 行级可见性 | TC-DASH-020 |
 
 #### 待决策
 
