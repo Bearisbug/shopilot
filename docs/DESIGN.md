@@ -16,6 +16,7 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-10-22 | v1.36 | FLOW-KB-LEARN、FLOW-KB-CARD-REVIEW、ENT-AgentRun、ENT-LearningTask、API-KB-039、PAGE-RECEPTION-KB、ADR-019 | 学习分析与按卡体检改由 Agent 先查证、自测再交回结论，审核人能看到每次分析的过程 | 功能 |
 | 2026-10-22 | v1.35 | PAGE-SITE | 英文官网整页的语言标记改为英文，中文官网与产品内页面仍标中文 | 缺陷修复 |
 | 2026-10-22 | v1.34 | FLOW-KB-CARD-REVIEW、FLOW-KB-CARD、FLOW-KB-LEARN、RULE-KB-007 | 评审修正：名额按审计计数，快照只取一段，超时从开始执行算 | 功能 |
 | 2026-10-22 | v1.34 | REQ-KB-014、REQ-KB-015、FLOW-KB-CARD-REVIEW、FLOW-KB-LEARN、FLOW-KB-CARD、FLOW-AI-CARD、FLOW-DRAFT-COMPARE、RULE-KB-006、RULE-KB-007、INV-KB-010、ENT-LearningTask、ENT-AiQualityWeek、ENT-Merchant、API-KB-031、API-KB-038、API-KB-044、API-KB-045、API-CONV-019、PAGE-RECEPTION-KB、ADR-018 | 新增按卡定时体检与 AI 质量周指标：指标连续回落时 Agent 改卡改为先审 | 功能 |
@@ -762,9 +763,9 @@
 1. S1 员工点「提交学习」勾选 1–20 条消息，可附备注（API-CONV-018） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/conversation-pane.tsx、src/app/(app)/wb/learning-bar.tsx〕
 2. S2 Agent 每天挑最近 7 天已结束、有人工处理的段 〔无界面〕
 3. S3 快照消息与前后对话，按卖家 SKU 等识别产品 〔无界面〕
-4. S4 找相似卡与相关问答，AI 下诊断与建议 〔无界面〕
+4. S4 Agent 查相似卡与问答、自测后交回诊断与建议 〔无界面〕
 5. S5 新卡做内部测试：比较加卡前后的回答 〔无界面〕
-6. S6 审核人在「学习」页签打开任务，看六样材料（API-KB-039） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning/learning-tab.tsx、src/app/(app)/reception/knowledge/learning/learning-drawer.tsx〕
+6. S6 审核人在「学习」页签打开任务，看材料与 Agent 过程（API-KB-039） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning/learning-tab.tsx、src/app/(app)/reception/knowledge/learning/learning-drawer.tsx〕
 7. S7 改拟发布的卡后复测（API-KB-040） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning/learning-drawer.tsx〕
 8. S8 复测通过后发布，建卡或写新版本（API-KB-041） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning/learning-drawer.tsx〕
 9. S9 员工在会话里看到「已提交学习」与结论（API-CONV-019） 〔界面：Web 工作台对话栏｜src/app/(app)/wb/timeline.tsx〕
@@ -810,7 +811,10 @@
 | 边界 | AI 建议改已有卡 | 直接复测，通过即写新版本并标还没人看过 | RULE-KB-006；迁移 ENT-LearningTask analyzing→published「agent_update」 | TC-KB-068 |
 | 边界 | 改卡复测通过但不允许自动生效 | 进待审核，建议栏写明原因 | RULE-KB-007；迁移 ENT-LearningTask analyzing→pending_review「held」 | TC-KB-076 |
 | 失败 | Agent 改卡复测没通过 | 任务结束，记「复测没通过」与原因 | 迁移 ENT-LearningTask analyzing→closed「retest_failed」；§15 复测最多 3 个回归用例 | TC-KB-069 |
-| 失败 | AI 出错或超时 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 分析 DeepSeek 60 秒 | 不测：替身不会分析失败，代码仓 learning.test.ts 覆盖 |
+| 失败 | Agent 出错、超时或超出用量上限 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 Agent 每次最长 3 分钟 | 不测：替身不会分析失败，代码仓 runtime.test.ts 覆盖 |
+| 失败 | Agent 没有提交结论就结束 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；字段 agent_run.error；§15 到上限后工具只提示直接提交 | 不测：代码仓 runtime.test.ts 覆盖 |
+| 边界 | Agent 提交的卡不完整或跳转不对 | 退回让 Agent 改好再交，只认第一次合规的提交 | 字段 agent_run.steps；ADR-019 | 不测：代码仓 runtime.test.ts 覆盖 |
+| 边界 | 工具调用或自测次数到上限 | 工具不再执行，提示 Agent 直接提交 | §15 工具调用每次 ≤ 20 次 | 不测：代码仓 runtime.test.ts 覆盖 |
 | 边界 | AI 改已有卡时动了适用范围 | 产品、阶段、站点、标签、关联问答一律沿用原卡，只改标题、条件、步骤与沟通提示 | RULE-KB-006 | 不测：代码仓 learning.test.ts 覆盖 |
 | 并发 | 分析与复测期间要改的卡被人或别的任务改过 | 这次不写入，标分析失败并写明卡已是第几版，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「changed」 | 不测：代码仓 learning.test.ts 覆盖 |
 | 并发 | 分析期间要改的卡被下架或删除 | 这次的内容当作新卡进待审核，审核人重新复测 | 迁移 ENT-LearningTask analyzing→pending_review「propose」 | 不测：代码仓 learning.test.ts 覆盖 |
@@ -827,6 +831,7 @@
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
 | 失败 | 员工打开「学习」页签 | 403 `/errors/forbidden` | `/errors/forbidden`；API-KB-038 | TC-PERM-009 |
+| 边界 | 任务分析过 | 「Agent 过程」列每次分析的工具步骤、用时、轮数与 token | API-KB-039；字段 agent_run.steps | 无用例 |
 
 ##### S7 复测
 
@@ -866,7 +871,7 @@
 
 #### 关联
 
-- **契约锚点**：API-CONV-018；API-CONV-019；API-KB-038；API-KB-039；API-KB-040；API-KB-041；API-KB-042；API-KB-043；ENT-LearningTask；迁移 ENT-LearningTask [*]→analyzing「submit」；RULE-KB-006；RULE-KB-007；ADR-017
+- **契约锚点**：API-CONV-018；API-CONV-019；API-KB-038；API-KB-039；API-KB-040；API-KB-041；API-KB-042；API-KB-043；ENT-LearningTask；ENT-AgentRun；迁移 ENT-LearningTask [*]→analyzing「submit」；RULE-KB-006；RULE-KB-007；ADR-017；ADR-019
 - **上游**：FLOW-AI-DRAFT、FLOW-AI-CARD、FLOW-DRAFT-COMPARE、FLOW-KB-CARD-REVIEW
 - **下游**：FLOW-KB-CARD
 - **守住的不变量**：INV-KB-008、INV-KB-009
@@ -875,8 +880,8 @@
 | --- | --- |
 | S1 | `src/app/(app)/wb/conversation-pane.tsx#ConversationPane`；`src/app/(app)/wb/learning-bar.tsx#LearningBar`；`src/server/knowledge/learning.ts#submitLearning`；`src/server/knowledge/learning.ts#takeSubmitQuota` |
 | S2 | `src/server/knowledge/learning-analyze.ts#pickLearning`；`src/server/knowledge/learning-analyze.ts#pickCandidates` |
-| S3–S5 | `src/server/knowledge/learning.ts#submitLearning`；`src/server/products/dictionary.ts#identifyProductsWithBasis`；`src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/ai/simulate.ts#simulateDraft` |
-| S6 | `src/app/(app)/reception/knowledge/learning/learning-tab.tsx#LearningTab`；`src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/server/knowledge/learning.ts#listLearning`；`src/server/knowledge/learning.ts#getLearning` |
+| S3–S5 | `src/server/knowledge/learning.ts#submitLearning`；`src/server/products/dictionary.ts#identifyProductsWithBasis`；`src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/agent/runtime.ts#runAgent`；`src/server/agent/tools/knowledge.ts#learnTools`；`src/server/ai/simulate.ts#simulateDraft` |
+| S6 | `src/app/(app)/reception/knowledge/learning/learning-tab.tsx#LearningTab`；`src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#AgentRuns`；`src/server/knowledge/learning.ts#listLearning`；`src/server/knowledge/learning.ts#getLearning` |
 | S7–S8 | `src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/app/(app)/reception/knowledge/card-fields.tsx#CardFields`；`src/server/knowledge/learning.ts#retestLearning`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/learning.ts#publishLearning`；`src/server/knowledge/learning.ts#closeLearning` |
 | S9 | `src/app/(app)/wb/timeline.tsx#Timeline`；`src/app/(app)/wb/learning-bar.tsx#useLearnedMessages`；`src/server/knowledge/learning.ts#conversationLearning` |
 
@@ -893,7 +898,7 @@
 #### 主流程
 
 1. S1 每天挑出有问题信号的卡，每卡建一个体检任务 〔无界面〕
-2. S2 汇总这张卡近 7 天的用例，AI 判断要不要改 〔无界面〕
+2. S2 Agent 看这张卡近 7 天的用例，自测后交回改不改 〔无界面〕
 3. S3 要改就复测，原样发送的用例不能变差 〔无界面〕
 4. S4 按 RULE-KB-007 直接生效或进待审核 〔无界面〕
 5. S5 审核人处理按卡体检的待审核任务（API-KB-041） 〔界面：Web 知识库页｜src/app/(app)/reception/knowledge/learning/learning-drawer.tsx〕
@@ -923,7 +928,8 @@
 | 边界 | 用例超过 12 个 | 取最近的 12 个，有问题的优先 | 字段 learning_task.evidence | 无用例 |
 | 边界 | AI 判断不用改，或卡在体检前后被下架、删除 | 任务结束，结论「无需更新」，不改成新卡 | 迁移 ENT-LearningTask analyzing→closed「keep」 | TC-KB-074 |
 | 边界 | AI 改卡时动了适用范围 | 产品、阶段与站点沿用原卡 | RULE-KB-006；字段 learning_task.proposal | 不测：替身改卡不动范围；代码仓 card-review.test.ts 覆盖 |
-| 失败 | AI 出错或超时 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 60 秒超时，出错标分析失败 | 不测：替身不会分析失败 |
+| 失败 | Agent 出错、超时或超出用量上限 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 Agent 每次最长 3 分钟 | 不测：替身不会分析失败，代码仓 runtime.test.ts 覆盖 |
+| 边界 | Agent 用拟改的卡自测 | 在用例上模拟出稿看新回答；交回后照常复测，自测不代替复测 | §15 模拟出稿每次分析 ≤ 6 次；ADR-019 | 无用例 |
 
 ##### S3 复测
 
@@ -989,7 +995,7 @@
 
 #### 关联
 
-- **契约锚点**：API-KB-031；API-KB-039；API-KB-040；API-KB-041；API-KB-044；API-KB-045；ENT-LearningTask；ENT-AiQualityWeek；迁移 ENT-LearningTask [*]→analyzing「review」；迁移 ENT-Merchant running→paused「brake」；RULE-KB-007；ADR-018
+- **契约锚点**：API-KB-031；API-KB-039；API-KB-040；API-KB-041；API-KB-044；API-KB-045；ENT-LearningTask；ENT-AiQualityWeek；ENT-AgentRun；迁移 ENT-LearningTask [*]→analyzing「review」；迁移 ENT-Merchant running→paused「brake」；RULE-KB-007；ADR-018；ADR-019
 - **上游**：FLOW-AI-CARD、FLOW-DRAFT-COMPARE
 - **下游**：FLOW-KB-CARD、FLOW-KB-LEARN
 - **守住的不变量**：INV-KB-008、INV-KB-009、INV-KB-010
@@ -997,7 +1003,7 @@
 | 步骤 | 位置 |
 | --- | --- |
 | S1 | `src/server/knowledge/card-review.ts#pickCardsForReview`；`src/server/knowledge/card-review.ts#reviewCards` |
-| S2–S4 | `src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/knowledge/learning-analyze.ts#analyzeCardReview`；`src/server/knowledge/card-review.ts#loadReviewCases`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/card-review.ts#sentCases`；`src/server/knowledge/agent-apply.ts#agentApplyAllowed` |
+| S2–S4 | `src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/knowledge/learning-analyze.ts#analyzeCardReview`；`src/server/agent/runtime.ts#runAgent`；`src/server/agent/tools/knowledge.ts#reviewTools`；`src/server/knowledge/card-review.ts#loadReviewCases`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/card-review.ts#sentCases`；`src/server/knowledge/agent-apply.ts#agentApplyAllowed` |
 | S5 | `src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/server/knowledge/learning.ts#publishLearning` |
 | S6 | `src/app/(app)/reception/knowledge/card-drawer.tsx#CardDrawer`；`src/server/knowledge/cards.ts#getCard` |
 | S7 | `src/server/analysis/quality.ts#qualityWeekly`；`src/server/analysis/quality.ts#computeQualityWeek`；`src/server/analysis/quality.ts#checkBrake` |
@@ -2036,6 +2042,9 @@
 | 代表性用例 | 按卡体检里问题最明显的那个用例，复测时改后的回答必须用到这张卡 | `learning_task.messages` | `ENT-LearningTask` |
 | AI 质量周指标 | 每周一算上一周的辅助草稿采纳率、影子一致率与转人工率，带样本数 | `ai_quality_week` | `ENT-AiQualityWeek` |
 | 自动生效暂停 | 周指标连续回落时，Agent 改卡不再直接生效而进待审核，直到管理员恢复 | `merchant.agent_autoapply_paused_at` | `ENT-Merchant` |
+| Agent 服务 | 多轮、要调工具的 AI 任务统一走的运行层：模型调平台工具查证、自测，最后提交结论，写库由代码做 | `src/server/agent` | `ENT-AgentRun` |
+| 平台工具 | 交给 Agent 调用的平台能力，分只读与写两级，按用途登记；本期只有知识库只读工具与提交 | `src/server/agent/tools` | — |
+| Agent 运行 | Agent 服务的一次运行记录：用途、模型、状态、轮数、工具步骤与 token | `agent_run` | `ENT-AgentRun` |
 | 审计日志 | 所有写操作与系统动作的追加记录，也是埋点事件的落点 | `audit_log` | `ENT-AuditLog` |
 | 通知 | 发给某个成员的站内消息 | `notification` | `ENT-Notification` |
 | 发件箱 | 本期代替真实发信：Shopilot 要发的邮件写在这里，开发页可看 | `email_outbox` | `ENT-EmailOutbox` |
@@ -2280,7 +2289,10 @@ flowchart LR
   end
   subgraph worker[Worker 进程]
     jobs[pg-boss 任务与定时]
+    agentsvc[Agent 服务 · runAgent]
+    tools[平台工具 · 只读与提交]
   end
+  cli[Agent 子进程 · Claude Agent SDK CLI · 每次运行一个]
   subgraph mock[模拟平台 · 同一 Next.js 进程 · MOCK_PLATFORM=1]
     mockapi[Shopee / TikTok 接口子集 /mock/*]
     sim[模拟器与授权页]
@@ -2288,6 +2300,7 @@ flowchart LR
   db[(PostgreSQL 17)]
   files[(DATA_DIR 本地文件)]
   ds[DeepSeek API]
+  dsa[DeepSeek Anthropic 兼容接口]
   cfs[Cloudflare AI Search · 每商户一个实例]
   fs[飞书开放平台 · 群自定义机器人]
   real[真实 Shopee / TikTok 开放平台 · 本期不接]
@@ -2303,6 +2316,11 @@ flowchart LR
   jobs --> core
   jobs --> ds
   core --> ds
+  jobs -->|学习分析、按卡体检| agentsvc
+  agentsvc -->|起子进程，只放行本次的工具| cli
+  cli -->|多轮对话 · deepseek-flash| dsa
+  cli -.->|工具调用回到 Worker 进程| tools
+  tools -->|只查本商户| core
   jobs -->|资料入库、出稿检索| cfs
   core -->|测试问答检索| cfs
   jobs -->|待认领卡、超时卡| fs
@@ -2317,6 +2335,13 @@ flowchart LR
 - 前端「我调谁」：页面只调 `/api/v1/*`、`/api/auth/*`；不直接调平台、不直连数据库。
 - 后端「谁调我」：浏览器（成员会话 cookie）、平台回调（签名，§10 免列）、Worker（进程内调用领域服务，不走 HTTP）。
 - 模拟平台与 Shopilot 同进程部署只为本机方便；它与 Shopilot 之间只经 HTTP 与签名回调交互，与真实平台一样，不共享领域代码（ADR-004）。
+- Agent 服务（ADR-019）：多轮、要调工具的 AI 任务统一经它运行，本期是学习分析与按卡体检。
+- 出稿、翻译、草稿对比、复测判定这类单次调用照旧直连 DeepSeek，不经 Agent 服务。
+- 平台工具按用途登记，商户与任务由服务端带进工具，模型改不了。
+- Agent 只能用「提交」交回结论，不能直接写库。
+- 名额闸、复测、写卡版本与审计都在代码里，Agent 交回的结论照常过这些检查。
+- 写工具（以后全量托管时的发消息、建工单这类）每次调用必须写审计，本期没有写工具。
+- Agent 服务另依赖 DeepSeek 的 Anthropic 兼容接口与 Claude Agent SDK，见 §17 依赖表。
 - 外部依赖与 §17 一一对应：DeepSeek、Cloudflare AI Search、飞书开放平台与群自定义机器人、平台开放接口（本期为模拟平台）、PostgreSQL、本地文件。邮件本期不出进程（写 `email_outbox`）。
 
 ## 7. 数据模型 / 领域实体
@@ -2368,6 +2393,7 @@ flowchart LR
 | `ENT-CardVersion` | 卡版本 | 每次内容变化一行：完整快照、谁写的、由哪个学习任务产生 |
 | `ENT-LearningTask` | 学习任务 | 类型（会话学习、按卡体检）、消息快照、产品、诊断与结论、拟发布内容、体检证据、测试与复测结果 |
 | `ENT-AiQualityWeek` | AI 质量周指标 | 商户 × 周：辅助草稿处置、影子对比、AI 接待段转人工的份数 |
+| `ENT-AgentRun` | Agent 运行 | 一次运行：用途、所属学习任务、模型、状态、轮数、工具步骤与 token |
 | `ENT-TicketTypeConfig` | 工单类型配置 | 商户 × 类型 |
 | `ENT-Subscription` | 订阅 | 套餐、周期、自动续费、模拟付款方式 |
 | `ENT-UsagePeriod` | 用量周期 | 当期出稿数、额度、提醒记录 |
@@ -2980,6 +3006,8 @@ erDiagram
   EXPERIENCE_CARD ||--o{ LEARNING_TASK : "要改或发布成"
   EXPERIENCE_CARD ||--o{ DRAFT : "用到"
   MERCHANT ||--o{ AI_QUALITY_WEEK : "周指标"
+  LEARNING_TASK ||--o{ AGENT_RUN : "分析过程"
+  MERCHANT ||--o{ AGENT_RUN : "Agent 运行"
   EXPERIENCE_CARD {
     uuid id PK
     uuid merchant_id FK
@@ -3063,6 +3091,23 @@ erDiagram
     int ai_segments
     int ai_handoffs
     timestamptz computed_at
+  }
+  AGENT_RUN {
+    uuid id PK
+    uuid merchant_id FK
+    uuid learning_task_id FK
+    text purpose
+    text model
+    text status
+    text error
+    int turns
+    int tool_calls
+    int input_tokens
+    int cache_read_tokens
+    int output_tokens
+    jsonb steps
+    timestamptz started_at
+    timestamptz finished_at
   }
 ```
 
@@ -3403,7 +3448,7 @@ erDiagram
 | `API-KB-036` | `POST /api/v1/knowledge/cards/{id}/rollback` | REQ-KB-011、REQ-KB-013 | `{ version, toVersion }` | 200 `{ card }`，用第 toVersion 版内容写新版本，记「回退到第 n 版」，清「还没人看过」；旧版本里已删除的产品与问答不再带上；审计 `EVT:knowledge_card_rolled_back` | 404 `/errors/not-found`（没有这个版本）；409 `/errors/conflict`（`code: version_conflict`） | 按版本号守卫 |
 | `API-KB-037` | `POST /api/v1/knowledge/cards/{id}/seen` | REQ-KB-013 | `{ version }` | 200 `{ card }`，清「还没人看过」，在 Agent 写的那个版本上记看过的人与时间；审计 `EVT:knowledge_card_seen` | 409 `/errors/conflict`（`code: version_conflict`，看的时候又有新版本） | 按版本号守卫；已看过的再标结果不变 |
 | `API-KB-038` | `GET /api/v1/knowledge/learning` | REQ-KB-013、REQ-KB-014 | `?status=&source=member\|agent&kind=conversation\|card_review&result=&cursor=&limit=` | `{ items[学习任务视图], counts{ analyzing, pending_review, published, closed, failed }, nextCursor }`，按创建时间倒序 | 422 `/errors/validation`（游标无效） | no-store |
-| `API-KB-039` | `GET /api/v1/knowledge/learning/{id}` | REQ-KB-013 | — | `{ task }` | 404 `/errors/not-found` | no-store |
+| `API-KB-039` | `GET /api/v1/knowledge/learning/{id}` | REQ-KB-013 | — | `{ task, agentRuns[Agent 运行视图] }`，`agentRuns` 是这个任务最近 5 次 Agent 运行、新的在前 | 404 `/errors/not-found` | no-store |
 | `API-KB-040` | `POST /api/v1/knowledge/learning/{id}/retest` | REQ-KB-013 | `{ version, card, targetCardId? }`（审核人编辑后的拟发布内容） | 200 `{ task }`，同步复测，服务端 ≤ 60 秒，结果写进 `retest`；不发布 | 409 `/errors/conflict`（`code: version_conflict` 或 `invalid_state`）；422 `/errors/validation`；502 `/errors/ai-unavailable` | 不幂等；前端超时 90 秒，不自动重试 |
 | `API-KB-041` | `POST /api/v1/knowledge/learning/{id}/publish` | REQ-KB-013 | `{ version, card, targetCardId? }` | 200 `{ task }`（已发布），新建卡或给已有卡写新版本，版本记由这个任务产生；审计 `EVT:learning_published` | 409 `/errors/conflict`（`code: retest_required` 还没复测通过或内容与复测时不同；`version_conflict`；`invalid_state`） | 按版本号守卫 |
 | `API-KB-042` | `POST /api/v1/knowledge/learning/{id}/reanalyze` | REQ-KB-013 | `{ version }` | 202 `{ task }`（分析中），重新排 `learning.analyze` | 409 `/errors/conflict`（`code: invalid_state`，不是分析失败） | 按版本号守卫 |
@@ -3443,6 +3488,13 @@ erDiagram
 - 内部测试：`test{ question, before, after }`，每个回答 `{ reply, confidence, handoff, handoffReason, insufficient, card?, latencyMs }`
 - 复测：`retest{ at, proposalHash, passed, failReason, original, regressions[{ taskId, question, before, after, notWorse, reason }] }`
 - 体检证据：`evidence{ draftIds[], counts{ sent, edited, ignored, shadowSame, shadowPartial, shadowDifferent, handoffs } }`，只有按卡体检才有；按卡体检的回归用例里原样发送的用例 `taskId` 为空
+
+Agent 运行视图（`API-KB-039`）：
+
+- 字段：`{ id, purpose: learn\|card_review, status: running\|succeeded\|failed }`
+- 字段（续）：`{ model, error, startedAt, durationMs, turns, toolCalls }`
+- 字段（续）：`{ tokens?{ input, cacheRead, output }, steps[{ tool, ms, ok, note }] }`
+- 步骤只有工具名、耗时与结果摘要，不含买家原话与模型写的检索词
 
 ### 8.9 看板、用量与套餐
 
@@ -3887,6 +3939,22 @@ AI 质量周指标（`ai_quality_week`，迁移 0018；商户与周起始唯一�
 | 影子对比 | `consistency` | `ai_quality_week.shadow_same`、`shadow_partial`、`shadow_different` | int | 是 | 这一周对比过的影子回复按一致性的份数；一致率 = 一致 / 三者之和 | 份 | — |
 | AI 接待段 | `handoff` | `ai_quality_week.ai_segments`、`ai_handoffs` | int | 是 | 这一周开始的 AI 接待段与其中转人工的段；口径同 §3 | 段 | — |
 | 计算时间 | — | `ai_quality_week.computed_at` | timestamptz | 是 | 每次计算覆盖 | — | — |
+
+Agent 运行（`agent_run`，迁移 0019；随学习任务、商户一起删除）：
+
+| 字段 | API 名 | DB 名 | 类型 | 必填 | 枚举/约束 | 单位/精度 | PII |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 用途 | `purpose` | `agent_run.purpose` | enum | 是 | `learn` 会话学习的分析、`card_review` 按卡体检的分析；新用途只加值 | — | — |
+| 所属学习任务 | — | `agent_run.learning_task_id` | uuid | 否 | 本期的用途都有；任务删除时一并删除 | — | — |
+| 模型 | `model` | `agent_run.model` | text | 是 | 固定 `deepseek-flash`，替身模式为 `stub` | — | — |
+| 运行状态 | `status` | `agent_run.status` | enum | 是 | `running` / `succeeded` / `failed`；交回合规结论才算 `succeeded` | — | — |
+| 失败原因 | `error` | `agent_run.error` | text | 否 | `failed` 时必有：超时、超出用量、没有提交、模型出错或运行中断 | — | — |
+| 轮数 | `turns` | `agent_run.turns` | int | 否 | SDK 报的模型往返次数，结束时写 | 次 | — |
+| 工具调用次数 | `toolCalls` | `agent_run.tool_calls` | int | 是 | 含提交，默认 0 | 次 | — |
+| token | `tokens` | `agent_run.input_tokens`、`cache_read_tokens`、`output_tokens` | int | 否 | Agent 自己的输入、缓存命中与输出；自测与复测的调用不在内 | token | — |
+| 工具步骤 | `steps` | `agent_run.steps` | jsonb | 是 | `[{ tool, ms, ok, note }]`，按调用顺序，≤ 30 条；note 只写结果摘要 | — | — |
+| 开始时间 | `startedAt` | `agent_run.started_at` | timestamptz | 是 | 拿到并发名额、子进程起之前写 | — | — |
+| 结束时间 | `durationMs` | `agent_run.finished_at` | timestamptz | 否 | 结束时写；运行中超过 15 分钟由补扫标「运行中断」 | 毫秒 | — |
 
 ### 9.7 飞书推送
 
@@ -4616,7 +4684,7 @@ stateDiagram-v2
 | analyzing → closed | need_qa | 诊断为知识缺失 | 结论「建议补问答」 | Worker | 内部任务 `learning.analyze` |
 | analyzing → closed | insufficient | 诊断为证据不足 | 结论「证据不足」，写明缺什么 | Worker | 内部任务 `learning.analyze` |
 | analyzing → closed | retest_failed | AI 建议改已有卡（含按卡体检）且 复测没通过 | 结论「复测没通过」，记原因与复测结果，卡不变 | Worker | 内部任务 `learning.analyze` |
-| analyzing → failed | fail | AI 出错、超时或其他异常 | 写失败原因 | Worker | 内部任务 `learning.analyze` |
+| analyzing → failed | fail | Agent 出错、超时、超出用量、没有交回结论，或复测时 AI 出错，或其他异常 | 写失败原因，Agent 运行记失败 | Worker | 内部任务 `learning.analyze` |
 | analyzing → failed | changed | AI 建议改已有卡 且 复测通过 且 要改的卡在分析期间被改过（版本变了） | 不写入，写明卡已是第几版，可重新分析 | Worker | 内部任务 `learning.analyze` |
 | analyzing → failed | stale | 分析中超过 15 分钟没有动静（从开始执行算，排队不算） | 失败原因「分析任务中断，可以重新分析」；正在执行的分析写结果时发现已不在分析中就整笔回滚，不改卡 | Worker | 内部任务 `knowledge.qa_embed` 的每 5 分钟补扫 |
 | failed → analyzing | reanalyze | 版本一致 | 清失败原因，重新排 `learning.analyze` | 管理员、组长 | `API-KB-042` |
@@ -5327,6 +5395,8 @@ sequenceDiagram
   participant API as Shopilot API
   participant DB as PostgreSQL
   participant W as Worker（learning.pick、learning.analyze）
+  participant AG as Agent 子进程
+  participant DA as DeepSeek Anthropic 兼容接口
   participant DS as DeepSeek
   participant WA as Workers AI（bge-m3）
   participant RV as 管理员或组长浏览器
@@ -5337,7 +5407,15 @@ sequenceDiagram
   Note over W: 每天 19:20 UTC 由 learning.pick 每商户挑 ≤ 20 段（11.19 pick）
   W->>WA: 任务里的买家提问向量化
   W->>DB: 取相似卡前 5 张（带近 30 天效果）与相关问答前 5 条
-  W->>DS: 诊断与建议（learn，60 秒超时）
+  W->>DB: 记一次 Agent 运行（运行中）
+  W->>AG: 起子进程，只放行这次的工具（3 分钟上限）
+  loop 直到提交，工具调用 ≤ 20 次
+    AG->>DA: 多轮对话（deepseek-flash）
+    AG->>W: 调工具：读会话、查卡与问答、用拟发布的卡自测
+    W->>DS: 自测时模拟出稿（simulate）
+  end
+  AG->>W: 提交诊断与建议（submit）
+  W->>DB: Agent 运行记结束、轮数、工具步骤与 token
   alt 新卡
     W->>DS: 内部测试：现有知识与加上新卡各试答一次（simulate）
     W->>DB: 待审核（11.19 propose）
@@ -5364,10 +5442,14 @@ sequenceDiagram
 
 - 分析输入：任务消息、识别出的产品与依据、阶段、相似卡前 5 张、相关问答前 5 条
 - 相似卡另带产品与阶段是否对得上、近 30 天效果
-- 分析输出：`{ diagnosis, reason, suggestion, action: none\|new_card\|edit_card, target_card, card, test_question }`
+- Agent 工具：读会话与相似内容、按一句话查本商户已发布的卡与问答、用拟发布的卡模拟出稿、提交
+- Agent 提交：`{ diagnosis, reason, suggestion, action, target_card }`
+- 提交（续）：`{ card, test_question }`，card 是新卡或改后的整张卡
+- 提交的 `action`：none 不改、new_card 新建、edit_card 改 `target_card` 那张
+- `target_card` 只能是这次运行里看到过的卡；卡不合规时退回让 Agent 改好再交
 - 复测通过：原问题的新回答用到了这张卡，且回归用例都判「改后不比改前差」；新卡没有回归用例
 - 回归用例：这张卡以前发布过的学习任务里的提问，取最近 3 个
-- 分析、内部测试与复测都不计商户出稿用量；DeepSeek 用途记 learn、simulate、judge
+- 分析、内部测试与复测都不计商户出稿用量；Agent 运行记 `agent_run`，DeepSeek 单次调用用途记 simulate、judge
 
 ### 12.18 按卡定时体检（REQ-KB-014）
 
@@ -5376,6 +5458,8 @@ sequenceDiagram
   autonumber
   participant W as Worker（card.review、learning.analyze）
   participant DB as PostgreSQL
+  participant AG as Agent 子进程
+  participant DA as DeepSeek Anthropic 兼容接口
   participant DS as DeepSeek
   participant RV as 管理员或组长浏览器
   participant API as Shopilot API
@@ -5383,7 +5467,15 @@ sequenceDiagram
   W->>DB: 每张卡取近 7 天用到它的草稿、处置与草稿对比结论（≤ 12 个用例），按问题挑出代表性用例
   W->>DB: 建按卡体检任务，快照代表性用例所在会话段里的对话（11.19 review）
   W-->>W: 排 learning.analyze（async）
-  W->>DS: 卡内容、近 7 天处置统计与用例交给模型判断（review，60 秒）
+  W->>DB: 记一次 Agent 运行（运行中）
+  W->>AG: 起子进程，只放行这次的工具（3 分钟上限）
+  loop 直到提交，工具调用 ≤ 20 次
+    AG->>DA: 多轮对话（deepseek-flash）
+    AG->>W: 调工具：读卡与统计、列用例、查卡与问答、在用例上自测
+    W->>DS: 自测时模拟出稿（simulate）
+  end
+  AG->>W: 提交改不改与改后的卡（submit）
+  W->>DB: Agent 运行记结束、轮数、工具步骤与 token
   alt 不用改
     W->>DB: 任务结束，结论「无需更新」（11.19 keep）
   else 要改
@@ -5403,9 +5495,11 @@ sequenceDiagram
 
 - 问题信号：辅助草稿被改后发送或弃用、影子回复对比为部分一致或不一致、按卡转人工或建工单后客服（含卖家后台）又回复
 - 用例内容：买家问题、AI 草稿与第几步、客服最终发出的内容（含卖家后台直接回复的）、处置、草稿对比结论与理由；对话只取草稿所在会话段
-- 模型输出：`{ verdict: keep\|revise, reason, suggestion, card }`；代表性用例在调模型前按问题挑好；改卡时适用范围沿用原卡（RULE-KB-006）
+- Agent 工具：读这张卡与处置统计、列用例、查本商户已发布的卡与问答、用现在或拟改的卡在第 n 个用例上模拟出稿、提交
+- Agent 提交：`{ verdict: keep\|revise, reason, suggestion, card }`，代表性用例在运行前按问题挑好
+- 改卡时适用范围沿用原卡（RULE-KB-006）
 - 回归用例：这张卡以前发布过的学习任务最近 3 个，加证据里原样发送的用例最多 3 个（按草稿生成时的对话复原）
-- 不计商户出稿用量；DeepSeek 用途记 review、simulate、judge
+- 不计商户出稿用量；Agent 运行记 `agent_run`，DeepSeek 单次调用用途记 simulate、judge
 
 ### 12.19 AI 质量周指标与自动生效暂停（REQ-KB-015）
 
@@ -5550,6 +5644,7 @@ sequenceDiagram
 - 学习任务抽屉（续）：相似卡、改前改后并排的测试回答、判断依据、可编辑的拟发布卡
 - 学习任务抽屉（续）：底部「复测」「发布」「无需更新」「驳回」；复测通过且内容没再改时才能发布
 - 学习任务抽屉（续）：带要改的卡时顶部写「改的是：卡标题（第 n 版）」，发布给这张卡写新版本；按卡体检的任务另列证据用例的处置统计
+- 学习任务抽屉（续）：「Agent 过程」列最近几次分析的状态、用时、轮数与 token，逐条列工具步骤，失败的写原因
 
 飞书群推送（`PAGE-SETTINGS-NOTIFY` 里通知规则下方的一节，本节改动即时保存，不经页面右上角「保存」）：
 
@@ -5799,9 +5894,13 @@ flowchart LR
 | 延迟 | 候选经验卡 | 与问答共用向量化（2 秒），每路取 3 张、距离 < 0.6，合并取前 3 张；向量化失败只带正在用的卡 |
 | 限流 | 提交学习 | 同一会话每分钟最多 5 次，超出 429 |
 | 容量 | 会话学习（`learning.pick`） | 每天 19:20 UTC 一轮，每商户最多 20 段，只看最近 7 天已结束、有人工回复的段 |
-| 容量 | 学习分析（`learning.analyze`） | 并发 2，任务 10 分钟；分析 DeepSeek 60 秒，模拟出稿每次 25 秒，复测最多 3 个回归用例 |
+| 容量 | 学习分析（`learning.analyze`） | 并发 2，任务 10 分钟；模拟出稿每次 25 秒，复测最多 3 个回归用例 |
+| 容量 | Agent 服务 | 每个 Worker 进程同时 ≤ 3 个 Agent，每个子进程约 250 MB，m7g.large 上 3 个约占 0.8 GB |
+| 延迟 | Agent 运行 | Agent 每次最长 3 分钟，到时中止并标分析失败；2026-10-22 本机实测 7–50 秒 |
+| 容量 | Agent 工具 | 工具调用每次 ≤ 20 次，模拟出稿每次分析 ≤ 6 次，到上限后工具只提示直接提交 |
+| 成本 | Agent 用量 | Agent token 每次 ≤ 8 万（含缓存命中），超出即中止；2026-10-22 本机 3 张卡实测 1.2 万–5.6 万 |
 | 延迟 | 学习任务复测（`API-KB-040`） | 同步返回，服务端 ≤ 60 秒，前端超时 90 秒 |
-| 成本 | 会话学习 | 不计商户出稿用量；新卡一个任务约 3 次 DeepSeek 调用，改已有卡最多 11 次 |
+| 成本 | 会话学习 | 不计商户出稿用量；Agent 分析加自测最多 6 次模拟出稿，新卡另 2 次、改卡复测另最多 10 次 DeepSeek 调用 |
 | 容量 | 产品清单 | 每次导入 ≤ 2,000 行、≤ 20 万字符；每商户 ≤ 5,000 个产品；未对应的平台商品列表 ≤ 500 条 |
 | 容量 | 问答 | 问法 ≤ 10 个、每个 ≤ 200 字；回复 ≤ 2,000 字；向量索引 HNSW；按 §2 每商户 ≤ 500 份资料、每份 ≤ 200 条推算，每商户 ≤ 10 万条 |
 | 限流 | 登录 | 同一邮箱 15 分钟内失败 10 次锁 15 分钟（423）；同一 IP 每分钟 30 次（429） |
@@ -5810,7 +5909,7 @@ flowchart LR
 | 限流 | 测试问答 | 每商户每分钟 20 次，超出 429；计数在 Web 进程内存里，多实例部署时上限按实例数放大（§28 已知限制） |
 | 容量 | 按卡体检（`card.review`） | 每天 19:40 UTC 一轮，每商户最多 10 张卡，每张卡最多 12 个用例，回归用例最多 6 个 |
 | 限流 | Agent 直接生效 | Agent 直接生效每商户每天 ≤ 5 次、每卡每天 ≤ 1 次，「今天」按商户时区；超出的进待审核 |
-| 成本 | 按卡体检 | 不计商户出稿用量；一张卡 1 次判断（60 秒超时，出错标分析失败），要改时复测最多再加 19 次 DeepSeek 调用 |
+| 成本 | 按卡体检 | 不计商户出稿用量；一张卡 1 次 Agent 分析，要改时复测最多再加 19 次 DeepSeek 调用 |
 | 刷新 | AI 质量周指标（`ai.quality_weekly`） | 每周一 00:30 UTC 算上一周；样本不到 20 的一项不参与暂停判断，看板上不到 10 的周显示「数据不足」 |
 | 限流 | 学习任务复测 | 每商户每分钟 10 次，超出 429（一次复测最多 17 次 DeepSeek 调用）；计数同在 Web 进程内存里 |
 | 限流 | 飞书 | 群自定义机器人每个每分钟 100 次、每秒 5 次（飞书的限制）；被限流时按「容错」行重试 |
@@ -5883,7 +5982,9 @@ flowchart LR
 
 | 依赖 | 用途 | SLA | 超时/重试 | 失败影响 | 降级 |
 | --- | --- | --- | --- | --- | --- |
-| DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译、飞书卡片的总结、草稿对比、会话学习的分析、按卡体检的判断、模拟出稿与复测判定 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；草稿对比 15 秒、不重试；学习分析与按卡体检 60 秒、模拟出稿 25 秒、复测判定 15 秒，都不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒）；卡片总结 6 秒、不重试 | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
+| DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译、飞书卡片的总结、草稿对比、模拟出稿与复测判定 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；草稿对比 15 秒、不重试；模拟出稿 25 秒、复测判定 15 秒，都不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒）；卡片总结 6 秒、不重试 | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
+| DeepSeek Anthropic 兼容接口 `https://api.deepseek.com/anthropic`，模型固定 `deepseek-flash` | Agent 服务：会话学习的分析、按卡体检的分析 | 未公布 SLA，按 99% 假设 | 每次运行 3 分钟墙钟上限，单次请求失败由 CLI 自己重试，运行本身不重试 | 这次分析失败 | 学习任务标分析失败，管理员、组长可重新分析 |
+| Claude Agent SDK `@anthropic-ai/claude-agent-sdk` 0.3.306，钉死版本，含 CLI 原生二进制 | 多轮工具循环：每次运行起一个 CLI 子进程，工具调用经进程内 MCP 回到 Worker | 本机子进程，无 SLA | 子进程约 250 MB，每次用新建的临时目录、结束即删 | 子进程起不来时这次分析失败 | 同上 |
 | Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 混合检索每路 5 秒，无向量分、超时或返回 HTTP 错误时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
 | Cloudflare Workers AI `@cf/baai/bge-m3`（复用 `CLOUDFLARE_API_TOKEN`，令牌 2026-10-21 加了 Workers AI Read） | 问答问法、经验卡标题与调用条件、出稿查询的向量化 | 未公布 SLA；2026-10-21 生产实测单次约 90 ms | 出稿与手写问答 2 秒、整理任务 10 秒；每次 ≤ 50 条，不重试 | 问答检索不到，新问答暂时没有向量 | 只丢掉问答一路；没向量的问答由 `knowledge.qa_embed` 补 |
 | 飞书开放平台（应用接法）与群自定义机器人 | 发待认领卡、超时卡与工单转发卡；校验应用凭证、列机器人所在的群、上传图片、发测试卡片 | 未公布 SLA；自定义机器人每个每分钟 100 次、每秒 5 次 | 10 秒、图片上传 15 秒；token 按 App ID 缓存约 2 小时，鉴权失败换一次；`feishu.send` 重试 5 次指数退避 | 卡片晚到或发不出 | 失败写原因，设置页显示最近一次失败；会话照常在工作台待认领里 |
@@ -5913,7 +6014,7 @@ flowchart LR
 | `learning.pick` | 每天 19:20 UTC | 单实例；每商户 ≤ 20 段 | 10 分钟 | 不重试，第二天再挑；已有任务的段不再挑 | 同上 |
 | `card.review` | 每天 19:40 UTC | 单实例；每商户 ≤ 10 张卡，建体检任务后排 `learning.analyze` | 10 分钟 | 不重试，第二天再体检；同一张卡一天只建一个任务 | 同上 |
 | `ai.quality_weekly` | 每周一 00:30 UTC | 单实例；逐商户算上一周并判断是否暂停 | 10 分钟 | 不重试；重跑覆盖同一周，已暂停的不重复通知 | 同上 |
-| `learning.analyze` | `API-CONV-018`、`learning.pick`、`card.review`、`API-KB-042` | `singletonKey = 任务 ID`；并发 2 | 10 分钟 | 不重试；AI 出错记分析失败，管理员、组长可重新分析；不计商户出稿用量 | 同上 |
+| `learning.analyze` | `API-CONV-018`、`learning.pick`、`card.review`、`API-KB-042` | `singletonKey = 任务 ID`；并发 2 | 10 分钟 | 不重试，Agent 或 AI 出错记分析失败、可重新分析，不计商户出稿用量 | 同上 |
 | `draft.translate` | 影子回复落库后入队 | 并发 2 | 20 秒 | 重试 1 次，仍失败不存译文 | 同上 |
 | `order.sync` | 每小时每店；`API-ORD-003` 手动 | `singletonKey = shop_id`；每批 50 单；时间窗 ≤ 15 天（平台上限） | 5 分钟 | 重试 2 次，下轮补 | 同上 |
 | `logistics.scan` | 每小时 | 每店一次 | 5 分钟 | 下轮补 | 同上 |
@@ -5932,6 +6033,17 @@ flowchart LR
 | `data.retention_purge` | 每小时（只处理当地时间 03:00 的商户）；也清理过期导出 | 每商户分批 5,000 行 | 10 分钟 | 下轮续删 | 同上 |
 | `data.export` | `API-SET-010` | 每商户串行 | 10 分钟 | 11.12 `fail` | 同上 |
 | `merchant.purge` | 每天 | 单实例 | 30 分钟 | 下轮续删 | 同上 |
+
+Agent 服务的运行约束（ADR-019）：
+
+- 关掉 CLI 自带的能力：内置工具、配置文件、技能与会话持久化都不加载，只放行这次用途登记的平台工具
+- key 复用 `DEEPSEEK_API_KEY`，不新增密钥；SDK 按 Anthropic 商业条款使用，用户 2026-10-22 接受
+- Worker 启动时清理上次异常退出留下的临时目录
+- 子进程环境只给 PATH、临时目录、接口地址与 key、模型名和 4 个关闭遥测的开关，看不到应用的其他密钥
+- 外发只到 DeepSeek：2026-10-22 本机记录代理实测 10 次运行只连 `api.deepseek.com:443`
+- 封顶在代码里做：SDK 的轮数上限计数不准、超限时抛错，预算上限按 Claude 价目算，都不能当闸门
+- 本机与测试：`AI_MODE=stub` 时连 Worker 进程内的 Anthropic 兼容替身，CLI 子进程照常起，不出网
+- 替身按原来的学习与体检替身规则，依次调读取、自测、提交工具
 
 Cloudflare AI Search 的实例配置与限制（ADR-014）：
 
@@ -6091,6 +6203,29 @@ Cloudflare AI Search 的实例配置与限制（ADR-014）：
   - Alternatives：另建体检表——审核、复测、发布与删除口径都要再写一套。
   - Consequences：每商户每天多最多 10 次判断与相应的复测调用（§15）；体检任务占「学习」页签；暂停后改卡都进待审核，直到管理员恢复。
   - Consequences：5 次、5 个百分点、样本 20 与问题比例排序是初值，上线 30 天后按真实数据再调；跨会话归纳新卡、维护建议在后续批次（§28）。
+
+- **`ADR-019` 多轮、要调工具的 AI 任务统一走 Agent 服务** — Status: Accepted（用户 2026-10-22）
+  - Context：学习分析与按卡体检原来各是一次 DeepSeek 调用，模型交出改法前看不到改后的效果。
+  - Context（续）：2026-10-22 本机 3 张卡对比，单次调用的改法让一个原样发送的用例变差，Agent 先自测的改法没有。
+  - Context（续）：同一次对比里 Agent 的 token 是单次调用的 7–41 倍，耗时 7–84 秒。
+  - Context（续）：以后全量托管要让 Agent 直接调平台能力，用户原话「收拢成 agent sdk ，类似于大模型服务」。
+  - Decision：建 Agent 服务，用 Claude Agent SDK 跑多轮工具循环，后端接 DeepSeek 的 Anthropic 兼容接口。
+  - Decision：模型只用 deepseek-flash（用户 2026-10-22「deepseek 就用 flash 就行」）。
+  - Decision：CLI 自带的工具、配置、技能与会话持久化全部关掉，每次运行只放行这次用途登记的平台工具。
+  - Decision：平台工具分只读与写两级，本期只有知识库只读工具与提交。
+  - Decision：名额闸、复测、写版本与审计留在代码，Agent 只交回结论。
+  - Decision：每次运行限 3 分钟、工具调用 20 次、模拟出稿 6 次、token 8 万，每次运行记 `agent_run`。
+  - Decision：每个 Worker 进程同时最多 3 个 Agent。
+  - Alternatives：在 Worker 里用 `chat()` 手写工具循环——少一个子进程和约 338 MB 镜像。
+  - Alternatives（续）：手写循环要自己做上下文压缩、子代理与 hooks，用户选了统一用 SDK。
+  - Alternatives：出稿这类单次调用也搬进来——每份草稿多起一个子进程、多几秒。
+  - Alternatives（续）：用户 10-22 定只收拢多轮、要工具的任务，实时出稿等托管时再搬。
+  - Alternatives：保留单次调用——改法看不到效果，原样发送的用例可能被改差。
+  - Consequences：镜像多约 338 MB，其中 linux-arm64 的 CLI 二进制 278 MB，每次运行一个约 250 MB 的子进程。
+  - Consequences：SDK 与 CLI 一起钉死版本，升级前用 2026-10-22 那 3 张对比卡回归。
+  - Consequences：CLI 不认识 DeepSeek 的模型名，每次往标准错误打一行警告，功能不受影响。
+  - Consequences：测试经进程内的 Anthropic 兼容替身跑完整条 SDK 链路，CLI 子进程照常起。
+  - Consequences：接入写工具前另立 ADR，定审计与名额闸。
 ## 19. 验收 / 测试
 
 测试策略：
@@ -6801,6 +6936,13 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
   When 另一次分析建议的改动让回归用例答得更差
   Then 卡不变，任务结束并记「复测没通过」与原因
 
+场景: 学习任务里能看到 Agent 的分析过程 (REQ-KB-013)
+  Given 客服提交了一段学习，Agent 分析时读了会话、查了知识、用拟发布的卡自测了一次后提交
+  When 组长打开这个学习任务
+  Then 「Agent 过程」列出这次运行的用时、轮数、token 与四个工具步骤，每步带耗时与结果摘要
+  When 另一次分析超过 3 分钟还没提交
+  Then 那次运行记失败「超时」，学习任务标分析失败，可以重新分析
+
 场景: Agent 每天挑会话 (REQ-KB-013)
   Given 商户最近 7 天有 30 段已结束、有人工回复的会话段，其中 25 段得分不低于 2
   When learning.pick 运行
@@ -7396,7 +7538,9 @@ DeepSeek 在单元与集成测试里用录制的响应替身；端到端主路�
 
 N/A — 场景级原因：本期只在本机运行，没有生产环境与值守（§1 项目画像）。本期只做日志：API 与 Worker 输出单行 JSON 日志（`level`、`msg`、`requestId`、`merchantId`、`route` 或 `job`、`durationMs`、`err`），不打印任何密钥、token、cookie、完整卡号与买家聊天正文。上线前由 deploy-pipeline 补齐 SLI（回调应答 P99、出稿成功率、发送成功率、`inbound_event` 失败率、Worker 任务积压）与告警，并在 §22 建对应 Runbook。
 
-DeepSeek 每次调用记一行（`msg = deepseek call`）：`kind`（draft、simulate、translate、extract、rewrite、summary、compare、qa_extract、learn、judge）、`model`、`ms`、`promptTokens`、`completionTokens`、`ok`、`error`（timeout、network、`http_<状态码>`、bad_body、empty）；不记提示词与买家内容。翻译遇 5xx 重试时，两次调用各记一行。
+DeepSeek 每次调用记一行（`msg = deepseek call`）：`kind`（draft、simulate、translate、extract、rewrite、summary、compare、qa_extract、judge）、`model`、`ms`、`promptTokens`、`completionTokens`、`ok`、`error`（timeout、network、`http_<状态码>`、bad_body、empty）；不记提示词与买家内容。翻译遇 5xx 重试时，两次调用各记一行。
+
+Agent 每次运行记一行（`msg = agent run`）：`purpose`、`model`、`runId`、`ms`、`turns`、`toolCalls`、`inputTokens`、`cacheReadTokens`、`outputTokens`、`ok`、`error`（timeout、budget、no_submit、model_error）；不记提示词、工具参数与买家内容。失败时另记 CLI 标准错误的末尾 500 字，模型名警告行不记。补 SLI 时纳入 Agent 运行失败率与 P95 耗时。
 
 知识库另记三项（日志字段 `job=draft.generate` 的 `retrievalMs`、`retrievalDegraded`、`vectorRetry`、`insufficient`，与 `EVT:draft_generated`、`EVT:handoff` 同口径）：检索耗时 P50 与 P95；检索降级次数占有检索出稿的比例；资料不足率 = 模型判定资料不足的出稿 / 有检索的出稿。入库另记 `job=knowledge.ingest` 的条目重传次数与失败原因。补 SLI 时这三项一并纳入，降级比例超过 5% 或检索 P95 超过 10 秒时告警。
 
@@ -7427,6 +7571,8 @@ N/A — 新库，无存量数据；数据库结构由 drizzle-kit 迁移文件�
 - 回滚只需删这两列，旧版代码不读它们
 
 迁移 0018 只加表与列，不回填：学习任务加类型（默认会话学习）与体检证据，新建 AI 质量周指标表，商户加暂停时间与原因；Agent 挑会话的部分唯一索引改为只管会话学习任务。旧版代码不读这些新列，回滚只切镜像。
+
+迁移 0019 只加 Agent 运行表，不回填；旧版代码不读它，回滚只切镜像。
 
 ## 26. 里程碑
 
@@ -7473,6 +7619,9 @@ N/A — 本期不上线。
 | Open Question | 标签字典待定：等确认不同行业的通用标签，本批标签选填、不参与检索 | 用户 | 标签字典确定时 |
 | 风险 | Agent 改卡先于人工看到就影响自动回复：复测通过即生效，缓解是版本、还没人看过筛选与一键回退同批上线；v1.34 起另有每天上限与周指标暂停（RULE-KB-007） | 实现 | 第一家自动模式店铺开启前 |
 | Open Question | 后续批次：第二批做跨会话归纳新卡、「建议补问答」产出问答候选、挑会话打分权重按产出自动校准、标准会话回归集与每周全量回放；第三批做卡的下架与合并建议。都不在 v1.34 | 用户 | 第一批上线运行两周后 |
+| 风险 | Agent 分析的质量只在本机 3 张卡、21 个用例上比过，线上第一批任务的轮数、token 与改法要人工抽看 | 用户 | 上线后第一周 |
+| 风险 | Agent 封顶的 3 分钟、20 次工具调用与 8 万 token 是按本机 3 张卡定的初值 | 实现 | 上线后看两周 Agent 运行日志 |
+| 风险 | Agent 服务依赖 CLI 子进程：每次约 250 MB，Worker 同时 3 个约 0.8 GB；SDK 与 CLI 钉死在 0.3.306，升级要回归 | 实现 | 升级 SDK 或调高并发时 |
 | 风险 | 经验卡的距离阈值 0.6、每路 3 张与复测判定是按本地替身定的初值，上线后按真实命中再调 | 实现 | 上线 30 天后 |
 | 风险 | 问答检索阈值 0.55 与疑似重复 0.08 按本地替身与少量样本定，真实 bge-m3 下的命中与误判没量过 | 实现 | 上线后看两周 `qaHits` 与审核结果 |
 | 风险 | 问答识别产品只靠商品卡、近 180 天订单的卖家 SKU 与文字里的编码名称；2026-10-21 前同步的订单没有卖家 SKU | 实现 | 上线后看两周识别结果 |
