@@ -8,12 +8,13 @@
 | Owner | 实现会话 |
 | 关联设计文档 | `docs/DESIGN.md`（v1.30，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
-| 最后更新 | 2026-10-22 |
+| 最后更新 | 2026-10-23 |
 
 变更记录（登用例增改，不登执行轮次）：
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-10-23 | 按 DESIGN v1.36 学习分析与按卡体检改由 Agent 服务执行：新增 `TC-KB-080`（会话学习的「Agent 过程」）、`TC-KB-081`（按卡体检的「Agent 过程」）、`TC-KB-082`（分析中途中断：运行记失败、重新分析）、`TC-KB-083`（真实 DeepSeek 跑一次会话学习的 Agent）；§2 不测项加 Agent 失败与封顶、Agent 分析质量两行；§3 会话学习与按卡体检替身改为 Agent 替身（按固定顺序调工具）、`q` 的写操作范围加上模拟分析中途中断、`AI_MODE=deepseek` 的用例加上 `TC-KB-083`；AI 无头执行改用 Playwright 自带的 chromium-headless-shell | 实现会话 |
 | 2026-10-22 | 按 DESIGN v1.35 英文官网整页标英文：新增 `TC-SITE-006`（源自缺陷：英文官网整页语言仍标为中文） | 实现会话 |
 | 2026-10-22 | 按 DESIGN v1.34 按卡定时体检与 Agent 自动生效刹车：新增 `TC-KB-072` 至 `TC-KB-079`（体检改卡直接生效、挑卡条件、无需更新、暂停时进待审核与按目标卡发布、这张卡今天已被 Agent 改过、今天满 5 次、周指标暂停与恢复、复测没通过）、`TC-DASH-020`（AI 质量面板）、`TC-PERM-010`（状态与恢复的权限）；§3 加按卡体检与周指标函数（`merchantid`、`carddraft`、`dispose`、`cardold`、`crjob`、`cardreview`、`qweek`、`aq`）与体检替身规则；`q` 的写操作范围加上改卡版本时间、写与删 Agent 改卡审计、写周指标草稿、设暂停 | 实现会话 |
 | 2026-10-22 | RUN-073 发现用例错：原位改 `TC-KB-001` 第 1 步预期的知识库页签，按 DESIGN v1.32 PAGE-RECEPTION-KB 加上「经验卡」「学习」（问答、经验卡、待审核、学习、资料、产品、测试问答） | 实现会话 |
@@ -92,6 +93,8 @@
 | 登录锁定 15 分钟后自动解锁、会话 7 天滑动续期、所有权转让 7 天过期、商户 30 天后清除（`merchant.purge`） | 无归属——已知风险：§3 没有对应的时间场景 |
 | 邀请受套餐席位上限（`API-TEAM-002`、`API-TEAM-009` 席位已满） | 无归属——已知风险：席位上限是演示值（DESIGN §28 假设行），未定 |
 | 翻译与开票字段抽取的模型失败路径（502 / 504 `/errors/ai-unavailable`） | 无归属——已知风险：AI 替身只覆盖出稿 |
+| Agent 运行失败与封顶：3 分钟超时、超出 8 万 token、没有提交就结束、模型出错；提交不合规被退回、只认第一次合规的提交；工具调用 20 次与自测 6 次到上限；子进程环境只给登记的变量 | 代码仓测试套件 `src/server/agent/runtime.test.ts`；Agent 替身按固定顺序调工具，不会超时、超量或交出不合规的卡 |
+| Agent 分析的质量：真实 DeepSeek 下改卡改得对不对、轮数与 token 是否合理 | 无归属——已知风险：DESIGN §28 风险行，上线后第一周人工抽看；`TC-KB-083` 只验证真实接口能跑完一次 |
 | CSV 超过 10,000 行返回 422、500 `/errors/internal` | 无归属——已知风险：种子数据量与故障手段都不够 |
 | 浏览器兼容（Safari、Chrome）与完整无障碍审计 | 无归属——已知风险；本文档只在 Edge 上抽查键盘焦点（`TC-CONV-010`） |
 
@@ -103,7 +106,7 @@
 
 | 环境 | 入口 | 就绪判定 | 测试账号 | 种子与重置 | 外部副作用 |
 | --- | --- | --- | --- | --- | --- |
-| 本地 | Web `http://127.0.0.1:3360`；API `http://127.0.0.1:3360/api/v1`（curl 带登录 cookie）；模拟器 `http://127.0.0.1:3360/mock/simulator`；发件箱 `http://127.0.0.1:3360/dev/outbox` | `curl -s http://127.0.0.1:3360/api/health` 返回 JSON，含 `"service":"shopilot"` 与 `"db":"ok"`；且 `http://127.0.0.1:3360/mock/simulator` 页面标题含「Shopilot 模拟器」 | 见下方测试账号表 | 可跑：数据库是本机 docker 卷 `shopilot_pgdata`，本期没有线上，不与任何线上数据共用 | 邮件只写发件箱；支付为模拟支付；平台为模拟平台；`AI_MODE=stub` 时出稿不出进程；`AI_MODE=deepseek` 时真实调用 DeepSeek，只有 `TC-AI-002` 这样跑，费用记在项目自己的 DeepSeek 账号，不触达任何真实买家；`KNOWLEDGE_MODE=stub` 时知识库检索走进程内替身，不调 Cloudflare（只有人工用例 `TC-KB-036` 改成 `cloudflare`） |
+| 本地 | Web `http://127.0.0.1:3360`；API `http://127.0.0.1:3360/api/v1`（curl 带登录 cookie）；模拟器 `http://127.0.0.1:3360/mock/simulator`；发件箱 `http://127.0.0.1:3360/dev/outbox` | `curl -s http://127.0.0.1:3360/api/health` 返回 JSON，含 `"service":"shopilot"` 与 `"db":"ok"`；且 `http://127.0.0.1:3360/mock/simulator` 页面标题含「Shopilot 模拟器」 | 见下方测试账号表 | 可跑：数据库是本机 docker 卷 `shopilot_pgdata`，本期没有线上，不与任何线上数据共用 | 邮件只写发件箱；支付为模拟支付；平台为模拟平台；`AI_MODE=stub` 时出稿不出进程，学习分析与按卡体检的 Agent 照常起 CLI 子进程、连 Worker 进程内的替身；`AI_MODE=deepseek` 时真实调用 DeepSeek，只有 `TC-AI-002`、`TC-KB-083` 这样跑，费用记在项目自己的 DeepSeek 账号，不触达任何真实买家；`KNOWLEDGE_MODE=stub` 时知识库检索走进程内替身，不调 Cloudflare（只有人工用例 `TC-KB-036` 改成 `cloudflare`） |
 | 预发 | 无——本期只在本机运行 | — | — | — | — |
 | 线上 | 无——本期只在本机运行 | — | — | 禁跑 | — |
 
@@ -252,7 +255,7 @@ printf 'not really a ppt' > "$KB/产品介绍.pptx"; printf 'plain text, not a p
 ```
 
   得到：保修政策.pdf 约 3 MB（2 页）、大文件.pdf 约 25 MB、拆分.pdf 约 18 MB（30 页，每页约 0.6 MB）、单页超限.pdf 约 14 MB（15 页，第 12 页 11 MB）、型号对照.xlsx 约 1 MB、说明书.docx 约 5 MB、保修政策.md、运费说明.txt、产品介绍.pptx、伪装.pdf（扩展名是 pdf、内容是文本）、工具.exe。
-- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类（先 `login owner@demo.test` 一次；登录每 IP 每分钟限 30 次，函数里不重复登录）；`q` 在本机库执行一条 SQL，库名默认 `shopilot`；除草稿对比用例把草稿生成时间往前改、按卡体检与周指标用例改卡版本时间、写与删 Agent 改卡审计、写周指标草稿、设与清自动生效暂停之外，用例里都只读）：
+- 知识库 curl 函数（先执行「curl 会话」，再执行下面的定义；`kbup` 上传一份资料，追加的参数原样交给 curl，如 `-F categoryId=<ID> -F markets=MY`；`kbclear` 删掉 Demo Store 全部资料与自建分类（先 `login owner@demo.test` 一次；登录每 IP 每分钟限 30 次，函数里不重复登录）；`q` 在本机库执行一条 SQL，库名默认 `shopilot`；除草稿对比用例把草稿生成时间往前改、按卡体检与周指标用例改卡版本时间、写与删 Agent 改卡审计、写周指标草稿、设与清自动生效暂停、会话学习用例模拟分析中途中断（把学习任务改回分析中、写一条运行中的 Agent 运行）之外，用例里都只读）：
 
 ```bash
 kbup() { who=$1; f=$2; shift 2; curl -s -b "$SP_TMP/$who" -H "Origin: $B" -F "file=@$f" "$@" -w '\nHTTP %{http_code}\n' "$B/api/v1/knowledge/documents"; }
@@ -288,7 +291,8 @@ cardclear() { for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowle
 
   - 卡 K：标题「摄像头识别不到：帮买家恢复使用」，阶段「全部阶段」，站点「全部站点」，一条调用条件「买家说摄像头识别不到」（全部满足）；第 1 步「问清电脑系统和连接方式」，分支「急用」→ 转人工；第 2 步「换线、换接口」，分支「保修」→ 建工单；第 3 步「安装或更新配套软件」；沟通提示「每次只让买家做一步」。
   - 出稿替身用卡（`AI_MODE=stub`，出稿、测试问答、模拟出稿共用）：请求带候选卡时，本段有正在用的卡就接着用它、步骤加 1（不超过最后一步），否则用第 1 张候选卡（拟发布的卡、正在用的卡排在最前）的第 1 步；这一步某个分支的条件原文出现在买家最新一条消息里时按这个分支走（转人工、建工单、跳到第 n 步）。用卡理由一律「替身：调用条件成立」，建工单的说明是「替身：<分支条件>」；按卡转人工时替身同时给出 `handoff = true`、`reason = card`。
-  - 会话学习替身（`learn`）：备注或消息里有「无需」→ 诊断「已有内容覆盖」，任务结束、结论「无需更新」；有「新卡」，或相似卡里没有一张的标题与某条买家消息有两个相连的相同字 → 诊断「流程需要补充」，写一张新卡（标题「替身：<最后一条勾选的买家文字前 20 字>」，一条调用条件「买家提到「<同前>」」，一步「替身第一步：问清情况」），进待审核；否则改那张相似卡，在最后加一步「替身补充的一步」，直接复测。判断依据「替身：按关键词判断」，建议「替身：按建议更新」。复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」，否则「不比改前差」。替身不会给出「知识缺失」「证据不足」「内容冲突」，也不会分析失败。
+  - Agent 替身（`AI_MODE=stub`，学习分析与按卡体检共用）：CLI 子进程照常起，连 Worker 进程内的 Anthropic 兼容替身，不出网；每轮只调一个工具，用量固定每轮输入 1,000、输出 50 token。会话学习依次「读会话 → 查知识 → 有拟发布的卡时自测一次 → 提交」，按卡体检依次「读卡 → 列用例 → 要改卡时在那个用例上自测一次 → 提交」；提交被退回时原样再交一次。结论按下面两条替身规则给出。Worker 起来后第一次分析要多等 1–2 秒起子进程。
+  - 会话学习替身（Agent）：备注或消息里有「无需」→ 诊断「已有内容覆盖」，任务结束、结论「无需更新」；有「新卡」，或相似卡里没有一张的标题与某条买家消息有两个相连的相同字 → 诊断「流程需要补充」，写一张新卡（标题「替身：<最后一条勾选的买家文字前 20 字>」，一条调用条件「买家提到「<同前>」」，一步「替身第一步：问清情况」），进待审核；否则改那张相似卡，在最后加一步「替身补充的一步」，直接复测。判断依据「替身：按关键词判断」，建议「替身：按建议更新」。复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」，否则「不比改前差」。替身不会给出「知识缺失」「证据不足」「内容冲突」，也不会分析失败（模拟中途中断见 `TC-KB-082`）。
   - Agent 挑会话：`pnpm job learning.pick '{"merchantId":"<Demo Store 的商户 ID>"}'` 只挑这一家（商户 ID 用 `q "select id from merchant where name = 'Demo Store'"` 取）；挑出的段由 Worker 的 `learning.analyze` 分析，几秒内出结论。
 - 按卡体检与周指标函数（先执行上面的经验卡函数与知识库 curl 函数，并 `login agent2@demo.test`）：`merchantid` 输出 Demo Store 的商户 ID；`carddraft <买家名> [文字]` 在 Demo Shopee MY 新建这位买家、发一句（缺省「摄像头识别不到」），等到用了经验卡的待处理草稿并输出草稿 ID，超时输出 `TIMEOUT`（需先按 §3「固定为工作时间内」，Demo Shopee MY 在辅助模式）；`dispose <买家名> <sent|edited_sent|ignored>` 以 Mei 处置这位买家最新的待处理草稿——原样发送、末尾加「（已改）」后发送、弃用，输出末行 `HTTP <状态码>`；`cardold <卡 ID>` 把这张卡全部版本的时间挪到两天前，让它满足「24 小时内没有新版本」；`agentreset` 删掉 Demo Store 的「Agent 改卡」审计，当天直接生效次数从 0 算（次数按这条审计数，删卡不会让它清零）；`crjob` 只对 Demo Store 跑一次 `card.review`（体检任务当场建好，分析由 Worker 接着做）；`cardreview <卡 ID>` 先 `crjob`，再等这张卡最近一个体检任务分析完，输出「状态|结论」，没挑上时输出 `TIMEOUT`；`qweek <几周前> <原样发送数> [总数]` 在本周一（UTC）往前第 N 周的周二写入处置过的辅助草稿，总数缺省 20，其余为弃用；`aq` 只对 Demo Store 跑一次 `ai.quality_weekly`（重算上一周与再往前两周，并判断要不要暂停）。
 
@@ -312,10 +316,10 @@ qweek() { q "insert into draft (id, merchant_id, conversation_id, mode, text, co
 aq() { pnpm -s job ai.quality_weekly "{\"merchantId\":\"$(merchantid)\"}"; }
 ```
 
-  - 按卡体检替身（`review`）：交给模型的用例里有「改后发送」，或影子对比为「不一致」→ 改卡：沿用原卡内容，在最后加一步「替身补充的一步」，理由「替身：客服改写过这张卡的草稿」，建议「替身：补一步」；否则无需更新，理由「替身：用例没有明显问题」。复测时「原样发送」的用例同样交给复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」。替身不会给出不合规的卡，也不会分析失败。
+  - 按卡体检替身（Agent）：列出的用例里有「改后发送」，或影子对比为「不一致」→ 改卡：沿用原卡内容，在最后加一步「替身补充的一步」，理由「替身：客服改写过这张卡的草稿」，建议「替身：补一步」；否则无需更新，理由「替身：用例没有明显问题」。复测时「原样发送」的用例同样交给复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」。替身不会给出不合规的卡，也不会分析失败。
   - 造暂停状态：`q "update merchant set agent_autoapply_paused_at = now(), agent_autoapply_pause_reason = '测试暂停' where name = 'Demo Store'"`；清掉：同一条把两列设为 `null`。
 
-- 工具：浏览器自动化用 Playwright + 本机 Microsoft Edge（`channel: 'msedge'`），人工执行同样用 Edge；接口用 curl（见「curl 会话」）与 jq；两步验证码用验证器 App，或 `oathtool --totp -b <密钥>`（密钥取自开启时显示的 `totpURI` 里的 `secret`）；定时任务用 `pnpm job`，时间敏感数据用 `pnpm scenario`；邮件看 `/dev/outbox`。
+- 工具：AI 无头执行用 Playwright 自带的 chromium-headless-shell（`chromium.launch()`，不带 `channel`；无头 Edge 在后台跑时，日常 Edge 退出后打不开窗口），要看界面与人工执行用本机 Microsoft Edge；接口用 curl（见「curl 会话」）与 jq；两步验证码用验证器 App，或 `oathtool --totp -b <密钥>`（密钥取自开启时显示的 `totpURI` 里的 `secret`）；定时任务用 `pnpm job`，时间敏感数据用 `pnpm scenario`；邮件看 `/dev/outbox`。
 - 证据目录：`docs/test-runs/`。截图与响应体按 `run-NNN-<TC ID>-<步骤号>.png` / `.json` 命名，文中引用一律写以项目根为基准的相对路径。cookie 文件不放证据目录。
 
 ## 4. 用例库
@@ -4454,6 +4458,58 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | 4 | 打开 `/reception/knowledge?tab=cards&card=<K>`，在「体检记录」点「查看任务」 | 体检记录一行「复测没通过」，理由「替身：客服改写过这张卡的草稿」；任务抽屉复测结果里有「客服原样发送过的「摄像头识别不到，会变差吗」：改后变差」 |
 
 后置：`cardclear`。
+
+#### `TC-KB-080` 会话学习的「Agent 过程」：改卡那次的工具步骤、用时与 token — 对应 `REQ-KB-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`X=$(newbuyer shopee 220001 "Agent A")`；`say $X "摄像头识别不到，换线也没用"`；Mei Lin 认领并回复「请装最新的配套软件试试」；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 对买家那条消息提交学习（接口同 `TC-KB-068` 第 1 步），记任务 ID 为 T，`waitq "select status from learning_task where id = '<T>' and status <> 'analyzing'"` | `HTTP 201`；状态 `published` |
+| 2 | `api owner@demo.test $B/api/v1/knowledge/learning/<T>` | `HTTP 200`；`agentRuns` 1 项：`purpose` `learn`、`status` `succeeded`、`model` `stub`、`error` 为 null、`toolCalls` 4，`durationMs`、`turns`、`tokens.input`、`tokens.output` 都大于 0；`steps` 4 项，`tool` 依次 `get_conversation`、`search_knowledge`、`simulate`、`submit`，`ok` 都为 true；四条 `note` 都不含「换线也没用」 |
+| 3 | `q "select status \|\| '\|' \|\| (finished_at is not null) from agent_run where learning_task_id = '<T>'"` | 一行 `succeeded\|t` |
+| 4 | 打开 `/reception/knowledge?task=<T>`，看抽屉的「Agent 过程」 | 说明写「分析时 Agent 调了哪些工具、各用多久；步骤只记结果摘要」；一行「已完成」，后接开始时间、用时、「n 轮」、「工具 4 次」与「token 输入 …、缓存命中 …、输出 …」，不显示模型名；下面四步依次「读会话」「查知识」「自测」「提交」：「自测」的摘要以「拟改的卡：」开头，「提交」的摘要为「流程需要补充 · 改已有卡」；这一节的文字不含「换线也没用」 |
+
+后置：`cardclear`。
+
+#### `TC-KB-081` 按卡体检的「Agent 过程」：读卡、列用例、在用例上自测、提交 — 对应 `REQ-KB-014` · 级别: 回归 · 执行者: 皆可
+
+前置：先执行 `TC-KB-072` 第 1–3 步（不做后续步骤与后置）；`q "select id from learning_task where kind = 'card_review' and target_card_id = '<K>' order by created_at desc limit 1"` 记为 T。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | `api owner@demo.test $B/api/v1/knowledge/learning/<T>` | `HTTP 200`；`agentRuns` 1 项：`purpose` `card_review`、`status` `succeeded`、`toolCalls` 4；`steps` 的 `tool` 依次 `get_card`、`list_cases`、`simulate`、`submit`，`ok` 都为 true；`list_cases` 的 `note` 为「3 个用例」，`submit` 的 `note` 为「改卡」 |
+| 2 | 打开 `/reception/knowledge?task=<T>`，看抽屉的「Agent 过程」 | 一行「已完成」、「工具 4 次」；四步依次「读卡」（摘要「读卡与处置统计」）、「列用例」（「3 个用例」）、「自测」（摘要以「第 n 个用例 · 拟改的卡：」开头）、「提交」（「改卡」） |
+
+后置：`cardclear`。
+
+#### `TC-KB-082` 分析中途中断：运行记失败并写原因，重新分析后新的一次排在最前 — 对应 `REQ-KB-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`X=$(newbuyer shopee 220001 "Agent B")`；`say $X "设备坏了想换货"`；Mei Lin 认领该会话；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 对买家那条消息提交学习，`note` 为「这个无需记」，记任务 ID 为 T，`waitq "select status from learning_task where id = '<T>' and status <> 'analyzing'"` | 状态 `closed`；`api owner@demo.test $B/api/v1/knowledge/learning/<T>` 的 `agentRuns` 1 项，`status` `succeeded`、`toolCalls` 3，`steps` 的 `tool` 依次 `get_conversation`、`search_knowledge`、`submit`（没有拟发布的卡，不自测） |
+| 2 | 模拟 Worker 在分析中途退出：`q "update learning_task set status = 'analyzing', updated_at = now() - interval '20 minutes' where id = '<T>'"`；`q "insert into agent_run (id, merchant_id, learning_task_id, purpose, model, started_at) select gen_random_uuid(), merchant_id, id, 'learn', 'stub', now() - interval '20 minutes' from learning_task where id = '<T>'"` | 依次输出 `UPDATE 1`、`INSERT 0 1` |
+| 3 | 打开 `/reception/knowledge?task=<T>`，看「Agent 过程」 | 两行：上面一行「运行中」，写「结束后在这里列出每一步。」；下面一行「已完成」、「工具 3 次」，不列步骤 |
+| 4 | `pnpm job knowledge.qa_embed`；`q "select status \|\| '\|' \|\| error from learning_task where id = '<T>'"`；`q "select status \|\| '\|' \|\| error from agent_run where learning_task_id = '<T>' order by started_at desc limit 1"` | 输出 `"ok":true`；任务 `failed\|分析任务中断，可以重新分析。`；最近一次运行 `failed\|运行中断：进程在运行中退出` |
+| 5 | 刷新页面，重新打开任务 T | 任务「分析失败」，有「重新分析」「无需更新」「驳回」；「Agent 过程」上面一行「失败」，下方红字「运行中断：进程在运行中退出」 |
+| 6 | 点「重新分析」，`waitq "select status from learning_task where id = '<T>' and status <> 'analyzing'"` 后刷新并重新打开任务 T | 提示「已重新排队分析」；状态 `closed`；「Agent 过程」三行，从上到下「已完成」（列出三步）、「失败」、「已完成」 |
+
+后置：无。
+
+#### `TC-KB-083` 真实 DeepSeek 跑一次会话学习的 Agent — 对应 `REQ-KB-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`.env` 的 `AI_MODE` 改成 `deepseek`（`DEEPSEEK_API_KEY` 已配）后重启 `pnpm dev`；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`cardk` 记为 K；`X=$(newbuyer shopee 220001 "Agent DS")`；`say $X "摄像头识别不到，换线也没用"`；Mei Lin 认领并回复「请装最新的配套软件试试」；浏览器以林晓登录。一次约用 5 万 token，费用记在项目自己的 DeepSeek 账号。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 对买家那条消息提交学习（接口同 `TC-KB-068` 第 1 步），记任务 ID 为 T；`n=0; until [ "$(q "select status from learning_task where id = '<T>'")" != analyzing ] \|\| [ $n -ge 60 ]; do sleep 5; n=$((n+1)); done; q "select status from learning_task where id = '<T>'"` | `HTTP 201`；5 分钟内状态不再是 `analyzing`，也不是 `failed` |
+| 2 | `q "select model \|\| '\|' \|\| status \|\| '\|' \|\| (turns >= 2) \|\| '\|' \|\| (tool_calls >= 2) \|\| '\|' \|\| (input_tokens + cache_read_tokens + output_tokens <= 80000) from agent_run where learning_task_id = '<T>'"` | 一行 `deepseek-flash\|succeeded\|true\|true\|true` |
+| 3 | `api owner@demo.test $B/api/v1/knowledge/learning/<T>` | `agentRuns[0].steps` 最后一项 `tool` 为 `submit`、`ok` 为 true；没有一条 `note` 含「换线也没用」 |
+| 4 | 打开 `/reception/knowledge?task=<T>`，看「Agent 过程」 | 一行「已完成」，行末写「deepseek-flash」；步骤最后一条为「提交」 |
+
+后置：`cardclear`；`.env` 的 `AI_MODE` 改回 `stub` 并重启 `pnpm dev`。
 
 ### 看板
 
