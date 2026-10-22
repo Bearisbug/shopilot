@@ -397,6 +397,19 @@ describe.skipIf(!process.env.DATABASE_URL)("会话学习（需要数据库）", 
     expect(proposed.suggestion).toContain("原卡在分析期间被下架或删除");
   });
 
+  it("复测期间任务被超时补扫标了失败：整笔回滚，卡不写 Agent 版本、不占当天名额", async () => {
+    const target = await writeCard(card({ title: "蓝牙断连：帮买家重连" }));
+    const c = await conversation([["buyer", "蓝牙断连"]]);
+    const t = await svc.submitLearning(ctx, c.conv.id, { messageIds: c.ids });
+    retestHook.before = async () => {
+      await db().update(schema.learningTask).set({ status: "failed", error: "分析任务中断，可以重新分析。" }).where(eq(schema.learningTask.id, t.task.id));
+    };
+    await job.analyzeLearning({ taskId: t.task.id });
+    retestHook.before = null;
+    expect(await taskOf(t.task.id)).toMatchObject({ status: "failed", error: "分析任务中断，可以重新分析。" });
+    expect((await db().select().from(schema.experienceCard).where(eq(schema.experienceCard.id, target.id)))[0]).toMatchObject({ version: 1, agentUnseen: false });
+  });
+
   it("发布前要改的卡在复测后被改过：要重新复测，不覆盖那次改动", async () => {
     const x = await writeCard(card({ title: "三脚架松动：帮买家拧紧", conditions: ["买家说三脚架松动"] }));
     const c = await conversation([["buyer", "三脚架松动怎么办"]]);

@@ -182,7 +182,12 @@ describe.skipIf(!process.env.DATABASE_URL)("按卡定时体检（需要数据库
   const taskOf = async (id: string) => (await db().select().from(schema.learningTask).where(eq(schema.learningTask.id, id)))[0];
   const reviewTaskOf = async (cardId: string) => (await db().select().from(schema.learningTask).where(and(eq(schema.learningTask.kind, "card_review"), eq(schema.learningTask.targetCardId, cardId))))[0];
   const cardOf = async (id: string) => (await db().select().from(schema.experienceCard).where(eq(schema.experienceCard.id, id)))[0];
-  const agentVersion = (row: CardRow) => db().transaction((tx) => store.writeCardVersion(tx, { row, content: { ...store.cardContentOf(row), tips: `Agent 改 ${randomUUID()}` }, author: { kind: "agent" } }));
+  const agentVersion = (row: CardRow) =>
+    db().transaction(async (tx) => {
+      const c = await store.writeCardVersion(tx, { row, content: { ...store.cardContentOf(row), tips: `Agent 改 ${randomUUID()}` }, author: { kind: "agent" } });
+      await gate.recordAgentUpdate(tx, c);
+      return c;
+    });
 
   it("挑卡：已发布、近 7 天 ≥ 3 份草稿且有问题信号、24 小时内没有新版本；按问题比例排；同一天不重复建；任务带代表性用例与证据", async () => {
     const env = await setup();
@@ -327,7 +332,7 @@ describe.skipIf(!process.env.DATABASE_URL)("按卡定时体检（需要数据库
       [rows[4], rows[5]].map((r) =>
         db().transaction(async (tx) => {
           const g = await gate.agentApplyAllowed(tx, m, r.id);
-          if (g.ok) await store.writeCardVersion(tx, { row: r, content: { ...store.cardContentOf(r), tips: "并发" }, author: { kind: "agent" } });
+          if (g.ok) await gate.recordAgentUpdate(tx, await store.writeCardVersion(tx, { row: r, content: { ...store.cardContentOf(r), tips: "并发" }, author: { kind: "agent" } }));
           return g;
         }),
       ),
@@ -336,6 +341,12 @@ describe.skipIf(!process.env.DATABASE_URL)("按卡定时体检（需要数据库
     expect(race.find((g) => !g.ok)).toEqual({ ok: false, reason: "今天 Agent 直接生效的改动已满 5 次。" });
     expect(await gate.agentAppliedToday(m)).toBe(5);
     expect(await allowed(rows[6].id)).toEqual({ ok: false, reason: "今天 Agent 直接生效的改动已满 5 次。" });
+    // 删掉当天改过的卡，名额不放回来（次数按审计算，INV-KB-010）
+    await cards.deleteCard(env.ctx, rows[1].id);
+    expect(await gate.agentAppliedToday(m)).toBe(5);
+    // 组长只看负责店铺的体检记录
+    const lead = { ...env.ctx, membership: { ...env.ctx.membership, role: "lead" as const }, isOwner: false, shopIds: [] as string[] };
+    expect(await review.reviewHistory(lead, rows[0].id)).toEqual([]);
   });
 
   it("自动生效暂停时体检改卡进待审核，建议栏写明原因；审核人不改内容直接发布到这张卡", async () => {

@@ -1,7 +1,7 @@
 // 经验卡写入（DESIGN §9.6、§11 经验卡）：建卡、写新版本、向量化。人写的与 Agent 写的都走这里，审计由调用方写。
 // 每次内容变化写一行 experience_card_version；卡上的 version 同时是乐观锁。向量 = 标题 + 调用条件，失败照样保存、向量留空，由 knowledge.qa_embed 补上。
 import { and, count, eq, inArray } from "drizzle-orm";
-import { CARD_LIMIT, type CardContent, type CardRetestSummary } from "@/contracts/cards";
+import { CARD_LIMIT, zCardContent, type CardContent, type CardRetestSummary } from "@/contracts/cards";
 import { db, schema, type Executor } from "@/server/db/client";
 import { conflict, notAllowed, validation } from "@/server/http/problem";
 import { EMBED_MODEL, embedTexts } from "./embed";
@@ -24,6 +24,15 @@ export function cardContentOf(row: CardRow): CardContent {
     tips: row.tips,
     qaIds: row.qaIds,
   };
+}
+
+/** 两份卡内容是否相同：库里读出的 jsonb 键序与请求体不同（分支的 goto 在前），先按契约的结构整理一遍再比 */
+export function sameCardContent(a: CardContent, b: CardContent): boolean {
+  const normalized = (c: CardContent) => {
+    const p = zCardContent.safeParse(c);
+    return JSON.stringify(p.success ? p.data : c);
+  };
+  return normalized(a) === normalized(b);
 }
 
 /** 参与检索的文本：标题与调用条件（步骤与沟通提示不参与，避免长内容冲淡「什么情况下用」） */

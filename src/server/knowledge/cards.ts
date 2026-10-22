@@ -4,13 +4,13 @@
 // 辅助、自动模式按卡转人工时不存草稿，只写 handoff 审计（data.reason = card、data.card_id），这部分也计入调用与转人工。
 import { and, count, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { CardContent, CardDetail, CardList, CardListQuery, CardPatch, CardRollbackBody, CardStats, CardStatus, CardVersionView, ExperienceCard } from "@/contracts/cards";
-import { CARD_VERSIONS_SHOWN, zCardContent } from "@/contracts/cards";
+import { CARD_VERSIONS_SHOWN } from "@/contracts/cards";
 import type { MemberContext } from "@/server/auth/context";
 import { audit } from "@/server/core/audit";
 import { db, schema, type Executor } from "@/server/db/client";
 import { conflict, notFound, Problem, validation } from "@/server/http/problem";
 import { reviewHistory } from "./card-review";
-import { cardContentOf, cardEmbedText, checkCardRefs, insertCard, needsEmbed, tryEmbedCard, writeCardVersion, type CardRow } from "./card-store";
+import { cardContentOf, cardEmbedText, checkCardRefs, insertCard, needsEmbed, sameCardContent, tryEmbedCard, writeCardVersion, type CardRow } from "./card-store";
 import { EMBED_MODEL, embedTexts } from "./embed";
 
 const c = schema.experienceCard;
@@ -222,7 +222,7 @@ export async function getCard(ctx: MemberContext, id: string): Promise<CardDetai
     seenAt: x.seenAt?.toISOString() ?? null,
     createdAt: x.createdAt.toISOString(),
   }));
-  return { card: (await cardViews([row]))[0], versions: items, reviews: await reviewHistory(ctx.merchant.id, row.id) };
+  return { card: (await cardViews([row]))[0], versions: items, reviews: await reviewHistory(ctx, row.id) };
 }
 
 /** API-KB-030：保存即发布，写第 1 版 */
@@ -246,18 +246,12 @@ async function markSeen(tx: Executor, row: CardRow, memberId: string) {
     .where(and(eq(v.cardId, row.id), eq(v.version, row.version)));
 }
 
-/** 库里读出的 jsonb 键序与请求体不同（分支的 goto 在前），先按契约的结构整理一遍再比 */
-const normalized = (c: CardContent) => {
-  const p = zCardContent.safeParse(c);
-  return JSON.stringify(p.success ? p.data : c);
-};
-const same = (a: CardContent, b: CardContent) => normalized(a) === normalized(b);
 
 /** API-KB-032：整张卡提交；内容没变时不写新版本；标题或调用条件变了才重算向量 */
 export async function updateCard(ctx: MemberContext, id: string, body: CardPatch) {
   const row = await loadCard(ctx.merchant.id, id);
   checkVersion(row, body.version);
-  if (same(cardContentOf(row), body.card)) return view(row);
+  if (sameCardContent(cardContentOf(row), body.card)) return view(row);
   await checkCardRefs(ctx.merchant.id, body.card);
   const vec = needsEmbed(row, body.card) ? await tryEmbedCard(body.card) : undefined;
   const updated = await db().transaction(async (tx) => {

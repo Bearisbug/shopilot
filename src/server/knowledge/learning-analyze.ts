@@ -29,9 +29,9 @@ import { audit, systemActor } from "@/server/core/audit";
 import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
 import { identifyProductsWithBasis } from "@/server/products/dictionary";
-import { agentApplyAllowed } from "./agent-apply";
+import { agentApplyAllowed, recordAgentUpdate } from "./agent-apply";
 import { loadReviewCases, sentCases } from "./card-review";
-import { cardContentOf, needsEmbed, tryEmbedCard, writeCardVersion, type CardRow } from "./card-store";
+import { cardContentOf, sameCardContent, needsEmbed, tryEmbedCard, writeCardVersion, type CardRow } from "./card-store";
 import { embedTexts } from "./embed";
 import { basisText, buyerTextsOf, productCardIdsOf, productStatusOf, SNAPSHOT_MAX } from "./learning";
 import { snapshotOf } from "./snapshot";
@@ -171,6 +171,13 @@ export async function analyzeLearning(data: Record<string, unknown>): Promise<vo
   const taskId = String(data.taskId ?? "");
   const [task] = await db().select().from(T).where(eq(T.id, taskId)).limit(1);
   if (!task || task.status !== "analyzing") return;
+  // 开始执行时记一下：超时补扫按最后更新时间算，排队等的时间不算进去
+  const [started] = await db()
+    .update(T)
+    .set({ updatedAt: new Date() })
+    .where(and(eq(T.id, task.id), eq(T.version, task.version), eq(T.status, "analyzing")))
+    .returning({ id: T.id });
+  if (!started) return;
   const finish = async (set: Partial<typeof T.$inferInsert>) => {
     await db()
       .update(T)
@@ -236,7 +243,8 @@ async function analyze(task: TaskRow, finish: Finish) {
     return finish({ ...common, status: "pending_review", proposal: content, targetCardId: null, test: { question: input.question, before, after } });
   }
 
-  // 改已有卡：直接复测，通过即生效（Agent 版本，标还没人看过）
+  // 改已有卡：内容和原卡一样就不写新版本；否则直接复测，通过即生效（Agent 版本，标还没人看过）
+  if (sameCardContent(cardContentOf(target.row), content)) return finish({ ...common, status: "closed", result: "none_needed", targetCardId: target.row.id });
   const retest = await retestProposal(t, content, { id: target.row.id, version: target.row.version });
   if (!retest.passed) return finish({ ...common, status: "closed", result: "retest_failed", proposal: content, targetCardId: target.row.id, retest, error: retest.failReason });
   await applyAgentEdit(task, common, content, target.row, retest, out.reason || out.suggestion || null);
@@ -250,11 +258,15 @@ async function applyAgentEdit(task: TaskRow, common: Common, content: CardConten
   const vec = needsEmbed(targetRow, content) ? await tryEmbedCard(content) : undefined;
   return db().transaction(async (tx) => {
     const [fresh] = await tx.select().from(C).where(eq(C.id, targetRow.id)).for("update");
-    const settle = (set: Common) =>
-      tx
+    // 任务已不在分析中（超时补扫标了失败、或被别处改过）就整笔回滚，不留下改了卡却显示失败的任务
+    const settle = async (set: Common) => {
+      const rows = await tx
         .update(T)
         .set({ ...common, ...set, version: task.version + 1, updatedAt: new Date() })
-        .where(and(eq(T.id, task.id), eq(T.version, task.version)));
+        .where(and(eq(T.id, task.id), eq(T.version, task.version), eq(T.status, "analyzing")))
+        .returning({ id: T.id });
+      if (rows.length === 0) throw new Error("学习任务已不在分析中，这次改动没有写入");
+    };
     // 原卡在分析期间被下架或删除：会话学习的内容当作新卡交给审核人（§11.19），审核人要重新复测；体检就此结束
     if (!fresh || fresh.status !== "published") {
       if (task.kind === "card_review") await settle({ status: "closed", result: "none_needed", proposal: content, retest, reason: "卡在体检期间被下架或删除，不再改。" });
@@ -281,7 +293,7 @@ async function applyAgentEdit(task: TaskRow, common: Common, content: CardConten
       retest: { passed: true, regressions: retest.regressions.length, failReason: null },
     });
     await settle({ status: "published", result: "card_updated", proposal: content, targetCardId: card.id, retest, publishedCardId: card.id, publishedVersion: card.version });
-    await audit(systemActor(task.merchantId), { module: "reception", action: "knowledge_card_agent_updated", summary: `Agent 改了经验卡「${card.title}」（第 ${card.version} 版）`, targetType: "experience_card", targetId: card.id, data: { learningTaskId: task.id, version: card.version, regressions: retest.regressions.length } }, tx);
+    await recordAgentUpdate(tx, card, { learningTaskId: task.id, regressions: retest.regressions.length });
     return "applied";
   });
 }
@@ -343,6 +355,10 @@ async function analyzeCardReview(task: TaskRow, finish: Finish) {
   if (!content) {
     await finish({ ...common, status: "failed", error: "AI 给的经验卡内容不完整，可以重新分析。" });
     return reviewed("failed");
+  }
+  if (sameCardContent(cardContentOf(card), content)) {
+    await finish({ ...common, status: "closed", result: "none_needed" });
+    return reviewed("keep");
   }
   const retest = await retestProposal(task, content, { id: card.id, version: card.version }, await sentCases(draftIds));
   if (!retest.passed) {

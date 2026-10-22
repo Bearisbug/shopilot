@@ -4,6 +4,7 @@
 // 只读草稿、对比与消息；按段查消息一律带会话条件（message 只有（会话、时间）索引）。
 import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import type { CardReviewEvidence, CardReviewItem } from "@/contracts/cards";
+import type { MemberContext } from "@/server/auth/context";
 import { db, schema } from "@/server/db/client";
 import { enqueue } from "@/server/jobs/boss";
 import type { RegressionCase } from "./retest";
@@ -29,7 +30,7 @@ const PROBLEM = sql.raw(`(
   d.status in ('edited_sent', 'ignored')
   or exists (select 1 from draft_review r where r.draft_id = d.id and r.consistency in ('partial', 'different'))
   or (d.card->>'action' in ('handoff', 'ticket') and exists (
-    select 1 from message m where m.conversation_id = d.conversation_id and m.segment_id = d.segment_id and m.sender_role = 'agent' and m.sent_at > d.created_at))
+    select 1 from message m where m.conversation_id = d.conversation_id and m.segment_id = d.segment_id and m.sender_role in ('agent', 'platform_human') and m.sent_at > d.created_at))
 )`);
 /** 一个商户今天要体检的卡，按问题比例排序 */
 export async function pickCardsForReview(merchantId: string, limit = REVIEW_PER_MERCHANT): Promise<Array<{ cardId: string; total: number; problems: number }>> {
@@ -82,7 +83,10 @@ export async function buildEvidence(cardId: string): Promise<{ evidence: CardRev
 
 type DraftRow = typeof D.$inferSelect;
 
-/** 草稿出稿时的对话：会话里到触发消息为止的最近 20 条（带会话条件走索引），问题是触发那条买家文字 */
+/**
+ * 草稿出稿时的对话：草稿所在会话段里到触发消息为止的最近 20 条（带会话条件走索引），问题是触发那条买家文字。
+ * 只取这一段：任务和回归用例都挂在这一段上，跨到更早的段时那段被保留期清理后买家原话会留在快照里（INV-KB-009）。
+ */
 async function turnsAt(d: DraftRow) {
   const [trigger] = d.triggerMessageId ? await db().select().from(M).where(and(eq(M.conversationId, d.conversationId), eq(M.id, d.triggerMessageId))).limit(1) : [];
   const upTo = trigger?.sentAt ?? d.createdAt;
@@ -90,7 +94,7 @@ async function turnsAt(d: DraftRow) {
     await db()
       .select()
       .from(M)
-      .where(and(eq(M.conversationId, d.conversationId), lte(M.sentAt, upTo)))
+      .where(and(eq(M.conversationId, d.conversationId), d.segmentId ? eq(M.segmentId, d.segmentId) : undefined, lte(M.sentAt, upTo)))
       .orderBy(desc(M.sentAt), desc(M.createdAt))
       .limit(SNAPSHOT_TURNS)
   ).reverse();
@@ -98,14 +102,14 @@ async function turnsAt(d: DraftRow) {
   return { trigger, rows, question };
 }
 
-/** 草稿之后人工最终发出的内容：有草稿对比就用对比时取的人工回复，否则取同一段里草稿之后客服发的最多 3 条 */
+/** 草稿之后人工最终发出的内容：有草稿对比就用对比时取的人工回复，否则取同一段里草稿之后客服发的最多 3 条（含卖家后台直接回复的） */
 async function humanAfter(d: DraftRow, compared: string | null): Promise<string | null> {
   if (compared) return compared;
   if (!d.segmentId) return null;
   const rows = await db()
     .select({ text: M.text })
     .from(M)
-    .where(and(eq(M.conversationId, d.conversationId), eq(M.segmentId, d.segmentId), eq(M.senderRole, "agent"), sql`${M.sentAt} > ${d.createdAt}`))
+    .where(and(eq(M.conversationId, d.conversationId), eq(M.segmentId, d.segmentId), inArray(M.senderRole, ["agent", "platform_human"]), sql`${M.sentAt} > ${d.createdAt}`))
     .orderBy(M.sentAt)
     .limit(3);
   const text = rows.map((r) => r.text?.trim()).filter(Boolean).join("\n");
@@ -227,12 +231,13 @@ export async function reviewCards(data: Record<string, unknown> = {}): Promise<{
   return { merchants: merchants.length, reviewed };
 }
 
-/** API-KB-031 的体检记录：这张卡最近 10 次 */
-export async function reviewHistory(merchantId: string, cardId: string): Promise<CardReviewItem[]> {
+/** API-KB-031 的体检记录：这张卡最近 10 次；理由里有买家对话的内容，组长只看负责店铺的（同学习任务列表） */
+export async function reviewHistory(ctx: MemberContext, cardId: string): Promise<CardReviewItem[]> {
+  const scope = ctx.shopIds === null ? [] : [ctx.shopIds.length ? inArray(T.shopId, ctx.shopIds) : sql`false`];
   const rows = await db()
     .select()
     .from(T)
-    .where(and(eq(T.merchantId, merchantId), eq(T.kind, "card_review"), eq(T.targetCardId, cardId)))
+    .where(and(eq(T.merchantId, ctx.merchant.id), eq(T.kind, "card_review"), eq(T.targetCardId, cardId), ...scope))
     .orderBy(desc(T.createdAt))
     .limit(10);
   return rows.map((r) => ({
