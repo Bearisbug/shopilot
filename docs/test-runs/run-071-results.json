@@ -1,0 +1,306 @@
+{
+  "TC-SITE-001": {
+    "1": {
+      "path": "/",
+      "h1": "所有店铺的买家消息，一个工作台全部接住",
+      "title": "Shopilot — Shopee 与 TikTok Shop 多店铺客服工作台",
+      "nav": [
+        "功能",
+        "接待档位",
+        "订单售后",
+        "知识库",
+        "团队与安全"
+      ],
+      "lang": [
+        "中文(当前)",
+        "EN"
+      ],
+      "login": [
+        "登录"
+      ]
+    },
+    "2": {
+      "hrefs": [
+        "/",
+        "#features",
+        "#modes",
+        "#orders",
+        "#knowledge",
+        "#security",
+        "/en",
+        "/login"
+      ],
+      "anchorsWithId": [
+        "#features:true",
+        "#modes:true",
+        "#orders:true",
+        "#knowledge:true",
+        "#security:true"
+      ]
+    },
+    "3": {
+      "url": "/#modes",
+      "headingTop": 192,
+      "headingBottom": 242,
+      "headerBottom": 72,
+      "viewport": 900
+    },
+    "4": {
+      "path": "/en",
+      "h1": "Every buyer, every shop. One workbench.",
+      "current": "EN"
+    },
+    "5": {
+      "path": "/en",
+      "h1": "Every buyer, every shop. One workbench.",
+      "current": "EN"
+    },
+    "6": {
+      "path": "/login"
+    },
+    "7": {
+      "canonical": "https://shopilot.live/",
+      "alternates": [
+        "zh-CN → https://shopilot.live/",
+        "en → https://shopilot.live/en",
+        "x-default → https://shopilot.live/"
+      ]
+    },
+    "8": {
+      "console": []
+    }
+  },
+  "TC-SITE-002": {
+    "1": {
+      "path": "/wb"
+    },
+    "2": {
+      "path": "/wb",
+      "siteRoot": 0
+    },
+    "3": {
+      "path": "/en",
+      "h1": "Every buyer, every shop. One workbench."
+    },
+    "console": []
+  },
+  "TC-SITE-003": {
+    "1": {
+      "shops": 5,
+      "rowsVisible": 5,
+      "selected": true,
+      "buyer": true,
+      "translation": true,
+      "draft": true,
+      "citation": true,
+      "cursor": false,
+      "toggles": 0,
+      "animations": 0
+    },
+    "2": {
+      "count": 41,
+      "notOne": 0,
+      "marquee": {
+        "tracks": [
+          "flex/wrap",
+          "none/wrap"
+        ],
+        "items": 8,
+        "transform": "none"
+      }
+    },
+    "3": {
+      "/": {
+        "scrollWidth": 379,
+        "clientWidth": 390,
+        "headerNav": false,
+        "headerLang": true,
+        "headerLogin": true,
+        "heroViewBox": "0 0 360 476",
+        "heroShops": 3,
+        "heroInbox": false
+      },
+      "/en": {
+        "scrollWidth": 379,
+        "clientWidth": 390,
+        "headerNav": false,
+        "headerLang": true,
+        "headerLogin": true,
+        "heroViewBox": "0 0 360 476",
+        "heroShops": 3,
+        "heroInbox": false
+      }
+    },
+    "4": {
+      "first": [
+        0.705231,
+        0.00980386,
+        0,
+        0,
+        0,
+        0
+      ],
+      "later": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "5": {
+      "count": 41,
+      "notOne": 0
+    },
+    "console": []
+  },
+  "TC-SITE-004": {
+    "1": {
+      "texts": [
+        "Shopee",
+        "MY · 马来西亚",
+        "1",
+        "TikTok Shop",
+        "TH · 泰国",
+        "VN · 越南",
+        "PH · 菲律宾",
+        "SG · 新加坡",
+        "AI"
+      ],
+      "htmlTextInFigure": 0,
+      "toggleBelow": "暂停动画"
+    },
+    "2": {
+      "14": {
+        "badges": 3,
+        "packets": 1,
+        "rows": 2,
+        "selected": 0,
+        "buyer": 0,
+        "translation": 0,
+        "draft": 0,
+        "typedBars": [
+          "0.00",
+          "0.00",
+          "0.00"
+        ],
+        "citation": 0,
+        "cursor": 0,
+        "sent": 0,
+        "rowCheck": 0
+      },
+      "30": {
+        "badges": 5,
+        "packets": 0,
+        "rows": 5,
+        "selected": 1,
+        "buyer": 0,
+        "translation": 0,
+        "draft": 0,
+        "typedBars": [
+          "0.00",
+          "0.00",
+          "0.00"
+        ],
+        "citation": 0,
+        "cursor": 0,
+        "sent": 0,
+        "rowCheck": 0
+      },
+      "50": {
+        "badges": 5,
+        "packets": 0,
+        "rows": 5,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 1,
+        "draft": 1,
+        "typedBars": [
+          "0.88",
+          "0.00",
+          "0.00"
+        ],
+        "citation": 0,
+        "cursor": 0,
+        "sent": 0,
+        "rowCheck": 0
+      },
+      "64": {
+        "badges": 5,
+        "packets": 0,
+        "rows": 5,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 1,
+        "draft": 1,
+        "typedBars": [
+          "1.00",
+          "1.00",
+          "1.00"
+        ],
+        "citation": 1,
+        "cursor": 0,
+        "sent": 0,
+        "rowCheck": 0
+      },
+      "74": {
+        "badges": 5,
+        "packets": 0,
+        "rows": 5,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 1,
+        "draft": 0,
+        "typedBars": [
+          "1.00",
+          "1.00",
+          "1.00"
+        ],
+        "citation": 1,
+        "cursor": 1,
+        "sent": 0,
+        "rowCheck": 0
+      },
+      "82": {
+        "badges": 5,
+        "packets": 0,
+        "rows": 5,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 1,
+        "draft": 0,
+        "typedBars": [
+          "1.00",
+          "1.00",
+          "1.00"
+        ],
+        "citation": 1,
+        "cursor": 0,
+        "sent": 1,
+        "rowCheck": 1
+      }
+    },
+    "3": {
+      "toggles": 9
+    },
+    "4": {
+      "runningBefore": 51,
+      "runningAfter": [],
+      "playButtons": 9,
+      "pauseButtons": 0
+    },
+    "5": {
+      "pausedTimes": [
+        7939,
+        7939
+      ],
+      "afterPlay": 8422,
+      "pauseButtons": 9,
+      "running": 51
+    },
+    "6": {
+      "console": []
+    }
+  }
+}

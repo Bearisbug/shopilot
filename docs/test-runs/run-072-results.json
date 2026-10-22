@@ -1,0 +1,612 @@
+{
+  "TC-SITE-001": {
+    "1": {
+      "h1": "所有店铺的买家消息，一个工作台全部接住",
+      "title": "Shopilot — Shopee 与 TikTok Shop 多店铺客服工作台",
+      "nav": [
+        "功能",
+        "接待档位",
+        "订单售后",
+        "知识库",
+        "团队与安全"
+      ],
+      "lang": [
+        "中文(当前)",
+        "EN"
+      ],
+      "login": [
+        "登录"
+      ],
+      "path": "/"
+    },
+    "2": {
+      "hrefs": [
+        "/",
+        "#features",
+        "#modes",
+        "#orders",
+        "#knowledge",
+        "#security",
+        "/en",
+        "/login"
+      ],
+      "anchorsWithId": [
+        "#features:true",
+        "#modes:true",
+        "#orders:true",
+        "#knowledge:true",
+        "#security:true"
+      ]
+    },
+    "3": {
+      "heading": "AI 接待按店铺逐档放开",
+      "headingTop": 192,
+      "headingBottom": 264,
+      "headerBottom": 72,
+      "viewport": 900,
+      "url": "/#modes"
+    },
+    "4": {
+      "path": "/en",
+      "h1": "Every buyer, every shop.One workbench.",
+      "current": "EN"
+    },
+    "5": {
+      "path": "/en",
+      "h1": "Every buyer, every shop.One workbench.",
+      "current": "EN"
+    },
+    "6": {
+      "path": "/login"
+    },
+    "7": {
+      "canonical": "https://shopilot.live/",
+      "alternates": [
+        "zh-CN → https://shopilot.live/",
+        "en → https://shopilot.live/en",
+        "x-default → https://shopilot.live/"
+      ]
+    },
+    "8": {
+      "console": []
+    }
+  },
+  "TC-SITE-002": {
+    "1": {
+      "path": "/wb"
+    },
+    "2": {
+      "path": "/wb",
+      "siteRoot": 0
+    },
+    "3": {
+      "path": "/en",
+      "h1": "Every buyer, every shop.One workbench."
+    },
+    "console": []
+  },
+  "TC-SITE-003": {
+    "1": {
+      "caption": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "caps": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "bars": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "badges": 1,
+      "rows": 1,
+      "selected": 1,
+      "buyer": 1,
+      "translation": 1,
+      "draft": 1,
+      "source": 1,
+      "cursor": 0,
+      "sent": 0,
+      "doubleCheck": 0,
+      "focus": 1,
+      "tilt": "none",
+      "zoom": "none",
+      "figTop": 12,
+      "figBottom": 596,
+      "headerBottom": 72,
+      "storyHeight": 752,
+      "viewport": 900,
+      "stagePosition": "static",
+      "shops": 5,
+      "rowsVisible": 5,
+      "steps": [
+        "01每家店的新消息，汇进同一个列表",
+        "02买家写马来语，你读到的是中文",
+        "03AI 先写好草稿，标出依据",
+        "04你确认一眼，点发送"
+      ],
+      "toggles": 0,
+      "animations": 0,
+      "figureMovedWithPage": 200,
+      "console": []
+    },
+    "2": {
+      "count": 36,
+      "notOne": 0,
+      "bad": [],
+      "statement": {
+        "chars": 66,
+        "notOne": 0
+      },
+      "platforms": {
+        "items": [
+          "Shopee",
+          "TikTok Shop",
+          "MY马来西亚",
+          "TH泰国",
+          "VN越南",
+          "PH菲律宾",
+          "SG新加坡",
+          "ID印度尼西亚"
+        ],
+        "unique": true,
+        "transforms": [
+          "none"
+        ],
+        "wrap": [
+          "wrap"
+        ]
+      }
+    },
+    "3": {
+      "/": {
+        "scrollWidth": 379,
+        "clientWidth": 390,
+        "headerNav": false,
+        "headerLang": true,
+        "headerLogin": true,
+        "heroViewBox": "0 0 360 476",
+        "heroShops": 2,
+        "heroInbox": false
+      },
+      "/en": {
+        "scrollWidth": 379,
+        "clientWidth": 390,
+        "headerNav": false,
+        "headerLang": true,
+        "headerLogin": true,
+        "heroViewBox": "0 0 360 476",
+        "heroShops": 2,
+        "heroInbox": false
+      }
+    },
+    "4": {
+      "atLoad": [
+        0.71,
+        0.01,
+        0,
+        0,
+        0
+      ],
+      "after4s": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "5": {
+      "count": 36,
+      "notOne": 0,
+      "bad": [],
+      "console": []
+    }
+  },
+  "TC-SITE-005": {
+    "1": {
+      "h1": "所有店铺的买家消息，一个工作台全部接住",
+      "gradientWord": "一个工作台",
+      "gradientImage": "linear-gradient(100deg, rgb(138, 79, 0) 10%, rgb(196, 122, 36) 45%, rgb(138, 79,",
+      "clip": "text",
+      "figureTop": 800,
+      "viewport": 900,
+      "tilt": "matrix3d(0.968255, 0, 0, 0, 0, 0.962316, 0.107074, 0, 0, -0.110585, 0.993867, 0, 0, 14.8313, 0, 1)",
+      "auraBefore": "linear-gradient(120deg, rgb(255, 167, 72",
+      "state": {
+        "caption": [],
+        "caps": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "bars": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "badges": 0,
+        "rows": 0,
+        "selected": 0,
+        "buyer": 0,
+        "translation": 0,
+        "draft": 0,
+        "source": 0,
+        "cursor": 0,
+        "sent": 0,
+        "doubleCheck": 0,
+        "focus": 1,
+        "tilt": "matrix3d(0.968255, 0, 0, 0, 0, 0.962316, 0.107074, 0, 0, -0.110585, 0.993867, 0, 0, 14.8313, 0, 1)",
+        "zoom": "matrix(1, 0, 0, 1, 0, 0)",
+        "figTop": 800,
+        "figBottom": 1363,
+        "headerBottom": 72
+      }
+    },
+    "2": {
+      "30": {
+        "caption": [
+          1
+        ],
+        "caps": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "bars": [
+          0.74,
+          0,
+          0,
+          0
+        ],
+        "badges": 0.35,
+        "rows": 0,
+        "selected": 0,
+        "buyer": 0,
+        "translation": 0,
+        "draft": 0,
+        "source": 0,
+        "cursor": 0,
+        "sent": 0,
+        "doubleCheck": 0,
+        "focus": 1,
+        "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+        "zoom": "matrix(1, 0, 0, 1, 0, 0)",
+        "figTop": 125,
+        "figBottom": 709,
+        "headerBottom": 72
+      },
+      "42": {
+        "caption": [
+          1
+        ],
+        "caps": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "bars": [
+          0.96,
+          0,
+          0,
+          0
+        ],
+        "badges": 1,
+        "rows": 1,
+        "selected": 0,
+        "buyer": 0,
+        "translation": 0,
+        "draft": 0,
+        "source": 0,
+        "cursor": 0,
+        "sent": 0,
+        "doubleCheck": 0,
+        "focus": 1,
+        "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+        "zoom": "matrix(1, 0, 0, 1, 0, 0)",
+        "figTop": 125,
+        "figBottom": 709,
+        "headerBottom": 72
+      },
+      "61": {
+        "caption": [
+          2
+        ],
+        "caps": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "bars": [
+          1,
+          0.95,
+          0,
+          0
+        ],
+        "badges": 1,
+        "rows": 1,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 0.81,
+        "draft": 0,
+        "source": 0,
+        "cursor": 0,
+        "sent": 0,
+        "doubleCheck": 0,
+        "focus": 1,
+        "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+        "zoom": "matrix(1, 0, 0, 1, 0, 0)",
+        "figTop": 125,
+        "figBottom": 709,
+        "headerBottom": 72
+      },
+      "77": {
+        "caption": [
+          3
+        ],
+        "caps": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "bars": [
+          1,
+          1,
+          0.98,
+          0
+        ],
+        "badges": 1,
+        "rows": 1,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 1,
+        "draft": 1,
+        "source": 0.83,
+        "cursor": 0,
+        "sent": 0,
+        "doubleCheck": 0,
+        "focus": 0.3,
+        "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+        "zoom": "matrix(1.1, 0, 0, 1.1, 0, 0)",
+        "figTop": 96,
+        "figBottom": 738,
+        "headerBottom": 72
+      },
+      "84": {
+        "caption": [
+          4
+        ],
+        "caps": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "bars": [
+          1,
+          1,
+          1,
+          0.5
+        ],
+        "badges": 1,
+        "rows": 1,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 1,
+        "draft": 1,
+        "source": 1,
+        "cursor": 1,
+        "sent": 0,
+        "doubleCheck": 0,
+        "focus": 0.3,
+        "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+        "zoom": "matrix(1.1, 0, 0, 1.1, 0, 0)",
+        "figTop": 96,
+        "figBottom": 738,
+        "headerBottom": 72
+      },
+      "97": {
+        "caption": [
+          4
+        ],
+        "caps": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "bars": [
+          1,
+          1,
+          1,
+          0.99
+        ],
+        "badges": 1,
+        "rows": 1,
+        "selected": 1,
+        "buyer": 1,
+        "translation": 1,
+        "draft": 0,
+        "source": 1,
+        "cursor": 0,
+        "sent": 1,
+        "doubleCheck": 1,
+        "focus": 1,
+        "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+        "zoom": "matrix(1, 0, 0, 1, 0, 0)",
+        "figTop": 125,
+        "figBottom": 709,
+        "headerBottom": 72
+      },
+      "shopTexts": [
+        "Shopee",
+        "MY · 马来西亚",
+        "1",
+        "TikTok Shop",
+        "TH · 泰国",
+        "1",
+        "Shopee",
+        "VN · 越南",
+        "1",
+        "TikTok Shop",
+        "PH · 菲律宾",
+        "1"
+      ]
+    },
+    "3": {
+      "caption": [
+        2
+      ],
+      "caps": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "bars": [
+        1,
+        0.88,
+        0,
+        0
+      ],
+      "badges": 1,
+      "rows": 1,
+      "selected": 1,
+      "buyer": 1,
+      "translation": 0,
+      "draft": 0,
+      "source": 0,
+      "cursor": 0,
+      "sent": 0,
+      "doubleCheck": 0,
+      "focus": 1,
+      "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+      "zoom": "matrix(1, 0, 0, 1, 0, 0)",
+      "figTop": 125,
+      "figBottom": 709,
+      "headerBottom": 72
+    },
+    "4": {
+      "pause": 6,
+      "play": 0,
+      "inStory": 1,
+      "inTiles": 5
+    },
+    "5": {
+      "before": {
+        "css": {
+          "running": 6
+        },
+        "cssNames": [
+          "site-loop-drift",
+          "site-loop-ping",
+          "site-loop-aura"
+        ],
+        "tiles": {
+          "running": 22,
+          "paused": 20
+        }
+      },
+      "after": {
+        "css": {
+          "paused": 6
+        },
+        "cssNames": [
+          "site-loop-drift",
+          "site-loop-ping",
+          "site-loop-aura"
+        ],
+        "tiles": {
+          "paused": 42
+        }
+      },
+      "labels": {
+        "pause": 0,
+        "play": 6,
+        "inStory": 1,
+        "inTiles": 5
+      }
+    },
+    "6": {
+      "caption": [
+        4
+      ],
+      "caps": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bars": [
+        1,
+        1,
+        1,
+        0.5
+      ],
+      "badges": 1,
+      "rows": 1,
+      "selected": 1,
+      "buyer": 1,
+      "translation": 1,
+      "draft": 1,
+      "source": 1,
+      "cursor": 1,
+      "sent": 0,
+      "doubleCheck": 0,
+      "focus": 0.3,
+      "tilt": "matrix(1, 0, 0, 1, 0, 0)",
+      "zoom": "matrix(1.1, 0, 0, 1.1, 0, 0)",
+      "figTop": 96,
+      "figBottom": 738,
+      "headerBottom": 72,
+      "labels": {
+        "pause": 0,
+        "play": 6,
+        "inStory": 1,
+        "inTiles": 5
+      }
+    },
+    "7": {
+      "pausedA": 850,
+      "pausedB": 850,
+      "afterPlay500": 1333,
+      "delta": 483,
+      "labels": {
+        "pause": 6,
+        "play": 0,
+        "inStory": 1,
+        "inTiles": 5
+      },
+      "loops": {
+        "css": {
+          "running": 6
+        },
+        "cssNames": [
+          "site-loop-drift",
+          "site-loop-ping",
+          "site-loop-aura"
+        ],
+        "tiles": {
+          "running": 22,
+          "paused": 20
+        }
+      }
+    },
+    "8": {
+      "console": []
+    }
+  }
+}

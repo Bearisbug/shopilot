@@ -88,14 +88,14 @@
     "notUsed": [
       {
         "id": "gradient",
-        "note": "设计系统 v5：无渐变",
+        "note": "设计系统 v5：产品界面无渐变；官网 /、/en 的光晕例外，只经 semantic.site（2026-10-22 用户定）",
         "css": {
           "valuePattern": "gradient\\("
         }
       },
       {
         "id": "shadow",
-        "note": "设计系统 v5：无投影；面板靠底色与发丝线分层",
+        "note": "设计系统 v5：产品界面无投影，面板靠底色与发丝线分层；官网 /、/en 例外，只用 semantic.site.shadow（2026-10-22 用户定）",
         "css": {
           "property": "box-shadow"
         }
@@ -109,7 +109,7 @@
       },
       {
         "id": "backdrop-filter",
-        "note": "无玻璃效果",
+        "note": "产品界面无玻璃效果；官网 /、/en 顶栏与插图面板例外，只用 semantic.site 的玻璃色与模糊（2026-10-22 用户定）",
         "css": {
           "property": "backdrop-filter"
         }
@@ -185,6 +185,32 @@
           "$description": "焦糖：链接、当前导航文字、选中指示、焦点环"
         }
       },
+      "site": {
+        "glass": {
+          "$value": "#FFF8F1B8",
+          "$description": "官网玻璃面：奶油底 72% 不透明"
+        },
+        "glassEdge": {
+          "$value": "#FFFFFFB3",
+          "$description": "官网玻璃边缘高光：白 70%"
+        },
+        "glowMango": {
+          "$value": "#FFA74866",
+          "$description": "官网光晕：芒果 40%"
+        },
+        "glowCaramel": {
+          "$value": "#8A4F0024",
+          "$description": "官网光晕：焦糖 14%"
+        },
+        "amber": {
+          "$value": "#C47A24",
+          "$description": "官网光晕与标题渐变的中间色：焦糖与芒果各半，在奶油底上 3.2:1，只用于 32px 以上的粗体字"
+        },
+        "shadow": {
+          "$value": "#2F1F1629",
+          "$description": "官网投影色：可可 16%"
+        }
+      },
       "feedback": {
         "success": {
           "$value": "#17704A"
@@ -256,6 +282,15 @@
         },
         "16": {
           "$value": 64
+        },
+        "24": {
+          "$value": 96,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "官网区块上下留白（2026-10-22 补）：桌面端区块间距取 4 的倍数 96，是产品界面最大间距 64 的 1.5 倍"
         }
       },
       "radius": {
@@ -273,6 +308,15 @@
         },
         "pill": {
           "$value": 9999
+        },
+        "xl": {
+          "$value": 28,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "官网功能格圆角（2026-10-22 补）"
         }
       },
       "fontSize": {
@@ -295,6 +339,42 @@
         },
         "30": {
           "$value": 30
+        },
+        "32": {
+          "$value": 32,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "官网窄屏大标题与区块标题（2026-10-22 补）"
+        },
+        "48": {
+          "$value": 48,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "官网中屏区块标题与大段陈述（2026-10-22 补）"
+        },
+        "64": {
+          "$value": 64,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "官网宽屏区块标题与收尾标题（2026-10-22 补）"
+        },
+        "96": {
+          "$value": 96,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "官网宽屏首屏大标题（2026-10-22 补）"
         }
       },
       "tracking": {
@@ -303,6 +383,42 @@
         },
         "none": {
           "$value": 0
+        },
+        "hero": {
+          "$value": -2.4,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "96px 大标题收紧 0.025em（2026-10-22 补）"
+        },
+        "section": {
+          "$value": -1.6,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "64px 标题收紧 0.025em（2026-10-22 补）"
+        },
+        "headline": {
+          "$value": -1.0,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "48px 标题收紧约 0.02em（2026-10-22 补）"
+        },
+        "title": {
+          "$value": -0.5,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "32px 标题收紧约 0.016em（2026-10-22 补）"
         }
       },
       "hairline": {
@@ -345,6 +461,19 @@
           "Menlo",
           "monospace"
         ]
+      },
+      "display": {
+        "$value": [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "PingFang SC",
+          "Segoe UI",
+          "Helvetica Neue",
+          "Microsoft YaHei",
+          "system-ui",
+          "sans-serif"
+        ],
+        "$description": "官网字体（2026-10-22 用户定）：系统无衬线，苹果设备上是 SF Pro 与苹方；产品界面仍用 sans"
       }
     },
     "fontWeight": {
@@ -357,6 +486,15 @@
       },
       "semibold": {
         "$value": 600
+      },
+      "bold": {
+        "$value": 700,
+        "$extensions": {
+          "com.design-extract": {
+            "confidence": "derived"
+          }
+        },
+        "$description": "官网标题（2026-10-22 补）"
       }
     },
     "ratio": {
@@ -375,6 +513,24 @@
         },
         "normal": {
           "$value": 1.6
+        },
+        "display": {
+          "$value": 1.08,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "96px 大标题行高（2026-10-22 补）"
+        },
+        "heading": {
+          "$value": 1.12,
+          "$extensions": {
+            "com.design-extract": {
+              "confidence": "derived"
+            }
+          },
+          "$description": "48–64px 标题行高（2026-10-22 补）"
         }
       }
     },
@@ -560,6 +716,10 @@
       },
       "section": {
         "$value": 32
+      },
+      "siteSection": {
+        "$value": 96,
+        "$description": "官网相邻两个区块之间的上下留白（桌面端）；窄屏用 space.16"
       }
     },
     "radius": {
@@ -848,6 +1008,339 @@
               }
             }
           }
+        }
+      }
+    },
+    "typographyDisplay": {
+      "$type": "typography",
+      "$description": "官网展示字阶（2026-10-22 补，同日按用户要求改为系统无衬线粗体）：只用于官网，产品界面仍用 typography 五档。窄屏逐档降级：hero 96 → 64 → 32，section 64 → 48 → 32。",
+      "$extensions": {
+        "com.design-extract": {
+          "scaling": "scalable",
+          "confidence": "derived",
+          "langOverrides": {
+            "zh": {
+              "fontFamily": "{primitive.fontFamily.display}",
+              "letterSpacing": "{primitive.dimension.tracking.none}"
+            }
+          }
+        }
+      },
+      "hero": {
+        "$value": {
+          "fontFamily": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "PingFang SC",
+            "Segoe UI",
+            "Helvetica Neue",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 96,
+          "fontWeight": 700,
+          "lineHeight": 1.08,
+          "letterSpacing": -2.4
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "-apple-system",
+                  "BlinkMacSystemFont",
+                  "PingFang SC",
+                  "Segoe UI",
+                  "Helvetica Neue",
+                  "Microsoft YaHei",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "section": {
+        "$value": {
+          "fontFamily": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "PingFang SC",
+            "Segoe UI",
+            "Helvetica Neue",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 64,
+          "fontWeight": 700,
+          "lineHeight": 1.12,
+          "letterSpacing": -1.6
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "-apple-system",
+                  "BlinkMacSystemFont",
+                  "PingFang SC",
+                  "Segoe UI",
+                  "Helvetica Neue",
+                  "Microsoft YaHei",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "headline": {
+        "$value": {
+          "fontFamily": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "PingFang SC",
+            "Segoe UI",
+            "Helvetica Neue",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 48,
+          "fontWeight": 700,
+          "lineHeight": 1.12,
+          "letterSpacing": -1.0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "-apple-system",
+                  "BlinkMacSystemFont",
+                  "PingFang SC",
+                  "Segoe UI",
+                  "Helvetica Neue",
+                  "Microsoft YaHei",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "title": {
+        "$value": {
+          "fontFamily": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "PingFang SC",
+            "Segoe UI",
+            "Helvetica Neue",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 32,
+          "fontWeight": 700,
+          "lineHeight": 1.25,
+          "letterSpacing": -0.5
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "-apple-system",
+                  "BlinkMacSystemFont",
+                  "PingFang SC",
+                  "Segoe UI",
+                  "Helvetica Neue",
+                  "Microsoft YaHei",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "lead": {
+        "$value": {
+          "fontFamily": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "PingFang SC",
+            "Segoe UI",
+            "Helvetica Neue",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 24,
+          "fontWeight": 400,
+          "lineHeight": 1.4,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "-apple-system",
+                  "BlinkMacSystemFont",
+                  "PingFang SC",
+                  "Segoe UI",
+                  "Helvetica Neue",
+                  "Microsoft YaHei",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      },
+      "leadSm": {
+        "$value": {
+          "fontFamily": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "PingFang SC",
+            "Segoe UI",
+            "Helvetica Neue",
+            "Microsoft YaHei",
+            "system-ui",
+            "sans-serif"
+          ],
+          "fontSize": 18,
+          "fontWeight": 400,
+          "lineHeight": 1.6,
+          "letterSpacing": 0
+        },
+        "$extensions": {
+          "com.design-extract": {
+            "langOverrides": {
+              "zh": {
+                "fontFamily": [
+                  "-apple-system",
+                  "BlinkMacSystemFont",
+                  "PingFang SC",
+                  "Segoe UI",
+                  "Helvetica Neue",
+                  "Microsoft YaHei",
+                  "system-ui",
+                  "sans-serif"
+                ],
+                "letterSpacing": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "site": {
+      "$description": "官网 / 与 /en 专用（2026-10-22 用户定）：玻璃顶栏、流动光晕、轻投影、功能格圆角与动效时长。产品界面不用这一组。",
+      "$extensions": {
+        "com.design-extract": {
+          "scope": "inferred",
+          "confidence": "derived"
+        }
+      },
+      "color": {
+        "$type": "color",
+        "glass": {
+          "$value": "#FFF8F1B8"
+        },
+        "glassEdge": {
+          "$value": "#FFFFFFB3"
+        },
+        "glowMango": {
+          "$value": "#FFA74866"
+        },
+        "glowCaramel": {
+          "$value": "#8A4F0024"
+        },
+        "aura1": {
+          "$value": "#FFA748"
+        },
+        "aura2": {
+          "$value": "#FFC98F"
+        },
+        "aura3": {
+          "$value": "#C47A24",
+          "$description": "光晕第三色，也是标题渐变的中间色"
+        }
+      },
+      "blur": {
+        "$type": "dimension",
+        "$extensions": {
+          "com.design-extract": {
+            "scaling": "absolute"
+          }
+        },
+        "glass": {
+          "$value": 20,
+          "$description": "玻璃面的背景模糊半径"
+        },
+        "aura": {
+          "$value": 40,
+          "$description": "插图面板外圈光晕的模糊半径"
+        }
+      },
+      "shadow": {
+        "$type": "shadow",
+        "raised": {
+          "$value": {
+            "offsetX": 0,
+            "offsetY": 16,
+            "blur": 40,
+            "spread": -16,
+            "color": "#2F1F1629"
+          },
+          "$description": "概念插图面板、玻璃顶栏"
+        },
+        "floating": {
+          "$value": {
+            "offsetX": 0,
+            "offsetY": 8,
+            "blur": 20,
+            "spread": -8,
+            "color": "#2F1F1629"
+          },
+          "$description": "插图里浮起的小卡片"
+        }
+      },
+      "radius": {
+        "$type": "dimension",
+        "tile": {
+          "$value": 28,
+          "$description": "功能格与大插图卡片"
+        }
+      },
+      "duration": {
+        "$type": "duration",
+        "loop": {
+          "$value": 9600,
+          "$description": "功能格概念动效一轮的时长"
+        },
+        "aura": {
+          "$value": 8000,
+          "$description": "插图面板外圈光晕转一圈的时长"
+        },
+        "drift": {
+          "$value": 24000,
+          "$description": "首屏与收尾背景光晕漂移一轮的时长（远慢于 5 秒一轮，MOTION-004）"
         }
       }
     },

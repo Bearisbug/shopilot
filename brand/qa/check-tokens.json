@@ -38,7 +38,7 @@
       "message": "light: accent on surface.overlay = 1.93:1 < 4.5:1"
     }
   ],
-  "tokens_sha256": "e1e453ad0dbffb4ecaabc84f5c092aff680478a0d7101d5ae6c86f7cfa46e005",
+  "tokens_sha256": "22438b127d5a5caef06aafd8738d104b1e4d0119e0bc54ecd7d7a36af8c180b9",
   "depth": "minimal",
   "contrast": {
     "modes": {

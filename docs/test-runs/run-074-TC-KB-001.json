@@ -1,0 +1,110 @@
+{
+  "1": {
+    "tabs": [
+      "问答",
+      "经验卡",
+      "待审核",
+      "学习",
+      "资料",
+      "产品",
+      "测试问答"
+    ],
+    "selected": "问答",
+    "subnavCurrent": [
+      "接待设置",
+      "知识库"
+    ],
+    "url": "/reception/knowledge?tab=docs",
+    "heading": "资料 0 / 500",
+    "empty": true
+  },
+  "2": {
+    "files": [
+      true,
+      true
+    ],
+    "sizes": [
+      true,
+      true
+    ],
+    "waiting": 2,
+    "limitText": true,
+    "button": 1
+  },
+  "3": {
+    "marketsAll": true,
+    "queued": 2,
+    "footer": true,
+    "done": true
+  },
+  "4": {
+    "rows": [
+      "型号对照.xlsx 整理成问答 售后政策 全部站点 可用 10-22 16:57 ",
+      "保修政策.pdf 整理成问答 售后政策 全部站点 可用 10-22 16:57 "
+    ],
+    "category": true,
+    "market": true,
+    "ready": true,
+    "switches": [
+      "true",
+      "true"
+    ],
+    "heading": "资料 2 / 500"
+  },
+  "5": {
+    "url": "/reception/knowledge?tab=docs&doc=01a162d4-29ce-7731-bd81-b53685c3d18f",
+    "title": "保修政策.pdf",
+    "ready": true,
+    "chunks": true,
+    "category": true,
+    "market": true,
+    "uploader": true,
+    "pdfEmbed": 1,
+    "note": "重新打开抽屉等到 iframe「保修政策.pdf 预览」后观察"
+  },
+  "6": {
+    "tabLabel": "解析内容（1 段）",
+    "url": "/reception/knowledge?tab=docs&doc=01a162d4-29ce-7731-bd81-b53685c3d18f&docTab=parsed",
+    "item": true,
+    "afterReloadSelected": "解析内容（1 段）"
+  },
+  "7": {
+    "hint": true,
+    "download": true,
+    "embed": 0
+  },
+  "8": {
+    "http": "200",
+    "n": 2,
+    "items": [
+      {
+        "name": "型号对照.xlsx",
+        "status": "ready",
+        "aiEnabled": true,
+        "markets": [
+          "ALL"
+        ],
+        "partsCount": 1,
+        "chunksCount": 1
+      },
+      {
+        "name": "保修政策.pdf",
+        "status": "ready",
+        "aiEnabled": true,
+        "markets": [
+          "ALL"
+        ],
+        "partsCount": 1,
+        "chunksCount": 1
+      }
+    ],
+    "counts": {
+      "total": 2,
+      "limit": 500
+    }
+  },
+  "前置": {
+    "login": "200",
+    "category": "201"
+  }
+}

@@ -1,0 +1,591 @@
+/* 官网（REQ-SITE-001）专用样式。字体与字阶取 brand/ 的 typographyDisplay（系统无衬线粗体），时长与缓动取 motion token，
+   玻璃、光晕、投影、圆角与循环时长取 semantic.site（THEME-006、MOTION-029）。中文页的字距由 tokens.css 的 [lang]:lang(zh) 覆盖归零。 */
+
+/* 官网在文档根滚动：槽位恒定、滚动条外观走 tokens（RESP-007、RESP-015）。
+   只作用于官网：官网到登录页、两种语言之间都用普通链接整页跳转，不会出现槽宽变化的那一帧。 */
+html:has(.site-root) {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--semantic-color-border-control) transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.site-root) {
+    scroll-behavior: smooth;
+  }
+}
+/* 光晕伸出版心，横向裁掉；clip 不建滚动容器，sticky 舞台照常吸顶（RESP-019） */
+.site-root {
+  overflow-x: clip;
+  font-family: var(--semantic-typography-display-lead-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- 字阶：窄屏到宽屏逐档放大（hero 32 → 64 → 96，区块标题 32 → 48 → 64） ---------- */
+.site-hero,
+.site-headline,
+.site-statement {
+  font-size: var(--semantic-typography-display-title-font-size);
+  font-weight: var(--semantic-typography-display-title-font-weight);
+  line-height: var(--semantic-typography-display-title-line-height);
+  letter-spacing: var(--semantic-typography-display-title-letter-spacing);
+  text-wrap: balance;
+}
+.site-statement {
+  text-wrap: pretty;
+}
+@media (min-width: 48rem) {
+  .site-hero {
+    font-size: var(--semantic-typography-display-section-font-size);
+    line-height: var(--semantic-typography-display-section-line-height);
+    letter-spacing: var(--semantic-typography-display-section-letter-spacing);
+  }
+  .site-headline,
+  .site-statement {
+    font-size: var(--semantic-typography-display-headline-font-size);
+    line-height: var(--semantic-typography-display-headline-line-height);
+    letter-spacing: var(--semantic-typography-display-headline-letter-spacing);
+  }
+}
+@media (min-width: 64rem) {
+  .site-hero {
+    font-size: var(--semantic-typography-display-hero-font-size);
+    line-height: var(--semantic-typography-display-hero-line-height);
+    letter-spacing: var(--semantic-typography-display-hero-letter-spacing);
+  }
+  .site-headline:not(.site-headline-half) {
+    font-size: var(--semantic-typography-display-section-font-size);
+    line-height: var(--semantic-typography-display-section-line-height);
+    letter-spacing: var(--semantic-typography-display-section-letter-spacing);
+  }
+}
+/* 中文标题只在标点和空格处换行，不把词拆到两行；单段超宽时仍允许断开 */
+.site-hero:lang(zh),
+.site-headline:lang(zh),
+.site-story-cap:lang(zh) {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.site-lead {
+  font-size: var(--semantic-typography-display-leadSm-font-size);
+  font-weight: var(--semantic-typography-display-leadSm-font-weight);
+  line-height: var(--semantic-typography-display-leadSm-line-height);
+  letter-spacing: var(--semantic-typography-display-leadSm-letter-spacing);
+  text-wrap: pretty;
+}
+@media (min-width: 48rem) {
+  .site-lead {
+    font-size: var(--semantic-typography-display-lead-font-size);
+    line-height: var(--semantic-typography-display-lead-line-height);
+  }
+}
+.site-tile-title {
+  font-size: var(--primitive-dimension-font-size-24);
+  font-weight: var(--primitive-font-weight-bold);
+  line-height: var(--primitive-ratio-line-height-tight);
+  letter-spacing: var(--primitive-dimension-tracking-tight);
+  text-wrap: balance;
+}
+
+/* 标题里的重点词：焦糖到琥珀的渐变字（琥珀在奶油底上 3.2:1，只用于 32px 以上粗体）；高对比与强制配色时退回焦糖实色 */
+.site-gradient {
+  background: linear-gradient(100deg, var(--semantic-color-text-link) 10%, var(--semantic-site-color-aura3) 45%, var(--semantic-color-text-link) 80%) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  .site-gradient {
+    background: none;
+    color: var(--semantic-color-text-link);
+  }
+}
+
+.site-section {
+  padding-block: var(--primitive-dimension-space-16);
+  scroll-margin-top: var(--primitive-dimension-space-16);
+}
+@media (min-width: 64rem) {
+  .site-section {
+    padding-block: var(--semantic-space-site-section);
+  }
+}
+
+/* ---------- 面：玻璃（顶栏与演示面板）、白色大卡片、光晕 ---------- */
+.site-glass {
+  background: var(--semantic-site-color-glass);
+  -webkit-backdrop-filter: blur(var(--semantic-site-blur-glass));
+  backdrop-filter: blur(var(--semantic-site-blur-glass));
+  border: 1px solid var(--semantic-site-color-glass-edge);
+  box-shadow: var(--semantic-site-shadow-floating);
+}
+.site-glass-raised {
+  box-shadow: var(--semantic-site-shadow-raised);
+}
+/* VIS-011：减少透明度时换实底，提高对比度时换白底加清楚的边框 */
+@media (prefers-reduced-transparency: reduce) {
+  .site-glass {
+    background: var(--semantic-color-surface-background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .site-glass {
+    background: var(--semantic-color-surface-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--semantic-color-border-control);
+  }
+}
+
+/* 功能格与大插图：白色大圆角，铺在浅暖灰的区块底上 */
+.site-tile {
+  border-radius: var(--semantic-site-radius-tile);
+  background: var(--semantic-color-surface-raised);
+}
+.site-tile-raised {
+  border: 1px solid var(--semantic-color-border-subtle);
+  box-shadow: var(--semantic-site-shadow-raised);
+}
+
+/* 光晕：静止的径向渐变，铺在区块背后；允许动效时缓慢漂移（见文末 .site-drift） */
+.site-glow {
+  position: absolute;
+  z-index: -1;
+  width: min(56rem, 160vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, var(--semantic-site-color-glow-mango), transparent);
+}
+.site-glow[data-tone="caramel"] {
+  background: radial-gradient(closest-side, var(--semantic-site-color-glow-caramel), transparent);
+}
+
+/* 演示面板的外圈光晕：两层三色渐变模糊铺在面板背后，允许动效时两层交替明暗，像光在边上流动；
+   只动 opacity，模糊只栅格化一次。光晕挂在面板外面的一层包裹上：负 z-index 的层会画在所在层叠上下文根的背景之上，
+   挂在面板自己身上会把整块面板染色。另有一圈 1.5px 的渐变细边（.site-rim）。 */
+.site-aura {
+  position: relative;
+  isolation: isolate;
+}
+.site-aura::before,
+.site-aura::after {
+  content: "";
+  position: absolute;
+  inset: 2% 1% -3%;
+  z-index: -1;
+  border-radius: var(--semantic-site-radius-tile);
+  filter: blur(var(--semantic-site-blur-aura));
+  pointer-events: none;
+}
+.site-aura::before {
+  background: linear-gradient(120deg, var(--semantic-site-color-aura1), var(--semantic-site-color-aura2) 45%, var(--semantic-site-color-aura3));
+  opacity: 0.75;
+}
+.site-aura::after {
+  background: linear-gradient(300deg, var(--semantic-site-color-aura1), var(--semantic-site-color-aura3) 50%, var(--semantic-site-color-aura2));
+  opacity: 0;
+}
+.site-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: linear-gradient(120deg, var(--semantic-site-color-aura1), var(--semantic-site-color-aura2) 45%, var(--semantic-site-color-aura3));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  .site-aura::before,
+  .site-aura::after {
+    display: none;
+  }
+}
+
+/* ---------- 首屏演示（Story）：面板在上，字幕在下 ----------
+   静止版（减少动效、没有 JS）：面板下面是带序号的四步说明，一次全显示。
+   动效版：区块 4 屏高，舞台 sticky 一屏；面板随滚动从斜放立起、推近对话区，四句字幕叠在同一处按进度轮换。
+   没有 JS 时由 <noscript> 里的样式退回静止版（site-landing.tsx）。 */
+.site-story-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--primitive-dimension-space-10);
+  padding-top: var(--primitive-dimension-space-16);
+}
+.site-story-frame {
+  width: 100%;
+  max-width: 70rem;
+  perspective: 1600px;
+}
+/* 镜头：外层立起（以底边为轴），内层推近（宽屏对准右侧的对话区）；比 [data-a] 的默认原点更具体 */
+.site-root .site-story-tilt {
+  transform-origin: 50% 100%;
+}
+.site-root .site-story-zoom {
+  transform-origin: 50% 50%;
+}
+@media (min-width: 48rem) {
+  .site-root .site-story-zoom {
+    transform-origin: 78% 50%;
+  }
+}
+.site-story-caps {
+  display: grid;
+  gap: var(--primitive-dimension-space-6);
+  width: 100%;
+  max-width: 70rem;
+}
+@media (min-width: 48rem) {
+  .site-story-caps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 64rem) {
+  .site-story-caps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.site-story-cap {
+  font-size: var(--semantic-typography-display-leadSm-font-size);
+  font-weight: var(--primitive-font-weight-bold);
+  line-height: var(--primitive-ratio-line-height-snug);
+}
+.site-story-steps {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .site-story {
+    height: 400svh;
+  }
+  .site-story-stage {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    justify-content: center;
+    gap: var(--primitive-dimension-space-8);
+    /* 上沿让出浮在页面上的顶栏（外边距加栏高约 72px），sticky 舞台本身贴 top:0、层级在顶栏之下（RESP-020） */
+    padding-block: var(--primitive-dimension-space-24) var(--primitive-dimension-space-6);
+  }
+  /* 窄屏留出推近 1.1 倍的余量，面板放大后不贴屏幕两边 */
+  .site-story-frame {
+    width: min(90%, calc((100svh - 18rem) * 0.72));
+  }
+  .site-story-caps {
+    grid-template-columns: none;
+    justify-items: center;
+    text-align: center;
+  }
+  .site-story-caps > li {
+    grid-area: 1 / 1;
+  }
+  .site-story-caps > li:not(:first-child) {
+    opacity: 0;
+  }
+  .site-story-num {
+    display: none;
+  }
+  .site-story-cap {
+    font-size: var(--semantic-typography-display-title-font-size);
+    line-height: var(--semantic-typography-display-title-line-height);
+    letter-spacing: var(--semantic-typography-display-title-letter-spacing);
+    text-wrap: balance;
+  }
+  .site-story-steps {
+    display: flex;
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (min-width: 48rem) {
+  .site-story-frame {
+    width: min(90%, 70rem, calc((100svh - 20rem) * 2));
+  }
+  .site-story-cap {
+    font-size: var(--semantic-typography-display-headline-font-size);
+    line-height: var(--semantic-typography-display-headline-line-height);
+    letter-spacing: var(--semantic-typography-display-headline-letter-spacing);
+  }
+}
+
+/* ---------- 概念插图（concepts.tsx） ---------- */
+.cpt {
+  overflow: visible;
+}
+.site-root [data-a] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.site-root [data-origin="left"] {
+  transform-origin: left center;
+}
+.site-root [data-origin="right"] {
+  transform-origin: right center;
+}
+.site-root [data-origin="top"] {
+  transform-origin: center top;
+}
+/* 静止画面里不出现的元素（指针、被替换掉的草稿等），动画开始后由播放器控制 */
+.site-root [data-static="hidden"] {
+  opacity: 0;
+}
+.cpt-card {
+  fill: var(--semantic-color-surface-raised);
+  stroke: var(--semantic-color-border-subtle);
+}
+.cpt-outline {
+  fill: var(--semantic-color-surface-raised);
+  stroke: var(--semantic-color-border-control);
+}
+.cpt-dashed {
+  fill: var(--semantic-color-surface-raised);
+  stroke: var(--semantic-color-border-control);
+  stroke-dasharray: 4 4;
+}
+.cpt-voucher {
+  fill: var(--semantic-color-surface-warm);
+  stroke: var(--semantic-color-text-link);
+  stroke-dasharray: 5 4;
+}
+.cpt-ring {
+  fill: none;
+  stroke: var(--semantic-color-text-link);
+  stroke-width: 2;
+}
+.cpt-sunken {
+  fill: var(--semantic-color-surface-sunken);
+}
+.cpt-accent {
+  fill: var(--semantic-color-surface-selected);
+}
+.cpt-warm {
+  fill: var(--semantic-color-surface-warm);
+}
+.cpt-decor {
+  fill: var(--semantic-color-surface-decorative);
+}
+.cpt-mango {
+  fill: var(--semantic-color-action-primary);
+}
+.cpt-caramel {
+  fill: var(--semantic-color-text-link);
+}
+.cpt-cocoa {
+  fill: var(--semantic-color-surface-inverse);
+}
+.cpt-bar-soft {
+  fill: color-mix(in oklab, var(--semantic-color-text-secondary) 20%, transparent);
+}
+.cpt-bar-strong {
+  fill: color-mix(in oklab, var(--semantic-color-text-secondary) 40%, transparent);
+}
+.cpt-bar-link {
+  fill: color-mix(in oklab, var(--semantic-color-text-link) 45%, transparent);
+}
+.cpt-bar-ink {
+  fill: color-mix(in oklab, var(--semantic-color-text-on-action) 45%, transparent);
+}
+.cpt-bar-warn {
+  fill: color-mix(in oklab, var(--semantic-color-feedback-warning) 50%, transparent);
+}
+.cpt-wire {
+  fill: none;
+  stroke: color-mix(in oklab, var(--semantic-color-border-control) 40%, transparent);
+  stroke-width: 2;
+}
+.cpt-packet {
+  fill: none;
+  stroke: var(--semantic-color-text-link);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 10 200;
+  stroke-dashoffset: 10;
+}
+.cpt-divider {
+  stroke: var(--semantic-color-border-subtle);
+}
+.cpt-track {
+  fill: none;
+  stroke: var(--semantic-color-border-subtle);
+  stroke-width: 2.5;
+}
+.cpt-countdown {
+  fill: none;
+  stroke: var(--semantic-color-feedback-warning);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 40;
+}
+/* AI 草稿的三色光晕描边：颜色与演示面板外圈相同 */
+.cpt-stop-1 {
+  stop-color: var(--semantic-site-color-aura1);
+}
+.cpt-stop-2 {
+  stop-color: var(--semantic-site-color-aura2);
+}
+.cpt-stop-3 {
+  stop-color: var(--semantic-site-color-aura3);
+}
+.cpt-ai-haze {
+  fill: none;
+  stroke-width: 10;
+  opacity: 0.3;
+}
+.cpt-ai-rim {
+  fill: none;
+  stroke-width: 1.5;
+}
+.cpt-ink {
+  color: var(--semantic-color-text-secondary);
+}
+.cpt-link {
+  color: var(--semantic-color-text-link);
+}
+.cpt-on-mango {
+  color: var(--semantic-color-text-on-action);
+}
+.cpt-warn {
+  color: var(--semantic-color-feedback-warning);
+}
+.cpt-ok {
+  color: var(--semantic-color-feedback-success);
+}
+.cpt-text {
+  fill: var(--semantic-color-text-primary);
+  font-weight: 600;
+}
+.cpt-caption {
+  fill: var(--semantic-color-text-secondary);
+}
+.cpt-on-inverse {
+  fill: var(--semantic-color-text-on-inverse);
+  font-weight: 700;
+}
+.cpt-cursor {
+  fill: var(--semantic-color-surface-inverse);
+  stroke: var(--semantic-color-surface-raised);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+/* HTML 概念图里的灰色文字条 */
+.site-bar {
+  display: block;
+  height: 0.375rem;
+  border-radius: var(--semantic-radius-pill);
+  background: color-mix(in oklab, var(--semantic-color-text-secondary) 20%, transparent);
+}
+.site-bar-strong {
+  background: color-mix(in oklab, var(--semantic-color-text-secondary) 40%, transparent);
+}
+/* 接待档位当前那一档：小对话浮成白卡，描焦糖边 */
+.site-mode-on {
+  background: var(--semantic-color-surface-raised);
+  box-shadow:
+    var(--semantic-site-shadow-raised),
+    inset 0 0 0 1px var(--semantic-color-text-link);
+}
+.site-ping::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  opacity: 0;
+}
+
+/* ---------- 动效（MOTION-004）：默认样式就是终态，只在允许动效时从初始帧进入 ----------
+   .site-enter 首屏依次出现，属营销叙事，用 slow 档（320ms）；.site-rise 首屏标题两行带模糊浮起，用两倍 slow（640ms，营销演出，MOTION-011 允许更长）；
+   .site-gradient 的光泽在标题浮起后扫过一次；.site-reveal / .site-tile-in 随滚动进入视口出现，不支持滚动驱动动画的浏览器直接显示终态。
+   CSS 循环的关键帧名以 site-loop- 开头，暂停按钮靠这个前缀找到它们；减少动效时整组不出现，光晕停在静止位置。 */
+@media (prefers-reduced-motion: no-preference) {
+  .site-enter {
+    animation: site-enter var(--semantic-motion-duration-slow) var(--semantic-motion-easing-standard) both;
+    animation-delay: var(--site-delay, 0ms);
+  }
+  .site-rise {
+    animation: site-rise calc(var(--semantic-motion-duration-slow) * 2) var(--semantic-motion-easing-standard) both;
+    animation-delay: var(--site-delay, 0ms);
+  }
+  .site-gradient {
+    animation: site-shine calc(var(--semantic-motion-duration-slow) * 5) var(--semantic-motion-easing-standard) both;
+    animation-delay: calc(var(--semantic-motion-duration-slow) * 2);
+  }
+  @supports (animation-timeline: view()) {
+    .site-reveal {
+      animation: site-enter var(--semantic-motion-easing-standard) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 50%;
+    }
+    .site-tile-in {
+      animation: site-tile-in var(--semantic-motion-easing-standard) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
+  .site-drift {
+    animation: site-loop-drift var(--semantic-site-duration-drift) ease-in-out infinite alternate;
+    animation-delay: var(--site-delay, 0ms);
+  }
+  .site-aura::after {
+    animation: site-loop-aura var(--semantic-site-duration-aura) ease-in-out infinite;
+  }
+  .site-ping::after {
+    animation: site-loop-ping calc(var(--semantic-site-duration-loop) / 4) var(--semantic-motion-easing-standard) infinite;
+  }
+}
+@keyframes site-enter {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+}
+@keyframes site-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.4em;
+    filter: blur(8px);
+  }
+}
+@keyframes site-shine {
+  from {
+    background-position: 100% 0;
+  }
+}
+@keyframes site-tile-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+    translate: 0 1.5rem;
+  }
+}
+/* 用 transform 而不是 translate 属性：光晕本身用 Tailwind 的 translate 定位，两者叠加互不覆盖 */
+@keyframes site-loop-drift {
+  to {
+    transform: translate(6%, 4%) scale(1.12);
+  }
+}
+@keyframes site-loop-aura {
+  50% {
+    opacity: 0.75;
+  }
+}
+@keyframes site-loop-ping {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}

@@ -73,6 +73,19 @@ type:
 
 五个字号：12（说明）、14（正文、标签）、18（区块标题）、24（页面标题）、30（大数字）。正文行高 1.6（泰文、越南文消息不低于 1.6）。中文段落用 `langOverrides.zh` 的中文字体栈。数字与金额用 `tabular-nums`。
 
+官网展示字阶 `typographyDisplay`（2026-10-22 补，本轮派生，不来自 Quilt v5）只用于官网 `/`、`/en`，产品界面不用。官网整页（标题、导语、正文）用系统无衬线 `fontFamily.display`：苹果设备上是 SF Pro 与苹方，Windows 上是 Segoe UI 与微软雅黑；产品界面仍用 Nunito。
+
+| 档 | 字号 / 字重 / 行高 / 字距 | 用途 |
+| --- | --- | --- |
+| hero | 96 / 700 / 1.08 / −2.4px | 宽屏首屏大标题；中屏降为 section，窄屏降为 title |
+| section | 64 / 700 / 1.12 / −1.6px | 宽屏区块标题、收尾标题 |
+| headline | 48 / 700 / 1.12 / −1.0px | 中屏区块标题、大段陈述、首屏演示字幕；左文右图区块的标题宽屏也停在这一档 |
+| title | 32 / 700 / 1.25 / −0.5px | 窄屏的大标题与区块标题 |
+| lead | 24 / 400 / 1.4 / 0 | 中屏以上的导语 |
+| leadSm | 18 / 400 / 1.6 / 0 | 窄屏导语 |
+
+中文字距归零（`langOverrides.zh`）。首屏大标题的强调词用焦糖 → 琥珀（`semantic.site.color.aura3`，#C47A24）的渐变字，琥珀在奶油底上 3.2:1，所以渐变字只用于 32px 以上的粗体；系统开了高对比或强制颜色时退回纯焦糖。官网区块上下留白用 `space.siteSection`（96），窄屏用 `space.16`（64）；功能格圆角 28（`semantic.site.radius.tile`）。
+
 ## 字体
 
 | 用途 | 字体 | 取得方式 | 许可 |
@@ -94,6 +107,8 @@ hover 0.08、focus 0.10、pressed 0.18、dragged 0.16、disabled 0.38，以 `cur
 ## 不用的手法
 
 渐变、投影、文字阴影、玻璃效果、卡片套卡片、芒果色做文字或细线（见 `tokens.json` 的 `meta.notUsed`）。
+
+官网 `/`、`/en` 例外（2026-10-22 用户定）：顶栏与暂停按钮用玻璃面（`semantic.site.color.glass`，背景模糊 `semantic.site.blur.glass` 20px）；首屏与收尾背后铺芒果、焦糖色的径向渐变光晕（`glowMango`、`glowCaramel`），24 秒一轮缓慢漂移（`semantic.site.duration.drift`）；首屏演示面板外圈是芒果、浅芒果、琥珀三色（`aura1`–`aura3`）的模糊光晕（`semantic.site.blur.aura` 40px），8 秒一轮明暗交替（`semantic.site.duration.aura`），面板边缘一圈 1.5px 的同色渐变描边；插图面板与浮起的小卡片用轻投影（`semantic.site.shadow.raised`、`floating`）；功能格概念动效一轮 9.6 秒（`semantic.site.duration.loop`）。这些值只在官网用，产品界面仍按上面的不用清单。文字阴影、卡片套卡片、芒果色做文字在官网同样不用；光晕与渐变描边在系统开了高对比或强制颜色时不画。
 
 ## 验证记录与缺口
 

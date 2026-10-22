@@ -1,0 +1,37 @@
+{
+  "run": "RUN-073",
+  "date": "2026-10-22",
+  "version": "35b1ceb + 工作区改动（官网、learning-analyze.ts）",
+  "env": "本地 3360，AI_MODE=stub（TC-AI-002 改 deepseek）",
+  "results": {
+    "TC-AUTH-001": "通过",
+    "TC-AUTH-004": "通过",
+    "TC-PERM-001": "通过",
+    "TC-PERM-002": "通过",
+    "TC-PERM-005": "通过",
+    "TC-SHOP-001": "通过",
+    "TC-AI-001": "通过",
+    "TC-AI-002": "通过",
+    "TC-ORD-015": "通过",
+    "TC-TKT-001": "通过",
+    "TC-KB-024": "通过",
+    "TC-KB-047": "通过",
+    "TC-KB-053": "通过",
+    "TC-KB-058": "通过",
+    "TC-KB-061": "通过",
+    "TC-KB-066": "通过",
+    "TC-KB-067": "通过",
+    "TC-KB-068": "通过",
+    "TC-FEISHU-005": "通过",
+    "TC-FEISHU-011": "通过",
+    "TC-KB-001": "失败：第 1 步页签多了经验卡、学习（用例没随 v1.32 更新）"
+  },
+  "deepseekCalls": {
+    "TC-AI-002": 1
+  },
+  "site": {
+    "zh": "/ 200 中文官网",
+    "en": "/en 200 英文官网",
+    "loggedIn": "/ → /wb"
+  }
+}

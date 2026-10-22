@@ -26,6 +26,7 @@
   --font-sans: var(--primitive-font-family-sans);
   --font-cjk: var(--primitive-font-family-cjk);
   --font-mono: var(--primitive-font-family-mono);
+  --font-display: var(--primitive-font-family-display);
   --text-caption: var(--semantic-typography-caption-font-size);
   --text-body: var(--semantic-typography-body-font-size);
   --text-label: var(--semantic-typography-label-font-size);

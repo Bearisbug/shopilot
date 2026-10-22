@@ -1,0 +1,59 @@
+{
+  "items": [
+    {
+      "id": "01a162d4-2b0c-738a-bbde-2d0e2171eca0",
+      "name": "型号对照.xlsx",
+      "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "size": 1048732,
+      "categoryId": "01a162d4-00e2-754a-bc13-445adf45f9c5",
+      "markets": [
+        "ALL"
+      ],
+      "status": "ready",
+      "aiEnabled": true,
+      "failureReason": null,
+      "partsCount": 1,
+      "chunksCount": 1,
+      "qaExtract": {
+        "status": "idle",
+        "count": 0,
+        "error": null,
+        "extractedAt": null
+      },
+      "publishedQaCount": 0,
+      "uploadedByName": "林晓",
+      "createdAt": "2026-10-22T08:57:14.250Z",
+      "readyAt": "2026-10-22T08:57:16.225Z"
+    },
+    {
+      "id": "01a162d4-29ce-7731-bd81-b53685c3d18f",
+      "name": "保修政策.pdf",
+      "mime": "application/pdf",
+      "size": 3146455,
+      "categoryId": "01a162d4-00e2-754a-bc13-445adf45f9c5",
+      "markets": [
+        "ALL"
+      ],
+      "status": "ready",
+      "aiEnabled": true,
+      "failureReason": null,
+      "partsCount": 1,
+      "chunksCount": 1,
+      "qaExtract": {
+        "status": "idle",
+        "count": 0,
+        "error": null,
+        "extractedAt": null
+      },
+      "publishedQaCount": 0,
+      "uploadedByName": "林晓",
+      "createdAt": "2026-10-22T08:57:13.933Z",
+      "readyAt": "2026-10-22T08:57:16.225Z"
+    }
+  ],
+  "counts": {
+    "total": 2,
+    "limit": 500
+  },
+  "nextCursor": null
+}

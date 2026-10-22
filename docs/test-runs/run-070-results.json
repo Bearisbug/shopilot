@@ -1,0 +1,221 @@
+{
+ "TC-SITE-001": [
+  {
+   "step": 1,
+   "ok": true,
+   "obs": {
+    "path": "/",
+    "h1": "所有店铺的买家消息，一个工作台全部接住",
+    "title": "Shopilot — Shopee 与 TikTok Shop 多店铺客服工作台",
+    "nav": [
+     "功能",
+     "接待档位",
+     "订单售后",
+     "知识库",
+     "团队与安全"
+    ],
+    "cur": "中文"
+   }
+  },
+  {
+   "step": 2,
+   "ok": true,
+   "obs": {
+    "links": [
+     "/",
+     "#features",
+     "#modes",
+     "#orders",
+     "#knowledge",
+     "#security",
+     "/en",
+     "/login"
+    ],
+    "dead": []
+   }
+  },
+  {
+   "step": 3,
+   "ok": true,
+   "obs": {
+    "url": "http://127.0.0.1:3360/#modes",
+    "h2": 160,
+    "header": 65,
+    "text": "AI 接待按店铺逐档放开"
+   }
+  },
+  {
+   "step": 4,
+   "ok": true,
+   "obs": {
+    "path": "/en",
+    "h1": "Every buyer, every shop. One workbench.",
+    "cur": "EN"
+   }
+  },
+  {
+   "step": 5,
+   "ok": true,
+   "obs": {
+    "path": "/en",
+    "h1": "Every buyer, every shop. One workbench."
+   }
+  },
+  {
+   "step": 6,
+   "ok": true,
+   "obs": {
+    "path": "/login"
+   }
+  },
+  {
+   "step": 7,
+   "ok": true,
+   "obs": {
+    "canonical": "https://shopilot.live/",
+    "alternates": [
+     "zh-CN=https://shopilot.live/",
+     "en=https://shopilot.live/en",
+     "x-default=https://shopilot.live/"
+    ]
+   }
+  },
+  {
+   "step": 8,
+   "ok": true,
+   "obs": {
+    "logs": []
+   }
+  }
+ ],
+ "TC-SITE-002": [
+  {
+   "step": 1,
+   "ok": true,
+   "obs": {
+    "path": "/wb"
+   }
+  },
+  {
+   "step": 2,
+   "ok": true,
+   "obs": {
+    "path": "/wb"
+   }
+  },
+  {
+   "step": 3,
+   "ok": true,
+   "obs": {
+    "path": "/en",
+    "h1": "Every buyer, every shop. One workbench."
+   }
+  }
+ ],
+ "TC-SITE-003": [
+  {
+   "step": 1,
+   "ok": true,
+   "obs": {
+    "figureEnter": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "step": 2,
+   "ok": true,
+   "obs": {
+    "count": 44,
+    "notOne": []
+   }
+  },
+  {
+   "step": 3,
+   "ok": true,
+   "obs": [
+    {
+     "u": "/",
+     "sw": [
+      379,
+      390
+     ],
+     "head": [
+      "logo",
+      "nav:切换语言",
+      "中文",
+      "EN",
+      "登录"
+     ],
+     "panes": [
+      "none",
+      "none",
+      "flex",
+      "none"
+     ]
+    },
+    {
+     "u": "/en",
+     "sw": [
+      379,
+      390
+     ],
+     "head": [
+      "logo",
+      "nav:Change language",
+      "中文",
+      "EN",
+      "Sign in"
+     ],
+     "panes": [
+      "none",
+      "none",
+      "flex",
+      "none"
+     ]
+    }
+   ]
+  },
+  {
+   "step": 4,
+   "ok": true,
+   "obs": {
+    "early": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "late": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "step": 5,
+   "ok": true,
+   "obs": {
+    "count": 44,
+    "notOne": []
+   }
+  }
+ ]
+}
