@@ -268,7 +268,10 @@ export async function failStaleLearning(): Promise<number> {
 const S = schema.segment;
 const CONV = schema.conversation;
 
-/** 一个商户这一轮挑出的会话段：最近 7 天已结束、非回补、买家会话、有人工回复、还没有学习任务；按信号打分 */
+/**
+ * 一个商户这一轮挑出的会话段：最近 7 天已结束、非回补、买家会话、有人工回复、还没有学习任务；按信号打分。
+ * 按段查消息一律带上会话条件：message 只有（会话、时间）索引，只按 segment_id 查会整表扫描。
+ */
 export async function pickCandidates(merchantId: string, limit = PICK_PER_MERCHANT) {
   const since = new Date(Date.now() - PICK_DAYS * 86400_000);
   const score = sql<number>`(
@@ -276,7 +279,7 @@ export async function pickCandidates(merchantId: string, limit = PICK_PER_MERCHA
     + case when exists (select 1 from draft_review r where r.segment_id = ${S.id} and r.edit_class in ('process', 'correction', 'supplement')) then 3 else 0 end
     + case when ${S.handedOff} then 2 else 0 end
     + case when exists (select 1 from ticket k where k.conversation_id = ${S.conversationId} and k.created_at >= ${S.startedAt} and k.created_at <= coalesce(${S.endedAt}, now())) then 2 else 0 end
-    + case when (select count(*) from message m where m.segment_id = ${S.id}) >= 6 then 1 else 0 end
+    + case when (select count(*) from message m where m.conversation_id = ${S.conversationId} and m.segment_id = ${S.id}) >= 6 then 1 else 0 end
   )::int`;
   return db()
     .select({ segmentId: S.id, conversationId: S.conversationId, stage: S.stage, score })
@@ -310,7 +313,7 @@ export async function pickLearning(data: Record<string, unknown> = {}): Promise<
     for (const cand of await pickCandidates(m.id)) {
       const [conv] = await db().select().from(CONV).where(eq(CONV.id, cand.conversationId)).limit(1);
       if (!conv) continue;
-      const rows = (await db().select().from(schema.message).where(eq(schema.message.segmentId, cand.segmentId)).orderBy(desc(schema.message.sentAt), desc(schema.message.createdAt)).limit(SNAPSHOT_MAX)).reverse();
+      const rows = (await db().select().from(schema.message).where(and(eq(schema.message.conversationId, cand.conversationId), eq(schema.message.segmentId, cand.segmentId))).orderBy(desc(schema.message.sentAt), desc(schema.message.createdAt)).limit(SNAPSHOT_MAX)).reverse();
       if (!rows.some((r) => r.senderRole === "buyer")) continue;
       const products = await identifyProductsWithBasis({ merchantId: m.id, shopId: conv.shopId, buyerExternalId: conv.buyerExternalId, productCardIds: productCardIdsOf(rows), buyerTexts: buyerTextsOf(rows).slice(-5) });
       const [task] = await db()
