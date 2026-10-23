@@ -1,0 +1,2 @@
+q "select status || '|' || (finished_at is not null) from agent_run where learning_task_id = '01a16802-d2b3-7332-96a8-2c56725a38db'"
+succeeded|true

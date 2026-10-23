@@ -1,0 +1,2 @@
+{"type":"/errors/rate-limited","title":"操作太频繁","status":429,"detail":"同一个会话每分钟最多提交 5 次学习，请稍后再试。","instance":"/api/v1/conversations/01a167d4-9ccb-732f-ab12-19f0f5c150f5/learning","requestId":"req_01a167d6477b7059933e380fd619a364"}
+HTTP 429

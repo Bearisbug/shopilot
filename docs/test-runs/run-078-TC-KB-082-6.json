@@ -1,0 +1,31 @@
+{
+  "task": {
+    "status": "closed"
+  },
+  "agentRuns": [
+    {
+      "status": "succeeded",
+      "startedAt": "2026-10-23T08:14:56.217Z",
+      "durationMs": 622,
+      "toolCalls": 3,
+      "error": null,
+      "steps": 3
+    },
+    {
+      "status": "succeeded",
+      "startedAt": "2026-10-23T08:14:04.180Z",
+      "durationMs": 550,
+      "toolCalls": 3,
+      "error": null,
+      "steps": 3
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-23T07:54:08.910Z",
+      "durationMs": 1231010,
+      "toolCalls": 0,
+      "error": "运行中断：进程在运行中退出",
+      "steps": 0
+    }
+  ]
+}

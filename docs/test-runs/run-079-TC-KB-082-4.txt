@@ -1,0 +1,6 @@
+# 第 4 步（2026-10-23 17:07:35）
+$ tsx --env-file=.env scripts/job.ts knowledge.qa_embed
+{"t":"2026-10-23T09:07:36.691Z","level":"info","msg":"qa embed sweep","picked":0,"embedded":0,"staleExtracts":0,"staleLearning":1,"cardsPicked":0,"cardsEmbedded":0}
+{"job":"knowledge.qa_embed","ok":true,"durationMs":35}
+failed|分析任务中断，可以重新分析。
+failed|运行中断：进程在运行中退出

@@ -1,0 +1,21 @@
+待认领卡 · 已发出（替身）
+待认领 · Demo TikTok TH
+
+发往 Shopilot 客服群（替身） · 待认领卡 · 标题颜色 橙色 · 已发出（替身，未真的发到飞书） · 尝试 1 次 · om_stub_fbe5dca9261a4c32b1bd6ac984475b20
+
+AI 总结　AI 替身总结：买家发来新消息，正在等待客服认领。
+
+平台 TikTok Shop · 泰国　买家 Feishu005 Buyer 078　已等 不到 1 分钟
+
+最近对话
+
+买家 16:44　Halo, kamera ini bisa dipakai di Mac?
+译文：[译文] Halo, kamera ini bisa dipakai di Mac?
+
+按钮「认领」→ http://127.0.0.1:3376/wb/01a167ef-359d-743c-b2dc-c1dff9d369ed?claim=1&m=01a167c7-3439-752c-88fb-8228a4a00908
+
+按钮「打开会话」→ http://127.0.0.1:3376/wb/01a167ef-359d-743c-b2dc-c1dff9d369ed?m=01a167c7-3439-752c-88fb-8228a4a00908
+
+Shopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推
+
+卡片 JSON

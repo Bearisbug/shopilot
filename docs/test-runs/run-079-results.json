@@ -1,0 +1,70 @@
+{
+ "run": "RUN-079",
+ "type": "复测（RUN-078：TC-KB-080、TC-KB-082、TC-KB-001、TC-FEISHU-005）",
+ "version": "5107211（wt/agentsvc 分支）",
+ "env": "本地（独立库 shopilot_wt_agentsvc，Web 3376，Worker 同库，AI_MODE=stub）",
+ "baseline": "2026-10-23 17:05 pnpm db:reset && pnpm db:seed，四条在同一套基线上依次执行",
+ "executionOrder": [
+  "TC-KB-080",
+  "TC-KB-082",
+  "TC-FEISHU-005",
+  "TC-KB-001"
+ ],
+ "cases": [
+  {
+   "tc": "TC-KB-080",
+   "result": "通过",
+   "at": "2026-10-23 17:06-17:08",
+   "note": "卡 K=01a16802-8159…；会话 01a16802-8776…；任务 T=01a16802-d2b3-7332-96a8-2c56725a38db；前置的认领与回复用接口（等草稿生成后再认领）",
+   "steps": {
+    "1": "HTTP 201；状态 published",
+    "2": "HTTP 200；agentRuns 1 项：learn / succeeded / model stub / error null / toolCalls 4 / durationMs 734 / turns 5 / tokens 输入 5000、缓存 0、输出 250；steps get_conversation「2 条消息，相似卡 1 张」、search_knowledge「查到 1 张卡、0 条问答」(4 ms)、simulate「拟改的卡：用到这张卡第 1 步」(23 ms)、submit「流程需要补充 · 改已有卡」，ok 全 true；note 含「换线也没用」0 条；证据 run-079-TC-KB-080-2.json",
+    "3": "succeeded|true；证据 run-079-TC-KB-080-3.txt",
+    "4": "说明「分析时 Agent 调了哪些工具、各用多久；步骤只记结果摘要」；「已完成 10-23 17:06 · 0.7 秒 · 5 轮 · 工具 4 次 · token 输入 5.0k、缓存命中 0、输出 250」，无模型名；读会话 / 查知识 / 自测「拟改的卡：用到这张卡第 1 步」/ 提交「流程需要补充 · 改已有卡」；不含「换线也没用」"
+   }
+  },
+  {
+   "tc": "TC-KB-082",
+   "result": "通过",
+   "at": "2026-10-23 17:07-17:09",
+   "note": "会话 01a16803-917f…；任务 T=01a16803-b441-70d2-b874-8006d1f5473f；前置等草稿生成后用接口认领（不回复）",
+   "steps": {
+    "1": "状态 closed；agentRuns 1 项 succeeded、toolCalls 3、turns 4，tool 依次 get_conversation、search_knowledge、submit；证据 run-079-TC-KB-082-1.json",
+    "2": "依次 UPDATE 1、UPDATE 1、INSERT 0 1；写入后 started_at 倒序为 running 08:47:24（20 分钟前）在前、succeeded 08:37:16（挪前 30 分钟）在后；证据 run-079-TC-KB-082-2.txt",
+    "3": "两行：上「运行中 10-23 16:47 · 工具 0 次」「结束后在这里列出每一步。」，下「已完成 10-23 16:37 · 0.7 秒 · 4 轮 · 工具 3 次 · token 输入 4.0k、缓存命中 0、输出 200」，不列步骤",
+    "4": "输出 {\"job\":\"knowledge.qa_embed\",\"ok\":true}（staleLearning 1）；任务 failed|分析任务中断，可以重新分析。；最近一次运行 failed|运行中断：进程在运行中退出；证据 run-079-TC-KB-082-4.txt",
+    "5": "抽屉「分析失败」，有「重新分析」「无需更新」「驳回」；Agent 过程上面一行「失败 10-23 16:47 · 20 分 12 秒 · 工具 0 次」，下方红字（rgb(180, 35, 24)）「运行中断：进程在运行中退出」，再下「已完成」",
+    "6": "提示「已重新排队分析」；状态 closed；三行从上到下：已完成 10-23 17:07（列出 读会话 / 查知识 / 提交 三步）、失败 16:47、已完成 16:37；证据 run-079-TC-KB-082-6.png、-6.json"
+   }
+  },
+  {
+   "tc": "TC-FEISHU-005",
+   "result": "通过",
+   "at": "2026-10-23 17:08-17:09",
+   "note": "按 §3「连上飞书替身」两次 HTTP 200；买家 Feishu005 Buyer 079，会话 01a16805-0cef-7651-96ca-cef7950cd4d9",
+   "steps": {
+    "1": "推送日志由 3 条变 5 条：type 13 新会话段 HTTP 200 · 663 ms、type 14 新消息 HTTP 200 · 23 ms",
+    "2": "17:08:43 建卡，17:08:51 打开发件箱；最上面一张「待认领 · Demo TikTok TH」，发往 Shopilot 客服群（替身），待认领卡 · 已发出（替身），详情「标题颜色 橙色」",
+    "3": "「AI 总结　AI 替身总结：买家发来新消息，正在等待客服认领。」；「平台 TikTok Shop · 泰国」「买家 Feishu005 Buyer 079」「已等 不到 1 分钟」；无转人工原因；「买家 17:08　Halo, kamera ini bisa dipakai di Mac?」下一行「译文：[译文] Halo, kamera ini bisa dipakai di Mac?」；证据 run-079-TC-FEISHU-005-3.txt",
+    "4": "认领 → http://127.0.0.1:3376/wb/01a16805-0cef-7651-96ca-cef7950cd4d9?claim=1&m=01a16802-0815-722d-a719-0d6c768bf184，打开会话 → 同一会话 ?m=同一商户；/api/v1/me active.merchantId 相同",
+    "5": "owner /wb 待认领（7）里有该买家，点开地址 /wb/01a16805-0cef-7651-96ca-cef7950cd4d9，与按钮链接一致"
+   }
+  },
+  {
+   "tc": "TC-KB-001",
+   "result": "通过",
+   "at": "2026-10-23 17:09-17:11",
+   "note": "整条用本机 Edge 155.0.4283.62 无头（Playwright channel msedge），navigator.pdfViewerEnabled 为 true；用完即关；$KB 只按 §3 配方生成本用例用到的保修政策.pdf（3,146,455 字节）与型号对照.xlsx（1,048,732 字节）；第 6 步点页签后 0.8 秒截图时解析内容还在加载骨架（run-079-TC-KB-001-6.png），脚本读到的是隐藏的原文件面板；刷新后看到 #1，随后切回原文件再点解析内容，等到列表出现（run-079-TC-KB-001-6c.png）",
+   "steps": {
+    "1": "子导航选中「知识库」；页签 问答、经验卡、待审核、学习、资料、产品、测试问答，打开时选中问答；点资料后 ?tab=docs，标题「资料 0 / 500」，空态「还没有资料。把产品手册、保修与退换政策拖到这里」",
+    "2": "弹窗列出 保修政策.pdf 3.0 MB、型号对照.xlsx 1.0 MB，都「等待上传」；写明支持格式与「单个文件不超过 20 MB，PDF 以外的文件不超过 4 MB；PPT 请先导出为 PDF 再上传。」；按钮「上传 2 个文件」",
+    "3": "分类选售后政策、全部站点（按下）；两个都「已上传，排队解析」，「已上传 2 个」，按钮「完成」",
+    "4": "列表两行 售后政策 / 全部站点 / 可用，两个「AI 可用」开关开；标题「资料 2 / 500」",
+    "5": "地址 ?tab=docs&doc=01a16805-fb86-7728-ad5c-eb1cd9b07d55；抽屉标题保修政策.pdf，可用、3.0 MB、1 段分块、分类售后政策、全部站点、上传「2026-10-23 17:09 · 林晓」；「原文件」标签内嵌 iframe（628 × 630）显示 Edge PDF 阅读器，工具栏「1 of 2」",
+    "6": "地址加 docTab=parsed；解析内容列出 #1「替身解析：保修政策.pdf」「已显示 1 / 1 段」；刷新后抽屉仍开、选中「解析内容（1 段）」",
+    "7": "型号对照.xlsx 抽屉「原文件」：「这种格式不能在页面里预览，点上方「下载原文件」查看；AI 用的是「解析内容」里的文字。」，无内嵌元素，有「下载原文件」",
+    "8": "HTTP 200；items 2 条，均 ready、aiEnabled true、markets [\"ALL\"]、partsCount 1、chunksCount 1；counts {total:2,limit:500}；证据 run-079-TC-KB-001-8.json"
+   }
+  }
+ ]
+}

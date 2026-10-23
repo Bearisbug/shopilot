@@ -1,0 +1,26 @@
+[
+  {
+    "id": "5542646565714740267",
+    "sender": "buyer",
+    "kind": "text",
+    "rawType": "text",
+    "text": "我的包裹到哪了",
+    "imageUrl": null,
+    "orderId": null,
+    "productName": null,
+    "couponTitle": null,
+    "createdAt": "2026-10-23T08:25:26.132Z"
+  },
+  {
+    "id": "3366465324037894738",
+    "sender": "seller",
+    "kind": "text",
+    "rawType": "text",
+    "text": "您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。",
+    "imageUrl": null,
+    "orderId": null,
+    "productName": null,
+    "couponTitle": null,
+    "createdAt": "2026-10-23T08:26:21.443Z"
+  }
+]

@@ -1,0 +1,9 @@
+## 6
+{"items":[{"id":"01a167ed-a9a9-770a-b7b0-636f06c87734","title":"摄像头识别不到：帮买家恢复使用","stage":"any","markets":["ALL"],"tags":[],"conditions":["买家说摄像头识别不到"],"conditionMode":"all","steps":[{"text":"问清电脑系统和连接方式","branches":[{"when":"急用","action":"handoff"}]},{"text":"换线、换接口","branches":[{"when":"保修","action":"ticket"}]},{"text":"安装或更新配套软件","branches":[]}],"tips":"每次只让买家做一步","products":[],"qa":[],"status":"published","source":"member","version":1,"agentUnseen":false,"embedded":true,"lastAuthor":"member","createdByName":"林晓","updatedByName":"林晓","createdAt":"2026-10-23T08:43:11.142Z","updatedAt":null,"publishedAt":"2026-10-23T08:43:11.145Z","stats":{"calls":0,"sent":0,"edited":0,"ignored":0,"handoffs":0,"shadowSame":0,"shadowPartial":0,"shadowDifferent":0}}],"counts":{"published":1,"archived":0},"unseenCount":0,"nextCursor":null}
+HTTP 200
+## 7
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"提交的内容有误，请检查标红的字段。","instance":"/api/v1/knowledge/cards","requestId":"req_01a167edc109743c872af8337ddc919c","extra":{"fields":{"steps.0.branches.0.goto":"跳到的步骤要是本卡里的另一步"}}}
+HTTP 422
+## 8
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"提交的内容有误，请检查标红的字段。","instance":"/api/v1/knowledge/cards","requestId":"req_01a167edc13670e2833576ce18e7a660","extra":{"fields":{"conditions":"至少写一条调用条件","steps":"至少写一个步骤"}}}
+HTTP 422

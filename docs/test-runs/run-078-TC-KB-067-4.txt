@@ -1,0 +1,2 @@
+{"type":"/errors/conflict","title":"状态已被他人改变","status":409,"detail":"内容改过后还没复测通过，请先复测。","instance":"/api/v1/knowledge/learning/01a167f3-71e2-74bc-b48a-8f5c3741a7ee/publish","requestId":"req_01a167f46fd970daaab17f085361ab38","code":"retest_required","extra":{"retestPassed":false}}
+HTTP 409

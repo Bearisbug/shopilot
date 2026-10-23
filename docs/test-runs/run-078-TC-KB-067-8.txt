@@ -1,0 +1,6 @@
+## 原样执行（未编码的中文查询串）
+
+HTTP 400
+## 百分号编码后重发
+{"items":[{"id":"01a167f4-b3ea-70a3-9c62-247ac5159cb4","title":"换货流程：设备故障时安排换货","stage":"presale","markets":["ALL"],"tags":[],"conditions":["买家提到「设备坏了想换货」"],"conditionMode":"all","steps":[{"text":"替身第一步：问清情况","branches":[]}],"tips":"先确认订单号","products":[],"qa":[],"status":"published","source":"member","version":1,"agentUnseen":false,"embedded":true,"lastAuthor":"member","createdByName":"林晓","updatedByName":"林晓","createdAt":"2026-10-23T08:50:52.519Z","updatedAt":null,"publishedAt":"2026-10-23T08:50:52.522Z","stats":{"calls":0,"sent":0,"edited":0,"ignored":0,"handoffs":0,"shadowSame":0,"shadowPartial":0,"shadowDifferent":0}}],"counts":{"published":1,"archived":0},"unseenCount":0,"nextCursor":null}
+HTTP 200

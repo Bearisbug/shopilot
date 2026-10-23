@@ -1,0 +1,2 @@
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"有消息不属于这个会话，请刷新后重新勾选。","instance":"/api/v1/conversations/01a167d4-9ccb-732f-ab12-19f0f5c150f5/learning","requestId":"req_01a167d73e3373debbfcce6304f5f43b","extra":{"fields":{"messageIds":"有消息不属于这个会话"}}}
+HTTP 422

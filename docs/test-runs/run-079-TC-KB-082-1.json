@@ -1,0 +1,38 @@
+[
+  {
+    "id": "01a16803-b83d-7137-867d-8ddcfec811ba",
+    "purpose": "learn",
+    "status": "succeeded",
+    "model": "stub",
+    "error": null,
+    "startedAt": "2026-10-23T09:07:16.669Z",
+    "durationMs": 703,
+    "turns": 4,
+    "toolCalls": 3,
+    "tokens": {
+      "input": 4000,
+      "cacheRead": 0,
+      "output": 200
+    },
+    "steps": [
+      {
+        "ms": 0,
+        "ok": true,
+        "note": "1 条消息，相似卡 0 张",
+        "tool": "get_conversation"
+      },
+      {
+        "ms": 6,
+        "ok": true,
+        "note": "查到 0 张卡、0 条问答",
+        "tool": "search_knowledge"
+      },
+      {
+        "ms": 0,
+        "ok": true,
+        "note": "已有内容覆盖 · 不改卡",
+        "tool": "submit"
+      }
+    ]
+  }
+]

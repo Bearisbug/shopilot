@@ -1,0 +1,4 @@
+q "select status || '|' || (finished_at is not null) from agent_run where learning_task_id = '01a167ce-210e-7057-885a-1fc207d63c51'"
+succeeded|true
+# 对照：分列输出
+succeeded|t

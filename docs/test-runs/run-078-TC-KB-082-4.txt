@@ -1,0 +1,6 @@
+# 第 4 步三条查询（2026-10-23 16:15）
+failed|分析任务中断，可以重新分析。
+(空行：order by started_at desc limit 1 取到的是第 1 步 16:14 那次 succeeded 运行，error 为 null，拼接结果为 null)
+# 全部运行（started_at 倒序）
+succeeded|2026-10-23 08:14:04+00|
+failed|2026-10-23 07:54:08+00|运行中断：进程在运行中退出

@@ -1,0 +1,9 @@
+## 1
+{"qa":{"id":"01a167eb-5a15-712a-8844-e008f162a36e","questions":["可以退货吗","怎么退货"],"answer":"签收后 7 天内可申请退货。","products":[],"stage":"aftersale","markets":["ALL"],"tags":[],"status":"published","source":"manual","sourceDocument":null,"sourceExcerpt":null,"duplicateOf":null,"rejectReason":null,"embedded":true,"createdByName":"Arif Rahman","reviewedByName":"Arif Rahman","reviewedAt":"2026-10-23T08:40:39.701Z","publishedAt":"2026-10-23T08:40:39.701Z","version":1,"createdAt":"2026-10-23T08:40:39.705Z","updatedAt":null}}
+HTTP 201
+## 2
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"提交的内容有误，请检查标红的字段。","instance":"/api/v1/knowledge/qa","requestId":"req_01a167eb5ad0729ea3c99be66e99a53b","extra":{"fields":{"questions":"问法不能重复"}}}
+HTTP 422
+## 3
+{"type":"/errors/validation","title":"提交的内容有误","status":422,"detail":"提交的内容有误，请检查标红的字段。","instance":"/api/v1/knowledge/qa","requestId":"req_01a167eb5b23766e893ff6b9a4c991b9","extra":{"fields":{"questions":"至少写一个问法"}}}
+HTTP 422
