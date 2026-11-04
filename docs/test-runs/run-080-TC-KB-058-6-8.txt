@@ -1,0 +1,9 @@
+## 6
+HTTP 200
+{"published":1,"n":1,"item":{"version":1,"status":"published","source":"member","embedded":true,"steps":3,"agentUnseen":false}}
+## 7
+HTTP 422
+{"type":"/errors/validation","fields":{"steps.0.branches.0.goto":"跳到的步骤要是本卡里的另一步"}}
+## 8
+HTTP 422
+{"type":"/errors/validation","fields":{"conditions":"至少写一条调用条件","steps":"至少写一个步骤"}}

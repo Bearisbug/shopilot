@@ -1,0 +1,9 @@
+## 1
+HTTP 403
+{"type":"/errors/forbidden"}
+## 2
+HTTP 403
+{"type":"/errors/forbidden"}
+## 3
+HTTP 403
+{"type":"/errors/forbidden"}

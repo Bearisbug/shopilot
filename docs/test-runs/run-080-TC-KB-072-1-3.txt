@@ -1,0 +1,15 @@
+## step1
+01a1a52d-c762-77e3-9899-2a8db8de1bc1
+01a1a52d-e69d-7712-a14c-c5978c794c10
+01a1a52e-05e7-74fb-a0b2-11cbb8a2693c
+3
+## step2
+HTTP 201
+HTTP 201
+HTTP 200
+edited_sent
+ignored
+sent
+## step3
+$ tsx --env-file=.env scripts/job.ts card.review '{"merchantId":"01a1a518-5532-7261-a38a-e9518ffeebe4"}'
+published|card_updated

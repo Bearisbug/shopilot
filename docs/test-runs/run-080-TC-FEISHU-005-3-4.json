@@ -1,0 +1,24 @@
+{
+ "2.listTop": "Shopilot 客服群（替身）\n2026/11/4 14:55:17\n待认领 · Demo TikTok TH\n待认领卡 · 已发出（替身）",
+ "3.detail": "待认领 · Demo TikTok TH\n\n发往 Shopilot 客服群（替身） · 待认领卡 · 标题颜色 橙色 · 已发出（替身，未真的发到飞书） · 尝试 1 次 · om_stub_21f5cdfe86df42e4930f0355c34d15d1\n\nAI 总结　AI 替身总结：买家发来新消息，正在等待客服认领。\n\n平台 TikTok Shop · 泰国　买家 FS005 Buyer 080　已等 不到 1 分钟\n\n最近对话\n\n买家 14:55　Halo, kamera ini bisa dipakai di Mac?\n译文：[译文] Halo, kamera ini bisa dipakai di Mac?\n\n按钮「认领」→ http://127.0.0.1:3360/wb/01a1a557-31f7-758a-9d6c-32b206ff352f?claim=1&m=01a1a540-49b2-73e0-940f-c06fb5a40907\n\n按钮「打开会话」→ http://127.0.0.1:3360/wb/01a1a557-31f7-758a-9d6c-32b206ff352f?m=01a1a540-49b2-73e0-940f-c06fb5a40907\n\nShopilot · 会话进入待认领，同一段会话只推一次，处理人取消认领后再推\n\n卡片 JSON",
+ "2.titleColors": [
+  {
+   "tag": "H2",
+   "color": "rgb(47, 31, 22)",
+   "bg": "rgba(0, 0, 0, 0)",
+   "pbg": "rgba(0, 0, 0, 0)",
+   "cls": "text-lg font-semibold"
+  },
+  {
+   "tag": "PRE",
+   "color": "rgb(47, 31, 22)",
+   "bg": "rgb(247, 238, 230)",
+   "pbg": "rgba(0, 0, 0, 0)",
+   "cls": "mt-2 rounded-md bg-muted p-3 text-xs whitespace-pre-wrap [overflow-wrap:anywhere]"
+  }
+ ],
+ "4.links": [
+  "http://127.0.0.1:3360/wb/01a1a557-31f7-758a-9d6c-32b206ff352f?claim=1&m=01a1a540-49b2-73e0-940f-c06fb5a40907 -> http://127.0.0.1:3360/wb/01a1a557-31f7-758a-9d6c-32b206ff352f?claim=1&m=01a1a540-49b2-73e0-940f-c06fb5a40907",
+  "http://127.0.0.1:3360/wb/01a1a557-31f7-758a-9d6c-32b206ff352f?m=01a1a540-49b2-73e0-940f-c06fb5a40907 -> http://127.0.0.1:3360/wb/01a1a557-31f7-758a-9d6c-32b206ff352f?m=01a1a540-49b2-73e0-940f-c06fb5a40907"
+ ]
+}

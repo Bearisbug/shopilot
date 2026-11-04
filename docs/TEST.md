@@ -8,12 +8,13 @@
 | Owner | 实现会话 |
 | 关联设计文档 | `docs/DESIGN.md`（v1.30，已批准） |
 | 被测系统 | Shopilot（本仓库）：Next.js Web 与 API、Worker 进程、同进程挂载的模拟平台与开发页 |
-| 最后更新 | 2026-10-23 |
+| 最后更新 | 2026-11-04 |
 
 变更记录（登用例增改，不登执行轮次）：
 
 | 日期 | 改动 | 作者 |
 | --- | --- | --- |
+| 2026-11-04 | 按 DESIGN v1.37：新增 `TC-CONV-080`（点发送时预翻译还没返回，等它返回再带上译文；等满 10 秒交给服务端翻译，需拦截请求，执行者 AI）、`TC-KB-084`（会话学习的 Agent 联网查证产品参数）；§3 会话学习替身规则加「备注或消息含『参数』时联网搜一次」 | 实现会话 |
 | 2026-10-23 | RUN-078 发现用例错，原位修正（按 DESIGN 判定，不改判定口径）：`TC-KB-080` 第 3 步预期改为 `succeeded\|true`（布尔值拼进文本输出 `true`）；`TC-KB-082` 第 2 步先把第 1 步那次运行的时间往前挪 30 分钟，中断的那次才按 `API-KB-039`「新的在前」排在它前面；`TC-FEISHU-005` 第 1 步与 §3「模拟器发消息」写明 TikTok 新买家第一条消息另推 `type 13` 新会话（DESIGN 平台事件表）；`TC-KB-067` 第 8 步中文查询串改为编码写法；§3 工具写明内嵌 PDF 预览用 Edge | 实现会话 |
 | 2026-10-23 | 按 DESIGN v1.36 学习分析与按卡体检改由 Agent 服务执行：新增 `TC-KB-080`（会话学习的「Agent 过程」）、`TC-KB-081`（按卡体检的「Agent 过程」）、`TC-KB-082`（分析中途中断：运行记失败、重新分析）、`TC-KB-083`（真实 DeepSeek 跑一次会话学习的 Agent）；§2 不测项加 Agent 失败与封顶、Agent 分析质量两行；§3 会话学习与按卡体检替身改为 Agent 替身（按固定顺序调工具）、`q` 的写操作范围加上模拟分析中途中断、`AI_MODE=deepseek` 的用例加上 `TC-KB-083`；AI 无头执行改用 Playwright 自带的 chromium-headless-shell | 实现会话 |
 | 2026-10-22 | 按 DESIGN v1.35 英文官网整页标英文：新增 `TC-SITE-006`（源自缺陷：英文官网整页语言仍标为中文） | 实现会话 |
@@ -94,7 +95,7 @@
 | 登录锁定 15 分钟后自动解锁、会话 7 天滑动续期、所有权转让 7 天过期、商户 30 天后清除（`merchant.purge`） | 无归属——已知风险：§3 没有对应的时间场景 |
 | 邀请受套餐席位上限（`API-TEAM-002`、`API-TEAM-009` 席位已满） | 无归属——已知风险：席位上限是演示值（DESIGN §28 假设行），未定 |
 | 翻译与开票字段抽取的模型失败路径（502 / 504 `/errors/ai-unavailable`） | 无归属——已知风险：AI 替身只覆盖出稿 |
-| Agent 运行失败与封顶：3 分钟超时、超出 8 万 token、没有提交就结束、模型出错；提交不合规被退回、只认第一次合规的提交；工具调用 20 次与自测 6 次到上限；子进程环境只给登记的变量 | 代码仓测试套件 `src/server/agent/runtime.test.ts`；Agent 替身按固定顺序调工具，不会超时、超量或交出不合规的卡 |
+| Agent 运行失败与封顶：3 分钟超时、超出 8 万 token（缓存命中按十分之一计）、没有提交就结束、模型出错；联网搜索出错、超时与余额不足；提交不合规被退回、只认第一次合规的提交；工具调用 20 次与自测 6 次到上限；子进程环境只给登记的变量 | 代码仓测试套件 `src/server/agent/runtime.test.ts`、`src/server/agent/tools/web.test.ts`；Agent 替身按固定顺序调工具，不会超时、超量或交出不合规的卡 |
 | Agent 分析的质量：真实 DeepSeek 下改卡改得对不对、轮数与 token 是否合理 | 无归属——已知风险：DESIGN §28 风险行，上线后第一周人工抽看；`TC-KB-083` 只验证真实接口能跑完一次 |
 | CSV 超过 10,000 行返回 422、500 `/errors/internal` | 无归属——已知风险：种子数据量与故障手段都不够 |
 | 浏览器兼容（Safari、Chrome）与完整无障碍审计 | 无归属——已知风险；本文档只在 Edge 上抽查键盘焦点（`TC-CONV-010`） |
@@ -292,7 +293,7 @@ cardclear() { for id in $(curl -s -b "$SP_TMP/owner@demo.test" "$B/api/v1/knowle
 
   - 卡 K：标题「摄像头识别不到：帮买家恢复使用」，阶段「全部阶段」，站点「全部站点」，一条调用条件「买家说摄像头识别不到」（全部满足）；第 1 步「问清电脑系统和连接方式」，分支「急用」→ 转人工；第 2 步「换线、换接口」，分支「保修」→ 建工单；第 3 步「安装或更新配套软件」；沟通提示「每次只让买家做一步」。
   - 出稿替身用卡（`AI_MODE=stub`，出稿、测试问答、模拟出稿共用）：请求带候选卡时，本段有正在用的卡就接着用它、步骤加 1（不超过最后一步），否则用第 1 张候选卡（拟发布的卡、正在用的卡排在最前）的第 1 步；这一步某个分支的条件原文出现在买家最新一条消息里时按这个分支走（转人工、建工单、跳到第 n 步）。用卡理由一律「替身：调用条件成立」，建工单的说明是「替身：<分支条件>」；按卡转人工时替身同时给出 `handoff = true`、`reason = card`。
-  - Agent 替身（`AI_MODE=stub`，学习分析与按卡体检共用）：CLI 子进程照常起，连 Worker 进程内的 Anthropic 兼容替身，不出网；每轮只调一个工具，用量固定每轮输入 1,000、输出 50 token。会话学习依次「读会话 → 查知识 → 有拟发布的卡时自测一次 → 提交」，按卡体检依次「读卡 → 列用例 → 要改卡时在那个用例上自测一次 → 提交」；提交被退回时原样再交一次。结论按下面两条替身规则给出。Worker 起来后第一次分析要多等 1–2 秒起子进程。
+  - Agent 替身（`AI_MODE=stub`，学习分析与按卡体检共用）：CLI 子进程照常起，连 Worker 进程内的 Anthropic 兼容替身，不出网；每轮只调一个工具，用量固定每轮输入 1,000、输出 50 token。会话学习依次「读会话 → 查知识 → 备注或消息含「参数」时联网搜一次（替身结果 1 条，站点 example.com，不出网） → 有拟发布的卡时自测一次 → 提交」，按卡体检依次「读卡 → 列用例 → 要改卡时在那个用例上自测一次 → 提交」；提交被退回时原样再交一次。结论按下面两条替身规则给出。Worker 起来后第一次分析要多等 1–2 秒起子进程。
   - 会话学习替身（Agent）：备注或消息里有「无需」→ 诊断「已有内容覆盖」，任务结束、结论「无需更新」；有「新卡」，或相似卡里没有一张的标题与某条买家消息有两个相连的相同字 → 诊断「流程需要补充」，写一张新卡（标题「替身：<最后一条勾选的买家文字前 20 字>」，一条调用条件「买家提到「<同前>」」，一步「替身第一步：问清情况」），进待审核；否则改那张相似卡，在最后加一步「替身补充的一步」，直接复测。判断依据「替身：按关键词判断」，建议「替身：按建议更新」。复测判定替身（`judge`）：载荷里出现「变差」判「改后变差」，否则「不比改前差」。替身不会给出「知识缺失」「证据不足」「内容冲突」，也不会分析失败（模拟中途中断见 `TC-KB-082`）。
   - Agent 挑会话：`pnpm job learning.pick '{"merchantId":"<Demo Store 的商户 ID>"}'` 只挑这一家（商户 ID 用 `q "select id from merchant where name = 'Demo Store'"` 取）；挑出的段由 Worker 的 `learning.analyze` 分析，几秒内出结论。
 - 按卡体检与周指标函数（先执行上面的经验卡函数与知识库 curl 函数，并 `login agent2@demo.test`）：`merchantid` 输出 Demo Store 的商户 ID；`carddraft <买家名> [文字]` 在 Demo Shopee MY 新建这位买家、发一句（缺省「摄像头识别不到」），等到用了经验卡的待处理草稿并输出草稿 ID，超时输出 `TIMEOUT`（需先按 §3「固定为工作时间内」，Demo Shopee MY 在辅助模式）；`dispose <买家名> <sent|edited_sent|ignored>` 以 Mei 处置这位买家最新的待处理草稿——原样发送、末尾加「（已改）」后发送、弃用，输出末行 `HTTP <状态码>`；`cardold <卡 ID>` 把这张卡全部版本的时间挪到两天前，让它满足「24 小时内没有新版本」；`agentreset` 删掉 Demo Store 的「Agent 改卡」审计，当天直接生效次数从 0 算（次数按这条审计数，删卡不会让它清零）；`crjob` 只对 Demo Store 跑一次 `card.review`（体检任务当场建好，分析由 Worker 接着做）；`cardreview <卡 ID>` 先 `crjob`，再等这张卡最近一个体检任务分析完，输出「状态|结论」，没挑上时输出 `TIMEOUT`；`qweek <几周前> <原样发送数> [总数]` 在本周一（UTC）往前第 N 周的周二写入处置过的辅助草稿，总数缺省 20，其余为弃用；`aq` 只对 Demo Store 跑一次 `ai.quality_weekly`（重算上一周与再往前两周，并判断要不要暂停）。
@@ -2224,6 +2225,19 @@ aq() { pnpm -s job ai.quality_weekly "{\"merchantId\":\"$(merchantid)\"}"; }
 | 6 | `api agent@demo.test "$B/api/v1/conversations/C"` | 最后一条本方消息 `text` 为「Hello there」、`originalText` 为「你好」 |
 
 后置：无。
+
+#### `TC-CONV-080` 点发送时预翻译还没返回：等它返回再带上译文，等满 10 秒才交给服务端翻译 — 对应 `REQ-CONV-016` · 级别: 回归 · 执行者: AI
+
+前置：基线；按 §3「模拟器发消息」给 Demo Shopee MY 新买家发「Boleh saya tahu bila barang sampai?」；浏览器以 agent@demo.test 登录，打开这个会话并点「认领」；记翻译下拉的当前目标语言 L（不是「不翻译」）；用浏览器脚本拦截 `POST /api/v1/translate`，把它的响应推迟 D 秒再放行（D 先取 3），并记录浏览器发出的请求与每个请求是否被取消。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 输入「好的，马上为您处理」，停止输入 1.5 秒 | 工具栏显示「将发送 翻译中…」；已发出 1 个 `POST /api/v1/translate`，还没返回 |
+| 2 | 点发送 | 发送按钮转为「发送中」；那个翻译请求返回 `200`、没有被取消，之后才发出 `POST /api/v1/conversations/<id>/messages`，请求体含 `"translateTo":"<L>"` 与 `"translatedText":"<翻译请求返回的译文>"`，返回 `201`；从输入到发出只有这 1 个翻译请求 |
+| 3 | 看时间线最新一条本方消息 | 正文为翻译请求返回的译文，下方「原文」为「好的，马上为您处理」；状态已发送 |
+| 4 | D 改为 12；输入「请稍等一下」，停止输入 1.5 秒后点发送 | 点发送后约 10 秒才发出发送请求，请求体有 `translateTo`、没有 `translatedText`，返回 `201`；时间线最新一条有「原文 请稍等一下」对照 |
+
+后置：取消拦截。
 
 ### AI 出稿
 
@@ -4512,6 +4526,18 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 
 后置：`cardclear`；`.env` 的 `AI_MODE` 改回 `stub` 并重启 `pnpm dev`。
 
+#### `TC-KB-084` 会话学习的 Agent 联网查证产品参数：步骤里有「联网搜索」，摘要只记条数与站点 — 对应 `REQ-KB-013` · 级别: 回归 · 执行者: 皆可
+
+前置：基线；`login owner@demo.test`、`login agent2@demo.test`；`cardclear`；`X=$(newbuyer shopee 220001 "Agent W")`；`say $X "这款的云台参数是多少"`；Mei Lin 认领并回复「水平可以转 150 度」；浏览器以林晓登录。
+
+| # | 操作 | 预期 |
+| --- | --- | --- |
+| 1 | 对买家那条消息提交学习（接口同 `TC-KB-068` 第 1 步），记任务 ID 为 T，`waitq "select status from learning_task where id = '<T>' and status <> 'analyzing'"` | `HTTP 201`；状态不是 `failed` |
+| 2 | `api owner@demo.test $B/api/v1/knowledge/learning/<T>` | `HTTP 200`；`agentRuns` 1 项，`status` `succeeded`；`steps` 的 `tool` 依次 `get_conversation`、`search_knowledge`、`web_search`、`simulate`、`submit`，`ok` 都为 true；`web_search` 那步的 `note` 为「联网搜到 1 条（example.com）」；没有一条 `note` 含「云台参数」 |
+| 3 | 打开 `/reception/knowledge?task=<T>`，看抽屉的「Agent 过程」 | 一行「已完成」、「工具 5 次」；五步依次「读会话」「查知识」「联网搜索」「自测」「提交」，「联网搜索」的摘要为「联网搜到 1 条（example.com）」 |
+
+后置：`cardclear`。
+
 ### 看板
 
 #### `TC-DASH-001` 组长的看板只含负责店铺 — 对应 `REQ-DASH-001` · 级别: 回归 · 执行者: 皆可
@@ -5606,6 +5632,7 @@ at() { curl -s "$B/api/dev/ai-stub" | jq -r '.lastRequest.at'; }
 | RUN-077 | 2026-10-22 | 本地 | `f006933` + 工作区改动（`src/app/layout.tsx` 根布局按路径给 `<html lang>`；`docs/`） | AI（Claude Code 主会话与子会话；Playwright + Edge、curl） | 复测（RUN-076：TC-SITE-006、TC-AUTH-001、TC-AUTH-004、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-SHOP-001、TC-AI-001、TC-AI-002、TC-ORD-015、TC-TKT-001、TC-KB-001、TC-KB-024、TC-KB-047、TC-KB-053、TC-KB-058、TC-KB-061、TC-KB-066、TC-KB-067、TC-KB-068、TC-KB-072、TC-FEISHU-005、TC-FEISHU-011） | 通过 23/23 |
 | RUN-078 | 2026-10-23 | 本地 | `5107211`（wt/agentsvc 分支） | AI（Claude Code 子会话；Playwright + chromium-headless-shell、curl） | 局部（TC-PERM-009、TC-KB-066、TC-KB-067、TC-KB-068、TC-KB-069、TC-KB-070、TC-KB-071、TC-KB-072、TC-KB-073、TC-KB-074、TC-KB-075、TC-KB-076、TC-KB-077、TC-KB-079、TC-KB-080、TC-KB-081、TC-KB-082、TC-KB-083、TC-AUTH-001、TC-AUTH-004、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-SHOP-001、TC-AI-001、TC-AI-002、TC-ORD-015、TC-TKT-001、TC-KB-001、TC-KB-024、TC-KB-047、TC-KB-053、TC-KB-058、TC-KB-061、TC-FEISHU-005、TC-FEISHU-011） | 通过 32/36 · 失败 3 · 阻塞 1 |
 | RUN-079 | 2026-10-23 | 本地 | `5107211`（wt/agentsvc 分支，工作区只多了 `docs/TEST.md` 的用例文字改动） | AI（Claude Code 子会话；Playwright + chromium-headless-shell、Edge 无头、curl） | 复测（RUN-078：TC-KB-080、TC-KB-082、TC-KB-001、TC-FEISHU-005） | 通过 4/4 |
+| RUN-080 | 2026-11-04 | 本地 | `952c72d` + 工作区改动（Agent token 上限里缓存命中按 1/10 计、Agent 联网搜索工具 `web_search`、发送时等进行中的预翻译最多 10 秒、迁移 0020；`docs/`、`deploy/`） | AI（Claude Code 子会话；Playwright + chromium-headless-shell、Edge 无头、curl） | 局部（TC-CONV-069、TC-CONV-070、TC-CONV-080、TC-KB-080、TC-KB-081、TC-KB-082、TC-KB-083、TC-KB-084、TC-AUTH-001、TC-AUTH-004、TC-PERM-001、TC-PERM-002、TC-PERM-005、TC-SHOP-001、TC-AI-001、TC-AI-002、TC-ORD-015、TC-TKT-001、TC-KB-001、TC-KB-024、TC-KB-047、TC-KB-053、TC-KB-058、TC-KB-061、TC-KB-066、TC-KB-067、TC-KB-068、TC-KB-072、TC-FEISHU-005、TC-FEISHU-011） | 通过 30/30 |
 
 明细（仅登非「通过」项）：
 | RUN-002 | `TC-TEAM-002` | 失败 | 第 3 步已有账号从邀请页去登录、登录成功回到邀请页后仍显示「请先用 … 登录」，没有接受按钮，手动刷新后才出现；`run-002-TC-TEAM-002-3.png` | 实现修复（登录后沿用了登录前的邀请数据），RUN-003 复测 |
@@ -5853,6 +5880,14 @@ RUN-078 证据：局部轮，DESIGN v1.36 学习分析与按卡体检改由 Agen
 Agent 关键观察：`TC-KB-080` 替身会话学习一次 `succeeded`、`toolCalls` 4、`turns` 5、682 ms、token 输入 5000 / 缓存 0 / 输出 250，四步摘要为 get_conversation「2 条消息，相似卡 1 张」、search_knowledge「查到 1 张卡、0 条问答」（5 ms）、simulate「拟改的卡：用到这张卡第 1 步」（20 ms）、submit「流程需要补充 · 改已有卡」，抽屉一行「已完成 10-23 16:08 · 0.7 秒 · 5 轮 · 工具 4 次 · token 输入 5.0k、缓存命中 0、输出 250」，不显示模型名；`TC-KB-081` 按卡体检一次 `succeeded`、`model` stub、`toolCalls` 4、`turns` 5、620 ms、token 5000 / 0 / 250，四步 get_card「读卡与处置统计」、list_cases「3 个用例」、simulate「第 2 个用例 · 拟改的卡：用到这张卡第 1 步」（30 ms）、submit「改卡」；`TC-KB-082` 第 1 步那次 `toolCalls` 3、`turns` 4、token 4.0k / 0 / 200，标中断的那次显示「失败 10-23 15:54 · 20 分 31 秒 · 工具 0 次」与红字「运行中断：进程在运行中退出」；`TC-KB-083` 真实 DeepSeek：`deepseek-flash`、`succeeded`、`turns` 5、`toolCalls` 4、20.9 秒，token 输入 3629、缓存命中 13824、输出 2428（合计 19881），simulate 3142 ms，任务 `published` / `card_updated`，抽屉行末「deepseek-flash」，各步 `note` 都不含「换线也没用」；它的前置里真实出稿置信度低，会话按 `low_confidence` 转人工，不影响用例。DeepSeek 用量（第四套 2026-10-23 16:52:10–16:55:24，Worker 日志 `deepseek call` 与 `agent_run`）：直接调用 21 次全部成功，translate 14 次、draft 2 次（`TC-AI-002` 那次 1823 ms、输入 1000、输出 155）、rewrite 3 次、simulate 2 次，合计输入 5653、输出 828；Agent 一次 19881；全部约 2.6 万 token，低于用例估的 5 万至 6 万。逐用例逐步观察值、基线时段、执行顺序与用量汇总在 `docs/test-runs/run-078-results.json`，截图、接口返回与查询输出存 `docs/test-runs/run-078-*`。
 
 RUN-079 证据：复测轮，承接 RUN-078 的四个非通过项。四条经裁决都是用例写错，实现代码没改；用例已按 DESIGN 原位修正，判定口径不变，见 §1 2026-10-23「RUN-078 发现用例错」一行：`TC-KB-080` 第 3 步预期竖线后改为 `true`；`TC-KB-082` 第 2 步先把第 1 步那次运行的开始与结束时间往前挪 30 分钟，再改任务、插入中断的那次；`TC-FEISHU-005` 第 1 步预期改为 `type 13`、`type 14` 两条推送，§3「模拟器发消息」同步；§3 工具写明内嵌 PDF 预览用本机 Edge，`TC-KB-001` 整条用 Edge 跑。本轮有意偏离 §5：§5 规定复测轮要带全部冒烟级，本轮只跑这四条，冒烟结果沿用 RUN-078。原因是被测版本仍是 `5107211`，两轮之间只改了 `docs/TEST.md` 的用例文字，代码、种子、环境都没变；冒烟级 22 条在 RUN-078 都跑过，没通过的 `TC-FEISHU-005`、`TC-KB-001` 两条本轮从前置重跑，其余 20 条在 RUN-078 已通过。环境与 RUN-078 相同：独立库 `shopilot_wt_agentsvc`，Web 起在 3376，Worker 连同一个库，`AI_MODE=stub`，§3 函数的 `B`、`q` 同 RUN-078 证据段的改法。2026-10-23 17:05 停 Web 与 Worker 后 `pnpm db:reset && pnpm db:seed` 重建一次基线，17:06–17:11 在这一套基线上按 `TC-KB-080`、`TC-KB-082`、`TC-FEISHU-005`、`TC-KB-001` 的顺序各自从前置完整执行（`TC-FEISHU-005` 的前置按 §3「连上飞书替身」，放在两条学习用例之后；`TC-KB-001` 放最后）。`$KB` 只按 §3 配方生成本轮用到的保修政策.pdf（3,146,455 字节）与型号对照.xlsx（1,048,732 字节）。两条学习用例前置里 Mei Lin 的认领（`TC-KB-080` 另有回复）用接口完成，等草稿生成后再认领。前三条用 Playwright 自带的 chromium-headless-shell；跑 `TC-KB-001` 前先关掉它，再用 `channel: 'msedge'` 起本机 Edge 155.0.4283.62 无头（`navigator.pdfViewerEnabled` 为 true），整条跑完立即关闭；同一时刻只有一个浏览器实例。关键观察：`TC-KB-080` 运行 `succeeded`、`model` stub、`toolCalls` 4、`turns` 5、734 ms、token 输入 5000 / 缓存 0 / 输出 250，第 3 步输出 `succeeded` 与 `true`；`TC-KB-082` 第 2 步依次 `UPDATE 1`、`UPDATE 1`、`INSERT 0 1`，写入后按开始时间倒序为运行中（16:47）在前、已完成（16:37）在后，第 3 步两行顺序与预期一致，第 4 步 `knowledge.qa_embed` 收掉 1 个中断任务，第 5 步「失败 10-23 16:47 · 20 分 12 秒 · 工具 0 次」在上、下方红字「运行中断：进程在运行中退出」，第 6 步三行从上到下为已完成 17:07（列三步）、失败 16:47、已完成 16:37；`TC-FEISHU-005` 推送日志由 3 条变 5 条，`type 13` 新会话段 HTTP 200 · 663 ms、`type 14` 新消息 HTTP 200 · 23 ms；`TC-KB-001` 第 5 步「原文件」标签内嵌 iframe（628 × 630），显示 Edge 的 PDF 阅读器、工具栏「1 of 2」。`TC-KB-001` 第 6 步点「解析内容（1 段）」后 0.8 秒截图时面板还在加载骨架（`run-079-TC-KB-001-6.png`），脚本读的是隐藏的「原文件」面板，没读到列表；刷新后看到 #1，随后切回「原文件」再点「解析内容」，等到 #1「替身解析：保修政策.pdf」出现，地址带 `docTab=parsed`（`run-079-TC-KB-001-6c.png`），登记的是这一观察。本轮没有调用 DeepSeek。逐用例逐步观察值在 `docs/test-runs/run-079-results.json`，截图、接口返回与查询输出存 `docs/test-runs/run-079-*`。
+
+RUN-080 证据：局部轮。被测为主工作区 `952c72d` 加未提交改动：Agent 运行的 token 上限里缓存命中按 1/10 计（`src/server/agent/runtime.ts`），Agent 新增联网搜索工具 `web_search`（`src/server/agent/tools/web.ts`，替身在消息含「参数」时搜一次），学习抽屉的步骤名「联网搜索」，发送时等进行中的预翻译最多 10 秒（`use-pretranslate.ts`、`composer.tsx`），迁移 0020（`pg_stat_statements`），以及 `prompts.ts`、`tools/knowledge.ts`、`inbound/accept.ts`、`knowledge/cloudflare.ts`、`docs/`、`deploy/` 的改动。范围是受影响的 `TC-CONV-069`、`TC-CONV-070`、`TC-KB-080` 至 `TC-KB-083`，首次执行的 `TC-CONV-080`、`TC-KB-084`，加冒烟级 22 条。环境为 §3 本地行：库 `shopilot`，`pnpm dev` 起 Web（3360）与 Worker，`KNOWLEDGE_MODE`、`FEISHU_MODE` 为 `stub`，`AI_MODE` 只在第三套基线上是 `deepseek`、其余时间是 `stub`。2026-11-04 13:52 起跑，15:03 跑完最后一条。浏览器步骤用 chromium-headless-shell（1440 × 900、zh-CN、Asia/Kuala_Lumpur），每页加载后只隐藏 Next.js 开发模式的 `nextjs-portal` 指示器；项目依赖的 Playwright 1.64 要 headless shell 1248，本机没装，本轮改用全局 Playwright 1.60.0 与已装的 headless shell 1223，没有另下载。`TC-KB-001` 用 `channel: 'msedge'` 起本机 Edge 156.0.4314.58 无头（`navigator.pdfViewerEnabled` 为 true），跑前确认本轮没有别的浏览器实例，跑完立即关闭；整轮同一时刻最多一个浏览器实例。
+
+基线三套。第一套是起跑时已有的基线（13:46 `pnpm db:reset && pnpm db:seed`，起跑前核对过没有残留数据），13:55–14:29 依次执行 `TC-KB-067`、`TC-KB-084`、`TC-KB-080`、`TC-KB-082`、`TC-KB-068`、`TC-KB-066`、`TC-KB-072`、`TC-KB-081`、`TC-KB-058`、`TC-KB-061`、`TC-KB-047`、`TC-KB-053`、`TC-KB-024`、`TC-CONV-069`、`TC-CONV-070`、`TC-CONV-080`；`TC-KB-072` 前置按 §3「固定为工作时间内」改的工作时段（周三 00:00–23:59）一直保留到这一套结束，`TC-KB-061` 沿用它。第二套 14:30 停 Web 与 Worker 后重建、重起 dev，14:31–14:57 依次执行 `TC-AUTH-001`、`TC-SHOP-001`、`TC-AUTH-004`、`TC-PERM-001`、`TC-PERM-002`、`TC-PERM-005`、`TC-AI-001`、`TC-ORD-015`、`TC-TKT-001`、`TC-KB-001`、`TC-FEISHU-005`、`TC-FEISHU-011`，`TC-FEISHU-011` 沿用 `TC-FEISHU-005` 前置建立的飞书替身连接。第三套 14:59 停 dev，起跑前已在临时目录存了 `.env` 的 sha256，只把 `AI_MODE` 一行改成 `deepseek`，重建后重起，15:00–15:03 执行 `TC-AI-002`、`TC-KB-083`，随后改回 `stub` 重起，`.env` 的 sha256 与改前一致。本轮重建基线 2 次、重起 dev 3 次，`next dev` 没有自行退出。同一套基线上的用例都新建买家；学习类用例前置里 Mei Lin 的认领与回复用接口完成，等草稿生成后再认领。§3 函数在 zsh 下多个 ID 不分词，`kbclear` 第一次陷入循环，中止后在函数文件开头加 `setopt SH_WORD_SPLIT`，重跑清空后才继续。
+
+按 test-doc 纪律处理过的情况：① `TC-KB-082` 第一遍第 6 步脚本点「重新分析」后 0.7 秒就读提示，没读到「已重新排队分析」，其余各步与第二遍一致；改为等这段文字出现，新建买家从前置重跑，登记第二遍；② `TC-KB-066` 第一遍第 5 步把接口返回交给 sed 截断时 sed 报错，6 次请求已发出（该会话多出 5 个任务）但没读到返回；改用 cut 截断，新建买家从前置重跑，登记第二遍；③ `TC-CONV-080` 第一遍第 2 步按按钮文字找「发送中」，按钮只剩图标、文字为空，截图里是转圈；改读按钮的读屏名，新建买家从前置重跑，登记第二遍；④ `TC-AUTH-001` 第一遍按标签「密码」定位不唯一（同时命中「显示密码」），填表时报错、没有提交，改按读屏名从第 1 步重跑；`TC-TKT-001` 第 3 步「处理申请」定位不唯一，在点开弹层前报错，改精确匹配后执行；⑤ 同一状态下重新观察：`TC-KB-053` 第 2 步模拟器「AI 替身」面板不随切页签刷新，重新载入模拟器页后读同一面板，没有重发消息；`TC-AI-001` 第 6 步脚本刷新的是没打开会话的列表页，改为直接打开 `/wb/<会话>` 观察；`TC-ORD-015` 第 4–6 步发票号只在提示里，重读发件箱与发票列表，第 6 步第一次点到「预览」，改点读屏名「下载 INV-2026-000002 的 PDF」的链接后触发下载，文件为 `application/pdf`、含发票号与 Demo Buyer Sdn Bhd；`TC-TKT-001` 第 6 步时间线第一次读到空，同一状态重读；`TC-KB-001` 脚本先跑到第 2 步停下（没点上传）看清弹窗结构，再从第 1 步整条跑，第 1 步截图拍在列表骨架阶段，「资料 0 / 500」与空态文字取自第一遍同一状态的页面；`TC-SHOP-001` 第 1–2 步先单独跑一遍再整条跑，两遍观察相同；⑥ 探页面时留下的多余数据：第一套有只建未发言的模拟器买家 KB053 Buyer 080、Probe 080；第二套有 ORD015 B 080（未下单未发言）、TKT001 B 080（订单 576440832827053155 停在 AWAITING_SHIPMENT，没有会话），以及 `TC-SHOP-001` 之前点开「还没有应用，跟着建」存下的接入草稿「准备应用」（清单 0/5）；都不在各用例的判定对象里。RUN-077 列出的五处判法本轮照用；`TC-KB-024`、`TC-KB-053` 模拟器面板标题「最近一次出稿请求（时间）」按「最近一次请求」观察；stub 下译文为「[译文] 原文」。
+
+本次改动相关的观察：`TC-KB-084` 替身会话学习一次 `succeeded`、`toolCalls` 5、`turns` 6、677 ms、token 6000 / 0 / 300，五步依次 get_conversation、search_knowledge、web_search「联网搜到 1 条（example.com）」、simulate、submit，抽屉第三步显示「联网搜索」，各步摘要不含「云台参数」；`TC-KB-080` `toolCalls` 4、`turns` 5、705 ms、token 5000 / 0 / 250；`TC-KB-082` 中断那次显示「失败 11-04 13:42 · 20 分 14 秒 · 工具 0 次」与「运行中断：进程在运行中退出」。`TC-CONV-069` 输入框外框高度在「翻译中…」、译文出现、浮层打开、切到「不翻译」时都是 106 px。`TC-CONV-080` 用 Playwright `page.route` 拦住 `POST /api/v1/translate`：D = 3 时翻译请求在页面打开后 3666 ms 发出，4400 ms 点发送，按钮读屏名变「发送中」并禁用，6684 ms 放行、返回 200，6686 ms 才发出 `POST …/messages`，请求体带 `translatedText`「[译文] 好的，马上为您处理」；D = 12 时点发送 10.03 秒后发出消息，请求体只有 `translateTo`、没有 `translatedText`，返回 201。`TC-KB-083` 真实 DeepSeek：`deepseek-flash`、`succeeded`、5 轮、工具 4 次、9.2 秒，token 输入 3208、缓存命中 8448、输出 741（合计 12397，上限 80000），任务 `closed` / `none_needed`（已有卡覆盖客服做法，不改卡），抽屉行末「deepseek-flash」、最后一步「提交」，各步 `note` 不含「换线也没用」。`TC-AI-002` 草稿置信度 0.90、1390 ms，提到订单号 261104A6AJB6NA、SPX Express (MY)、运单号 MY887137148396A 与轨迹「Shah Alam Hub」，发出的消息与草稿逐字相同。DeepSeek 用量（第三套 14:59:35–15:02:08，Worker 日志 `deepseek call` 与 `agent run`）：直接调用 27 次全部成功，其中 Worker 起服后处理种子会话的 translate 14 次、issue 10 次，draft 2 次（`TC-AI-002` 与 `TC-KB-083` 前置各 1 次），rewrite 1 次，合计输入 5163、输出 666；Agent 一次 12397；全部约 1.8 万 token。逐用例逐步观察值、基线时段与执行顺序在 `docs/test-runs/run-080-results.json`，截图、接口返回与查询输出存 `docs/test-runs/run-080-*`。
 
 ## 7. 遗留问题
 

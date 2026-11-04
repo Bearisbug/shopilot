@@ -1,0 +1,204 @@
+{
+ "items": [
+  {
+   "id": "01a1a543-3520-769e-8efa-f2f6bb7ae085",
+   "platform": "shopee",
+   "name": "Wizard Shopee MY",
+   "market": "MY",
+   "status": "connected",
+   "readOnly": false,
+   "authExpiresAt": "2027-11-04T06:33:26.000Z",
+   "modes": {
+    "inHours": "shadow",
+    "offHours": "shadow"
+   },
+   "lastInboundAt": null,
+   "zeroInbound7d": false,
+   "metrics": {
+    "basis": "账户健康当期值，不随周期变化",
+    "rating": 3,
+    "target": 70,
+    "currentOnly": true,
+    "nonResponded": 2,
+    "responseRate": 88,
+    "platformLabel": "Shopee 聊天回复率",
+    "responseTimeDays": 0.4
+   },
+   "metricsAt": "2026-11-04T06:33:36.454Z",
+   "issues": [],
+   "backfill": {
+    "state": "done",
+    "orders": 1,
+    "conversations": 1
+   },
+   "caps": {
+    "chat": true,
+    "piiMasked": true,
+    "productScope": true
+   }
+  },
+  {
+   "id": "01a1a543-3526-7062-8b15-54b2d5c0f348",
+   "platform": "shopee",
+   "name": "Wizard Shopee PH",
+   "market": "PH",
+   "status": "connected",
+   "readOnly": false,
+   "authExpiresAt": "2027-11-04T06:33:26.000Z",
+   "modes": {
+    "inHours": "shadow",
+    "offHours": "shadow"
+   },
+   "lastInboundAt": null,
+   "zeroInbound7d": false,
+   "metrics": {
+    "basis": "账户健康当期值，不随周期变化",
+    "rating": 3,
+    "target": 70,
+    "currentOnly": true,
+    "nonResponded": 2,
+    "responseRate": 88,
+    "platformLabel": "Shopee 聊天回复率",
+    "responseTimeDays": 0.4
+   },
+   "metricsAt": "2026-11-04T06:33:36.442Z",
+   "issues": [
+    {
+     "key": "chat_unavailable",
+     "text": "收发聊天不可用：Shopee 返回这家店没有聊天接口权限：先确认应用类型是 Seller In-house System，再按 Shopee 聊天白名单说明申请（准备清单第 4 项）。"
+    }
+   ],
+   "backfill": {
+    "state": "done",
+    "orders": 1,
+    "conversations": 0
+   },
+   "caps": {
+    "chat": false,
+    "piiMasked": true,
+    "productScope": true
+   }
+  },
+  {
+   "id": "01a1a543-3524-721d-9ee9-b230b570512b",
+   "platform": "shopee",
+   "name": "Wizard Shopee SG",
+   "market": "SG",
+   "status": "connected",
+   "readOnly": false,
+   "authExpiresAt": "2027-11-04T06:33:26.000Z",
+   "modes": {
+    "inHours": "shadow",
+    "offHours": "shadow"
+   },
+   "lastInboundAt": null,
+   "zeroInbound7d": false,
+   "metrics": {
+    "basis": "账户健康当期值，不随周期变化",
+    "rating": 3,
+    "target": 70,
+    "currentOnly": true,
+    "nonResponded": 2,
+    "responseRate": 88,
+    "platformLabel": "Shopee 聊天回复率",
+    "responseTimeDays": 0.4
+   },
+   "metricsAt": "2026-11-04T06:33:36.426Z",
+   "issues": [],
+   "backfill": {
+    "state": "done",
+    "orders": 1,
+    "conversations": 1
+   },
+   "caps": {
+    "chat": true,
+    "piiMasked": true,
+    "productScope": true
+   }
+  }
+ ],
+ "apps": [
+  {
+   "id": "01a1a543-04cc-779e-94c3-b645abe7642d",
+   "platform": "shopee",
+   "appKey": "2001001",
+   "status": "verified",
+   "region": "sg",
+   "shopCount": 3,
+   "authExpiresAt": "2027-11-04T06:33:26.000Z",
+   "keyExpiresAt": null,
+   "webhookUrl": "http://127.0.0.1:3360/api/webhooks/shopee/74b413c8413d4de88d2b24ccb132b7b8",
+   "pushSubscribed": true
+  }
+ ],
+ "events": [
+  {
+   "id": "01a1a543-5781-779a-a9fd-7ec5f5aa34ad",
+   "shopId": "01a1a543-3524-721d-9ee9-b230b570512b",
+   "shopName": "Wizard Shopee SG",
+   "kind": "completed",
+   "text": "完成接入，AI 初始方式：只起草、不发送",
+   "createdAt": "2026-11-04T06:33:36.382Z"
+  },
+  {
+   "id": "01a1a543-5783-714b-a4c7-09a8430845aa",
+   "shopId": "01a1a543-3526-7062-8b15-54b2d5c0f348",
+   "shopName": "Wizard Shopee PH",
+   "kind": "completed",
+   "text": "完成接入，AI 初始方式：只起草、不发送",
+   "createdAt": "2026-11-04T06:33:36.382Z"
+  },
+  {
+   "id": "01a1a543-5785-77b6-aece-39f483d4aa68",
+   "shopId": "01a1a543-3520-769e-8efa-f2f6bb7ae085",
+   "shopName": "Wizard Shopee MY",
+   "kind": "completed",
+   "text": "完成接入，AI 初始方式：只起草、不发送",
+   "createdAt": "2026-11-04T06:33:36.382Z"
+  },
+  {
+   "id": "01a1a543-3522-7368-b9d3-71a32a5d6050",
+   "shopId": "01a1a543-3520-769e-8efa-f2f6bb7ae085",
+   "shopName": "Wizard Shopee MY",
+   "kind": "authorized",
+   "text": "授权接入",
+   "createdAt": "2026-11-04T06:33:27.582Z"
+  },
+  {
+   "id": "01a1a543-3525-7066-bb54-ccc2fd0298f3",
+   "shopId": "01a1a543-3524-721d-9ee9-b230b570512b",
+   "shopName": "Wizard Shopee SG",
+   "kind": "authorized",
+   "text": "授权接入",
+   "createdAt": "2026-11-04T06:33:27.582Z"
+  },
+  {
+   "id": "01a1a543-3527-7030-8951-ef243bd2a894",
+   "shopId": "01a1a543-3526-7062-8b15-54b2d5c0f348",
+   "shopName": "Wizard Shopee PH",
+   "kind": "authorized",
+   "text": "授权接入",
+   "createdAt": "2026-11-04T06:33:27.582Z"
+  }
+ ],
+ "summary": {
+  "total": 3,
+  "byPlatform": {
+   "shopee": 3,
+   "tiktok": 0
+  },
+  "authValid": 3,
+  "attention": 1,
+  "attentionText": [
+   "Wizard Shopee PH 收发聊天不可用"
+  ],
+  "todayInbound": 0,
+  "lastInbound": null,
+  "lowestRate": {
+   "value": 88,
+   "shopName": "Wizard Shopee MY",
+   "platform": "shopee"
+  },
+  "metricsAt": "2026-11-04T06:33:36.454Z"
+ }
+}

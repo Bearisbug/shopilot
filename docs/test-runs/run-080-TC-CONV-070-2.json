@@ -1,0 +1,38 @@
+[
+ {
+  "t": 5631,
+  "m": "POST",
+  "u": "/api/v1/translate",
+  "body": "{\"text\":\"好的，马上为您处理\",\"target\":\"ms\"}"
+ },
+ {
+  "t": 5765,
+  "res": 200,
+  "u": "/api/v1/translate",
+  "body": "{\"text\":\"[译文] 好的，马上为您处理\"}"
+ },
+ {
+  "t": 7119,
+  "m": "POST",
+  "u": "/api/v1/conversations/01a1a53d-0111-751f-b0ac-2faf59056796/messages",
+  "body": "{\"clientRequestId\":\"e23e962a-5eed-4de6-b7bd-cb6fb27d94f7\",\"type\":\"text\",\"text\":\"好的，马上为您处理\",\"translateTo\":\"ms\",\"translatedText\":\"[译文] 好的，马上为您处理\"}"
+ },
+ {
+  "t": 7389,
+  "res": 201,
+  "u": "/api/v1/conversations/01a1a53d-0111-751f-b0ac-2faf59056796/messages",
+  "body": "{\"message\":{\"id\":\"01a1a53d-30be-7079-882a-cfc6ba7bdb90\",\"direction\":\"out\",\"senderRole\":\"agent\",\"senderName\":\"Nur Aisyah\",\"type\":\"text\",\"text\":\"[译文] 好的，马上为您处理\",\"originalText\":\"好的，马上为您处理\",\"translation\":null,\"translationSource\":null,\"payload\":{},\"sendStatus\":\"sent\",\"sendError\":null,\"sentAt\":\"2026-11-04"
+ },
+ {
+  "t": 10858,
+  "m": "POST",
+  "u": "/api/v1/conversations/01a1a53d-0111-751f-b0ac-2faf59056796/messages",
+  "body": "{\"clientRequestId\":\"3bb43daf-618e-416d-850f-809f50094b56\",\"type\":\"text\",\"text\":\"请稍等\",\"translateTo\":\"ms\"}"
+ },
+ {
+  "t": 11021,
+  "res": 201,
+  "u": "/api/v1/conversations/01a1a53d-0111-751f-b0ac-2faf59056796/messages",
+  "body": "{\"message\":{\"id\":\"01a1a53d-3f3b-705d-ae8d-6580bc45544d\",\"direction\":\"out\",\"senderRole\":\"agent\",\"senderName\":\"Nur Aisyah\",\"type\":\"text\",\"text\":\"[译文] 请稍等\",\"originalText\":\"请稍等\",\"translation\":null,\"translationSource\":null,\"payload\":{},\"sendStatus\":\"sent\",\"sendError\":null,\"sentAt\":\"2026-11-04T06:26:57.00"
+ }
+]

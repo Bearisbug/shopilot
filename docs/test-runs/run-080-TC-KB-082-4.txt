@@ -1,0 +1,3 @@
+{"job":"knowledge.qa_embed","ok":true,"durationMs":129}
+failed|分析任务中断，可以重新分析。
+failed|运行中断：进程在运行中退出

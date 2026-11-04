@@ -1,0 +1,18 @@
+#1
+{"task":{"id":"01a1a52c-1425-705d-97e2-72f0c794e48c","source":"member","kind":"conversation","evidence":null,"submittedByName":"Mei Lin","note":null,"conversation":{"id":"01a1a52a-993e-7394-9acf-0e2f72a27081","buyerName":"Learn A","shopName":"Demo Shopee MY","platform":"shopee"},"messages":[{"at":"2026-11-04T06:06:34.000Z","id":"01a1a52a-994c-75f4-b0b1-f54bff05b66d","from":"buyer","text":"设备坏了想换货"
+HTTP 201
+#2
+{"task":{"id":"01a1a52c-15d0-7257-8e9a-ecd317407d29","source":"member","kind":"conversation","evidence":null,"submittedByName":"Mei Lin","note":null,"conversation":{"id":"01a1a52a-993e-7394-9acf-0e2f72a27081","buyerName":"Learn A","shopName":"Demo Shopee MY","platform":"shopee"},"messages":[{"at":"2026-11-04T06:06:34.000Z","id":"01a1a52a-994c-75f4-b0b1-f54bff05b66d","from":"buyer","text":"设备坏了想换货"
+HTTP 201
+#3
+{"task":{"id":"01a1a52c-1651-753a-a40b-341866d8a049","source":"member","kind":"conversation","evidence":null,"submittedByName":"Mei Lin","note":null,"conversation":{"id":"01a1a52a-993e-7394-9acf-0e2f72a27081","buyerName":"Learn A","shopName":"Demo Shopee MY","platform":"shopee"},"messages":[{"at":"2026-11-04T06:06:34.000Z","id":"01a1a52a-994c-75f4-b0b1-f54bff05b66d","from":"buyer","text":"设备坏了想换货"
+HTTP 201
+#4
+{"task":{"id":"01a1a52c-17f6-7524-b3e0-11e8f8f31b73","source":"member","kind":"conversation","evidence":null,"submittedByName":"Mei Lin","note":null,"conversation":{"id":"01a1a52a-993e-7394-9acf-0e2f72a27081","buyerName":"Learn A","shopName":"Demo Shopee MY","platform":"shopee"},"messages":[{"at":"2026-11-04T06:06:34.000Z","id":"01a1a52a-994c-75f4-b0b1-f54bff05b66d","from":"buyer","text":"设备坏了想换货"
+HTTP 201
+#5
+{"task":{"id":"01a1a52c-1855-7318-a65a-63b688dc054c","source":"member","kind":"conversation","evidence":null,"submittedByName":"Mei Lin","note":null,"conversation":{"id":"01a1a52a-993e-7394-9acf-0e2f72a27081","buyerName":"Learn A","shopName":"Demo Shopee MY","platform":"shopee"},"messages":[{"at":"2026-11-04T06:06:34.000Z","id":"01a1a52a-994c-75f4-b0b1-f54bff05b66d","from":"buyer","text":"设备坏了想换货"
+HTTP 201
+#6
+{"type":"/errors/rate-limited","title":"操作太频繁","status":429,"detail":"同一个会话每分钟最多提交 5 次学习，请稍后再试。","instance":"/api/v1/conversations/01a1a52a-993e-7394-9acf-0e2f72a27081/learning","requestId":"req_01a1a52c189a74e7b823def96213f118"}
+HTTP 429

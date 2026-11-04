@@ -1,0 +1,87 @@
+{
+ "pdfViewerEnabled": true,
+ "1.subnavCurrent": [
+  "接待设置",
+  "知识库"
+ ],
+ "1.tabs": [
+  "问答",
+  "经验卡",
+  "待审核",
+  "学习",
+  "资料",
+  "产品",
+  "测试问答"
+ ],
+ "1.selectedTab": [
+  "问答"
+ ],
+ "1.url": "http://127.0.0.1:3360/reception/knowledge?tab=docs",
+ "1.main": "接待设置\n\nAI 出稿前先查已发布的问答与经验卡，再查可用资料；客服在草稿下方看到依据。知识库全商户共享\n\n店铺模式\n工作时间与转人工\n语气与提示词\n工单类型与时限\n知识库\n问答\n经验卡\n待审核\n学习\n资料\n产品\n测试问答\n资料\n\n上传后在后台解析，完成后 AI 才会引用\n\n分类管理\n上传资料",
+ "2.dialog": "上传资料\n\n这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。\n\n把文件拖到这里，或选择文件（可多选）\n\n支持 PDF、Word（docx）、Excel（xlsx、xls）、CSV、图片（JPG、PNG、WebP、GIF、BMP、TIFF、HEIC）、Markdown、TXT、HTML、ODT、ODS。单个文件不超过 20 MB，PDF 以外的文件不超过 4 MB；PPT 请先导出为 PDF 再上传。\n\n保修政策.pdf\n\n3.0 MB\n\n等待上传\n\n型号对照.xlsx\n\n1.0 MB\n\n等待上传\n\n分类\n未分类\n适用站点\n全部站点\nMY\nTH\nVN\nPH\nSG\nID\n\n2 个可上传\n\n取消\n上传 2 个文件\n关闭",
+ "2.buttons": [
+  "选择文件",
+  "",
+  "",
+  "全部站点",
+  "MY",
+  "TH",
+  "VN",
+  "PH",
+  "SG",
+  "ID",
+  "取消",
+  "上传 2 个文件",
+  "关闭"
+ ],
+ "3.beforeUpload": "上传资料\n\n这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。\n\n把文件拖到这里，或选择文件（可多选）\n\n支持 PDF、Word（docx）、Excel（xlsx、xls）、CSV、图片（JPG、PNG、WebP、GIF、BMP、TIFF、HEIC）、Markdown、TXT、HTML、ODT、ODS。单个文件不超过 20 MB，PDF 以外的文件不超过 4 MB；PPT 请先导出为 PDF 再上传。\n\n保修政策.pdf\n\n3.0 MB\n\n等待上传\n\n型号对照.xlsx\n\n1.0 MB\n\n等待上传\n\n分类\n售后政策\n适用站点\n全部站点\nMY\nTH\nVN\nPH\nSG\nID\n\n2 个可上传\n\n取消\n上传 2 个文件\n关闭",
+ "3.progress": [
+  "上传资料 这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。 保修政策.pdf 3.0 MB 0% 型号对照.xlsx 1.0 MB 等待上传 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID 正在上传 1 / 2 取消 上传中，请不要关闭",
+  "上传资料 这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。 保修政策.pdf 3.0 MB 27% 型号对照.xlsx 1.0 MB 等待上传 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID 正在上传 1 / 2 取消 上传中，请不要关闭",
+  "上传资料 这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。 保修政策.pdf 3.0 MB 已上传，排队解析 型号对照.xlsx 1.0 MB 0% 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID 正在上传 2 / 2 取消 上传中，请不要关闭",
+  "上传资料 这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。 保修政策.pdf 3.0 MB 已上传，排队解析 型号对照.xlsx 1.0 MB 已上传，排队解析 分类 售后政策 适用站点 全部站点 MY TH VN PH SG ID 已上传 2 个 继续上传 完成 关闭"
+ ],
+ "3.dialog": "上传资料\n\n这一批文件用同一个分类与适用站点；上传后在后台解析，解析完成才会被 AI 引用。\n\n保修政策.pdf\n\n3.0 MB\n\n已上传，排队解析\n\n型号对照.xlsx\n\n1.0 MB\n\n已上传，排队解析\n\n分类\n售后政策\n适用站点\n全部站点\nMY\nTH\nVN\nPH\nSG\nID\n\n已上传 2 个\n\n继续上传\n完成\n关闭",
+ "3.buttons": [
+  "全部站点",
+  "MY",
+  "TH",
+  "VN",
+  "PH",
+  "SG",
+  "ID",
+  "继续上传",
+  "完成",
+  "关闭"
+ ],
+ "4.elapsedMs": 4561,
+ "4.rowStates": [
+  "型号对照.xlsx 售后政策 全部站点 排队中 11-04 14:53  || 保修政策.pdf 售后政策 全部站点 排队中 11-04 14:53 ",
+  "型号对照.xlsx 整理成问答 售后政策 全部站点 可用 11-04 14:53  || 保修政策.pdf 整理成问答 售后政策 全部站点 可用 11-04 14:53 "
+ ],
+ "4.switches": [
+  "型号对照.xlsx AI 可用=true",
+  "保修政策.pdf AI 可用=true"
+ ],
+ "4.main": "接待设置\n\nAI 出稿前先查已发布的问答与经验卡，再查可用资料；客服在草稿下方看到依据。知识库全商户共享\n\n店铺模式\n工作时间与转人工\n语气与提示词\n工单类型与时限\n知识库\n问答\n经验卡\n待审核\n学习\n资料\n产品\n测试问答\n资料\n2 / 500\n\n点一行看原文件与解析内容；解析好的资料可以「整理成问答」，审核后发布\n\n分类管理\n上传资料\n全部分类\n不限站点\n全部状态\n文件名\t分类\t站点\t状态\tAI 可用\t上传时间\n\n型号对照.xlsx\n整理成问答\n\t售后政策\t全部站点\t\n可用\t\n\t11-04 14:53\t\n\n保修政策.pdf\n整理成问答\n\t售后政策\t全部站点\t\n可用\t\n\t11-04 14:53\t\n已显示 2 份\n已全部显示",
+ "5.url": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a1a555-6645-7225-a0cb-a2196e12416f",
+ "5.title": "保修政策.pdf",
+ "5.drawer": "保修政策.pdf\n\n可用\n3.0 MB\n1 段分块\n\n分类\n售后政策\n适用站点\n全部站点\nMY\nTH\nVN\nPH\nSG\nID\nAI 可用\n解析完成后出稿与测试问答会引用\n上传\n2026-11-04 14:53 · 林晓\n解析完成\n2026-11-04 14:53\n重新解析\n下载原文件\n删除\n原文件\n解析内容（1 段）\n关闭",
+ "5.iframe": {
+  "src": "/api/v1/files/137a4107-95bf-4031-87f3-3a98098d2a80",
+  "w": 626,
+  "h": 628
+ },
+ "6.url": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a1a555-6645-7225-a0cb-a2196e12416f&docTab=parsed",
+ "6.panel": "#1\n\n替身解析：保修政策.pdf\n\n已显示 1 / 1 段",
+ "6.afterReloadUrl": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a1a555-6645-7225-a0cb-a2196e12416f&docTab=parsed",
+ "6.afterReloadSelected": [
+  "解析内容（1 段）"
+ ],
+ "6.afterReloadPanel": "#1\n\n替身解析：保修政策.pdf\n\n已显示 1 / 1 段",
+ "7.dialogsAfterClose": 0,
+ "7.url": "http://127.0.0.1:3360/reception/knowledge?tab=docs&doc=01a1a555-66fd-7106-8a63-84341faf93c9",
+ "7.drawer": "型号对照.xlsx\n\n可用\n1.0 MB\n1 段分块\n\n分类\n售后政策\n适用站点\n全部站点\nMY\nTH\nVN\nPH\nSG\nID\nAI 可用\n解析完成后出稿与测试问答会引用\n上传\n2026-11-04 14:53 · 林晓\n解析完成\n2026-11-04 14:53\n重新解析\n下载原文件\n删除\n原文件\n解析内容（1 段）\n\n型号对照.xlsx\n\n这种格式不能在页面里预览，点上方「下载原文件」查看；AI 用的是「解析内容」里的文字。\n\n关闭",
+ "7.iframes": 0,
+ "7.downloadBtn": 1
+}

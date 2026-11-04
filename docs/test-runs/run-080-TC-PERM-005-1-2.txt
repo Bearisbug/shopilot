@@ -1,0 +1,12 @@
+## 1
+GET conversations/01a1a540-4e98-751e-b45e-d713f4ad9d0d -> HTTP 404 {"type":"/errors/not-found"}
+GET tickets/01a1a540-5293-716d-be8b-b6408c58af58 -> HTTP 404 {"type":"/errors/not-found"}
+GET orders/01a1a540-4ce2-77eb-91ba-97cddf529c9f -> HTTP 404 {"type":"/errors/not-found"}
+GET invoices/01a1a540-5285-7428-8140-aab2552c57cf/pdf -> HTTP 404 {"type":"/errors/not-found"}
+GET shops/01a1a540-4c10-75cc-b7b8-a4390f1df346 -> HTTP 404 {"type":"/errors/not-found"}
+## 2
+claim -> HTTP 404 {"type":"/errors/not-found"}
+notes -> HTTP 404 {"type":"/errors/not-found"}
+cancel -> HTTP 404 {"type":"/errors/not-found"}
+resend -> HTTP 404 {"type":"/errors/not-found"}
+disconnect -> HTTP 404 {"type":"/errors/not-found"}

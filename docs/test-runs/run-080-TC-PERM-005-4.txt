@@ -1,0 +1,5 @@
+conv: {"handlingState":"closed","claimedBy":null,"version":1}
+ticket: {"status":"open","version":1,"events":1,"cross":0}
+order: {"platformStatus":"AWAITING_SHIPMENT","statusGroup":"to_ship","cancel":"{\"allowed\":true,\"reason\":null}"}
+invoice: {"emailStatus":"sent","chatStatus":"skipped"}
+shop: {"status":"connected"}

@@ -1,0 +1,34 @@
+{
+ "next": "normal",
+ "sticky": false,
+ "lastQuery": [
+  {
+   "at": "2026-11-04T06:16:15.596Z",
+   "query": "towel set 可以退货吗",
+   "instance": "sp-e9518ffeebe4",
+   "maxResults": 20,
+   "retrievalType": "hybrid"
+  },
+  {
+   "at": "2026-11-04T06:16:15.598Z",
+   "query": "towel set 可以退货吗",
+   "instance": "sp-e9518ffeebe4",
+   "maxResults": 20,
+   "retrievalType": "hybrid"
+  },
+  {
+   "at": "2026-11-04T06:18:53.701Z",
+   "query": "保修多久",
+   "instance": "sp-e9518ffeebe4",
+   "maxResults": 20,
+   "retrievalType": "hybrid"
+  },
+  {
+   "at": "2026-11-04T06:18:53.701Z",
+   "query": "保修多久",
+   "instance": "sp-e9518ffeebe4",
+   "maxResults": 20,
+   "retrievalType": "hybrid"
+  }
+ ]
+}

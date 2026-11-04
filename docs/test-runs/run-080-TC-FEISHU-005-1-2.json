@@ -1,0 +1,16 @@
+{
+ "1.simConvId": "7494560109732341266",
+ "1.pushBefore": [
+  "type 12 退货 HTTP 200 · 142 ms 退货 4035311288118238735 → RETURN_OR_REFUND_REQUEST_COMPLETE Demo TikTok MY · 11-04 14:48 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03",
+  "type 12 退货 HTTP 200 · 83 ms 退货 4035311288118238735 → RETURN_OR_REFUND_REQUEST_SUCCESS Demo TikTok MY · 11-04 14:48 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03"
+ ],
+ "1.pushAfter": [
+  "type 14 新消息 HTTP 200 · 41 ms 聊天 买家：Halo, kamera ini bisa dipakai di Mac? Demo TikTok TH · 11-04 14:55 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03",
+  "type 13 新会话段 HTTP 200 · 129 ms 新会话段 FS005 Buyer 080 Demo TikTok TH · 11-04 14:55 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03",
+  "type 12 退货 HTTP 200 · 142 ms 退货 4035311288118238735 → RETURN_OR_REFUND_REQUEST_COMPLETE Demo TikTok MY · 11-04 14:48 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03",
+  "type 12 退货 HTTP 200 · 83 ms 退货 4035311288118238735 → RETURN_OR_REFUND_REQUEST_SUCCESS Demo TikTok MY · 11-04 14:48 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03"
+ ],
+ "2.secsSinceSend": 5.58,
+ "2.url": "http://127.0.0.1:3360/dev/outbox?tab=feishu",
+ "2.mainText": "发件箱\n\nFEISHU_MODE=stub 时飞书卡片不外发，待认领卡、超时卡、测试卡片、工单转发卡都记在这里；按钮链接可直接点开。\n\n邮件\n飞书卡片\nShopilot 客服群（替身）\n2026/11/4 14:55:17\n待认领 · Demo TikTok TH\n待认领卡 · 已发出（替身）\n\n选一张卡片\n\n左侧点开后在这里看标题、正文、按钮链接与卡片 JSON。"
+}

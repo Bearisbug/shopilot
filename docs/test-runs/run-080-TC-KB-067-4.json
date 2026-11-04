@@ -1,0 +1,15 @@
+{
+ "status": 409,
+ "body": {
+  "type": "/errors/conflict",
+  "title": "状态已被他人改变",
+  "status": 409,
+  "detail": "内容改过后还没复测通过，请先复测。",
+  "instance": "/api/v1/knowledge/learning/01a1a521-a9bd-739c-bf25-6b1c653fc499/publish",
+  "requestId": "req_01a1a522c764779db1aeadc33a95b32f",
+  "code": "retest_required",
+  "extra": {
+   "retestPassed": false
+  }
+ }
+}

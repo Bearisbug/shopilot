@@ -1,0 +1,11 @@
+## 4
+200
+HTTP 200
+{"email":"agent@demo.test"}
+## 5
+HTTP 200
+HTTP 401
+{"type":"/errors/unauthenticated"}
+## 5b (no body, no content-type)
+200
+HTTP 200

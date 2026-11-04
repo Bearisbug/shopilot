@@ -1,0 +1,480 @@
+{
+  "run": "RUN-080",
+  "type": "局部（工作区改动：出稿缓存命中按 1/10 计 token、Agent 联网搜索、发送前等进行中的预翻译最多 10 秒；受影响 8 条 + 冒烟 22 条）",
+  "version": "952c72d + 工作区改动（未提交）",
+  "env": "本地（主工作区，库 shopilot，Web 3360 与 Worker 同库，KNOWLEDGE_MODE=stub、FEISHU_MODE=stub；AI_MODE=stub，只有 TC-AI-002、TC-KB-083 改为 deepseek）",
+  "baseline": [
+    "基线 1：起跑时已有的基线（13:46 pnpm db:reset && pnpm db:seed，起跑前核对过没有残留数据），13:55–14:29 依次执行 TC-KB-067 至 TC-CONV-080",
+    "基线 2：14:30 停 Web+Worker → pnpm db:reset && pnpm db:seed → 重起 dev，14:31–14:57 依次执行 TC-AUTH-001 至 TC-FEISHU-011",
+    "基线 3：14:59 停 dev → .env AI_MODE 改 deepseek → pnpm db:reset && pnpm db:seed → 重起 dev，15:00–15:03 执行 TC-AI-002、TC-KB-083；随后改回 stub 重起 dev"
+  ],
+  "executionOrder": [
+    "TC-KB-067",
+    "TC-KB-084",
+    "TC-KB-080",
+    "TC-KB-082",
+    "TC-KB-068",
+    "TC-KB-066",
+    "TC-KB-072",
+    "TC-KB-081",
+    "TC-KB-058",
+    "TC-KB-061",
+    "TC-KB-047",
+    "TC-KB-053",
+    "TC-KB-024",
+    "TC-CONV-069",
+    "TC-CONV-070",
+    "TC-CONV-080",
+    "TC-AUTH-001",
+    "TC-SHOP-001",
+    "TC-AUTH-004",
+    "TC-PERM-001",
+    "TC-PERM-002",
+    "TC-PERM-005",
+    "TC-AI-001",
+    "TC-ORD-015",
+    "TC-TKT-001",
+    "TC-KB-001",
+    "TC-FEISHU-005",
+    "TC-FEISHU-011",
+    "TC-AI-002",
+    "TC-KB-083"
+  ],
+  "cases": [
+    {
+      "tc": "TC-KB-067",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 13:55-13:59",
+      "note": "前置 TC-KB-066 第 1-3 步：Learn A，等草稿生成后 Mei 用接口认领并回复，再在浏览器以 Mei 勾选提交；第 2 步标记「已提交学习 · 分析中」，第 3 步「已提交学习 · 待审核」",
+      "steps": {
+        "1": "页签「学习 1」；一行「Learn A · Demo Shopee MY 11-04 13:56 「设备坏了想换货」 客服提交（Mei Lin） · 流程需要补充 待审核」",
+        "2": "抽屉依次 原始消息（两条（已勾选））、背景（产品 没识别到 / 待确认产品：在下方的建议内容里选定）、判断依据与建议（替身：按关键词判断）、相似内容、Agent 过程、测试结果（改前 没有用经验卡；改后 经验卡：替身：设备坏了想换货 · 第 1 步 · 继续处理）、建议更新内容（标题 替身：设备坏了想换货）",
+        "3": "复测：当前内容还没复测，复测通过才能发布；发布 disabled",
+        "4": "HTTP 409 code retest_required detail「内容改过后还没复测通过，请先复测。」；run-080-TC-KB-067-4.json",
+        "5": "0.8 秒提示「复测通过，可以发布」；复测：当前内容已复测通过；原问题（用拟发布的内容）经验卡：换货流程：设备故障时安排换货 · 第 1 步；发布可点",
+        "6": "变回 还没复测；发布 disabled",
+        "7": "toast「已发布经验卡「换货流程：设备故障时安排换货」」；任务 已发布；「林晓 审核后新建了经验卡「换货流程：设备故障时安排换货」，现在是第 1 版」",
+        "8": "HTTP 200，1 张，version 1、source member、tips 先确认订单号；run-080-TC-KB-067-8.json",
+        "9": "两条「已提交学习 · 新建了经验卡」"
+      }
+    },
+    {
+      "tc": "TC-KB-084",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 13:58-14:01",
+      "note": "任务 T=01a1a523-c7ff-72e7-a3d1-645ef3e497d1；前置等草稿生成后 Mei 用接口认领并回复",
+      "steps": {
+        "1": "HTTP 201；状态 pending_review（不是 failed）",
+        "2": "HTTP 200；agentRuns 1 项 learn / succeeded / stub / toolCalls 5 / turns 6 / 677 ms / token 6000·0·300；tool 依次 get_conversation、search_knowledge、web_search、simulate、submit，ok 全 true；web_search note「联网搜到 1 条（example.com）」；note 含「云台参数」0 条；run-080-TC-KB-084-2.json",
+        "3": "「已完成 11-04 13:59 · 0.7 秒 · 6 轮 · 工具 5 次 · token 输入 6.0k、缓存命中 0、输出 300」；五步 读会话 / 查知识 / 联网搜索「联网搜到 1 条（example.com）」/ 自测 / 提交；run-080-TC-KB-084-3.png"
+      }
+    },
+    {
+      "tc": "TC-KB-080",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:00-14:02",
+      "note": "卡 K=01a1a524-f45e-767a-88a7-5a9f09e1829f；任务 T=01a1a525-15c3-71ed-a437-09f7e3b5036f；前置等草稿生成后 Mei 用接口认领并回复",
+      "steps": {
+        "1": "HTTP 201；状态 published",
+        "2": "HTTP 200；agentRuns 1 项 learn / succeeded / stub / error null / toolCalls 4 / durationMs 705 / turns 5 / token 5000·0·250；tool 依次 get_conversation「2 条消息，相似卡 1 张」、search_knowledge「查到 1 张卡、0 条问答」、simulate「拟改的卡：用到这张卡第 1 步」、submit「流程需要补充 · 改已有卡」，ok 全 true；note 含「换线也没用」0 条；run-080-TC-KB-080-2.json",
+        "3": "succeeded|true；run-080-TC-KB-080-3.txt",
+        "4": "说明「分析时 Agent 调了哪些工具、各用多久；步骤只记结果摘要」；「已完成 11-04 14:00 · 0.7 秒 · 5 轮 · 工具 4 次 · token 输入 5.0k、缓存命中 0、输出 250」，无模型名；读会话 / 查知识 / 自测「拟改的卡：用到这张卡第 1 步」/ 提交「流程需要补充 · 改已有卡」；不含「换线也没用」；run-080-TC-KB-080-4.png"
+      }
+    },
+    {
+      "tc": "TC-KB-082",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:02-14:04（第二遍）",
+      "note": "第一遍（14:00-14:02，任务 01a1a525-915a…）第 6 步脚本点「重新分析」后 0.7 秒才读提示，没读到「已重新排队分析」，其余各步与第二遍一致；改为等待该文字后，新建同名买家 Agent B 从前置重跑，登记第二遍。任务 T=01a1a526-c768-74bc-b9a2-5175b23e75dc",
+      "steps": {
+        "1": "状态 closed；agentRuns 1 项 succeeded、toolCalls 3、turns 4，tool 依次 get_conversation、search_knowledge、submit；run-080-TC-KB-082-1.json",
+        "2": "依次 UPDATE 1、UPDATE 1、INSERT 0 1；按开始时间倒序 running 13:42 在前、succeeded 13:32 在后；run-080-TC-KB-082-2.txt",
+        "3": "上「运行中 11-04 13:42 · 工具 0 次」「结束后在这里列出每一步。」，下「已完成 11-04 13:32 · 1.1 秒 · 4 轮 · 工具 3 次 · …」，不列步骤；run-080-TC-KB-082-3.png",
+        "4": "{\"job\":\"knowledge.qa_embed\",\"ok\":true}；failed|分析任务中断，可以重新分析。；failed|运行中断：进程在运行中退出；run-080-TC-KB-082-4.txt",
+        "5": "「分析失败」，按钮 重新分析 / 无需更新 / 驳回；上面一行「失败 11-04 13:42 · 20 分 14 秒 · 工具 0 次」，下方「运行中断：进程在运行中退出」；run-080-TC-KB-082-5.png",
+        "6": "提示「已重新排队分析」；状态 closed；三行 已完成 14:02（读会话 / 查知识 / 提交「已有内容覆盖 · 不改卡」）、失败 13:42、已完成 13:32；run-080-TC-KB-082-6a.png、run-080-TC-KB-082-6.png"
+      }
+    },
+    {
+      "tc": "TC-KB-068",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:03-14:06",
+      "note": "卡 K=01a1a527-8628-74a5-ac7c-106e4dbaf548；任务 T=01a1a527-a970-74f3-9e4c-72136cd16117；前置等草稿生成后 Mei 用接口认领并回复",
+      "steps": {
+        "1": "HTTP 201；状态 published；run-080-TC-KB-068-1.txt",
+        "2": "card.version 2、agentUnseen true、lastAuthor agent、steps 4 项、最后一步「替身补充的一步」；versions[0] author agent、learningTaskId = T、retest.passed true；run-080-TC-KB-068-2.json",
+        "3": "页签「经验卡 1」；卡 K 行标「Agent 改过，未看」、最近改动「Agent 11-04 14:03」；打开开关后只列卡 K；run-080-TC-KB-068-3.png",
+        "4": "版本列表最上「第 2 版 Agent 11-04 14:03 当前」，下方「复测通过 · 回归用例 0 个」；有「标为已看」；run-080-TC-KB-068-4.png",
+        "5": "提示「已标为看过」；标记消失、页签变「经验卡」无数字；versions[0].seenByName 林晓；run-080-TC-KB-068-5.png、run-080-TC-KB-068-5.json",
+        "6": "停在「学习」页签并打开任务 T：已发布；「Agent 复测通过后直接改了经验卡「摄像头识别不到：帮买家恢复使用」，现在是第 2 版。…可在经验卡里查看改前改后或一键回退。」；run-080-TC-KB-068-6.png"
+      }
+    },
+    {
+      "tc": "TC-KB-066",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:09-14:13（第二遍）",
+      "note": "第一遍（14:06-14:09，会话 01a1a528-bcce…）第 1-4 步与第二遍一致；第 5 步脚本把接口输出接给 sed 截断时 sed 报错，6 次请求已发出（库里该会话多出 5 个任务）但没读到返回，改用 cut 截断后新建同名买家 Learn A 从前置重跑，登记第二遍。前置等草稿生成后 Mei 用接口认领并回复",
+      "steps": {
+        "1": "「提交学习」aria-pressed true；两条消息出复选框；输入框隐藏，底部表单「提交学习 已选 0 / 20 条」「勾选能说明这次怎么处理的消息，买家和客服的都可以；AI 会连同前后几条对话一起分析。」；run-080-TC-KB-066-1.png",
+        "2": "提示「已提交学习」+「AI 分析后，组长或管理员会在知识库「学习」页签审核。」；选择模式退出；两条消息标「已提交学习 · 分析中」（判法同 RUN-077）；run-080-TC-KB-066-2.png",
+        "3": "两条「已提交学习 · 待审核」；run-080-TC-KB-066-3.png",
+        "4": "HTTP 200；items 1 项 member / pending_review / messageIds 为这两条 / submittedByName Mei Lin；run-080-TC-KB-066-4.json",
+        "5": "前 5 次 HTTP 201，第 6 次 HTTP 429 /errors/rate-limited「同一个会话每分钟最多提交 5 次学习，请稍后再试。」；run-080-TC-KB-066-5.txt",
+        "6": "用 Agent W 会话的消息 ID：HTTP 422 /errors/validation「有消息不属于这个会话，请刷新后重新勾选。」；run-080-TC-KB-066-6.txt"
+      }
+    },
+    {
+      "tc": "TC-KB-072",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:10-14:12",
+      "note": "前置按 §3「固定为工作时间内」（周三 00:00–23:59，页面提示已保存，无节假日）；agentreset 输出 DELETE 2（TC-KB-080、TC-KB-068 的两次）；卡 K=01a1a52d-a707-75a9-9f00-36d94c3e4833",
+      "steps": {
+        "1": "三个草稿 ID，无 TIMEOUT；count 3；run-080-TC-KB-072-1-3.txt",
+        "2": "HTTP 201、HTTP 201、HTTP 200；edited_sent、ignored、sent",
+        "3": "published|card_updated",
+        "4": "HTTP 200；version 2、agentUnseen true、lastAuthor agent、最后一步「替身补充的一步」；versions[0] author agent、retest.passed true、regressions 1；reviews 1 项 card_updated / 2 / 替身：客服改写过这张卡的草稿；run-080-TC-KB-072-4.json",
+        "5": "「今天 Agent 已直接改卡 1 / 5 次」；开关打开后只有卡 K；run-080-TC-KB-072-5.png",
+        "6": "体检记录一行「2026-11-04 改了经验卡 改成第 2 版 查看任务」，理由「替身：客服改写过这张卡的草稿」；点「改成第 2 版」后焦点在第 2 版那一项；run-080-TC-KB-072-6.png、-6b.png",
+        "7": "切到「学习」页签打开任务：改的是：摄像头识别不到：帮买家恢复使用（第 2 版）；原始消息说明「代表性用例：问题最明显的那份草稿出稿时的对话，高亮的是它回答的买家消息」；背景产品「通用（沿用卡的适用范围）」；证据用例 辅助草稿「原样发送 1 · 改后发送 1 · 弃用 1」、影子回复「没有」、按卡转人工「0 次（含建工单）」；复测「客服原样发送过的「摄像头识别不到」：不比改前差」；run-080-TC-KB-072-7.png",
+        "8": "按来源「按卡体检」后一行「经验卡「摄像头识别不到：帮买家恢复使用」 … 按卡体检 · 3 个用例 · 流程需要补充 · 改了经验卡 已发布」；run-080-TC-KB-072-8.png"
+      }
+    },
+    {
+      "tc": "TC-KB-081",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:12-14:13",
+      "note": "前置按 TC-KB-072 前置与第 1–3 步重做（cardclear、agentreset 输出 DELETE 1、新卡 K=01a1a52e-eb89-76eb-9603-f8facccc025c、cardold；三份草稿 HTTP 201/201/200；cardreview 输出 published|card_updated）；T=01a1a52f-5513-75a7-b929-05dac2ed7eec；run-080-TC-KB-081-pre.txt",
+      "steps": {
+        "1": "HTTP 200；agentRuns 1 项 card_review / succeeded / toolCalls 4；tool get_card「读卡与处置统计」、list_cases「3 个用例」、simulate「第 2 个用例 · 拟改的卡：用到这张卡第 1 步」、submit「改卡」，ok 全 true；run-080-TC-KB-081-1.json",
+        "2": "「已完成 11-04 14:11 · 0.7 秒 · 5 轮 · 工具 4 次 · …」；读卡「读卡与处置统计」/ 列用例「3 个用例」/ 自测「第 2 个用例 · 拟改的卡：用到这张卡第 1 步」/ 提交「改卡」；run-080-TC-KB-081-2.png"
+      }
+    },
+    {
+      "tc": "TC-KB-058",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:12-14:14",
+      "note": null,
+      "steps": {
+        "1": "页签「经验卡」选中；空态「还没有经验卡」，有「新建经验卡」；run-080-TC-KB-058-1.png",
+        "2": "弹窗「新建经验卡」，九个字段标签都在；底部主按钮「发布」；run-080-TC-KB-058-2.png",
+        "3": "步号 1、2、3；第 1 步分支「急用 / 转人工」、第 2 步「保修 / 建工单」；服务阶段全部阶段；run-080-TC-KB-058-3.png",
+        "4": "「用到了这张卡：第 1 步 · 转人工」，下方「按当前设置这条会转人工。」；run-080-TC-KB-058-4.png",
+        "5": "提示「已发布新经验卡」；一行 标题 /「全部满足：买家说摄像头识别不到」/「3 步 · 第 1 版 · 全部站点」；页头「经验卡 已发布 1」；run-080-TC-KB-058-5.png",
+        "6": "HTTP 200；counts.published 1；version 1、published、member、embedded true、steps 3、agentUnseen false；run-080-TC-KB-058-6-8.txt",
+        "7": "HTTP 422 /errors/validation；steps.0.branches.0.goto「跳到的步骤要是本卡里的另一步」",
+        "8": "HTTP 422；conditions「至少写一条调用条件」、steps「至少写一个步骤」"
+      }
+    },
+    {
+      "tc": "TC-KB-061",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:13-14:15",
+      "note": "固定为工作时间内沿用 TC-KB-072 前置的设置；卡 K=01a1a530-abda-7557-9b6f-b5f0d3497438",
+      "steps": {
+        "1": "输出草稿 ID 01a1a530-c578-712a-ac8d-45e4956858fc；run-080-TC-KB-061-1-2.txt",
+        "2": "<K>|1|continue",
+        "3": "「经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 1 步」，标题是链接（/reception/knowledge?tab=cards&card=<K>）；「看理由」展开「用卡理由：替身：调用条件成立」；run-080-TC-KB-061-3.png",
+        "4": "新标签打开 /reception/knowledge?tab=cards&card=<K>，卡抽屉显示卡 K；run-080-TC-KB-061-4.png",
+        "5": "新草稿「· 第 2 步」；库里 card->>'step' 依次 1（superseded）、2（generated）；run-080-TC-KB-061-5.png、-5.txt",
+        "6": "Nur 看到同一行「经验卡：「摄像头识别不到：帮买家恢复使用」 · 第 2 步」，没有链接；run-080-TC-KB-061-6.png"
+      }
+    },
+    {
+      "tc": "TC-KB-047",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:14-14:15",
+      "note": null,
+      "steps": {
+        "1": "HTTP 201；qa.status published、source manual、products []、markets [\"ALL\"]、embedded true、version 1；run-080-TC-KB-047-1-3.txt",
+        "2": "HTTP 422 /errors/validation；fields.questions「问法不能重复」",
+        "3": "HTTP 422；fields.questions「至少写一个问法」",
+        "4": "Arif 打开问答页签：第一行「可以退货吗 另 1 个问法」、产品「通用」、阶段「售后」；「已发布」由筛选项「已发布 1」表达（判法同 RUN-077）；run-080-TC-KB-047-4.png"
+      }
+    },
+    {
+      "tc": "TC-KB-053",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:15-14:18",
+      "note": "产品 T=01a1a532-282a-7316-980a-b1cca0098d63、M=01a1a532-282a-7316-980a-b5730e456566；QA1=01a1a532-4d55-7590-ab50-7800ba9db204；买家 KB053 B 080（模拟器页新建，另有一个只建未发言的 KB053 Buyer 080 是探页面时建的）；第 2 步脚本在同一页反复切换「AI 替身」页签读面板，20 秒内面板仍是 14:13:55 的旧请求（面板不随切页签刷新），库里 14:16:15 已有草稿；重新载入模拟器页后读同一面板，未重发消息",
+      "steps": {
+        "1": "推送日志新增「code 10 聊天 HTTP 200 · 135 ms 买家：towel set 可以退货吗」；run-080-TC-KB-053-1.png",
+        "2": "面板「最近一次出稿请求（14:16:15）」：knowledge 第一项 n 1「问答：towel set 可以退货吗」，正文「问：towel set 可以退货吗\\n答：QA1…」，第二项「保修政策.md」；run-080-TC-KB-053-2.txt",
+        "3": "productIds 只含 T；merged 的 qaId 只有 QA1；run-080-TC-KB-053-3.json",
+        "4": "Nur 看到「依据：问答「towel set 可以退货吗」」；run-080-TC-KB-053-4.png"
+      }
+    },
+    {
+      "tc": "TC-KB-024",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:18-14:19",
+      "note": "买家 KB024 B 080（模拟器页新建）；保修政策.md 资料 ID 01a1a535-1d91-7682-a0e9-53197f7b903f；模拟器面板标题「最近一次出稿请求（时间）」按「最近一次请求」观察，读面板前重新载入模拟器页",
+      "steps": {
+        "1": "推送日志新增「code 10 聊天 HTTP 200 · 665 ms 买家：保修多久」；run-080-TC-KB-024-1.png",
+        "2": "7.5 秒在「AI 草稿」打开；草稿下方「依据：《保修政策.md》」，没有链接；run-080-TC-KB-024-2.png",
+        "3": "knowledge 第一项 n 1、title 保修政策.md、text 含「保修 12 个月」；system 护栏第 1 条「…产品参数、兼容性、保修与政策只能依据 knowledge 与 order_facts…」；run-080-TC-KB-024-3.txt",
+        "4": "lastQuery 最后两条 query 都是「保修多久」、retrievalType 都是 hybrid；run-080-TC-KB-024-4.json",
+        "5": "林晓那里依据是链接；点后新标签 /reception/knowledge?tab=docs&doc=<保修政策.md ID>，选中「资料」，抽屉标题 保修政策.md；run-080-TC-KB-024-5.png",
+        "6": "买家视图 1 条卖家消息「您好！关于「保修多久」，我们已经收到，会尽快为您处理。」与草稿相同，不含依据、文件名或编号；run-080-TC-KB-024-6.png"
+      }
+    },
+    {
+      "tc": "TC-CONV-069",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:25",
+      "note": "前置在模拟器页给 Demo Shopee MY 新买家 CONV069 B 080（语言默认英语）发消息，推送 code 10 HTTP 200；Nur 点「认领」；L = 译成马来语；输入框外框指包住输入框与工具栏的那一层（data-slot popover-anchor）；stub 下译文为「[译文] 原文」",
+      "steps": {
+        "1": "外框高度 h = 106；工具栏「译成马来语 将发送 翻译中… 8 / 2,000」；run-080-TC-CONV-069-1.png",
+        "2": "「将发送」后面换成「[译文] 您好，今天会发货」；高度 106；run-080-TC-CONV-069-2.png",
+        "3": "浮层「将发送给买家的译文 [译文] 您好，今天会发货」；高度 106；run-080-TC-CONV-069-3.png",
+        "4": "浮层「[译文] 您好，明天会发货」，与第 3 步不同；run-080-TC-CONV-069-4.png",
+        "5": "下拉为「不翻译」；「将发送」消失；高度 106；run-080-TC-CONV-069-5.png"
+      }
+    },
+    {
+      "tc": "TC-CONV-070",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:26",
+      "note": "买家 CONV070 B 080；L = 译成马来语（ms）；请求记录 run-080-TC-CONV-070-2.json",
+      "steps": {
+        "1": "浮层译文 T =「[译文] 好的，马上为您处理」；run-080-TC-CONV-070-1.png",
+        "2": "POST …/messages 请求体含 \"translateTo\":\"ms\" 与 \"translatedText\":\"[译文] 好的，马上为您处理\"；返回 201；run-080-TC-CONV-070-2.png",
+        "3": "最新本方消息正文 T，下方「原文 好的，马上为您处理」，「已发送」；run-080-TC-CONV-070-3.png",
+        "4": "请求体 {text:请稍等, translateTo:ms}，没有 translatedText，也没有发翻译请求；201；时间线「[译文] 请稍等 原文 请稍等」；run-080-TC-CONV-070-4.png"
+      }
+    },
+    {
+      "tc": "TC-CONV-080",
+      "result": "通过",
+      "baseline": 1,
+      "at": "2026-11-04 14:29（第二遍）",
+      "note": "第一遍（14:27，买家 CONV080 B 080）各步观察与第二遍一致，但第 2 步脚本按按钮文字找「发送中」，按钮只剩图标、文字为空，没读到它的名字（截图里是转圈）；改为读按钮的读屏名后新建买家 CONV080 C 080 从前置重跑，登记第二遍。拦截用 Playwright page.route：route.fetch 取到响应后等 D 秒再 fulfill；L = 译成马来语（ms）；事件时间线 run-080-TC-CONV-080-2.json（毫秒，从打开页面算起）",
+      "steps": {
+        "1": "停止输入 1.5 秒：工具栏「将发送 翻译中…」；已发出 1 个 POST /api/v1/translate（3666 ms），未返回；run-080-TC-CONV-080-1.png",
+        "2": "点发送后按钮读屏名「发送中」、disabled；翻译请求 6684 ms 放行、返回 200 {\"text\":\"[译文] 好的，马上为您处理\"}，没有 requestfailed；6686 ms 才发出 POST …/messages，请求体含 translateTo ms 与 translatedText「[译文] 好的，马上为您处理」，返回 201；输入到发出只有这 1 个翻译请求；run-080-TC-CONV-080-2a.png、-2.png",
+        "3": "最新本方消息「[译文] 好的，马上为您处理」，「原文 好的，马上为您处理」，已发送；run-080-TC-CONV-080-3.png",
+        "4": "D = 12：点发送后按钮「发送中」，10.03 秒后发出 POST …/messages，请求体 {text:请稍等一下, translateTo:ms} 没有 translatedText，返回 201；时间线「[译文] 请稍等一下 原文 请稍等一下」；那个翻译请求在发送之后才放行（200）；run-080-TC-CONV-080-4.png"
+      }
+    },
+    {
+      "tc": "TC-AUTH-001",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:31",
+      "note": "第一遍脚本按标签「密码」定位不唯一（同时命中「显示密码」按钮），在填表时报错、未提交；改按读屏名定位后从第 1 步重跑，登记第二遍",
+      "steps": {
+        "1": "表单 工作邮箱、密码、你的姓名、商户名、商户时区「Asia/Kuala_Lumpur（UTC+8）」（判法同 RUN-077）与「创建商户」；run-080-TC-AUTH-001-1.png",
+        "2": "跳到 /shops/connect，有 Shopee 与 TikTok Shop；POST /api/v1/signup 201；run-080-TC-AUTH-001-2.png",
+        "3": "侧栏 工作台（5 个子项）、工单、订单与开票、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置；run-080-TC-AUTH-001-3.png",
+        "4": "active.merchantName Signup Store、role admin、isOwner true；run-080-TC-AUTH-001-4.json",
+        "5": "发件箱 signup1@demo.test「确认你的 Shopilot 邮箱」verify_email；run-080-TC-AUTH-001-5.png",
+        "6": "只有一行「测试店主 账号所有者 signup1@demo.test … 管理员 全部店铺 在线」；run-080-TC-AUTH-001-6.png"
+      }
+    },
+    {
+      "tc": "TC-SHOP-001",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:32-14:34",
+      "note": "承接 TC-AUTH-001 的 signup1 登录态；第 1–2 步先单独跑一遍（停在填凭证前），再整条从第 1 步跑，清单勾选已存在接入草稿里，两遍观察相同",
+      "steps": {
+        "1": "进入 /shops/connect/shopee/guide，5 项清单；run-080-TC-SHOP-001-1.png",
+        "2": "勾满 5/5，进入 /shops/connect/shopee，有 Live Partner ID、Live Partner Key 与「验证并保存」；run-080-TC-SHOP-001-2.png",
+        "3": "「2 / 2 项通过」：Partner ID 与 Key 匹配、推送回调已改为 Shopilot（订阅 9 类）；出现「下一步：授权店铺」；区域 sg 显示在第 4 步授权页「区域主机 sg」（判法同 RUN-077）；run-080-TC-SHOP-001-3.png",
+        "4": "模拟授权页列出主账号 900100 下 Wizard Shopee MY、SG、PH；run-080-TC-SHOP-001-4.png",
+        "5": "回到 /shops/connect/shopee/probe；run-080-TC-SHOP-001-5.png",
+        "6": "MY、SG 聊天「能收发」、订单「能查」；PH「不能收发」并写原因，带「准备清单第 4 项」链接；三家都显示买家姓名地址「被平台隐藏」；run-080-TC-SHOP-001-6.png",
+        "7": "选「AI 只起草、不发送」点「完成接入」，提示「接入完成：3 家店开始接收买家消息，历史记录在后台拉取」；run-080-TC-SHOP-001-7.png",
+        "8": "/shops 三家：MY、SG「正常」，PH「需处理 · 聊天不可用」，接待模式都是 shadow / shadow；回补状态在店铺抽屉「历史回补 已完成」，接口三家 backfill.state 都是 done（判法同 RUN-077）；run-080-TC-SHOP-001-8.png、-8b.png、-8.json",
+        "9": "模拟器 Wizard Shopee MY 新买家 SHOP001 B 080 发「接入后第一条」（推送 code 10 HTTP 200），2.4 秒后出现在 signup1 的待认领；run-080-TC-SHOP-001-9.png"
+      }
+    },
+    {
+      "tc": "TC-AUTH-004",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:34-14:35",
+      "note": null,
+      "steps": {
+        "1": "14:34:55 登录后到 /wb，账号卡「Nur Aisyah · Demo Store 员工 agent@demo.test」；run-080-TC-AUTH-004-1.png",
+        "2": "账号弹层点「退出登录」到 /login；run-080-TC-AUTH-004-2.png",
+        "3": "打开 /wb 被带回 /login?next=%2Fwb；run-080-TC-AUTH-004-3.png",
+        "4": "login 输出 200；/me HTTP 200，user.email agent@demo.test；run-080-TC-AUTH-004-4-5.txt",
+        "5": "退出 HTTP 200；/me HTTP 401 /errors/unauthenticated；不带请求体与 Content-Type 的退出也是 HTTP 200",
+        "6": "/team 登录记录有「11-04 14:34 Nur Aisyah agent@demo.test 成功」（浏览器 UA），与第 1 步一致；run-080-TC-AUTH-004-6.png"
+      }
+    },
+    {
+      "tc": "TC-PERM-001",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:36",
+      "note": null,
+      "steps": {
+        "1": "owner 侧栏 工作台（待认领、AI 草稿、我处理中、他人处理中、已结束）、工单、订单与开票、看板、接待设置、店铺与连接、团队与权限、用量与套餐、商户设置；导航下方只有「收起侧栏」，没有用量卡；没有「知识库」；顶栏没有「助手」；收起后底部只有「展开侧栏」；run-080-TC-PERM-001-1.png、-1b.png",
+        "2": "lead：工作台（含他人处理中）、工单、订单与开票、看板、接待设置，没有店铺与连接等四项；run-080-TC-PERM-001-2.png",
+        "3": "agent：工作台（五个子项）、工单、订单与开票，没有看板、接待设置；run-080-TC-PERM-001-3.png",
+        "4": "三个 nav-summary 都 200，键 counts、ticketsBadge、shopsAttention、unreadNotifications，没有 usage",
+        "5": "/reception，子导航 店铺模式、工作时间与转人工、语气与提示词、工单类型与时限、知识库；run-080-TC-PERM-001-5.png",
+        "6": "lead 进入 /reception/knowledge，子导航只有「知识库」；run-080-TC-PERM-001-6.png"
+      }
+    },
+    {
+      "tc": "TC-PERM-002",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:36-14:37",
+      "note": null,
+      "steps": {
+        "1": "HTTP 403 /errors/forbidden；run-080-TC-PERM-002-1-3.txt",
+        "2": "HTTP 403 /errors/forbidden",
+        "3": "HTTP 403 /errors/forbidden",
+        "4": "/reception 原位显示「这个页面只对管理员开放」「你在「Demo Store」的角色是员工…」与「返回工作台」，点后到 /wb；run-080-TC-PERM-002-4.png",
+        "5": "近 7 天 + 操作人 Nur Aisyah：3 条「被拒绝」（GET /api/v1/dashboard、GET /api/v1/members、PUT /api/v1/reception/modes）；run-080-TC-PERM-002-5.png"
+      }
+    },
+    {
+      "tc": "TC-PERM-005",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:37-14:39",
+      "note": "OC=01a1a540-4e98…（view=done）、OT=01a1a540-5293…、OO=01a1a540-4ce2…、OI=01a1a540-5285…、OS=01a1a540-4c10…；前置状态 run-080-TC-PERM-005-pre.txt",
+      "steps": {
+        "1": "5 个 GET 都 HTTP 404 /errors/not-found；run-080-TC-PERM-005-1-2.txt",
+        "2": "claim、notes、cancel、resend-email、disconnect 都 HTTP 404 /errors/not-found",
+        "3": "owner 打开 /wb/<OC> 显示「找不到或已删除」；run-080-TC-PERM-005-3.png",
+        "4": "other 重读：会话 closed / 无处理人 / version 1，工单 open、事件 1 条、无 cross，订单 AWAITING_SHIPMENT，发票邮件 sent，店铺 connected，与前置逐行相同；run-080-TC-PERM-005-4.txt"
+      }
+    },
+    {
+      "tc": "TC-AI-001",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:38-14:40",
+      "note": "买家 AI001 B 080（模拟器页新建）；第 6 步第一遍脚本在第 4 步切到「我处理中」列表后刷新，页面没有打开会话，读对话栏超时；随后在同一状态下（无新消息、只过了时间）打开 /wb/<会话> 观察第 6 步，再刷新 /billing 观察第 7 步",
+      "steps": {
+        "1": "推送日志新增「code 10 聊天 HTTP 200 · 49 ms 买家：我的包裹到哪了」；run-080-TC-AI-001-1.png",
+        "2": "2.5 秒出现在「AI 草稿」列表，行上店铺 Demo Shopee MY；列表头「AI 1」→「AI 2」，侧栏「AI 草稿 1」10 秒后变「AI 草稿 2」；run-080-TC-AI-001-2.png",
+        "3": "时间线有买家消息；草稿 X =「您好！关于「我的包裹到哪了」，我们已经收到，会尽快为您处理。」、置信度 0.85；按钮 认领并发送 / 改后发送 / 忽略；run-080-TC-AI-001-3.png",
+        "4": "草稿区消失；本方消息 X「Nur Aisyah 14:38 · 已发送」；会话头「我处理中」，出现在「我处理中」列表；run-080-TC-AI-001-4.png",
+        "5": "买家视图 1 条卖家消息，正文 X；run-080-TC-AI-001-5.png",
+        "6": "刷新后正文 X 的本方消息 1 条（库里该会话 out 消息 1 条）；run-080-TC-AI-001-6.png",
+        "7": "/billing「已用 0 次」→「已用 1 次」，辅助草稿 0 / 0 → 1 / 1；run-080-TC-AI-001-0.png、-7.png"
+      }
+    },
+    {
+      "tc": "TC-ORD-015",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:40-14:44",
+      "note": "前置在模拟器页新建买家 ORD015 C 080 下单 2611045YUHS1KD 并发「请帮我开发票」，Nur 在浏览器认领并回复（另有一个探页面时建的、未下单未发言的 ORD015 B 080）。第 4–6 步第一遍脚本按页面正文找发票号没找到（发票号在提示里），第 5 步按空号找行超时；随后在同一状态下重读发件箱与发票列表。第 6 步第一次点到的是「预览」按钮，改点读屏名「下载 INV-2026-000002 的 PDF」的链接后触发下载",
+      "steps": {
+        "1": "弹层类型 Invoice（选中），「订单 2611045YUHS1KD · Demo Shopee MY」，商品行「Bamboo Fibre Bath Towel Set (3 pcs) ×1 MYR 45.90」；run-080-TC-ORD-015-1.png",
+        "2": "弹层关闭；提示「已生成 INV-2026-000002 图片已发到聊天，邮件已发到 invoice1@demo.test」，格式 INV-2026-6 位；run-080-TC-ORD-015-2.png",
+        "3": "买家视图收到一张卖家图片（聊天图片）；run-080-TC-ORD-015-3.png",
+        "4": "发件箱 invoice1@demo.test「Invoice INV-2026-000002 from Demo Store」模板 invoice，附件 INV-2026-000002.pdf；run-080-TC-ORD-015-4.png",
+        "5": "一行「INV-2026-000002 Invoice Demo Buyer Sdn Bhd … 聊天已发送 邮件已发送」；run-080-TC-ORD-015-5.png",
+        "6": "下载 INV-2026-000002.pdf（content-type application/pdf，13,427 字节），文本含 INV-2026-000002 与 Demo Buyer Sdn Bhd；run-080-TC-ORD-015-6.pdf"
+      }
+    },
+    {
+      "tc": "TC-TKT-001",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:45-14:49",
+      "note": "前置在模拟器页（TikTok Shop · Demo TikTok MY）新建买家 TKT001 C 080 下单 576480107029993254 并逐级推进到 DELIVERED（另有一个探页面时建的 TKT001 B 080，下了单 576440832827053155、停在 AWAITING_SHIPMENT）；工单里买家名被平台打码为 T****1 C* 0*0，按订单号与工单号 T-1006 定位；第 3 步第一遍脚本「处理申请」定位不唯一（另一个禁用按钮的说明里也有这四个字），没点开弹层、未改状态，改为精确匹配后执行",
+      "steps": {
+        "1": "模拟器点「买家申请退货退款」：推送日志新增「type 12 退货 HTTP 200 · 361 ms … → RETURN_OR_REFUND_REQUEST_PENDING」；run-080-TC-TKT-001-1.png",
+        "2": "/tickets 新增 T-1006 退货退款，待处理 · 待审核，「平台截止」，剩 47 小时 59 分，负责人 Arif Rahman；D1 = 2026-11-06 14:46；run-080-TC-TKT-001-2.png、-2b.png",
+        "3": "「处理申请」选「同意退货」点「提交处理」：弹层关闭；当前阶段「等待中 · 等买家」；模拟器退货单 AWAITING_BUYER_SHIP；run-080-TC-TKT-001-3.png、-3s.png",
+        "4": "模拟器「买家寄回」后 T「处理中 · 待验货」，截止 2026-11-06 14:48，与 D1 不同；run-080-TC-TKT-001-4.png",
+        "5": "「收货后同意退款」提交后模拟器退货单 RETURN_OR_REFUND_REQUEST_COMPLETE；刷新后 T「已解决」；run-080-TC-TKT-001-5.png、-5s.png",
+        "6": "时间线依次：平台事件建单（平台）、Arif Rahman 同意退货（页面）、平台事件 · 等买家寄回（平台）、平台事件 · 待验货（平台）、Arif Rahman 收货后同意退款（页面）、平台事件 · 退款完成（平台）；run-080-TC-TKT-001-6.png"
+      }
+    },
+    {
+      "tc": "TC-KB-001",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:52-14:54",
+      "note": "本机 Edge 156.0.4314.58 无头（channel msedge，navigator.pdfViewerEnabled 为 true），跑前确认本轮没有别的浏览器实例，跑完即关；脚本先跑到第 2 步停下（未点上传，没有改数据）看清弹窗结构，再从第 1 步整条跑一遍；第 1 步截图 -1.png 是第二遍在列表加载骨架时拍的，「资料 0 / 500」与空态文字取自第一遍同一状态的页面文字",
+      "steps": {
+        "1": "子导航当前项「知识库」；页签依次 问答、经验卡、待审核、学习、资料、产品、测试问答，选中「问答」；点「资料」后地址 ?tab=docs，标题「资料 0 / 500」，空态「还没有资料。把产品手册、保修与退换政策拖到这里」",
+        "2": "弹窗列出 保修政策.pdf 3.0 MB、型号对照.xlsx 1.0 MB，都「等待上传」；格式说明含「单个文件不超过 20 MB，PDF 以外的文件不超过 4 MB；PPT 请先导出为 PDF 再上传」；按钮「上传 2 个文件」；run-080-TC-KB-001-2.png",
+        "3": "分类选售后政策、站点全部站点后上传：依次 0%、27%、「已上传，排队解析」，第二个 0% 后也「已上传，排队解析」；底部「已上传 2 个」，按钮「继续上传」「完成」；run-080-TC-KB-001-3.png",
+        "4": "列表两行 售后政策 · 全部站点，状态「排队中」→ 4.6 秒后都「可用」，两个「AI 可用」开关 aria-checked true，标题「2 / 500」；run-080-TC-KB-001-4.png",
+        "5": "地址 ?tab=docs&doc=01a1a555-6645-…；抽屉标题「保修政策.pdf」，可用、3.0 MB、1 段分块、分类售后政策、全部站点、上传 2026-11-04 14:53 · 林晓；原文件标签 iframe（626 × 628）显示 Edge PDF 阅读器；run-080-TC-KB-001-5.png",
+        "6": "点「解析内容（1 段）」后地址加 docTab=parsed，#1「替身解析：保修政策.pdf」；刷新后抽屉仍开、选中「解析内容（1 段）」、#1 在；run-080-TC-KB-001-6.png、-6b.png",
+        "7": "Esc 关抽屉后点 型号对照.xlsx：原文件标签无 iframe，写「这种格式不能在页面里预览，点上方「下载原文件」查看；AI 用的是「解析内容」里的文字。」；有「下载原文件」按钮；run-080-TC-KB-001-7.png",
+        "8": "HTTP 200；items 2 条都 ready、aiEnabled true、markets [\"ALL\"]、partsCount 1、chunksCount 1；counts {\"total\":2,\"limit\":500}；run-080-TC-KB-001-8.json"
+      }
+    },
+    {
+      "tc": "TC-FEISHU-005",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:54-14:56",
+      "note": "前置按 §3「连上飞书替身」，两次 HTTP 200；新买家 FS005 Buyer 080；第 2 步第一遍只看了卡片列表，第 3–4 步在同一状态下点开卡片读正文与链接（只读）",
+      "steps": {
+        "1": "推送日志新增 type 13 新会话段 HTTP 200 · 129 ms 与 type 14 新消息 HTTP 200 · 41 ms；run-080-TC-FEISHU-005-1.png",
+        "2": "发送后 5.6 秒打开 /dev/outbox?tab=feishu，最上面一张「待认领 · Demo TikTok TH」，发往 Shopilot 客服群（替身），待认领卡 · 已发出（替身）；详情写「标题颜色 橙色」；run-080-TC-FEISHU-005-2.png",
+        "3": "「AI 总结　AI 替身总结：买家发来新消息，正在等待客服认领。」；「平台 TikTok Shop · 泰国　买家 FS005 Buyer 080　已等 不到 1 分钟」；无「转人工原因」；「最近对话」下「买家 14:55　Halo, kamera ini bisa dipakai di Mac?」，下一行「译文：[译文] Halo, kamera ini bisa dipakai di Mac?」；run-080-TC-FEISHU-005-3.png",
+        "4": "认领 → /wb/01a1a557-31f7-758a-9d6c-32b206ff352f?claim=1&m=01a1a540-49b2-73e0-940f-c06fb5a40907；打开会话 → 同会话 ?m=同 ID；/me active.merchantId 01a1a540-49b2-73e0-940f-c06fb5a40907 相同",
+        "5": "/wb?view=queue 列表有 FS005 Buyer 080（待认领 · 等待不到 1 分钟），点开地址 /wb/01a1a557-31f7-758a-9d6c-32b206ff352f?view=queue，ID 与按钮链接相同；run-080-TC-FEISHU-005-5.png"
+      }
+    },
+    {
+      "tc": "TC-FEISHU-011",
+      "result": "通过",
+      "baseline": 2,
+      "at": "2026-11-04 14:56-14:57",
+      "note": "接在 TC-FEISHU-005 之后、同一套基线，沿用其前置建立的飞书替身连接；X = FS011 X 080，Y = FS011 Y 080；提示用 150 ms 轮询 sonner 提示框记录",
+      "steps": {
+        "pre": "L1 = /wb/01a1a558-a0d7-77dc-a03e-d70e01ddc331?claim=1&m=01a1a540-…0907（C），L2 = /wb/01a1a558-a9de-72d5-8c47-7510773b26c8?m=…（D）；推送 type 13、type 14 各两条，都 HTTP 200",
+        "1": "打开 L1：提示「已认领」；地址 /wb/01a1a558-a0d7-77dc-a03e-d70e01ddc331（无 claim、m）；头部「Demo TikTok TH · 我处理中」，输入框可编辑；run-080-TC-FEISHU-011-1.png",
+        "2": "刷新后 4 秒内无提示；审计计数 1；run-080-TC-FEISHU-011-2.png",
+        "3": "再开 L1：直接打开 C，5 秒内无提示，地址 /wb/<C>；审计计数仍 1；run-080-TC-FEISHU-011-3.png",
+        "4": "打开 L2：地址 /wb/01a1a558-a9de-72d5-8c47-7510773b26c8，头部「待认领」与「认领」按钮，无提示；库里 handling_state awaiting_human、claimed_by 空；run-080-TC-FEISHU-011-4.png"
+      }
+    },
+    {
+      "tc": "TC-AI-002",
+      "result": "通过",
+      "baseline": 3,
+      "at": "2026-11-04 15:00-15:01",
+      "note": "AI_MODE=deepseek，重建基线后重起 dev；买家 AI002 DS 080，订单 O = 261104A6AJB6NA，模拟器推进 READY_TO_SHIP → PROCESSED → SHIPPED；Nur（agent@demo.test）停在 /wb",
+      "steps": {
+        "1": "推送「code 10 聊天 HTTP 200 · 74 ms 买家：我的包裹到哪了」；run-080-TC-AI-002-1.png",
+        "2": "发送后 2.8 秒「AI 草稿」列表出现该会话；草稿：「您好，您的订单 261104A6AJB6NA（Bamboo Fibre Bath Towel Set 3 pcs，Sage Green）已经发货，由 SPX Express (MY) 承运，运单号 MY887137148396A。最新物流显示，2026-11-04 15:01 包裹已到达 Shah Alam Hub……」，同时提到订单号与右栏的承运商、运单号、轨迹「Parcel has arrived at Shah Alam Hub.」；置信度 0.90；库里 model deepseek-flash、1390 ms；run-080-TC-AI-002-2.png",
+        "3": "点「认领并发送」后模拟器买家视图多一条「卖家 · 11-04 15:00」消息，全文与草稿正文逐字相同（含三段换行），库里出站消息同文；run-080-TC-AI-002-3.png、-3a.png"
+      }
+    },
+    {
+      "tc": "TC-KB-083",
+      "result": "通过",
+      "baseline": 3,
+      "at": "2026-11-04 15:01-15:03",
+      "note": "接在 TC-AI-002 之后、同一套基线（AI_MODE=deepseek）；K = 01a1a55c-f1d9-7789-9a34-c061c0a3f1c0；买家 Agent DS，Mei Lin 的认领与回复用接口完成（等真实 DeepSeek 草稿生成后认领，claim 200、reply 201）；后置 cardclear 后卡为 0 张",
+      "steps": {
+        "1": "HTTP 201，T = 01a1a55d-503a-72dd-b6b6-dfad064f20c1；轮询 2 次（11 秒）后状态 closed（结论 none_needed：已有卡覆盖客服做法），不是 analyzing 也不是 failed；docs/test-runs/run-080-TC-KB-083-2.txt",
+        "2": "一行 deepseek-flash|succeeded|true|true|true；原始值 5 轮、工具 4 次、token 输入 3208 / 缓存 8448 / 输出 741，9.2 秒；run-080-TC-KB-083-2.txt",
+        "3": "agentRuns 1 条，steps 依次 get_conversation、search_knowledge、search_knowledge、submit，最后一项 submit ok true、note「已有内容覆盖 · 不改卡」；没有 note 含「换线也没用」；run-080-TC-KB-083-3.json",
+        "4": "「Agent 过程」一行「已完成」，行「11-04 15:01 · 9.2 秒 · 5 轮 · 工具 4 次 · token 输入 3.2k、缓存命中 8.4k、输出 741 · deepseek-flash」以 deepseek-flash 结尾；步骤 1 读会话、2–3 查知识、4 提交；run-080-TC-KB-083-4.png、-4.txt"
+      }
+    }
+  ]
+}

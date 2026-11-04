@@ -1,0 +1,30 @@
+{
+ "1": {
+  "push": "code 10 聊天 HTTP 200 · 74 ms 聊天 买家：我的包裹到哪了 Demo Shopee MY · 11-04 15:00 · http://127.0.0.1:3360/api/webhooks/shopee/57926f6313b147008d0831d72989abf3"
+ },
+ "2": {
+  "seen": true,
+  "secs": 2.76,
+  "row": "A AI002 DS 080 15:00 Shopee · MY Demo Shopee MY 我的包裹到哪了 AI AI 接待中 · 售中",
+  "cardText": "AI\nAI 草稿\n售中\n置信度 0.90\n\n您好，您的订单 261104A6AJB6NA（Bamboo Fibre Bath Towel Set 3 pcs，Sage Green）已经发货，由 SPX Express (MY) 承运，运单号 MY887137148396A。\n\n最新物流显示，2026-11-04 15:01 包裹已到达 Shah Alam Hub，接下来会继续转运派送。\n\n目前暂无更准确的预计送达时间，建议您留意物流更新；有需要我也可帮您转接同事进一步查询。\n\n认领并发送\n改后发送\n忽略",
+  "draft": "您好，您的订单 261104A6AJB6NA（Bamboo Fibre Bath Towel Set 3 pcs，Sage Green）已经发货，由 SPX Express (MY) 承运，运单号 MY887137148396A。\n\n最新物流显示，2026-11-04 15:01 包裹已到达 Shah Alam Hub，接下来会继续转运派送。\n\n目前暂无更准确的预计送达时间，建议您留意物流更新；有需要我也可帮您转接同事进一步查询。",
+  "conf": "置信度 0.90",
+  "rightPanel": "本段阶段 售中 认领后可改判 开段时自动判定：订单 261104A6AJB6NA SHIPPED A AI002 DS 080 Shopee 用户名 · 买家 ID 9484267511 收件人姓名、电话、地址由平台打码返回，Shopilot 只显示打码后的值。 近 180 天 1 单 · MYR 50.80 工单 全部工单 这个会话没有未结工单。 订单 镜像 · 11-04 15:00 同步 开 Invoice / Receipt 261104A6AJB6NA ，查看订单详情 运输中 Bamboo Fibre Bath Towel Set (3 pcs) Sage Green · ×1 · MYR 45.90 合计 MYR 50.80 · SHIPPED · 11-04 15:00 下单 · 最晚 11-06 发货 SPX Express (MY) · MY887137148396A Parcel has arrived at Shah Alam Hub. · 11-04 15:01 取消订单（买家要求） 开票 建工单",
+  "dbDraft": "您好，您的订单 261104A6AJB6NA（Bamboo Fibre Bath Towel Set 3 pcs，Sage Green）已经发货，由 SPX Express (MY) 承运，运单号 MY887137148396A。\n\n最新物流显示，2026-11-04 15:01 包裹已到达 Shah Alam Hub，接下来会继续转运派送。\n\n目前暂无更准确的预计送达时间，建议您留意物流更新；有需要我也可帮您转接同事进一步查询。 | conf=0.90 | model=deepseek-flash | ms=1390 | status=generated"
+ },
+ "3": {
+  "chatTail": "AI002 DS 080\nShopee · MY\n英语\n会话 8448658780695561284\n\n我的包裹到哪了\n\n买家 · 11-04 15:00\n\n您好，您的订单 261104A6AJB6NA（Bamboo Fibre Bath Towel Set 3 pcs，Sage Green）已经发货，由 SPX Express (MY) 承运，运单号 MY887137148396A。\n\n最新物流显示，2026-11-04 15:01 包裹已到达 Shah Alam Hub，接下来会继续转运派送。\n\n目前暂无更准确的预计送达时间，建议您留意物流更新；有需要我也可帮您转接同事进一步查询。\n\n卖家 · 11-04 15:00\n以买家身份输入消息\n上传图片\n示例图片\n261104A6AJB6NA · SHIPPED\n发订单卡\nBamboo Fibre Bath Towel Set (3 pcs)\n发商品卡\n问过 AI 助手后转人工\n发送",
+  "hasDraftExact": true,
+  "hasDraftNorm": true,
+  "sellerCount": 1,
+  "dbOut": "您好，您的订单 261104A6AJB6NA（Bamboo Fibre Bath Towel Set 3 pcs，Sage Green）已经发货，由 SPX Express (MY) 承运，运单号 MY887137148396A。\n\n最新物流显示，2026-11-04 15:01 包裹已到达 Shah Alam Hub，接下来会继续转运派送。\n\n目前暂无更准确的预计送达时间，建议您留意物流更新；有需要我也可帮您转接同事进一步查询。"
+ },
+ "pre": {
+  "states": [
+   "READY_TO_SHIP",
+   "PROCESSED",
+   "SHIPPED"
+  ],
+  "order": "261104A6AJB6NA SHIPPED Bamboo Fibre Bath Towel Set (3 pcs) · Sage Green ×1 MYR 50.80 下单 11-04 15:00 最晚发货 11-06 15:00 SPX Express (MY) MY887137148396A 推进到 TO_CONFIRM_RECEIVE 物流异常 买家申请退货退款 买家申请仅退款"
+ }
+}

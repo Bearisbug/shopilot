@@ -1,0 +1,6 @@
+UPDATE 1
+UPDATE 1
+INSERT 0 1
+--- runs by started_at desc
+2026-11-04 05:42:26.857864+00|running
+2026-11-04 05:32:24.828624+00|succeeded

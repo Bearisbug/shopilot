@@ -1,0 +1,6 @@
+$ q "select model || '|' || status || '|' || (turns >= 2) || '|' || (tool_calls >= 2) || '|' || (input_tokens + cache_read_tokens + output_tokens <= 80000) from agent_run where learning_task_id = '01a1a55d-503a-72dd-b6b6-dfad064f20c1'"
+deepseek-flash|succeeded|true|true|true
+# 原始值
+deepseek-flash|succeeded|5|4|3208|8448|741|2026-11-04 07:01:58.690296+00|2026-11-04 07:02:07.936+00
+# learning_task
+closed|none_needed|已有卡 S1「摄像头识别不到：帮买家恢复使用」条件正是「买家说摄像头识别不到」，步骤含换线换接口、安装或更新配套软件，覆盖了客服本次「请装最新配套软件」的做法，无需改动。

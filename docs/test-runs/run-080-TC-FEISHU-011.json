@@ -1,0 +1,39 @@
+{
+ "pre.push": [
+  "type 14 新消息 HTTP 200 · 13 ms 聊天 买家：just open Demo TikTok TH · 11-04 14:56 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03",
+  "type 13 新会话段 HTTP 200 · 18 ms 新会话段 FS011 Y 080 Demo TikTok TH · 11-04 14:56 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03",
+  "type 14 新消息 HTTP 200 · 15 ms 聊天 买家：claim me Demo TikTok TH · 11-04 14:56 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03",
+  "type 13 新会话段 HTTP 200 · 54 ms 新会话段 FS011 X 080 Demo TikTok TH · 11-04 14:56 · http://127.0.0.1:3360/api/webhooks/tiktok/485ad4db41c742b0a909fb6548f9dd03"
+ ],
+ "pre.L1": "http://127.0.0.1:3360/wb/01a1a558-a0d7-77dc-a03e-d70e01ddc331?claim=1&m=01a1a540-49b2-73e0-940f-c06fb5a40907",
+ "pre.L2": "http://127.0.0.1:3360/wb/01a1a558-a9de-72d5-8c47-7510773b26c8?m=01a1a540-49b2-73e0-940f-c06fb5a40907",
+ "pre.C": "01a1a558-a0d7-77dc-a03e-d70e01ddc331",
+ "pre.D": "01a1a558-a9de-72d5-8c47-7510773b26c8",
+ "1.toasts": [
+  "已认领"
+ ],
+ "1.url": "http://127.0.0.1:3360/wb/01a1a558-a0d7-77dc-a03e-d70e01ddc331",
+ "1.composer": {
+  "enabled": true,
+  "editable": true,
+  "ph": "回复 FS011 X 080，可写中文，发送前译成泰语"
+ },
+ "1.claimBtn": 0,
+ "1.main": "聚合客服 4 家店 · 待认领 8 · AI 2 全部平台 全部店铺 FS011 Y 080 14:56 TikTok · TH Demo TikTok TH just open 待认领 · 等待不到 1 分钟 FS005 Buyer 080 14:55 TikTok · TH Demo TikTok TH Halo, kamera ini bisa dipakai di Mac? 待认领 · 等 1 分钟 H Hafiz Rahman 14:23 TikTok · MY Demo TikTok MY Tuala ni ada warna lain tak? Nak beli lagi satu set. 等 34 分钟 · 超过接待时限 พ พลอย 14:14 TikTok · TH Demo TikTok TH มีโค้ดส่วนลดไหมคะ 等 44 分钟 · 超过接待时限 P priyanair 14:08 Shopee · SG Demo Shopee SG App says delivered but I didn't receive anything. Can you check with the courier? 等 48 分钟 · 超过接待时限 A arjunk_my 13:51 Shopee · MY Demo Shopee MY Is this towel set quick-dry? And is the green colour still in stock? 等 1 小时 6 分 · 超过接待时限 ส สมชาย ใจดี 13:39 TikT",
+ "2.toasts": [],
+ "2.url": "http://127.0.0.1:3360/wb/01a1a558-a0d7-77dc-a03e-d70e01ddc331",
+ "2.audit": "1",
+ "3.toasts": [],
+ "3.url": "http://127.0.0.1:3360/wb/01a1a558-a0d7-77dc-a03e-d70e01ddc331",
+ "3.audit": "1",
+ "4.toasts": [],
+ "4.url": "http://127.0.0.1:3360/wb/01a1a558-a9de-72d5-8c47-7510773b26c8",
+ "4.composer": {
+  "enabled": true,
+  "editable": true,
+  "ph": "回复 FS011 Y 080，可写中文，发送前译成泰语"
+ },
+ "4.claimBtn": 1,
+ "4.main": "聚合客服 4 家店 · 待认领 8 · AI 2 全部平台 全部店铺 FS011 Y 080 14:56 TikTok · TH Demo TikTok TH just open 待认领 · 等待不到 1 分钟 FS005 Buyer 080 14:55 TikTok · TH Demo TikTok TH Halo, kamera ini bisa dipakai di Mac? 待认领 · 等 2 分钟 H Hafiz Rahman 14:23 TikTok · MY Demo TikTok MY Tuala ni ada warna lain tak? Nak beli lagi satu set. 等 35 分钟 · 超过接待时限 พ พลอย 14:14 TikTok · TH Demo TikTok TH มีโค้ดส่วนลดไหมคะ 等 45 分钟 · 超过接待时限 P priyanair 14:08 Shopee · SG Demo Shopee SG App says delivered but I didn't receive anything. Can you check with the courier? 等 49 分钟 · 超过接待时限 A arjunk_my 13:51 Shopee · MY Demo Shopee MY Is this towel set quick-dry? And is the green colour still in stock? 等 1 小时 7 分 · 超过接待时限 ส สมชาย ใจดี 13:39 TikT",
+ "4.dbStatus": "awaiting_human|null"
+}

@@ -1,0 +1,9 @@
+## 1
+HTTP 201
+{"status":"published","source":"manual","products":[],"markets":["ALL"],"embedded":true,"version":1}
+## 2
+HTTP 422
+{"type":"/errors/validation","fields":{"questions":"问法不能重复"}}
+## 3
+HTTP 422
+{"type":"/errors/validation","fields":{"questions":"至少写一个问法"}}
