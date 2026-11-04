@@ -106,3 +106,4 @@ scp -i ~/.ssh/shopilot-hk.pem deploy/compose.yaml deploy/backup.sh deploy/remote
 | 2026-10-15 | 只读接入 OBSBOT 影子 | `scripts/import-readonly.ts --setup` 建商户「OBSBOT 影子」（test@shopilot.live 管理员），2 个只读应用、11 家店；Shopee token 从现网只读重取后 `--tokens` 更新 6 家；`inbound.poll` 运行无报错，历史回补进行中 |
 | 2026-10-15 | 发布期间全站 503 约 110 秒 | 文档提交 `df5ba5c` 触发的部署里，Compose 用同一条 `up` 重建 web 与 worker，要等旧 worker 优雅停机（等任务收尾 110 秒）后才启动新 web。`remote.sh` 改为先 web 后 worker 分开重建；只改文档的推送不再触发部署 |
 | 2026-10-15 | 备份恢复演练 | `backup.sh` 生成 `db-20261015-0006.sql.gz`，恢复到临时库 `restore_drill` 后表数 56 与线上一致、迁移记录 1 与线上一致，临时库已删除 |
+| 2026-11-04 | db 预加载 pg_stat_statements | push `b6f1982` 触发的 run 41790459141 通过；`remote.sh` 备份后重建 db（07:20:31 启动，`shared_preload_libraries` 为 `pg_stat_statements`），迁移 0020 建扩展 1.11；对外健康检查返回 `b6f1982`、`db: ok`；发布后约 2 分钟视图里 150 行，web 与 worker 无 error 级日志 |
