@@ -304,7 +304,7 @@ function RetestBlock({ t, tz }: { t: LearningTask; tz: string }) {
   );
 }
 
-const TOOL_LABEL: Record<string, string> = { get_conversation: "读会话", get_card: "读卡", list_cases: "列用例", search_knowledge: "查知识", simulate: "自测", submit: "提交" };
+const TOOL_LABEL: Record<string, string> = { get_conversation: "读会话", get_card: "读卡", list_cases: "列用例", search_knowledge: "查知识", web_search: "联网搜索", simulate: "自测", submit: "提交" };
 const seconds = (ms: number) => {
   if (ms < 100) return "<0.1 秒";
   if (ms < 59_950) return `${(ms / 1000).toFixed(1)} 秒`;

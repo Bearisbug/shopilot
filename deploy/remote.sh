@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 服务器 /srv/shopilot/remote.sh 的事实源副本：一次发布在服务器上的四个动作，CI（.github/workflows/deploy.yml）
 # 与本机兜底（deploy/release.sh）共用。源码须已同步到 /srv/shopilot/build/。
-#   remote.sh switch <TAG>   构建镜像 → 备份 → 迁移 → 切到新版本（先 web 后 worker，web 重建时几秒不可用）
+#   remote.sh switch <TAG>   构建镜像 → 备份 → db 配置有变时重建 db → 迁移 → 切到新版本（先 web 后 worker，web 重建时几秒不可用）
 #   remote.sh health <TAG>   直连 127.0.0.1:3001 断言本项目标识与版本
 #   remote.sh confirm <TAG>  记为最后一次验证健康的版本，清理旧镜像与构建缓存，确保每日备份的 crontab 在
 #   remote.sh rollback       切回 .last_good
@@ -17,6 +17,8 @@ case "$cmd" in
     TAG=${2:?缺 TAG}
     docker build -t "shopilot:$TAG" build </dev/null 2>&1 | tail -3
     ./backup.sh </dev/null
+    # db 的启动参数等配置改了才重建（约 10 秒连不上库），没改时什么都不做；放在迁移之前，迁移按新配置跑
+    docker compose up -d --wait --wait-timeout 120 db </dev/null
     sed -i "s/^TAG=.*/TAG=$TAG/" .env
     docker compose run --rm migrate </dev/null
     # 容器重建后旧日志就没了：切换前把 web、worker 的日志压缩存进 logs/，留最近 30 份

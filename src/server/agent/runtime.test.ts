@@ -7,6 +7,14 @@ import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
+describe("计入上限的用量（ADR-020）", async () => {
+  const { budgetTokens } = await import("./runtime");
+  it("未命中输入与输出全算，缓存命中按 1/10 计", () => {
+    expect(budgetTokens({ input: 10_000, cacheRead: 650_000, output: 2_000 })).toBe(77_000);
+    expect(budgetTokens({ input: 70_000, cacheRead: 100_000, output: 1_000 })).toBe(81_000);
+  });
+});
+
 describe.skipIf(!process.env.DATABASE_URL)("Agent 服务（需要数据库）", { timeout: 120_000 }, async () => {
   process.env.AI_MODE = "stub";
   const { db, pool, schema } = await import("@/server/db/client");

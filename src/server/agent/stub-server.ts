@@ -1,6 +1,6 @@
 // Agent 服务的替身（AI_MODE=stub，§17「Agent 服务的运行约束」）：进程内的 Anthropic Messages 兼容服务，CLI 子进程照常起、照常调工具，不出网。
 // 每轮按对话里已有的工具结果决定下一步，一轮只调一个工具：
-// - 会话学习（有 get_conversation）：读会话 → 查知识 → 有拟发布的卡时自测一次 → 提交。判断沿用原来的替身规则：
+// - 会话学习（有 get_conversation）：读会话 → 查知识 → 备注或消息含「参数」时联网搜一次 → 有拟发布的卡时自测一次 → 提交。判断沿用原来的替身规则：
 //   备注或消息含「无需」→ 已有内容覆盖；含「新卡」→ 新建卡；相似卡里有一张的标题与买家消息有共同的 2 个字 → 改这张卡（加一步「替身补充的一步」）；否则按流程需要新建卡。
 // - 按卡体检（有 list_cases）：读卡 → 列用例 → 有改后发送或对比不一致的用例时改卡（加一步「替身补充的一步」）并在那个用例上自测一次 → 提交；否则不改。
 // - 其他（运行层测试用）：第一条用户消息里「替身脚本：」后面是工具调用的 JSON 数组，逐个调；调完以文字结束。
@@ -113,6 +113,7 @@ function decide(body: Body): Call | null {
     if (!conv) return call("get_conversation");
     const verdict = stubLearn(conv);
     if (!resultOf("search_knowledge")) return call("search_knowledge", { query: verdict.test_question || "买家的问题" });
+    if (tools.has("web_search") && stubNeedsWeb(conv) && !resultOf("web_search")) return call("web_search", { query: "产品参数 site:example.com" });
     if (verdict.card && !resultOf("simulate")) return call("simulate", { card: verdict.card, ...(verdict.target_card ? { target_card: verdict.target_card } : {}) });
     return call("submit", verdict);
   }
@@ -157,6 +158,8 @@ function shareTwoChars(a: string, b: string): boolean {
   for (let i = 0; i + 1 < ca.length; i++) if (tb.includes(ca[i] + ca[i + 1])) return true;
   return false;
 }
+
+const stubNeedsWeb = (p: StubLearnPayload) => [p.note ?? "", ...(p.conversation ?? []).map((m) => m.text)].some((t) => t.includes("参数"));
 
 function stubLearn(p: StubLearnPayload) {
   const buyer = (p.conversation ?? []).filter((m) => m.from === "buyer" && m.text);

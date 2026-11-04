@@ -25,7 +25,7 @@ export const AGENT_LIMITS = {
   timeoutMs: 180_000,
   /** 工具调用次数（提交不受限） */
   toolCalls: 20,
-  /** Agent 自己的输入（含缓存命中）加输出 */
+  /** Agent 自己的输入加输出，缓存命中按 1/10 计（ADR-020） */
   tokens: 80_000,
   maxTurns: 30,
 };
@@ -85,6 +85,8 @@ const clip = (s: string, n: number) => {
   return chars.length > n ? `${chars.slice(0, n).join("")}…` : s;
 };
 type Tokens = { input: number; cacheRead: number; output: number };
+/** 计入上限的用量：缓存命中单价约为未命中的 1/50，按 1/10 计（ADR-020） */
+export const budgetTokens = (t: Tokens) => t.input + t.output + t.cacheRead / 10;
 
 async function runOnce<Out>(input: RunAgentInput<Out>): Promise<{ output: Out; runId: string }> {
   const e = env();
@@ -163,8 +165,7 @@ async function runOnce<Out>(input: RunAgentInput<Out>): Promise<{ output: Out; r
       cacheRead: Math.max(prev.cacheRead, u.cache_read_input_tokens ?? 0),
       output: Math.max(prev.output, u.output_tokens ?? 0),
     });
-    const t = total();
-    if (t.input + t.cacheRead + t.output > limits.tokens) stop(new AgentError("budget", `token 超过 ${limits.tokens}`));
+    if (budgetTokens(total()) > limits.tokens) stop(new AgentError("budget", `token 超过 ${limits.tokens}（缓存命中按 1/10 计）`));
   };
 
   let result: SDKResultMessage | null = null;

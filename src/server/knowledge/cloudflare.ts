@@ -82,7 +82,7 @@ async function call<T>(
       } catch {
         parsed = { errors: [{ message: text.slice(0, 200) }] };
       }
-      log(method, path, status, Date.now() - started);
+      log(method, path, status, Date.now() - started, undefined, status >= 400 ? parsed.errors?.[0]?.code : undefined);
       if ((status === 429 || status >= 500) && opts.retry && attempt < RETRY_DELAYS_MS.length) {
         await sleep(RETRY_DELAYS_MS[attempt]);
         continue;
@@ -196,6 +196,7 @@ export function cloudflareSearchService(): KnowledgeSearchService {
   };
 }
 
-function log(method: string, path: string, status: number | null, ms: number, error?: string) {
-  console.log(JSON.stringify({ t: new Date().toISOString(), level: error || (status ?? 0) >= 400 ? "warn" : "info", msg: "ai-search call", method, path: path.split("?")[0], status, ms, error }));
+/** code：失败时 Cloudflare 返回的错误码（如 7069 月度检索额度用完），只记码不记正文 */
+function log(method: string, path: string, status: number | null, ms: number, error?: string, code?: number) {
+  console.log(JSON.stringify({ t: new Date().toISOString(), level: error || (status ?? 0) >= 400 ? "warn" : "info", msg: "ai-search call", method, path: path.split("?")[0], status, ms, error, code }));
 }

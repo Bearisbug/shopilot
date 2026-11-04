@@ -8,7 +8,7 @@
 | 项目画像 | 生产产品（面向外部商户的多商户 SaaS）。本期只在本机跑通、没有生产环境，§21–§23 按场景级原因写 N/A，上线前由 deploy-pipeline 补齐 |
 | Owner | 产品负责人：用户；实现：「Shopilot 实现」会话 |
 | 评审人 | 用户 |
-| 最后更新 | 2026-10-22 |
+| 最后更新 | 2026-11-04 |
 | 关联 | 交接 [implementation-handoff.md](implementation-handoff.md) · 角色 [roles.md](roles.md) · 逐按钮清单 [ui-interactions.md](ui-interactions.md) · 功能与接口对照 [ui-feasibility.md](ui-feasibility.md) · 5 条需求 [requirements-ui-impact.md](requirements-ui-impact.md) · 平台接口 [platform-api/](platform-api/README.md) · Quilt 项目「Shopilot」`924976f9-2aa2-4b5d-9671-fe0f6f7d6587` · 现网参考 `~/Documents/Projects/Bots/Obsbot`（docs/DESIGN.md §11–§12） · 契约 `src/contracts/`（zod） · 测试 [TEST.md](TEST.md) · 视觉 `brand/` |
 | 链路层 | 部分 |
 
@@ -16,6 +16,9 @@
 
 | 日期 | 版本 | 涉及 ID | 一句话 | 类型 |
 | --- | --- | --- | --- | --- |
+| 2026-11-04 | v1.37 | FLOW-KB-LEARN、FLOW-KB-CARD-REVIEW、ADR-021 | 会话学习与按卡体检的 Agent 可以联网搜索，查证产品参数、功能这类事实，出稿不联网 | 功能 |
+| 2026-11-04 | v1.37 | ADR-020 | Agent 用量上限里缓存命中按十分之一计，长会话的分析不再因重复读取的内容被中止 | 功能 |
+| 2026-11-04 | v1.37 | FLOW-WB-PRETRANSLATE | 点发送时预翻译还在进行，就等它翻完再带上译文发送，不再让服务端重翻一遍 | 功能 |
 | 2026-10-22 | v1.36 | FLOW-KB-LEARN、FLOW-KB-CARD-REVIEW、ENT-AgentRun、ENT-LearningTask、API-KB-039、PAGE-RECEPTION-KB、ADR-019 | 学习分析与按卡体检改由 Agent 先查证、自测再交回结论，审核人能看到每次分析的过程 | 功能 |
 | 2026-10-22 | v1.35 | PAGE-SITE | 英文官网整页的语言标记改为英文，中文官网与产品内页面仍标中文 | 缺陷修复 |
 | 2026-10-22 | v1.34 | FLOW-KB-CARD-REVIEW、FLOW-KB-CARD、FLOW-KB-LEARN、RULE-KB-007 | 评审修正：名额按审计计数，快照只取一段，超时从开始执行算 | 功能 |
@@ -815,6 +818,9 @@
 | 失败 | Agent 没有提交结论就结束 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；字段 agent_run.error；§15 到上限后工具只提示直接提交 | 不测：代码仓 runtime.test.ts 覆盖 |
 | 边界 | Agent 提交的卡不完整或跳转不对 | 退回让 Agent 改好再交，只认第一次合规的提交 | 字段 agent_run.steps；ADR-019 | 不测：代码仓 runtime.test.ts 覆盖 |
 | 边界 | 工具调用或自测次数到上限 | 工具不再执行，提示 Agent 直接提交 | §15 工具调用每次 ≤ 20 次 | 不测：代码仓 runtime.test.ts 覆盖 |
+| 边界 | 要查证客服说的产品参数、功能对不对 | Agent 联网搜索，查到的说法与网页链接写进建议；卡里仍不写事实 | ADR-021；§15 联网搜索每次分析 ≤ 3 次 | `TC-KB-084` |
+| 边界 | 网页说的退换、保修、物流或价格与本商户的问答、卡不同 | 以本商户的问答和卡为准，网页说法不算依据 | ADR-021 | 不测：网页内容由真实搜索决定，替身给不出 |
+| 失败 | 联网搜索出错、超时或余额不足 | 这次搜索交回出错，Agent 照常分析 | §17 DeepSeek Search | 不测：代码仓 web.test.ts 覆盖 |
 | 边界 | AI 改已有卡时动了适用范围 | 产品、阶段、站点、标签、关联问答一律沿用原卡，只改标题、条件、步骤与沟通提示 | RULE-KB-006 | 不测：代码仓 learning.test.ts 覆盖 |
 | 并发 | 分析与复测期间要改的卡被人或别的任务改过 | 这次不写入，标分析失败并写明卡已是第几版，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「changed」 | 不测：代码仓 learning.test.ts 覆盖 |
 | 并发 | 分析期间要改的卡被下架或删除 | 这次的内容当作新卡进待审核，审核人重新复测 | 迁移 ENT-LearningTask analyzing→pending_review「propose」 | 不测：代码仓 learning.test.ts 覆盖 |
@@ -871,7 +877,7 @@
 
 #### 关联
 
-- **契约锚点**：API-CONV-018；API-CONV-019；API-KB-038；API-KB-039；API-KB-040；API-KB-041；API-KB-042；API-KB-043；ENT-LearningTask；ENT-AgentRun；迁移 ENT-LearningTask [*]→analyzing「submit」；RULE-KB-006；RULE-KB-007；ADR-017；ADR-019
+- **契约锚点**：API-CONV-018；API-CONV-019；API-KB-038；API-KB-039；API-KB-040；API-KB-041；API-KB-042；API-KB-043；ENT-LearningTask；ENT-AgentRun；迁移 ENT-LearningTask [*]→analyzing「submit」；RULE-KB-006；RULE-KB-007；ADR-017；ADR-019；ADR-020；ADR-021
 - **上游**：FLOW-AI-DRAFT、FLOW-AI-CARD、FLOW-DRAFT-COMPARE、FLOW-KB-CARD-REVIEW
 - **下游**：FLOW-KB-CARD
 - **守住的不变量**：INV-KB-008、INV-KB-009
@@ -880,7 +886,7 @@
 | --- | --- |
 | S1 | `src/app/(app)/wb/conversation-pane.tsx#ConversationPane`；`src/app/(app)/wb/learning-bar.tsx#LearningBar`；`src/server/knowledge/learning.ts#submitLearning`；`src/server/knowledge/learning.ts#takeSubmitQuota` |
 | S2 | `src/server/knowledge/learning-analyze.ts#pickLearning`；`src/server/knowledge/learning-analyze.ts#pickCandidates` |
-| S3–S5 | `src/server/knowledge/learning.ts#submitLearning`；`src/server/products/dictionary.ts#identifyProductsWithBasis`；`src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/agent/runtime.ts#runAgent`；`src/server/agent/tools/knowledge.ts#learnTools`；`src/server/ai/simulate.ts#simulateDraft` |
+| S3–S5 | `src/server/knowledge/learning.ts#submitLearning`；`src/server/products/dictionary.ts#identifyProductsWithBasis`；`src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/agent/runtime.ts#runAgent`；`src/server/agent/tools/knowledge.ts#learnTools`；`src/server/agent/tools/web.ts#webSearchTool`；`src/server/ai/simulate.ts#simulateDraft` |
 | S6 | `src/app/(app)/reception/knowledge/learning/learning-tab.tsx#LearningTab`；`src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#AgentRuns`；`src/server/knowledge/learning.ts#listLearning`；`src/server/knowledge/learning.ts#getLearning` |
 | S7–S8 | `src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/app/(app)/reception/knowledge/card-fields.tsx#CardFields`；`src/server/knowledge/learning.ts#retestLearning`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/learning.ts#publishLearning`；`src/server/knowledge/learning.ts#closeLearning` |
 | S9 | `src/app/(app)/wb/timeline.tsx#Timeline`；`src/app/(app)/wb/learning-bar.tsx#useLearnedMessages`；`src/server/knowledge/learning.ts#conversationLearning` |
@@ -930,6 +936,8 @@
 | 边界 | AI 改卡时动了适用范围 | 产品、阶段与站点沿用原卡 | RULE-KB-006；字段 learning_task.proposal | 不测：替身改卡不动范围；代码仓 card-review.test.ts 覆盖 |
 | 失败 | Agent 出错、超时或超出用量上限 | 任务标分析失败，可重新分析 | 迁移 ENT-LearningTask analyzing→failed「fail」；API-KB-042；§15 Agent 每次最长 3 分钟 | 不测：替身不会分析失败，代码仓 runtime.test.ts 覆盖 |
 | 边界 | Agent 用拟改的卡自测 | 在用例上模拟出稿看新回答；交回后照常复测，自测不代替复测 | §15 模拟出稿每次分析 ≤ 6 次；ADR-019 | `TC-KB-081` |
+| 边界 | 客服改写草稿是因为产品事实不同 | Agent 联网搜索查证，事实问题不改卡，查到的说法与链接写进建议 | ADR-021；§15 联网搜索每次分析 ≤ 3 次 | `TC-KB-084` |
+| 失败 | 联网搜索出错、超时或余额不足 | 这次搜索交回出错，Agent 照常分析 | §17 DeepSeek Search | 不测：代码仓 web.test.ts 覆盖 |
 
 ##### S3 复测
 
@@ -995,7 +1003,7 @@
 
 #### 关联
 
-- **契约锚点**：API-KB-031；API-KB-039；API-KB-040；API-KB-041；API-KB-044；API-KB-045；ENT-LearningTask；ENT-AiQualityWeek；ENT-AgentRun；迁移 ENT-LearningTask [*]→analyzing「review」；迁移 ENT-Merchant running→paused「brake」；RULE-KB-007；ADR-018；ADR-019
+- **契约锚点**：API-KB-031；API-KB-039；API-KB-040；API-KB-041；API-KB-044；API-KB-045；ENT-LearningTask；ENT-AiQualityWeek；ENT-AgentRun；迁移 ENT-LearningTask [*]→analyzing「review」；迁移 ENT-Merchant running→paused「brake」；RULE-KB-007；ADR-018；ADR-019；ADR-020；ADR-021
 - **上游**：FLOW-AI-CARD、FLOW-DRAFT-COMPARE
 - **下游**：FLOW-KB-CARD、FLOW-KB-LEARN
 - **守住的不变量**：INV-KB-008、INV-KB-009、INV-KB-010
@@ -1003,7 +1011,7 @@
 | 步骤 | 位置 |
 | --- | --- |
 | S1 | `src/server/knowledge/card-review.ts#pickCardsForReview`；`src/server/knowledge/card-review.ts#reviewCards` |
-| S2–S4 | `src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/knowledge/learning-analyze.ts#analyzeCardReview`；`src/server/agent/runtime.ts#runAgent`；`src/server/agent/tools/knowledge.ts#reviewTools`；`src/server/knowledge/card-review.ts#loadReviewCases`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/card-review.ts#sentCases`；`src/server/knowledge/agent-apply.ts#agentApplyAllowed` |
+| S2–S4 | `src/server/knowledge/learning-analyze.ts#analyzeLearning`；`src/server/knowledge/learning-analyze.ts#analyzeCardReview`；`src/server/agent/runtime.ts#runAgent`；`src/server/agent/tools/knowledge.ts#reviewTools`；`src/server/agent/tools/web.ts#webSearchTool`；`src/server/knowledge/card-review.ts#loadReviewCases`；`src/server/knowledge/retest.ts#retestProposal`；`src/server/knowledge/card-review.ts#sentCases`；`src/server/knowledge/agent-apply.ts#agentApplyAllowed` |
 | S5 | `src/app/(app)/reception/knowledge/learning/learning-drawer.tsx#LearningDrawer`；`src/server/knowledge/learning.ts#publishLearning` |
 | S6 | `src/app/(app)/reception/knowledge/card-drawer.tsx#CardDrawer`；`src/server/knowledge/cards.ts#getCard` |
 | S7 | `src/server/analysis/quality.ts#qualityWeekly`；`src/server/analysis/quality.ts#computeQualityWeek`；`src/server/analysis/quality.ts#checkBrake` |
@@ -1604,7 +1612,9 @@
 
 | 类型 | 分支 | 结果 | 依据 | 测试 |
 | --- | --- | --- | --- | --- |
-| 边界 | 还在翻译或文字刚改 | 不带预译文，服务端照旧同步翻译后发送 | API-CONV-007 | TC-CONV-070 |
+| 边界 | 预翻译已发出、还没返回 | 等它返回再带上译文发送，不另起翻译 | §15 预翻译 | `TC-CONV-080` |
+| 边界 | 等了 10 秒仍没返回，或预翻译失败 | 不带预译文，服务端照旧同步翻译后发送 | §15 预翻译；API-CONV-007 | `TC-CONV-080` |
+| 边界 | 文字刚改，还没到 800 毫秒 | 不带预译文，服务端照旧同步翻译后发送 | API-CONV-007 | TC-CONV-070 |
 | 失败 | 带了译文却没选目标语言，或不是文字消息 | 422 `/errors/validation` | `/errors/validation`；API-CONV-007 | TC-CONV-071 |
 | 失败 | 译文为空或超过 2,000 字 | 422 `/errors/validation` | `/errors/validation`；API-CONV-007 | TC-CONV-071 |
 | 失败 | 译文超过店铺字数上限 | 422 `/errors/validation` | `/errors/validation`；API-CONV-007 | 不测：代码仓 pretranslate.test.ts 覆盖 |
@@ -2341,7 +2351,7 @@ flowchart LR
 - Agent 只能用「提交」交回结论，不能直接写库。
 - 名额闸、复测、写卡版本与审计都在代码里，Agent 交回的结论照常过这些检查。
 - 写工具（以后全量托管时的发消息、建工单这类）每次调用必须写审计，本期没有写工具。
-- Agent 服务另依赖 DeepSeek 的 Anthropic 兼容接口与 Claude Agent SDK，见 §17 依赖表。
+- Agent 服务另依赖 DeepSeek 的 Anthropic 兼容接口与 Claude Agent SDK，联网搜索工具依赖 DeepSeek Search（ADR-021），见 §17 依赖表。
 - 外部依赖与 §17 一一对应：DeepSeek、Cloudflare AI Search、飞书开放平台与群自定义机器人、平台开放接口（本期为模拟平台）、PostgreSQL、本地文件。邮件本期不出进程（写 `email_outbox`）。
 
 ## 7. 数据模型 / 领域实体
@@ -5344,10 +5354,13 @@ sequenceDiagram
   API->>DS: 翻译
   DS-->>API: 译文
   API-->>FE: 200 译文，工具栏显示「将发送」
+  opt 点发送时预翻译还没返回
+    FE->>FE: 等这次预翻译返回，最多 10 秒
+  end
   FE->>API: 发送 text + translateTo + translatedText (API-CONV-007)
   alt 带了预译文
     API->>PF: 直接发出预译文
-  else 没带（还在翻译或文字刚改）
+  else 没带（文字刚改、预翻译失败或等满 10 秒）
     API->>DS: 同步翻译
     API->>PF: 发出译文
   end
@@ -5411,8 +5424,8 @@ sequenceDiagram
   W->>AG: 起子进程，只放行这次的工具（3 分钟上限）
   loop 直到提交，工具调用 ≤ 20 次
     AG->>DA: 多轮对话（deepseek-flash）
-    AG->>W: 调工具：读会话、查卡与问答、用拟发布的卡自测
-    W->>DS: 自测时模拟出稿（simulate）
+    AG->>W: 调工具：读会话、查卡与问答、联网搜索、用拟发布的卡自测
+    W->>DS: 自测时模拟出稿（simulate）；联网搜索时调 DeepSeek Search（ADR-021）
   end
   AG->>W: 提交诊断与建议（submit）
   W->>DB: Agent 运行记结束、轮数、工具步骤与 token
@@ -5442,7 +5455,7 @@ sequenceDiagram
 
 - 分析输入：任务消息、识别出的产品与依据、阶段、相似卡前 5 张、相关问答前 5 条
 - 相似卡另带产品与阶段是否对得上、近 30 天效果
-- Agent 工具：读会话与相似内容、按一句话查本商户已发布的卡与问答、用拟发布的卡模拟出稿、提交
+- Agent 工具：读会话与相似内容、按一句话查本商户已发布的卡与问答、联网搜索、用拟发布的卡模拟出稿、提交
 - Agent 提交：`{ diagnosis, reason, suggestion, action, target_card }`
 - 提交（续）：`{ card, test_question }`，card 是新卡或改后的整张卡
 - 提交的 `action`：none 不改、new_card 新建、edit_card 改 `target_card` 那张
@@ -5471,7 +5484,7 @@ sequenceDiagram
   W->>AG: 起子进程，只放行这次的工具（3 分钟上限）
   loop 直到提交，工具调用 ≤ 20 次
     AG->>DA: 多轮对话（deepseek-flash）
-    AG->>W: 调工具：读卡与统计、列用例、查卡与问答、在用例上自测
+    AG->>W: 调工具：读卡与统计、列用例、查卡与问答、联网搜索、在用例上自测
     W->>DS: 自测时模拟出稿（simulate）
   end
   AG->>W: 提交改不改与改后的卡（submit）
@@ -5495,7 +5508,7 @@ sequenceDiagram
 
 - 问题信号：辅助草稿被改后发送或弃用、影子回复对比为部分一致或不一致、按卡转人工或建工单后客服（含卖家后台）又回复
 - 用例内容：买家问题、AI 草稿与第几步、客服最终发出的内容（含卖家后台直接回复的）、处置、草稿对比结论与理由；对话只取草稿所在会话段
-- Agent 工具：读这张卡与处置统计、列用例、查本商户已发布的卡与问答、用现在或拟改的卡在第 n 个用例上模拟出稿、提交
+- Agent 工具：读这张卡与处置统计、列用例、查本商户已发布的卡与问答、联网搜索、用现在或拟改的卡在第 n 个用例上模拟出稿、提交
 - Agent 提交：`{ verdict: keep\|revise, reason, suggestion, card }`，代表性用例在运行前按问题挑好
 - 改卡时适用范围沿用原卡（RULE-KB-006）
 - 回归用例：这张卡以前发布过的学习任务最近 3 个，加证据里原样发送的用例最多 3 个（按草稿生成时的对话复原）
@@ -5864,7 +5877,7 @@ flowchart LR
 | 延迟 | 回调应答（`API-HOOK-001`、`API-HOOK-002`） | P99 < 1 秒（Shopee 聊天推送超时 2 秒） |
 | 延迟 | 会话列表、会话详情、工单列表、订单列表 | 服务端 P95 < 300 ms（280 次/秒读负载下） |
 | 延迟 | 发送消息（不含平台耗时） | 服务端 P95 < 300 ms；含平台调用的总超时 10 秒 |
-| 延迟 | 预翻译 | 停止输入 800 毫秒后发起；带预译文的发送不再同步调 DeepSeek。2026-10-16 至 20 日线上发送 355 次 P50 1.46 秒、P95 2.0 秒（翻译约 0.8 秒、平台发送约 0.6 秒），上线后核对 P50 降到约 0.6–0.7 秒；预览出现、消失、状态切换不改变输入框高度 |
+| 延迟 | 预翻译 | 停止输入 800 毫秒后发起；带预译文的发送不再同步调 DeepSeek；点发送时预翻译还没返回就等它，最多 10 秒，等不到再由服务端同步翻译（2026-10-28 至 11-03 线上 848 次发送里 225 次同步翻译，P95 2.25 秒，其余 P95 1.27 秒）。2026-10-16 至 20 日线上发送 355 次 P50 1.46 秒、P95 2.0 秒（翻译约 0.8 秒、平台发送约 0.6 秒），上线后核对 P50 降到约 0.6–0.7 秒；预览出现、消失、状态切换不改变输入框高度 |
 | 延迟 | 买家消息到草稿出现在工作台 | P95 < 20 秒，含等买家停手 6 秒与知识检索（2026-10-15 至 16 日线上检索含改写 P50 5.6 秒、P95 11.3 秒，混合检索改 5 秒后推算 P95 约 8.5 秒）；每跳超时：改写 6 秒、混合检索每路 5 秒加纯向量重试 5 秒、出稿 25 秒，入队与轮询 ≤ 5 秒；出稿超时转人工，检索超时只降级 |
 | 延迟 | 买家消息到出现在工作台 | 会话列表 P95 < 6 秒，已打开会话的时间线 P95 < 4 秒：平台推送到入库实测 P90 1.4–2.3 秒（2026-10-15 至 16 日线上 587 条聊天推送），再加一次轮询间隔 |
 | 延迟 | 测试问答（`API-KB-012`） | P95 < 25 秒，同出稿链路但同步返回；前端超时 60 秒 |
@@ -5897,10 +5910,10 @@ flowchart LR
 | 容量 | 学习分析（`learning.analyze`） | 并发 2，任务 10 分钟；模拟出稿每次 25 秒，复测最多 3 个回归用例 |
 | 容量 | Agent 服务 | 每个 Worker 进程同时 ≤ 3 个 Agent，每个子进程约 250 MB，m7g.large 上 3 个约占 0.8 GB |
 | 延迟 | Agent 运行 | Agent 每次最长 3 分钟，到时中止并标分析失败；2026-10-22 本机实测 7–50 秒 |
-| 容量 | Agent 工具 | 工具调用每次 ≤ 20 次，模拟出稿每次分析 ≤ 6 次，到上限后工具只提示直接提交 |
-| 成本 | Agent 用量 | Agent token 每次 ≤ 8 万（含缓存命中），超出即中止；中止后 SDK 约 2 秒才结束子进程，期间已发出的那次请求不计入；2026-10-22 本机 3 张卡实测 1.2 万–5.6 万 |
+| 容量 | Agent 工具 | 工具调用每次 ≤ 20 次，模拟出稿每次分析 ≤ 6 次，联网搜索每次分析 ≤ 3 次（每次 5 条结果、10 秒超时、不重试），到上限后工具只提示直接提交 |
+| 成本 | Agent 用量 | Agent token 每次 ≤ 8 万，缓存命中按十分之一计（ADR-020），超出即中止；中止后 SDK 约 2 秒才结束子进程，期间已发出的那次请求不计入；2026-10-22 本机 3 张卡实测 1.2 万–5.6 万 |
 | 延迟 | 学习任务复测（`API-KB-040`） | 同步返回，服务端 ≤ 60 秒，前端超时 90 秒 |
-| 成本 | 会话学习 | 不计商户出稿用量；Agent 分析加自测最多 6 次模拟出稿，新卡另 2 次、改卡复测另最多 10 次 DeepSeek 调用 |
+| 成本 | 会话学习 | 不计商户出稿用量；Agent 分析加自测最多 6 次模拟出稿、3 次联网搜索，新卡另 2 次、改卡复测另最多 10 次 DeepSeek 调用 |
 | 容量 | 产品清单 | 每次导入 ≤ 2,000 行、≤ 20 万字符；每商户 ≤ 5,000 个产品；未对应的平台商品列表 ≤ 500 条 |
 | 容量 | 问答 | 问法 ≤ 10 个、每个 ≤ 200 字；回复 ≤ 2,000 字；向量索引 HNSW；按 §2 每商户 ≤ 500 份资料、每份 ≤ 200 条推算，每商户 ≤ 10 万条 |
 | 限流 | 登录 | 同一邮箱 15 分钟内失败 10 次锁 15 分钟（423）；同一 IP 每分钟 30 次（429） |
@@ -5984,12 +5997,13 @@ flowchart LR
 | --- | --- | --- | --- | --- | --- |
 | DeepSeek `chat/completions`（模型由 `DEEPSEEK_MODEL` 指定，默认 `deepseek-flash`，关闭思考） | 出稿、检索前改写问题、测试问答、开票字段抽取、翻译、飞书卡片的总结、草稿对比、模拟出稿与复测判定 | 未公布 SLA，按 99% 假设 | 出稿 25 秒、不重试；改写 6 秒、不重试；抽取 15 秒、不重试；草稿对比 15 秒、不重试；模拟出稿 25 秒、复测判定 15 秒，都不重试；翻译 10 秒、5xx 重试 1 次（退避 1 秒）；卡片总结 6 秒、不重试 | 不出稿、不翻译 | 出稿失败转人工（`model_error` / `timeout`），auto 模式发固定安抚句；改写失败时只用买家原话检索；翻译失败显示原文与「译文暂不可用」 |
 | DeepSeek Anthropic 兼容接口 `https://api.deepseek.com/anthropic`，模型固定 `deepseek-flash` | Agent 服务：会话学习的分析、按卡体检的分析 | 未公布 SLA，按 99% 假设 | 每次运行 3 分钟墙钟上限，单次请求失败由 CLI 自己重试，运行本身不重试 | 这次分析失败 | 学习任务标分析失败，管理员、组长可重新分析 |
+| DeepSeek Search `https://api.deepseek.com/v1/tools/search`（复用 `DEEPSEEK_API_KEY`，每千次有结果的调用 0.75 美元，没结果、失败不计费） | Agent 的联网搜索工具：会话学习与按卡体检查证产品事实（ADR-021）；出稿不调用 | 未公布 SLA，按 99% 假设；每账号 100 QPS | 10 秒、不重试；每次 5 条结果，只取标题、链接、站点、日期与摘要 | 这次搜索交回出错 | Agent 照常分析，只是少了网页查证 |
 | Claude Agent SDK `@anthropic-ai/claude-agent-sdk` 0.3.306，钉死版本，含 CLI 原生二进制 | 多轮工具循环：每次运行起一个 CLI 子进程，工具调用经进程内 MCP 回到 Worker | 本机子进程，无 SLA | 子进程约 250 MB，每次用新建的临时目录、结束即删 | 子进程起不来时这次分析失败 | 同上 |
 | Cloudflare AI Search（2026-10-01 GA；每商户一个实例，内置存储，不用 R2） | 资料入库、读回分块、出稿与测试问答检索 | 未公布 SLA，按 99% 假设；实测约 2.6% 的混合检索静默降级为只有关键词结果或空，HTTP 200 不报错 | 混合检索每路 5 秒，无向量分、超时或返回 HTTP 错误时改纯向量重试 1 次（5 秒）；上传与删除条目 30 秒，网络错误重试 2 次（1 秒、2 秒）；索引状态每 15 秒查一次，最长 15 分钟 | 出稿与测试问答查不到资料；资料入库失败 | 检索失败不带资料出稿、不转人工（RULE-KB-002）；条目索引失败删除后同名重传，最多 2 次，仍失败标资料失败并写原因 |
 | Cloudflare Workers AI `@cf/baai/bge-m3`（复用 `CLOUDFLARE_API_TOKEN`，令牌 2026-10-21 加了 Workers AI Read） | 问答问法、经验卡标题与调用条件、出稿查询的向量化 | 未公布 SLA；2026-10-21 生产实测单次约 90 ms | 出稿与手写问答 2 秒、整理任务 10 秒；每次 ≤ 50 条，不重试 | 问答检索不到，新问答暂时没有向量 | 只丢掉问答一路；没向量的问答由 `knowledge.qa_embed` 补 |
 | 飞书开放平台（应用接法）与群自定义机器人 | 发待认领卡、超时卡与工单转发卡；校验应用凭证、列机器人所在的群、上传图片、发测试卡片 | 未公布 SLA；自定义机器人每个每分钟 100 次、每秒 5 次 | 10 秒、图片上传 15 秒；token 按 App ID 缓存约 2 小时，鉴权失败换一次；`feishu.send` 重试 5 次指数退避 | 卡片晚到或发不出 | 失败写原因，设置页显示最近一次失败；会话照常在工作台待认领里 |
 | 平台开放接口（本期为模拟平台；上线后 Shopee Open Platform v2、TikTok Shop Open API） | 授权、收发消息与视频、按 ID 拉常见问题记录、订单、售后、店铺指标、在售商品目录 | 未公布 SLA | 10 秒（Shopee 视频上传、TikTok 视频每块更长，见 §15）；只读调用 5xx / 网络错误重试 2 次（0.5 秒、1 秒）；写调用不自动重试，TikTok 售后写带 `idempotency_key` | 发送失败、订单读不到 | 发送失败转人工并给重试；订单读不到时用镜像并标「数据可能过期」；阶段判定走关键词兜底 |
-| PostgreSQL 17（含 pgvector 0.8 扩展） | 全部业务数据、任务队列、问答检索向量（ADR-016） | 单实例，本机 | 连接池 20；查询超时 5 秒（报表 30 秒） | 全站不可用 | 无降级，返回 503 |
+| PostgreSQL 17（含 pgvector 0.8 与 pg_stat_statements 扩展） | 全部业务数据、任务队列、问答检索向量（ADR-016）；按语句统计调用次数与耗时，供排查慢查询 | 单实例，本机 | 连接池 20；查询超时 5 秒（报表 30 秒） | 全站不可用 | 无降级，返回 503 |
 | 本地磁盘 `DATA_DIR` | 聊天图片与视频、发票、导出包、知识库原文件 | 本机 | — | 图片与发票不可用；资料无法预览与重新解析 | 发送图片失败提示；发票生成失败返回 500 不建记录；资料原文件读不到时抽屉提示「文件已不存在」 |
 | 发件箱（`email_outbox` 表） | 代替真实发信 | 同数据库 | — | 同数据库 | — |
 
@@ -6044,6 +6058,7 @@ Agent 服务的运行约束（ADR-019）：
 - 封顶在代码里做：SDK 的轮数上限计数不准、超限时抛错，预算上限按 Claude 价目算，都不能当闸门
 - 本机与测试：`AI_MODE=stub` 时连 Worker 进程内的 Anthropic 兼容替身，CLI 子进程照常起，不出网
 - 替身按原来的学习与体检替身规则，依次调读取、自测、提交工具
+- 联网搜索工具在 Worker 进程里调 DeepSeek Search（ADR-021）；检索词不进日志与运行步骤，工具说明要求检索词不带买家姓名、电话、地址、订单号；`AI_MODE=stub` 时返回固定的替身结果，不出网
 
 Cloudflare AI Search 的实例配置与限制（ADR-014）：
 
@@ -6054,7 +6069,7 @@ Cloudflare AI Search 的实例配置与限制（ADR-014）：
 - 文件上限：开 OCR 的 PDF 10 MiB，其他格式 4 MiB。超限的 PDF 按页拆成多个条目，单页仍超限判失败；其他格式超限在上传时拒收。
 - 索引完成的判定：条目状态为完成，或分块数大于 0 且连续两次查询（间隔 15 秒）不变。实测条目常在「处理中」停 3–10 分钟以上，而分块约 20 秒后就可读、可检索。
 - 已知问题：入库偶发 `workers_ai_timeout_error`；「重新同步」接口返回成功但实际没有重建，所以重试一律用「删除后同名重传」；删除条目是异步的，删除接口返回成功后约 30 秒内仍可能查到该条目，以删除接口返回成功为准，不等它查不到。
-- 计费（2026-11-01 起）：语义检索每千次 0.75 美元（每月含 1,000 次）；入库每百万 token 0.75 美元（每月含 500 万）；存储每 GB 每月 2 美元（含 10 GB）。每份草稿检索 2 次，纯向量重试另计。
+- 计费（2026-12-01 起，Cloudflare 价目页 2026-11-04 读取）：语义检索每千次 0.75 美元（每月含 1,000 次，用完后每次检索报 7069，到下月 1 日恢复）；入库每百万 token 0.75 美元（每月含 500 万）；存储每 GB 每月 2 美元（含 10 GB）。每份草稿检索 2 次，纯向量重试另计。
 - 本机与测试：`KNOWLEDGE_MODE=stub` 时检索层换成进程内替身（`API-MOCK-010`），不调用 Cloudflare；只有服务器为 `cloudflare`。本机临时用 `cloudflare` 模式联调时，Web 与 Worker 都要带 `NODE_USE_ENV_PROXY=1`，让 Node 的 fetch 走本机代理；服务器直连 Cloudflare，不需要。
 
 飞书接口与卡片（ADR-015）：
@@ -6214,7 +6229,7 @@ Cloudflare AI Search 的实例配置与限制（ADR-014）：
   - Decision：CLI 自带的工具、配置、技能与会话持久化全部关掉，每次运行只放行这次用途登记的平台工具。
   - Decision：平台工具分只读与写两级，本期只有知识库只读工具与提交。
   - Decision：名额闸、复测、写版本与审计留在代码，Agent 只交回结论。
-  - Decision：每次运行限 3 分钟、工具调用 20 次、模拟出稿 6 次、token 8 万，每次运行记 `agent_run`。
+  - Decision：每次运行限 3 分钟、工具调用 20 次、模拟出稿 6 次、token 8 万（缓存命中怎么计见 ADR-020），每次运行记 `agent_run`。
   - Decision：每个 Worker 进程同时最多 3 个 Agent。
   - Alternatives：在 Worker 里用 `chat()` 手写工具循环——少一个子进程和约 338 MB 镜像。
   - Alternatives（续）：手写循环要自己做上下文压缩、子代理与 hooks，用户选了统一用 SDK。
@@ -6226,6 +6241,28 @@ Cloudflare AI Search 的实例配置与限制（ADR-014）：
   - Consequences：CLI 不认识 DeepSeek 的模型名，每次往标准错误打一行警告，功能不受影响。
   - Consequences：测试经进程内的 Anthropic 兼容替身跑完整条 SDK 链路，CLI 子进程照常起。
   - Consequences：接入写工具前另立 ADR，定审计与名额闸。
+- **`ADR-020` Agent 用量上限里缓存命中按十分之一计** — Status: Accepted（用户 2026-11-04）
+  - Context：2026-10-28 至 11-03 生产 160 次 Agent 运行里 34 次因超出 8 万 token 中止，按卡体检 19 次里中止 16 次。
+  - Context（续）：中止的运行里缓存命中中位数约 6.5 万，大头是每一轮重复送进去的前文。
+  - Context（续）：DeepSeek flash 的缓存命中单价是未命中输入的五十分之一（闲时每百万 0.02 元对 1 元）。
+  - Decision：上限仍是 8 万，计数改为未命中输入加输出，再加缓存命中的十分之一。
+  - Decision：`agent_run` 与日志照旧分开记三种 token 的原数，不折算。
+  - Alternatives：上限提到 15 万、照旧全算——长会话里重复的前文仍会顶到上限，重复读的那部分几乎不花钱。
+  - Alternatives：不改——中止的分析要人工重新分析，体检基本跑不完。
+  - Consequences：按本周用量估算，每周多花约 1–2 元。
+  - Consequences：时长、工具调用与模拟出稿三道上限不变，仍能拦住循环调用。
+- **`ADR-021` Agent 查证用 DeepSeek 联网搜索，出稿不联网** — Status: Accepted（用户 2026-11-04）
+  - Context：2026-11-03 起 Cloudflare AI Search 当月 1,000 次检索额度用完，每次检索报 7069。
+  - Context（续）：用户定把资料整理成问答后关掉「AI 可用」，出稿不再检索资料。
+  - Context（续）：Agent 判断客服说的产品参数、功能对不对时，只能看本商户已有的问答和卡。
+  - Decision：会话学习与按卡体检的 Agent 加只读工具「联网搜索」，调 DeepSeek Search（用户 2026-11-04 选「只给 Agent 当查证工具」）。
+  - Decision：每次分析最多搜 3 次，每次 5 条结果，只给标题、链接、站点、日期与摘要。
+  - Decision：网页只用来查证产品参数、功能、兼容；退换、保修、物流、价格以本商户的问答和卡为准。
+  - Decision：查到的说法与链接写进建议，卡里仍不写事实。
+  - Alternatives：出稿也联网、只搜商户官网——每份草稿多一次外部调用，还要加官网域名设置，用户没选。
+  - Alternatives：不接——Agent 查不到本商户问答里没有的事实。
+  - Consequences：检索词发给 DeepSeek，日志和运行步骤只记结果条数与站点，不记检索词。
+  - Consequences：每千次有结果的调用 0.75 美元；本周 160 次运行每次都搜满 3 次也约 0.4 美元。
 ## 19. 验收 / 测试
 
 测试策略：
@@ -7542,6 +7579,14 @@ DeepSeek 每次调用记一行（`msg = deepseek call`）：`kind`（draft、sim
 
 Agent 每次运行记一行（`msg = agent run`）：`purpose`、`model`、`runId`、`ms`、`turns`、`toolCalls`、`inputTokens`、`cacheReadTokens`、`outputTokens`、`ok`、`error`（timeout、budget、no_submit、model_error）；不记提示词、工具参数与买家内容。失败时另记 CLI 标准错误的末尾 500 字，模型名警告行不记。补 SLI 时纳入 Agent 运行失败率与 P95 耗时。
 
+平台回调每次记一行（`msg = webhook`）：`platform`、`eventType`（验签与解析都通过后才有，如 `shopee:10`）、`status`、`durationMs`、`requestId`；不记推送地址里的商户专属码与推送内容。补 SLI 时据此算回调应答 P99（§15 目标 < 1 秒）。
+
+AI Search 每次调用记一行（`msg = ai-search call`）：`method`、`path`、`status`、`ms`、`error`（timeout、network）；失败时另记 Cloudflare 返回的错误码 `code`（如 7069 = 当月检索额度已用完，到下月 1 日前每次检索都会失败），不记查询内容与返回正文。
+
+联网搜索每次调用记一行（`msg = web search call`）：`status`、`ms`、`results`（结果条数）、`error`（timeout、network、`http_<状态码>`）；不记检索词与网页内容。
+
+数据库开着 `pg_stat_statements`（服务器 `db` 容器启动参数预加载，迁移建扩展）：按语句累计调用次数、总耗时与读取行数，排查慢查询时按总耗时取前 10；统计随数据库重启清零，看增量时记下起算时刻。
+
 知识库另记三项（日志字段 `job=draft.generate` 的 `retrievalMs`、`retrievalDegraded`、`vectorRetry`、`insufficient`，与 `EVT:draft_generated`、`EVT:handoff` 同口径）：检索耗时 P50 与 P95；检索降级次数占有检索出稿的比例；资料不足率 = 模型判定资料不足的出稿 / 有检索的出稿。入库另记 `job=knowledge.ingest` 的条目重传次数与失败原因。补 SLI 时这三项一并纳入，降级比例超过 5% 或检索 P95 超过 10 秒时告警。
 
 ## 22. 运维 Runbook
@@ -7612,7 +7657,7 @@ N/A — 本期不上线。
 | 风险 | 已知限制：Shopee 同一轮里接着发的后台回复不再通知，要等下一次 `mark_as_replied` 补拉才进 Shopilot；店铺自动回复按「距买家消息 ≤ 2 秒」判断，买家与店员恰好同时发时会把人工回复记成自动回复 | 实现 | 上线后看两周补拉日志 |
 | 风险 | 已知限制：TikTok 会话建立前到达的卖家侧消息不入库。2026-10-16 线上核对近 22 小时被丢的 78 条：65 条是店铺机器人的问候与问题菜单，13 条是平台通知，没有人工回复；其中只有 9 条所在的会话后来建立 | 实现 | 出现人工回复被丢时 |
 | 风险 | 商户没上传资料、或资料没覆盖买家问的内容时，AI 对产品参数类问题仍会因资料不足转人工，草稿采纳率随资料覆盖面变化 | 用户 | 知识库上线后看两周数据 |
-| 风险 | Cloudflare AI Search 是 2026-10-01 才 GA 的新产品，2026-11-01 起计费；实测混合检索约 2.6% 静默降级、入库偶发超时、「重新同步」返回成功却没重建，接口与价格可能再变 | 实现 | 每月核对一次产品变更；命中 ADR-014 换回条件时 |
+| 风险 | Cloudflare AI Search 是 2026-10-01 才 GA 的新产品，2026-12-01 起计费，每月含 1,000 次检索，2026-11-03 已用完；实测混合检索约 2.6% 静默降级、入库偶发超时、「重新同步」返回成功却没重建，接口与价格可能再变 | 实现 | 每月核对一次产品变更；命中 ADR-014 换回条件时 |
 | 已决 | 平台商品对应要先同步一次：只有拉过商品目录的店才有对应记录，导入产品后自动排一次同步；线上首次使用前，管理员先点「同步平台商品」 | 用户 | 已定（v1.25） |
 | 已决 | 旧资料过渡期照常被检索：问答发布后不自动关资料的 AI 可用，资料页提示管理员逐份关（10-19 答复第 1 项） | 用户 | 已定（v1.25） |
 | 已决 | 与架构文档「AI 不自动发布」的差异：10-19 答复第 7 项定 Agent 改已有经验卡复测通过即生效，人工事后审改；经验卡已按此实现，见 RULE-KB-006 | 用户 | 已定（v1.25） |
@@ -7620,7 +7665,7 @@ N/A — 本期不上线。
 | 风险 | Agent 改卡先于人工看到就影响自动回复：复测通过即生效，缓解是版本、还没人看过筛选与一键回退同批上线；v1.34 起另有每天上限与周指标暂停（RULE-KB-007） | 实现 | 第一家自动模式店铺开启前 |
 | Open Question | 后续批次：第二批做跨会话归纳新卡、「建议补问答」产出问答候选、挑会话打分权重按产出自动校准、标准会话回归集与每周全量回放；第三批做卡的下架与合并建议。都不在 v1.34 | 用户 | 第一批上线运行两周后 |
 | 风险 | Agent 分析的质量只在本机 3 张卡、21 个用例上比过，线上第一批任务的轮数、token 与改法要人工抽看 | 用户 | 上线后第一周 |
-| 风险 | Agent 封顶的 3 分钟、20 次工具调用与 8 万 token 是按本机 3 张卡定的初值 | 实现 | 上线后看两周 Agent 运行日志 |
+| 风险 | Agent 封顶的 3 分钟、20 次工具调用与 8 万 token 是按本机 3 张卡定的初值；2026-11-04 按一周生产数据把缓存命中改为按十分之一计（ADR-020） | 实现 | 改后再看两周 Agent 运行日志 |
 | 风险 | Agent 服务依赖 CLI 子进程：每次约 250 MB，Worker 同时 3 个约 0.8 GB；SDK 与 CLI 钉死在 0.3.306，升级要回归 | 实现 | 升级 SDK 或调高并发时 |
 | 风险 | 经验卡的距离阈值 0.6、每路 3 张与复测判定是按本地替身定的初值，上线后按真实命中再调 | 实现 | 上线 30 天后 |
 | 风险 | 问答检索阈值 0.55 与疑似重复 0.08 按本地替身与少量样本定，真实 bge-m3 下的命中与误判没量过 | 实现 | 上线后看两周 `qaHits` 与审核结果 |

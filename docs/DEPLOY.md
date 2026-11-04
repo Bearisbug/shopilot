@@ -15,7 +15,7 @@
 | 代码仓库 | `github.com/Bearisbug/shopilot`（私有），默认分支 `main` |
 | CI | GitHub Actions `.github/workflows/deploy.yml`；环境契约 = 仓库根 `deploy.yaml`。部署时经 AWS OIDC 角色 `shopilot-gha-deploy`（ARN 在仓库变量 `AWS_DEPLOY_ROLE_ARN`）给本次 runner IP 临时放行安全组（仓库变量 `DEPLOY_SG_ID`）的 22 端口，结束时收回 |
 | Synco 编排 | 未挂接 |
-| 进程 | `web`（Next，容器 3000）、`worker`（pg-boss 后台任务）、`db`（PostgreSQL 17 + pgvector，不发布宿主端口）；数据卷 `shopilot_pgdata`、`shopilot_appdata`（上传、发票、导出包，挂在 `/data`） |
+| 进程 | `web`（Next，容器 3000）、`worker`（pg-boss 后台任务）、`db`（PostgreSQL 17 + pgvector，预加载 pg_stat_statements，不发布宿主端口）；数据卷 `shopilot_pgdata`、`shopilot_appdata`（上传、发票、导出包，挂在 `/data`） |
 | 端口 | `127.0.0.1:3001` → web 容器 `3000`（经 Caddy 反代对外；改端口须同步 `deploy/shopilot.caddy`）。仓库根 `compose.yaml` 的 `127.0.0.1:5460` 是本机开发库，不部署 |
 | 域名 | `https://shopilot.live` |
 | DNS | Cloudflare（账号令牌取自 Bitwarden `CLOUDFLARE_ACCOUNT_TOKEN_RW`）· A 记录 `shopilot.live → 服务器固定 IP`，DNS only 灰云；另有飞书企业邮箱的 TXT（站点验证、SPF）与 3 条 MX |
@@ -25,7 +25,7 @@
 
 ## 2. 日常发布
 
-push 到 `main` 即发布（只改 `docs/` 或 Markdown 文件的推送不触发），进度看仓库 Actions 页，手动重跑用 Actions 页的 Run workflow。流程：质量门（PostgreSQL 服务容器上迁移加种子，`pnpm lint`、`vitest`、`pnpm build`、`pnpm typecheck`）→ 建 GitHub deployment → AWS OIDC 临时放行 runner 的 SSH → rsync 源码到 `/srv/shopilot/build/`（排除表 `deploy/rsync-exclude`），同步 `compose.yaml`、`backup.sh`、`remote.sh` → `remote.sh switch <commit>`（服务器构建镜像、`backup.sh` 备份、`docker compose run --rm migrate`、切 TAG 后先重建 web 再重建 worker）→ 健康检查（`remote.sh health` 直连 3001 断言本项目标识与版本，再经 `https://shopilot.live/api/health` 确认对外已是新版本）→ `remote.sh confirm`（写 `.last_good`、清理旧镜像与 7 天前的构建缓存）→ 收回 SSH 放行。
+push 到 `main` 即发布（只改 `docs/` 或 Markdown 文件的推送不触发），进度看仓库 Actions 页，手动重跑用 Actions 页的 Run workflow。流程：质量门（PostgreSQL 服务容器上迁移加种子，`pnpm lint`、`vitest`、`pnpm build`、`pnpm typecheck`）→ 建 GitHub deployment → AWS OIDC 临时放行 runner 的 SSH → rsync 源码到 `/srv/shopilot/build/`（排除表 `deploy/rsync-exclude`），同步 `compose.yaml`、`backup.sh`、`remote.sh` → `remote.sh switch <commit>`（服务器构建镜像、`backup.sh` 备份、`db` 的启动参数等配置改了时重建 db（约 10 秒连不上库，没改时跳过）、`docker compose run --rm migrate`、切 TAG 后先重建 web 再重建 worker）→ 健康检查（`remote.sh health` 直连 3001 断言本项目标识与版本，再经 `https://shopilot.live/api/health` 确认对外已是新版本）→ `remote.sh confirm`（写 `.last_good`、清理旧镜像与 7 天前的构建缓存）→ 收回 SSH 放行。
 
 切换或健康检查失败时，「失败回滚」步执行 `remote.sh rollback` 切回 `.last_good`，GitHub deployment 标为 failure 并带 `rolled_back`。PR 只跑质量门，不部署。
 
@@ -38,6 +38,7 @@ push 到 `main` 即发布（只改 `docs/` 或 Markdown 文件的推送不触发
 - 容器状态：`docker compose ps`，web 要 healthy；`worker` 没有健康检查，看日志里有 `"msg":"worker ready"`。
 - 当前版本：`curl -sS https://shopilot.live/api/health` 看 `version`；`cat /srv/shopilot/.last_good` 是最后一次验证健康的版本。
 - 邮件没发出：`docker compose exec db psql -U shopilot -d shopilot -c "select to_email, template, status, created_at from email_outbox order by created_at desc limit 10"`，`queued` 长时间不变时看 worker 日志里 `email.send` 的报错。
+- 慢查询：`db` 容器预加载了 `pg_stat_statements`，按总耗时取前 10：`docker compose exec -T db psql -X -U shopilot -d shopilot -c "select calls, round(total_exec_time) as total_ms, round(mean_exec_time::numeric, 1) as mean_ms, rows, left(regexp_replace(query, '\s+', ' ', 'g'), 120) as query from pg_stat_statements order by total_exec_time desc limit 10"`；统计从上次 db 重启或 `pg_stat_statements_reset()` 起累计，起算时刻看 `select stats_reset from pg_stat_statements_info`。
 - 站点返回 503：Caddy 判定上游不健康。`sudo journalctl -u caddy -n 50`，出现 `response body failed expectations` 说明 3001 端口上的不是本项目；否则看 web 容器是否 healthy。
 - 平台推送：Shopee 推送打到 `https://shopilot.live/api/webhooks/shopee/<应用ID>`，TikTok 打到 `.../api/webhooks/tiktok/<应用ID>`；收到但验签失败时 web 日志有记录。
 - 磁盘：`df -h /`；镜像与构建缓存由发布脚本清理，备份保留 14 份。本机不构建镜像，本机侧无需清理。

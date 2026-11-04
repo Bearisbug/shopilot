@@ -141,6 +141,13 @@
       "when": 1792678880452,
       "tag": "0019_windy_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793770554232,
+      "tag": "0020_pg_stat_statements",
+      "breakpoints": true
     }
   ]
 }

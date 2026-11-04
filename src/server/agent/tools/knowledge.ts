@@ -12,6 +12,7 @@ import { cardContentOf } from "@/server/knowledge/card-store";
 import { embedTexts } from "@/server/knowledge/embed";
 import { simInputOf, type TaskRow } from "@/server/knowledge/retest";
 import { defineTool, type AgentTool } from "./registry";
+import { webSearchTool } from "./web";
 
 const C = schema.experienceCard;
 const Q = schema.knowledgeQa;
@@ -102,7 +103,7 @@ const brief = (r: SimResult) => ({ reply: r.reply, card_used: r.card ? { title: 
 const usedNote = (r: SimResult, cardId: string) => (r.card?.cardId === cardId ? `用到这张卡第 ${r.card.step} 步${r.handoff ? "，转人工" : ""}` : r.card ? "用到了别的卡" : "没用到卡");
 
 /**
- * 会话学习：get_conversation（任务快照、相似卡与相关问答，与运行前算好的一致）、search_knowledge、simulate（用拟发布的卡答这段会话里的问题）。
+ * 会话学习：get_conversation（任务快照、相似卡与相关问答，与运行前算好的一致）、search_knowledge、web_search（联网查证产品事实）、simulate（用拟发布的卡答这段会话里的问题）。
  * 相似卡与查到的卡编成 S1…，提交改卡时 target_card 写编号。
  */
 export function learnTools(input: {
@@ -125,6 +126,7 @@ export function learnTools(input: {
       }),
     }),
     searchTool({ merchantId: task.merchantId, market: input.market, keys: input.keys }),
+    webSearchTool(),
     defineTool({
       name: "simulate",
       description: "用拟发布的卡模拟 AI 回答这段会话里的买家问题，看会怎么回、用没用到这张卡、第几步；改已有卡时 target_card 写它的编号",
@@ -144,7 +146,7 @@ export function learnTools(input: {
 }
 
 /**
- * 按卡体检：get_card（卡与近 7 天处置统计）、list_cases（证据用例）、search_knowledge（不含这张卡）、simulate（第 n 个用例，用现在或拟改的卡）。
+ * 按卡体检：get_card（卡与近 7 天处置统计）、list_cases（证据用例）、search_knowledge（不含这张卡）、web_search（联网查证产品事实）、simulate（第 n 个用例，用现在或拟改的卡）。
  */
 export function reviewTools(input: {
   task: TaskRow;
@@ -181,6 +183,7 @@ export function reviewTools(input: {
       }),
     }),
     searchTool({ merchantId: task.merchantId, market: null, excludeCardId: card.id }),
+    webSearchTool(),
     defineTool({
       name: "simulate",
       description: "对第 case_n 个用例模拟 AI 出稿：给 card 时用拟改的卡，不给时用现在的卡；看会怎么回、用没用到这张卡、第几步",

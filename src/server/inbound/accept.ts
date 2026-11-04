@@ -43,9 +43,15 @@ function signedBy(app: AppRow, platform: "shopee" | "tiktok", key: string, raw: 
 
 /** key = 推送地址末段：商户专属码，或旧地址里的应用 ID */
 export async function acceptWebhook(platform: "shopee" | "tiktok", key: string, req: Request): Promise<Response> {
+  const started = Date.now();
   const requestId = req.headers.get("x-request-id") ?? randomUUID();
   const instance = new URL(req.url).pathname;
-  const fail = (p: Problem) => p.toResponse(instance, requestId);
+  // 回调应答耗时（§15 P99 < 1 秒）：每次一行，不记 key 与推送内容
+  const done = (res: Response, eventType: string | null = null) => {
+    console.log(JSON.stringify({ t: new Date().toISOString(), level: "info", msg: "webhook", platform, eventType, status: res.status, durationMs: Date.now() - started, requestId }));
+    return res;
+  };
+  const fail = (p: Problem) => done(p.toResponse(instance, requestId));
   const raw = await req.text();
   const auth = req.headers.get("authorization");
   const app = (await candidateApps(platform, key)).find((a) => signedBy(a, platform, key, raw, auth));
@@ -94,7 +100,7 @@ export async function acceptWebhook(platform: "shopee" | "tiktok", key: string, 
     .onConflictDoNothing()
     .returning({ id: schema.inboundEvent.id });
   if (row && handled) await enqueueInbound(row.id, app.id, externalShopId);
-  return new Response(null, { status: 200, headers: { "x-request-id": requestId, "cache-control": "no-store" } });
+  return done(new Response(null, { status: 200, headers: { "x-request-id": requestId, "cache-control": "no-store" } }), `${platform}:${code}`);
 }
 
 /** 同一店铺的事件按到达顺序处理（key_strict_fifo 的 singletonKey） */

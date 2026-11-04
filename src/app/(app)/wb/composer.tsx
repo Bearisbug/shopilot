@@ -26,6 +26,8 @@ const LANGS = ["ms", "en", "th", "vi", "id", "tl", "zh"] as const;
 /** 视频在后台传到平台（Shopee 还要等平台处理，DESIGN §15：≤120 秒），发出才发下一条，保证平台上的顺序 */
 const VIDEO_WAIT_MS = 150_000;
 const VIDEO_POLL_MS = 2_500;
+/** 点发送时预翻译还没返回，最多等这么久（与服务端同步翻译的超时相同，DESIGN §15 预翻译） */
+const PRETRANSLATE_WAIT_MS = 10_000;
 /** 买家语言未知时按店铺站点预选翻译目标；新加坡、菲律宾买家多用英语 */
 const MARKET_LANG: Record<string, (typeof LANGS)[number]> = { MY: "ms", TH: "th", VN: "vi", ID: "id", PH: "en", SG: "en" };
 
@@ -186,8 +188,9 @@ export function Composer({ detail, editing, onDoneEditing, onCancelEditing }: { 
     const body = text.trim();
     const clientRequestId = attempt.current?.text === body ? attempt.current.key : newKey();
     attempt.current = { text: body, key: clientRequestId };
-    // 停顿时已经翻好的译文随消息带上，服务端不再同步翻译；没翻好（还在翻、失败、刚改字）由服务端照旧翻译
-    const translatedText = sendLang === "none" ? undefined : pre.get(body, sendLang);
+    // 停顿时已经翻好的译文随消息带上，服务端不再同步翻译；预翻译已发出还没返回时等它，最多 10 秒；
+    // 没翻好（刚改字、失败、等满 10 秒）由服务端照旧翻译
+    const translatedText = sendLang === "none" ? undefined : (pre.get(body, sendLang) ?? (await pre.wait(body, sendLang, PRETRANSLATE_WAIT_MS)));
     try {
       await send.mutateAsync({
         type: "text",
